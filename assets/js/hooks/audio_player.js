@@ -30,6 +30,59 @@ const AudioPlayer = {
     this.handleEvent("set_stem_volume", ({ stem, level }) => this.setStemVolume(stem, level / 100))
     this.handleEvent("mute_stem", ({ stem, muted }) => this.muteStem(stem, muted))
     this.handleEvent("solo_stem", ({ stem }) => this.soloStem(stem))
+
+    // Keyboard shortcuts (only when not typing in an input)
+    this._keyHandler = (e) => {
+      const tag = e.target.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+
+      switch (e.key) {
+        case " ":
+          e.preventDefault()
+          this.pushEvent("toggle_play", {})
+          break
+        case "ArrowLeft":
+          e.preventDefault()
+          if (this.audioContext) {
+            const cur = this.isPlaying
+              ? this.audioContext.currentTime - this.startTime
+              : this.pauseOffset
+            this.seek(Math.max(0, cur - 5))
+          }
+          break
+        case "ArrowRight":
+          e.preventDefault()
+          if (this.audioContext && this.duration) {
+            const cur = this.isPlaying
+              ? this.audioContext.currentTime - this.startTime
+              : this.pauseOffset
+            this.seek(Math.min(this.duration, cur + 5))
+          }
+          break
+        case "ArrowUp":
+          e.preventDefault()
+          this.pushEvent("master_volume", { level: Math.min(100, (this.masterGain?.gain.value || 0.8) * 100 + 5).toString() })
+          break
+        case "ArrowDown":
+          e.preventDefault()
+          this.pushEvent("master_volume", { level: Math.max(0, (this.masterGain?.gain.value || 0.8) * 100 - 5).toString() })
+          break
+        case "m":
+        case "M":
+          e.preventDefault()
+          if (this.masterGain) {
+            if (this._preMuteVolume != null) {
+              this.masterGain.gain.setValueAtTime(this._preMuteVolume, this.audioContext.currentTime)
+              this._preMuteVolume = null
+            } else {
+              this._preMuteVolume = this.masterGain.gain.value
+              this.masterGain.gain.setValueAtTime(0, this.audioContext.currentTime)
+            }
+          }
+          break
+      }
+    }
+    document.addEventListener("keydown", this._keyHandler)
   },
 
   async initAudioContext(stemData) {
@@ -239,6 +292,9 @@ const AudioPlayer = {
   },
 
   destroyed() {
+    if (this._keyHandler) {
+      document.removeEventListener("keydown", this._keyHandler)
+    }
     this.stopTimeUpdate()
     Object.values(this.stems).forEach(stem => {
       if (stem.source) {
