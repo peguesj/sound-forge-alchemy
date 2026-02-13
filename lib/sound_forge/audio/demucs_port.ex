@@ -210,6 +210,7 @@ defmodule SoundForge.Audio.DemucsPort do
     Port.open({:spawn_executable, python}, [
       :binary,
       :exit_status,
+      :stderr_to_stdout,
       args: args
     ])
   end
