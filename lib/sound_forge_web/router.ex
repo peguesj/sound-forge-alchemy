@@ -29,6 +29,11 @@ defmodule SoundForgeWeb.Router do
     live "/", DashboardLive, :index
     live "/tracks/:id", DashboardLive, :show
     get "/files/*path", FileController, :serve
+
+    # Export routes
+    get "/export/stem/:id", ExportController, :download_stem
+    get "/export/stems/:track_id", ExportController, :download_all_stems
+    get "/export/analysis/:track_id", ExportController, :export_analysis
   end
 
   # Other scopes may use custom stacks.

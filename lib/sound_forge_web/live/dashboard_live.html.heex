@@ -60,7 +60,15 @@
 
           <!-- Analysis Results -->
           <div :if={@analysis} class="mb-8">
-            <h2 class="text-lg font-semibold text-gray-300 mb-4">Analysis</h2>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-semibold text-gray-300">Analysis</h2>
+              <.link
+                href={~p"/export/analysis/#{@track.id}"}
+                class="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Export JSON
+              </.link>
+            </div>
             <!-- Primary Metrics -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div :if={@analysis.tempo} class="bg-gray-800 rounded-lg p-4">
@@ -146,13 +154,34 @@
 
           <!-- Stems -->
           <div :if={length(@stems) > 0} class="mb-8">
-            <h2 class="text-lg font-semibold text-gray-300 mb-4">Stems</h2>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-semibold text-gray-300">Stems</h2>
+              <.link
+                href={~p"/export/stems/#{@track.id}"}
+                class="text-sm bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Download All (ZIP)
+              </.link>
+            </div>
             <.live_component
               module={SoundForgeWeb.AudioPlayerLive}
               id={"player-#{@track.id}"}
               track={@track}
               stems={@stems}
             />
+            <!-- Individual stem downloads -->
+            <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+              <.link
+                :for={stem <- @stems}
+                href={~p"/export/stem/#{stem.id}"}
+                class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm transition-colors"
+              >
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                <span class="capitalize"><%= stem.stem_type %></span>
+              </.link>
+            </div>
           </div>
 
           <div :if={length(@stems) == 0} class="text-center py-12 text-gray-500">
@@ -207,17 +236,31 @@
     <div class="flex">
       <!-- Main Content -->
       <main class="flex-1 p-6">
-        <!-- Search -->
-        <form phx-change="search" class="mb-6">
-          <input
-            type="text"
-            name="query"
-            value={@search_query}
-            placeholder="Search tracks..."
-            phx-debounce="300"
-            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500"
-          />
-        </form>
+        <!-- Search & Sort -->
+        <div class="flex gap-3 mb-6">
+          <form phx-change="search" class="flex-1">
+            <input
+              type="text"
+              name="query"
+              value={@search_query}
+              placeholder="Search tracks..."
+              phx-debounce="300"
+              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500"
+            />
+          </form>
+          <form phx-change="sort">
+            <select
+              name="sort_by"
+              class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300"
+            >
+              <option value="newest" selected={@sort_by == :newest}>Newest</option>
+              <option value="oldest" selected={@sort_by == :oldest}>Oldest</option>
+              <option value="title" selected={@sort_by == :title}>Title</option>
+              <option value="artist" selected={@sort_by == :artist}>Artist</option>
+              <option value="duration" selected={@sort_by == :duration}>Duration</option>
+            </select>
+          </form>
+        </div>
 
         <!-- Track Grid -->
         <div

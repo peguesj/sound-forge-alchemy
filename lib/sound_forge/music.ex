@@ -18,14 +18,34 @@ defmodule SoundForge.Music do
   @doc """
   Returns the list of tracks, optionally scoped to a user.
   """
-  def list_tracks do
-    Repo.all(Track)
+  def list_tracks(opts \\ [])
+
+  def list_tracks(opts) when is_list(opts) do
+    Track
+    |> apply_sort(opts)
+    |> Repo.all()
   end
 
-  def list_tracks(%{user: %{id: user_id}}) do
+  def list_tracks(%{user: %{id: _user_id}} = scope) do
+    list_tracks(scope, [])
+  end
+
+  def list_tracks(%{user: %{id: user_id}}, opts) when is_list(opts) do
     Track
     |> where([t], t.user_id == ^user_id)
+    |> apply_sort(opts)
     |> Repo.all()
+  end
+
+  defp apply_sort(query, opts) do
+    case Keyword.get(opts, :sort_by) do
+      :title -> order_by(query, [t], asc: t.title)
+      :artist -> order_by(query, [t], asc: t.artist)
+      :duration -> order_by(query, [t], desc: t.duration)
+      :newest -> order_by(query, [t], desc: t.inserted_at)
+      :oldest -> order_by(query, [t], asc: t.inserted_at)
+      _ -> order_by(query, [t], desc: t.inserted_at)
+    end
   end
 
   @doc """
@@ -74,6 +94,15 @@ defmodule SoundForge.Music do
   end
 
   def get_track!(id), do: Repo.get!(Track, id)
+
+  @doc """
+  Gets a track by its Spotify ID. Returns nil if not found.
+  """
+  def get_track_by_spotify_id(spotify_id) when is_binary(spotify_id) do
+    Repo.get_by(Track, spotify_id: spotify_id)
+  end
+
+  def get_track_by_spotify_id(_), do: nil
 
   @doc """
   Gets a track with preloaded stems and latest analysis result.
@@ -265,6 +294,11 @@ defmodule SoundForge.Music do
   end
 
   # Stem functions
+
+  @doc """
+  Gets a single stem.
+  """
+  def get_stem!(id), do: Repo.get!(Stem, id)
 
   @doc """
   Lists all stems for a given track.

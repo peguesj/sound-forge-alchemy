@@ -15,6 +15,47 @@ defmodule SoundForge.MusicTest do
       assert Music.list_tracks() == [track]
     end
 
+    test "list_tracks/1 with sort_by: :title sorts alphabetically" do
+      t2 = track_fixture(%{title: "Zebra"})
+      t1 = track_fixture(%{title: "Alpha"})
+      tracks = Music.list_tracks(sort_by: :title)
+      assert [first, second] = tracks
+      assert first.id == t1.id
+      assert second.id == t2.id
+    end
+
+    test "list_tracks/1 with sort_by: :artist sorts alphabetically" do
+      t2 = track_fixture(%{artist: "Zedd"})
+      t1 = track_fixture(%{artist: "Adele"})
+      tracks = Music.list_tracks(sort_by: :artist)
+      assert [first, second] = tracks
+      assert first.id == t1.id
+      assert second.id == t2.id
+    end
+
+    test "list_tracks/1 with sort_by: :newest returns all tracks ordered by inserted_at desc" do
+      t1 = track_fixture(%{title: "First"})
+      t2 = track_fixture(%{title: "Second"})
+      tracks = Music.list_tracks(sort_by: :newest)
+      assert length(tracks) == 2
+      ids = Enum.map(tracks, & &1.id)
+      assert t1.id in ids
+      assert t2.id in ids
+    end
+
+    test "get_track_by_spotify_id/1 returns track with matching spotify_id" do
+      track = track_fixture(%{spotify_id: "sp_test_123"})
+      assert Music.get_track_by_spotify_id("sp_test_123").id == track.id
+    end
+
+    test "get_track_by_spotify_id/1 returns nil for nonexistent spotify_id" do
+      assert Music.get_track_by_spotify_id("nonexistent") == nil
+    end
+
+    test "get_track_by_spotify_id/1 returns nil for nil input" do
+      assert Music.get_track_by_spotify_id(nil) == nil
+    end
+
     test "get_track!/1 returns the track with given id" do
       track = track_fixture()
       assert Music.get_track!(track.id) == track

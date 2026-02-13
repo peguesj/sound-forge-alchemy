@@ -22,6 +22,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:track, nil)
       |> assign(:stems, [])
       |> assign(:analysis, nil)
+      |> assign(:sort_by, :newest)
       |> stream(:tracks, list_tracks(scope))
 
     {:ok, socket}
@@ -74,25 +75,51 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   @impl true
+  def handle_event("sort", %{"sort_by" => sort_by}, socket) do
+    sort_atom = String.to_existing_atom(sort_by)
+    scope = socket.assigns[:current_scope]
+    tracks = list_tracks(scope, sort_by: sort_atom)
+
+    {:noreply,
+     socket
+     |> assign(:sort_by, sort_atom)
+     |> stream(:tracks, tracks, reset: true)}
+  end
+
+  @impl true
   def handle_event("fetch_spotify", %{"url" => url}, socket) do
     scope = socket.assigns[:current_scope]
 
-    case start_pipeline(url, scope) do
-      {:ok, track, pipeline} ->
-        # Subscribe to track pipeline updates
-        if connected?(socket) do
-          Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
-        end
+    case fetch_spotify_metadata(url) do
+      {:ok, metadata} ->
+        tracks_data = extract_track_items(metadata)
 
-        pipelines = Map.put(socket.assigns.pipelines, track.id, pipeline)
+        socket =
+          Enum.reduce(tracks_data, assign(socket, :spotify_url, ""), fn track_meta, acc ->
+            case start_single_pipeline(track_meta, url, scope) do
+              {:ok, track, pipeline} ->
+                if connected?(acc) do
+                  Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
+                end
 
-        {:noreply,
-         socket
-         |> assign(:spotify_url, "")
-         |> assign(:pipelines, pipelines)
-         |> stream_insert(:tracks, track, at: 0)
-         |> update(:track_count, &(&1 + 1))
-         |> put_flash(:info, "Started processing: #{track.title}")}
+                pipelines = Map.put(acc.assigns.pipelines, track.id, pipeline)
+
+                acc
+                |> assign(:pipelines, pipelines)
+                |> stream_insert(:tracks, track, at: 0)
+                |> update(:track_count, &(&1 + 1))
+
+              {:error, _} ->
+                acc
+            end
+          end)
+
+        msg =
+          if length(tracks_data) > 1,
+            do: "Started processing #{length(tracks_data)} tracks",
+            else: "Started processing: #{List.first(tracks_data)["name"] || "track"}"
+
+        {:noreply, put_flash(socket, :info, msg)}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed: #{reason}")}
@@ -228,14 +255,17 @@ defmodule SoundForgeWeb.DashboardLive do
   def normalize_spectral(_, _), do: 0
   # -- Private helpers --
 
-  defp start_pipeline(url, scope) do
-    with {:ok, metadata} <- fetch_spotify_metadata(url),
-         {:ok, track} <- create_track_from_metadata(metadata, scope),
+  defp start_single_pipeline(track_meta, original_url, scope) do
+    # Check for duplicate by spotify_id
+    spotify_id = track_meta["id"]
+    spotify_url = get_in(track_meta, ["external_urls", "spotify"]) || original_url
+
+    with :ok <- check_duplicate(spotify_id, scope),
+         {:ok, track} <- create_track_from_metadata(track_meta, scope),
          {:ok, download_job} <- Music.create_download_job(%{track_id: track.id, status: :queued}) do
-      # Enqueue the download worker (starts the chain)
       %{
         "track_id" => track.id,
-        "spotify_url" => url,
+        "spotify_url" => spotify_url,
         "quality" => "320k",
         "job_id" => download_job.id
       }
@@ -244,6 +274,38 @@ defmodule SoundForgeWeb.DashboardLive do
 
       pipeline = %{track_id: track.id, download: %{status: :queued, progress: 0}}
       {:ok, track, pipeline}
+    end
+  end
+
+  defp extract_track_items(%{"tracks" => %{"items" => items}}) when is_list(items) do
+    # Album response - items are track objects directly
+    Enum.map(items, fn
+      %{"track" => track} when is_map(track) -> track  # Playlist items wrap in "track"
+      item -> item
+    end)
+  end
+
+  defp extract_track_items(%{"tracks" => %{"items" => items}} = meta) when is_map(meta) do
+    # Playlist response
+    items
+    |> Enum.filter(fn item -> is_map(item) end)
+    |> Enum.map(fn
+      %{"track" => track} when is_map(track) -> track
+      item -> item
+    end)
+  end
+
+  defp extract_track_items(metadata) when is_map(metadata) do
+    # Single track - wrap in list
+    [metadata]
+  end
+
+  defp check_duplicate(nil, _scope), do: :ok
+
+  defp check_duplicate(spotify_id, _scope) do
+    case Music.get_track_by_spotify_id(spotify_id) do
+      nil -> :ok
+      _track -> {:error, :duplicate}
     end
   end
 
@@ -276,17 +338,19 @@ defmodule SoundForgeWeb.DashboardLive do
   defp extract_album_art(%{"album_art_url" => url}) when is_binary(url), do: url
   defp extract_album_art(_), do: nil
 
-  defp list_tracks(scope) when is_map(scope) and not is_nil(scope) do
+  defp list_tracks(scope, opts \\ [])
+
+  defp list_tracks(scope, opts) when is_map(scope) and not is_nil(scope) do
     try do
-      Music.list_tracks(scope)
+      Music.list_tracks(scope, opts)
     rescue
       _ -> []
     end
   end
 
-  defp list_tracks(_scope) do
+  defp list_tracks(_scope, opts) do
     try do
-      Music.list_tracks()
+      Music.list_tracks(opts)
     rescue
       _ -> []
     end
