@@ -23,6 +23,7 @@ defmodule SoundForge.Music do
   def list_tracks(opts) when is_list(opts) do
     Track
     |> apply_sort(opts)
+    |> apply_pagination(opts)
     |> Repo.all()
   end
 
@@ -34,7 +35,36 @@ defmodule SoundForge.Music do
     Track
     |> where([t], t.user_id == ^user_id)
     |> apply_sort(opts)
+    |> apply_pagination(opts)
     |> Repo.all()
+  end
+
+  @doc """
+  Returns the total count of tracks, optionally scoped to a user.
+  """
+  def count_tracks do
+    Repo.aggregate(Track, :count)
+  end
+
+  def count_tracks(%{user: %{id: user_id}}) do
+    Track
+    |> where([t], t.user_id == ^user_id)
+    |> Repo.aggregate(:count)
+  end
+
+  defp apply_pagination(query, opts) do
+    per_page = Keyword.get(opts, :per_page)
+    page = Keyword.get(opts, :page, 1)
+
+    if per_page do
+      offset = (page - 1) * per_page
+
+      query
+      |> limit(^per_page)
+      |> offset(^offset)
+    else
+      query
+    end
   end
 
   defp apply_sort(query, opts) do

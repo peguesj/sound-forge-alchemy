@@ -5,10 +5,16 @@ defmodule SoundForgeWeb.ErrorHTMLTest do
   import Phoenix.Template, only: [render_to_string: 4]
 
   test "renders 404.html" do
-    assert render_to_string(SoundForgeWeb.ErrorHTML, "404", "html", []) == "Not Found"
+    result = render_to_string(SoundForgeWeb.ErrorHTML, "404", "html", [])
+    assert result =~ "404"
+    assert result =~ "Page not found"
+    assert result =~ "Back to Library"
   end
 
   test "renders 500.html" do
-    assert render_to_string(SoundForgeWeb.ErrorHTML, "500", "html", []) == "Internal Server Error"
+    result = render_to_string(SoundForgeWeb.ErrorHTML, "500", "html", [])
+    assert result =~ "500"
+    assert result =~ "Something went wrong"
+    assert result =~ "Back to Library"
   end
 end

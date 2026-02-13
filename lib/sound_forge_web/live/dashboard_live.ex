@@ -18,12 +18,14 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:spotify_url, "")
       |> assign(:active_jobs, %{})
       |> assign(:pipelines, %{})
-      |> assign(:track_count, 0)
+      |> assign(:track_count, count_tracks(scope))
       |> assign(:track, nil)
       |> assign(:stems, [])
       |> assign(:analysis, nil)
       |> assign(:sort_by, :newest)
-      |> stream(:tracks, list_tracks(scope))
+      |> assign(:page, 1)
+      |> assign(:per_page, 24)
+      |> stream(:tracks, list_tracks(scope, page: 1, per_page: 24))
 
     {:ok, socket}
   end
@@ -78,11 +80,27 @@ defmodule SoundForgeWeb.DashboardLive do
   def handle_event("sort", %{"sort_by" => sort_by}, socket) do
     sort_atom = String.to_existing_atom(sort_by)
     scope = socket.assigns[:current_scope]
-    tracks = list_tracks(scope, sort_by: sort_atom)
+    per_page = socket.assigns.per_page
+    tracks = list_tracks(scope, sort_by: sort_atom, page: 1, per_page: per_page)
 
     {:noreply,
      socket
      |> assign(:sort_by, sort_atom)
+     |> assign(:page, 1)
+     |> stream(:tracks, tracks, reset: true)}
+  end
+
+  @impl true
+  def handle_event("page", %{"page" => page_str}, socket) do
+    page = String.to_integer(page_str)
+    scope = socket.assigns[:current_scope]
+    per_page = socket.assigns.per_page
+    sort_by = socket.assigns.sort_by
+    tracks = list_tracks(scope, sort_by: sort_by, page: page, per_page: per_page)
+
+    {:noreply,
+     socket
+     |> assign(:page, page)
      |> stream(:tracks, tracks, reset: true)}
   end
 
@@ -373,6 +391,37 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   defp search_tracks(_, scope), do: list_tracks(scope)
+
+  def pagination_range(_current_page, total) when total <= 7, do: 1..total |> Enum.to_list()
+
+  def pagination_range(current_page, total) do
+    start_page = max(1, current_page - 2)
+    end_page = min(total, start_page + 4)
+    start_page = max(1, end_page - 4)
+    Enum.to_list(start_page..end_page)
+  end
+
+  defp count_tracks(scope) when is_map(scope) and not is_nil(scope) do
+    try do
+      Music.count_tracks(scope)
+    rescue
+      _ -> 0
+    end
+  end
+
+  defp count_tracks(_scope) do
+    try do
+      Music.count_tracks()
+    rescue
+      _ -> 0
+    end
+  end
+
+  defp total_pages(track_count, per_page) when per_page > 0 do
+    max(1, ceil(track_count / per_page))
+  end
+
+  defp total_pages(_, _), do: 1
 
   defp fetch_spotify_metadata(url) do
     try do

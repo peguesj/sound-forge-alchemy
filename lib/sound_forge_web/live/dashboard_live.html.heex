@@ -292,6 +292,38 @@
           <p class="text-lg">No tracks yet</p>
           <p class="text-sm mt-2">Paste a Spotify URL above to get started</p>
         </div>
+
+        <!-- Pagination -->
+        <div :if={@track_count > @per_page && @search_query == ""} class="flex items-center justify-center gap-2 mt-8">
+          <button
+            :if={@page > 1}
+            phx-click="page"
+            phx-value-page={@page - 1}
+            class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+          >
+            Previous
+          </button>
+          <span :for={p <- pagination_range(@page, total_pages(@track_count, @per_page))}>
+            <button
+              phx-click="page"
+              phx-value-page={p}
+              class={[
+                "w-8 h-8 rounded-lg text-sm transition-colors",
+                if(p == @page, do: "bg-purple-600 text-white", else: "bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700")
+              ]}
+            >
+              <%= p %>
+            </button>
+          </span>
+          <button
+            :if={@page < total_pages(@track_count, @per_page)}
+            phx-click="page"
+            phx-value-page={@page + 1}
+            class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+          >
+            Next
+          </button>
+        </div>
       </main>
     </div>
   <% end %>

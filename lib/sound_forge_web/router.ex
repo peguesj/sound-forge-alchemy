@@ -10,6 +10,7 @@ defmodule SoundForgeWeb.Router do
     plug :put_root_layout, html: {SoundForgeWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug SoundForgeWeb.Plugs.SecurityHeaders
     plug :fetch_current_scope_for_user
   end
 
