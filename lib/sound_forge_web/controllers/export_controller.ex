@@ -161,9 +161,14 @@ defmodule SoundForgeWeb.ExportController do
 
   defp resolve_path(path) do
     if String.starts_with?(path, "/") do
-      path
+      # Absolute paths from workers are trusted, but reject traversal
+      expanded = Path.expand(path)
+      if String.contains?(path, ".."), do: nil, else: expanded
     else
-      Path.join(Storage.base_path(), path)
+      # Relative paths must stay within storage directory
+      full = Path.join(Storage.base_path(), path) |> Path.expand()
+      base = Path.expand(Storage.base_path())
+      if String.starts_with?(full, base <> "/") or full == base, do: full, else: nil
     end
   end
 

@@ -9,13 +9,48 @@ defmodule SoundForgeWeb.API.AnalysisController do
 
   action_fallback SoundForgeWeb.API.FallbackController
 
+  @valid_analysis_types ~w(full tempo key spectral energy)
+
   def create(conn, %{"file_path" => file_path} = params)
       when is_binary(file_path) and file_path != "" do
     analysis_type = Map.get(params, "type", "full")
-    track_id = Map.get(params, "track_id")
-    features = type_to_features(analysis_type)
 
-    # Create a track if not provided
+    if analysis_type not in @valid_analysis_types do
+      conn
+      |> put_status(:bad_request)
+      |> json(%{error: "Invalid analysis type: #{analysis_type}. Valid types: #{Enum.join(@valid_analysis_types, ", ")}"})
+    else
+      create_analysis(conn, file_path, analysis_type, Map.get(params, "track_id"))
+    end
+  end
+
+  def create(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "file_path parameter is required"})
+  end
+
+  def show(conn, %{"id" => id}) do
+    with {:ok, _} <- Ecto.UUID.cast(id),
+         {:ok, job} <- fetch_analysis_job(id),
+         :ok <- authorize_job(conn, job) do
+      json(conn, %{
+        success: true,
+        job_id: job.id,
+        status: to_string(job.status),
+        progress: job.progress || 0,
+        type: get_in(job.results || %{}, ["type"]) || "full",
+        result: job.results
+      })
+    else
+      {:error, :not_found} -> conn |> put_status(:not_found) |> json(%{error: "Job not found"})
+      {:error, :forbidden} -> conn |> put_status(:forbidden) |> json(%{error: "Access denied"})
+      :error -> conn |> put_status(:not_found) |> json(%{error: "Job not found"})
+    end
+  end
+
+  defp create_analysis(conn, file_path, analysis_type, track_id) do
+    features = type_to_features(analysis_type)
     track_id = track_id || create_placeholder_track(file_path)
 
     case Music.create_analysis_job(%{
@@ -46,31 +81,6 @@ defmodule SoundForgeWeb.API.AnalysisController do
         conn
         |> put_status(:bad_request)
         |> json(%{error: inspect(changeset.errors)})
-    end
-  end
-
-  def create(conn, _params) do
-    conn
-    |> put_status(:bad_request)
-    |> json(%{error: "file_path parameter is required"})
-  end
-
-  def show(conn, %{"id" => id}) do
-    with {:ok, _} <- Ecto.UUID.cast(id),
-         {:ok, job} <- fetch_analysis_job(id),
-         :ok <- authorize_job(conn, job) do
-      json(conn, %{
-        success: true,
-        job_id: job.id,
-        status: to_string(job.status),
-        progress: job.progress || 0,
-        type: get_in(job.results || %{}, ["type"]) || "full",
-        result: job.results
-      })
-    else
-      {:error, :not_found} -> conn |> put_status(:not_found) |> json(%{error: "Job not found"})
-      {:error, :forbidden} -> conn |> put_status(:forbidden) |> json(%{error: "Access denied"})
-      :error -> conn |> put_status(:not_found) |> json(%{error: "Job not found"})
     end
   end
 

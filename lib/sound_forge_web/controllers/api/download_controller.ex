@@ -9,35 +9,15 @@ defmodule SoundForgeWeb.API.DownloadController do
 
   action_fallback SoundForgeWeb.API.FallbackController
 
+  @spotify_url_pattern ~r{^https?://open\.spotify\.com/(track|album|playlist)/[a-zA-Z0-9]+}
+
   def create(conn, %{"url" => url}) when is_binary(url) and url != "" do
-    user_id = get_user_id(conn)
-
-    with {:ok, metadata} <- SoundForge.Spotify.fetch_metadata(url),
-         {:ok, track} <- create_track(metadata, url, user_id),
-         {:ok, job} <- Music.create_download_job(%{track_id: track.id, status: :queued}) do
-      # Enqueue the download worker
-      %{
-        "track_id" => track.id,
-        "spotify_url" => url,
-        "quality" => "320k",
-        "job_id" => job.id
-      }
-      |> SoundForge.Jobs.DownloadWorker.new()
-      |> Oban.insert()
-
+    if not Regex.match?(@spotify_url_pattern, url) do
       conn
-      |> put_status(:created)
-      |> json(%{
-        success: true,
-        job_id: job.id,
-        status: to_string(job.status),
-        track_id: track.id
-      })
+      |> put_status(:bad_request)
+      |> json(%{error: "Invalid Spotify URL format"})
     else
-      {:error, reason} ->
-        conn
-        |> put_status(:bad_request)
-        |> json(%{error: to_string(reason)})
+      do_create(conn, url)
     end
   end
 
@@ -62,6 +42,37 @@ defmodule SoundForgeWeb.API.DownloadController do
       {:error, :not_found} -> conn |> put_status(:not_found) |> json(%{error: "Job not found"})
       {:error, :forbidden} -> conn |> put_status(:forbidden) |> json(%{error: "Access denied"})
       :error -> conn |> put_status(:not_found) |> json(%{error: "Job not found"})
+    end
+  end
+
+  defp do_create(conn, url) do
+    user_id = get_user_id(conn)
+
+    with {:ok, metadata} <- SoundForge.Spotify.fetch_metadata(url),
+         {:ok, track} <- create_track(metadata, url, user_id),
+         {:ok, job} <- Music.create_download_job(%{track_id: track.id, status: :queued}) do
+      %{
+        "track_id" => track.id,
+        "spotify_url" => url,
+        "quality" => "320k",
+        "job_id" => job.id
+      }
+      |> SoundForge.Jobs.DownloadWorker.new()
+      |> Oban.insert()
+
+      conn
+      |> put_status(:created)
+      |> json(%{
+        success: true,
+        job_id: job.id,
+        status: to_string(job.status),
+        track_id: track.id
+      })
+    else
+      {:error, reason} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: to_string(reason)})
     end
   end
 

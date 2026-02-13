@@ -123,6 +123,10 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         Music.update_processing_job(job, %{status: :failed, error: error_msg})
         broadcast_progress(job_id, :failed, 0)
         broadcast_track_progress(track_id, :processing, :failed, 0)
+
+        # Clean up any partial output files
+        cleanup_output(job)
+
         {:error, error_msg}
     end
   end
@@ -163,6 +167,13 @@ defmodule SoundForge.Jobs.ProcessingWorker do
       "jobs:#{job_id}",
       {:job_progress, %{job_id: job_id, status: status, progress: progress}}
     )
+  end
+
+  defp cleanup_output(job) do
+    if job.output_path && File.dir?(job.output_path) do
+      Logger.info("Cleaning up partial output at #{job.output_path}")
+      File.rm_rf(job.output_path)
+    end
   end
 
   defp broadcast_track_progress(track_id, stage, status, progress) do

@@ -25,6 +25,12 @@ defmodule SoundForgeWeb.Router do
     plug SoundForgeWeb.Plugs.APIAuth
   end
 
+  pipeline :api_heavy do
+    plug :accepts, ["json"]
+    plug SoundForgeWeb.Plugs.RateLimiter, limit: 10, window_ms: 60_000
+    plug SoundForgeWeb.Plugs.APIAuth
+  end
+
   scope "/", SoundForgeWeb do
     pipe_through [:browser, :require_authenticated_user]
 
@@ -51,15 +57,21 @@ defmodule SoundForgeWeb.Router do
 
     post "/spotify/fetch", SpotifyController, :fetch
 
-    post "/download/track", DownloadController, :create
     get "/download/job/:id", DownloadController, :show
 
-    post "/processing/separate", ProcessingController, :create
     get "/processing/job/:id", ProcessingController, :show
     get "/processing/models", ProcessingController, :models
 
-    post "/analysis/analyze", AnalysisController, :create
     get "/analysis/job/:id", AnalysisController, :show
+  end
+
+  # Heavy API routes (stricter rate limit for resource-intensive operations)
+  scope "/api", SoundForgeWeb.API do
+    pipe_through :api_heavy
+
+    post "/download/track", DownloadController, :create
+    post "/processing/separate", ProcessingController, :create
+    post "/analysis/analyze", AnalysisController, :create
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

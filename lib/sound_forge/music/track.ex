@@ -29,6 +29,8 @@ defmodule SoundForge.Music.Track do
     track
     |> cast(attrs, [:spotify_id, :spotify_url, :title, :artist, :album, :album_art_url, :duration, :user_id])
     |> validate_required([:title])
+    |> validate_length(:title, min: 1, max: 500)
+    |> validate_number(:duration, greater_than: 0)
     |> unique_constraint(:spotify_id)
   end
 end

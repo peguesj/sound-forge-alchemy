@@ -7,12 +7,16 @@ defmodule SoundForgeWeb.FileController do
     # Join path parts and sanitize
     file_path = Path.join(path_parts)
 
-    # Prevent directory traversal
-    if String.contains?(file_path, "..") do
-      conn |> put_status(:forbidden) |> json(%{error: "Forbidden"})
-    else
-      full_path = Path.join(Storage.base_path(), file_path)
+    # Decode any percent-encoded characters and check for traversal
+    decoded = URI.decode(file_path)
+    base = Storage.base_path()
+    full_path = Path.join(base, decoded) |> Path.expand()
+
+    # Ensure the resolved path stays within the storage directory
+    if String.starts_with?(full_path, Path.expand(base) <> "/") do
       serve_file(conn, full_path)
+    else
+      conn |> put_status(:forbidden) |> json(%{error: "Forbidden"})
     end
   end
 
