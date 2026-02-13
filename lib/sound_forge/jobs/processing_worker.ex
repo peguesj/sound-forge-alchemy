@@ -35,15 +35,17 @@ defmodule SoundForge.Jobs.ProcessingWorker do
     broadcast_track_progress(track_id, :processing, :processing, 0)
 
     progress_callback = fn percent, _message ->
-      Music.update_processing_job(job, %{progress: percent})
+      # Reload job to avoid stale struct race conditions
+      fresh_job = Music.get_processing_job!(job_id)
+      Music.update_processing_job(fresh_job, %{progress: percent})
       broadcast_progress(job_id, :processing, percent)
     end
 
-    # Start a dedicated port process for this job
-    {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_demucs()
-
     result =
       try do
+        # Start a dedicated port process for this job
+        {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_demucs()
+
         DemucsPort.separate(file_path,
           model: model,
           progress_callback: progress_callback,
@@ -72,7 +74,10 @@ defmodule SoundForge.Jobs.ProcessingWorker do
             create_stem_record(track_id, job_id, stem_type, stem_path)
           end)
 
-        Music.update_processing_job(job, %{
+        # Reload to avoid stale struct
+        fresh_job = Music.get_processing_job!(job_id)
+
+        Music.update_processing_job(fresh_job, %{
           status: :completed,
           progress: 100,
           output_path: output_dir
@@ -90,12 +95,14 @@ defmodule SoundForge.Jobs.ProcessingWorker do
       {:error, reason} ->
         error_msg = inspect(reason)
         Logger.error("Stem separation failed: #{error_msg}")
-        Music.update_processing_job(job, %{status: :failed, error: error_msg})
+        # Reload to avoid stale struct
+        fresh_job = Music.get_processing_job!(job_id)
+        Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
         broadcast_progress(job_id, :failed, 0)
         broadcast_track_progress(track_id, :processing, :failed, 0)
 
         # Clean up any partial output files
-        cleanup_output(job)
+        cleanup_output(fresh_job)
 
         {:error, error_msg}
     end

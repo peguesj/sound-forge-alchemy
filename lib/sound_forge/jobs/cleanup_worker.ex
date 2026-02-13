@@ -18,5 +18,9 @@ defmodule SoundForge.Jobs.CleanupWorker do
     end
 
     :ok
+  rescue
+    error ->
+      Logger.error("Storage cleanup failed: #{inspect(error)}")
+      {:error, inspect(error)}
   end
 end

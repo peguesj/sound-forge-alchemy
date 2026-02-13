@@ -46,11 +46,10 @@ defmodule SoundForge.Jobs.AnalysisWorker do
   end
 
   defp do_analysis(job, track_id, job_id, file_path, features) do
-    # Start a dedicated port process for this job
-    {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_analyzer()
-
     result =
       try do
+        # Start a dedicated port process for this job
+        {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_analyzer()
         AnalyzerPort.analyze(file_path, features, server: port_pid)
       catch
         :exit, reason ->
