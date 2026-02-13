@@ -13,17 +13,23 @@ defmodule SoundForgeWeb.API.AnalysisController do
 
   def create(conn, %{"file_path" => file_path} = params)
       when is_binary(file_path) and file_path != "" do
-    analysis_type = Map.get(params, "type", "full")
-
-    if analysis_type in @valid_analysis_types do
-      create_analysis(conn, file_path, analysis_type, Map.get(params, "track_id"))
-    else
+    if not File.exists?(file_path) do
       conn
       |> put_status(:bad_request)
-      |> json(%{
-        error:
-          "Invalid analysis type: #{analysis_type}. Valid types: #{Enum.join(@valid_analysis_types, ", ")}"
-      })
+      |> json(%{error: "Audio file not found: #{Path.basename(file_path)}"})
+    else
+      analysis_type = Map.get(params, "type", "full")
+
+      if analysis_type in @valid_analysis_types do
+        create_analysis(conn, file_path, analysis_type, Map.get(params, "track_id"))
+      else
+        conn
+        |> put_status(:bad_request)
+        |> json(%{
+          error:
+            "Invalid analysis type: #{analysis_type}. Valid types: #{Enum.join(@valid_analysis_types, ", ")}"
+        })
+      end
     end
   end
 

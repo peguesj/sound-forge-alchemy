@@ -3,14 +3,23 @@ defmodule SoundForgeWeb.API.ProcessingControllerTest do
 
   alias SoundForge.Music
 
-  setup :register_and_auth_api_user
+  setup context do
+    context = register_and_auth_api_user(context)
+
+    tmp_dir = System.tmp_dir!()
+    tmp_file = Path.join(tmp_dir, "sfa_test_#{System.unique_integer([:positive])}.mp3")
+    File.write!(tmp_file, "fake audio content")
+    on_exit(fn -> File.rm(tmp_file) end)
+
+    Map.put(context, :tmp_file, tmp_file)
+  end
 
   describe "POST /api/processing/separate" do
-    test "creates separation job with default model", %{conn: conn} do
+    test "creates separation job with default model", %{conn: conn, tmp_file: tmp_file} do
       conn =
         conn
         |> put_req_header("content-type", "application/json")
-        |> post("/api/processing/separate", %{file_path: "/tmp/test.mp3"})
+        |> post("/api/processing/separate", %{file_path: tmp_file})
 
       assert %{
                "success" => true,
@@ -24,12 +33,12 @@ defmodule SoundForgeWeb.API.ProcessingControllerTest do
       assert model == "htdemucs"
     end
 
-    test "creates separation job with specified model", %{conn: conn} do
+    test "creates separation job with specified model", %{conn: conn, tmp_file: tmp_file} do
       conn =
         conn
         |> put_req_header("content-type", "application/json")
         |> post("/api/processing/separate", %{
-          file_path: "/tmp/test.mp3",
+          file_path: tmp_file,
           model: "htdemucs_ft"
         })
 
@@ -37,6 +46,16 @@ defmodule SoundForgeWeb.API.ProcessingControllerTest do
                "success" => true,
                "model" => "htdemucs_ft"
              } = json_response(conn, 201)
+    end
+
+    test "returns error when file does not exist", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post("/api/processing/separate", %{file_path: "/tmp/nonexistent_audio.mp3"})
+
+      assert %{"error" => error} = json_response(conn, 400)
+      assert error =~ "Audio file not found"
     end
 
     test "returns error when file_path parameter is missing", %{conn: conn} do
@@ -57,12 +76,12 @@ defmodule SoundForgeWeb.API.ProcessingControllerTest do
       assert %{"error" => "file_path parameter is required"} = json_response(conn, 400)
     end
 
-    test "returns error for invalid model", %{conn: conn} do
+    test "returns error for invalid model", %{conn: conn, tmp_file: tmp_file} do
       conn =
         conn
         |> put_req_header("content-type", "application/json")
         |> post("/api/processing/separate", %{
-          file_path: "/tmp/test.mp3",
+          file_path: tmp_file,
           model: "nonexistent_model"
         })
 

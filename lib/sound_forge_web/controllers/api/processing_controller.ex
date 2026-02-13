@@ -38,9 +38,24 @@ defmodule SoundForgeWeb.API.ProcessingController do
     model = Map.get(params, "model", "htdemucs")
     track_id = Map.get(params, "track_id")
 
+    unless File.exists?(file_path) do
+      conn
+      |> put_status(:bad_request)
+      |> json(%{error: "Audio file not found: #{Path.basename(file_path)}"})
+    else
+      create_processing(conn, file_path, model, track_id)
+    end
+  end
+
+  def create(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "file_path parameter is required"})
+  end
+
+  defp create_processing(conn, file_path, model, track_id) do
     case DemucsPort.validate_model(model) do
       :ok ->
-        # Create a track if not provided
         track_id = track_id || create_placeholder_track(file_path)
 
         case Music.create_processing_job(%{track_id: track_id, model: model, status: :queued}) do
@@ -74,12 +89,6 @@ defmodule SoundForgeWeb.API.ProcessingController do
         |> put_status(:bad_request)
         |> json(%{error: "Invalid model: #{model}"})
     end
-  end
-
-  def create(conn, _params) do
-    conn
-    |> put_status(:bad_request)
-    |> json(%{error: "file_path parameter is required"})
   end
 
   def show(conn, %{"id" => id}) do

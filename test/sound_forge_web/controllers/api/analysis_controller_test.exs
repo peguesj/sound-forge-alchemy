@@ -3,14 +3,23 @@ defmodule SoundForgeWeb.API.AnalysisControllerTest do
 
   alias SoundForge.Music
 
-  setup :register_and_auth_api_user
+  setup context do
+    context = register_and_auth_api_user(context)
+
+    tmp_dir = System.tmp_dir!()
+    tmp_file = Path.join(tmp_dir, "sfa_test_#{System.unique_integer([:positive])}.mp3")
+    File.write!(tmp_file, "fake audio content")
+    on_exit(fn -> File.rm(tmp_file) end)
+
+    Map.put(context, :tmp_file, tmp_file)
+  end
 
   describe "POST /api/analysis/analyze" do
-    test "creates analysis job with default type", %{conn: conn} do
+    test "creates analysis job with default type", %{conn: conn, tmp_file: tmp_file} do
       conn =
         conn
         |> put_req_header("content-type", "application/json")
-        |> post("/api/analysis/analyze", %{file_path: "/tmp/test.mp3"})
+        |> post("/api/analysis/analyze", %{file_path: tmp_file})
 
       assert %{
                "success" => true,
@@ -24,12 +33,12 @@ defmodule SoundForgeWeb.API.AnalysisControllerTest do
       assert type == "full"
     end
 
-    test "creates analysis job with specified type", %{conn: conn} do
+    test "creates analysis job with specified type", %{conn: conn, tmp_file: tmp_file} do
       conn =
         conn
         |> put_req_header("content-type", "application/json")
         |> post("/api/analysis/analyze", %{
-          file_path: "/tmp/test.mp3",
+          file_path: tmp_file,
           type: "tempo"
         })
 
@@ -37,6 +46,16 @@ defmodule SoundForgeWeb.API.AnalysisControllerTest do
                "success" => true,
                "type" => "tempo"
              } = json_response(conn, 201)
+    end
+
+    test "returns error when file does not exist", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post("/api/analysis/analyze", %{file_path: "/tmp/nonexistent_audio.mp3"})
+
+      assert %{"error" => error} = json_response(conn, 400)
+      assert error =~ "Audio file not found"
     end
 
     test "returns error when file_path parameter is missing", %{conn: conn} do
@@ -57,12 +76,12 @@ defmodule SoundForgeWeb.API.AnalysisControllerTest do
       assert %{"error" => "file_path parameter is required"} = json_response(conn, 400)
     end
 
-    test "returns error for invalid analysis type", %{conn: conn} do
+    test "returns error for invalid analysis type", %{conn: conn, tmp_file: tmp_file} do
       conn =
         conn
         |> put_req_header("content-type", "application/json")
         |> post("/api/analysis/analyze", %{
-          file_path: "/tmp/test.mp3",
+          file_path: tmp_file,
           type: "invalid_type"
         })
 
