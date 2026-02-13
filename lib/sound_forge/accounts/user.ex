@@ -1,4 +1,7 @@
 defmodule SoundForge.Accounts.User do
+  @moduledoc """
+  Schema and changesets for user accounts with hashed password authentication.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

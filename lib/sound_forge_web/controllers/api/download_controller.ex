@@ -12,12 +12,12 @@ defmodule SoundForgeWeb.API.DownloadController do
   @spotify_url_pattern ~r{^https?://open\.spotify\.com/(track|album|playlist)/[a-zA-Z0-9]+}
 
   def create(conn, %{"url" => url}) when is_binary(url) and url != "" do
-    if not Regex.match?(@spotify_url_pattern, url) do
+    if Regex.match?(@spotify_url_pattern, url) do
+      do_create(conn, url)
+    else
       conn
       |> put_status(:bad_request)
       |> json(%{error: "Invalid Spotify URL format"})
-    else
-      do_create(conn, url)
     end
   end
 
@@ -77,12 +77,10 @@ defmodule SoundForgeWeb.API.DownloadController do
   end
 
   defp fetch_download_job(id) do
-    try do
-      job = Music.get_download_job!(id) |> SoundForge.Repo.preload(:track)
-      {:ok, job}
-    rescue
-      Ecto.NoResultsError -> {:error, :not_found}
-    end
+    job = Music.get_download_job!(id) |> SoundForge.Repo.preload(:track)
+    {:ok, job}
+  rescue
+    Ecto.NoResultsError -> {:error, :not_found}
   end
 
   defp authorize_job(conn, job) do

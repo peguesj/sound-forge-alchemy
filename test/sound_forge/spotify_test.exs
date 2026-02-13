@@ -4,8 +4,8 @@ defmodule SoundForge.SpotifyTest do
   import Mox
 
   alias SoundForge.Spotify
-  alias SoundForge.Spotify.URLParser
   alias SoundForge.Spotify.MockClient
+  alias SoundForge.Spotify.URLParser
 
   # Ensure mocks are verified after each test
   setup :verify_on_exit!

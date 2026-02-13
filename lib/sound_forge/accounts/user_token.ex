@@ -1,4 +1,7 @@
 defmodule SoundForge.Accounts.UserToken do
+  @moduledoc """
+  Schema and query helpers for user authentication tokens (session and email).
+  """
   use Ecto.Schema
   import Ecto.Query
   alias SoundForge.Accounts.UserToken

@@ -118,8 +118,7 @@ defmodule SoundForgeWeb.API.ProcessingControllerTest do
                "models" => models
              } = json_response(conn, 200)
 
-      assert is_list(models)
-      assert length(models) > 0
+      assert [_ | _] = models
 
       [first_model | _] = models
       assert Map.has_key?(first_model, "name")

@@ -1,4 +1,7 @@
 defmodule SoundForgeWeb.ChannelCase do
+  @moduledoc """
+  Test case template for Phoenix channel tests with Ecto sandbox setup.
+  """
   use ExUnit.CaseTemplate
 
   using do

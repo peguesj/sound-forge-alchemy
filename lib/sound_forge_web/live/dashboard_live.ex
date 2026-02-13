@@ -129,30 +129,12 @@ defmodule SoundForgeWeb.DashboardLive do
     case SoundForge.Audio.SpotDL.fetch_metadata(url) do
       {:ok, tracks_data} ->
         socket =
-          Enum.reduce(tracks_data, assign(socket, :spotify_url, ""), fn track_meta, acc ->
-            case start_single_pipeline(track_meta, url, scope) do
-              {:ok, track, pipeline} ->
-                if connected?(acc) do
-                  Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
-                end
-
-                pipelines = Map.put(acc.assigns.pipelines, track.id, pipeline)
-
-                acc
-                |> assign(:pipelines, pipelines)
-                |> stream_insert(:tracks, track, at: 0)
-                |> update(:track_count, &(&1 + 1))
-
-              {:error, _} ->
-                acc
-            end
+          tracks_data
+          |> Enum.reduce(assign(socket, :spotify_url, ""), fn track_meta, acc ->
+            add_pipeline_track(acc, track_meta, url, scope)
           end)
 
-        msg =
-          if length(tracks_data) > 1,
-            do: "Started processing #{length(tracks_data)} tracks",
-            else: "Started processing: #{List.first(tracks_data)["name"] || "track"}"
-
+        msg = fetch_success_message(tracks_data)
         {:noreply, put_flash(socket, :info, msg)}
 
       {:error, reason} ->
@@ -166,93 +148,16 @@ defmodule SoundForgeWeb.DashboardLive do
 
     uploaded_tracks =
       consume_uploaded_entries(socket, :audio, fn %{path: tmp_path}, entry ->
-        # Derive track title from filename
-        filename = entry.client_name
-        title = filename |> Path.rootname() |> String.replace(~r/[-_]+/, " ") |> String.trim()
-        ext = Path.extname(filename)
-
-        # Store the file
-        SoundForge.Storage.ensure_directories!()
-        dest_filename = "#{Ecto.UUID.generate()}#{ext}"
-        dest_path = Path.join(SoundForge.Storage.downloads_path(), dest_filename)
-        File.cp!(tmp_path, dest_path)
-
-        # Create the track
-        user_id =
-          case scope do
-            %{user: %{id: id}} -> id
-            _ -> nil
-          end
-
-        case Music.create_track(%{
-               title: title,
-               user_id: user_id
-             }) do
-          {:ok, track} ->
-            # Create download job record pointing to the uploaded file
-            {:ok, _job} =
-              Music.create_download_job(%{
-                track_id: track.id,
-                status: :completed,
-                output_path: dest_path,
-                file_size: entry.client_size
-              })
-
-            # Kick off processing pipeline (skip download, go straight to processing)
-            model = Application.get_env(:sound_forge, :default_demucs_model, "htdemucs")
-
-            {:ok, processing_job} =
-              Music.create_processing_job(%{track_id: track.id, model: model, status: :queued})
-
-            %{
-              "track_id" => track.id,
-              "job_id" => processing_job.id,
-              "file_path" => dest_path,
-              "model" => model
-            }
-            |> SoundForge.Jobs.ProcessingWorker.new()
-            |> Oban.insert()
-
-            {:ok, track}
-
-          error ->
-            File.rm(dest_path)
-            error
-        end
+        process_uploaded_entry(tmp_path, entry, scope)
       end)
 
-    successful = Enum.filter(uploaded_tracks, &match?({:ok, _}, &1))
+    successful =
+      uploaded_tracks
+      |> Enum.filter(&match?({:ok, _}, &1))
+      |> Enum.map(fn {:ok, track} -> track end)
 
-    socket =
-      Enum.reduce(successful, socket, fn {:ok, track}, acc ->
-        if connected?(acc) do
-          Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
-        end
-
-        pipeline = %{
-          track_id: track.id,
-          download: %{status: :completed, progress: 100},
-          processing: %{status: :queued, progress: 0}
-        }
-
-        pipelines = Map.put(acc.assigns.pipelines, track.id, pipeline)
-
-        acc
-        |> assign(:pipelines, pipelines)
-        |> stream_insert(:tracks, track, at: 0)
-        |> update(:track_count, &(&1 + 1))
-      end)
-
-    count = length(successful)
-
-    msg =
-      case count do
-        0 -> nil
-        1 -> "Uploaded 1 file, processing started"
-        n -> "Uploaded #{n} files, processing started"
-      end
-
-    socket = if msg, do: put_flash(socket, :info, msg), else: socket
+    socket = Enum.reduce(successful, socket, &add_upload_pipeline(&2, &1))
+    socket = upload_flash(socket, successful)
     {:noreply, socket}
   end
 
@@ -428,6 +333,36 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
+  defp add_pipeline_track(socket, track_meta, url, scope) do
+    case start_single_pipeline(track_meta, url, scope) do
+      {:ok, track, pipeline} ->
+        maybe_subscribe(socket, track.id)
+        pipelines = Map.put(socket.assigns.pipelines, track.id, pipeline)
+
+        socket
+        |> assign(:pipelines, pipelines)
+        |> stream_insert(:tracks, track, at: 0)
+        |> update(:track_count, &(&1 + 1))
+
+      {:error, _} ->
+        socket
+    end
+  end
+
+  defp maybe_subscribe(socket, track_id) do
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track_id}")
+    end
+  end
+
+  defp fetch_success_message([_single | []] = [track_meta]) do
+    "Started processing: #{track_meta["name"] || "track"}"
+  end
+
+  defp fetch_success_message(tracks_data) do
+    "Started processing #{length(tracks_data)} tracks"
+  end
+
   defp check_duplicate(nil, _scope), do: :ok
 
   defp check_duplicate(spotify_id, _scope) do
@@ -436,6 +371,81 @@ defmodule SoundForgeWeb.DashboardLive do
       _track -> {:error, :duplicate}
     end
   end
+
+  defp process_uploaded_entry(tmp_path, entry, scope) do
+    filename = entry.client_name
+    title = filename |> Path.rootname() |> String.replace(~r/[-_]+/, " ") |> String.trim()
+    ext = Path.extname(filename)
+
+    SoundForge.Storage.ensure_directories!()
+    dest_filename = "#{Ecto.UUID.generate()}#{ext}"
+    dest_path = Path.join(SoundForge.Storage.downloads_path(), dest_filename)
+    File.cp!(tmp_path, dest_path)
+
+    user_id = scope_user_id(scope)
+
+    case Music.create_track(%{title: title, user_id: user_id}) do
+      {:ok, track} ->
+        enqueue_upload_processing(track, dest_path, entry.client_size)
+        {:ok, track}
+
+      error ->
+        File.rm(dest_path)
+        error
+    end
+  end
+
+  defp enqueue_upload_processing(track, dest_path, file_size) do
+    {:ok, _job} =
+      Music.create_download_job(%{
+        track_id: track.id,
+        status: :completed,
+        output_path: dest_path,
+        file_size: file_size
+      })
+
+    model = Application.get_env(:sound_forge, :default_demucs_model, "htdemucs")
+
+    {:ok, processing_job} =
+      Music.create_processing_job(%{track_id: track.id, model: model, status: :queued})
+
+    %{
+      "track_id" => track.id,
+      "job_id" => processing_job.id,
+      "file_path" => dest_path,
+      "model" => model
+    }
+    |> SoundForge.Jobs.ProcessingWorker.new()
+    |> Oban.insert()
+  end
+
+  defp add_upload_pipeline(socket, track) do
+    maybe_subscribe(socket, track.id)
+
+    pipeline = %{
+      track_id: track.id,
+      download: %{status: :completed, progress: 100},
+      processing: %{status: :queued, progress: 0}
+    }
+
+    pipelines = Map.put(socket.assigns.pipelines, track.id, pipeline)
+
+    socket
+    |> assign(:pipelines, pipelines)
+    |> stream_insert(:tracks, track, at: 0)
+    |> update(:track_count, &(&1 + 1))
+  end
+
+  defp upload_flash(socket, []), do: socket
+
+  defp upload_flash(socket, [_]),
+    do: put_flash(socket, :info, "Uploaded 1 file, processing started")
+
+  defp upload_flash(socket, tracks),
+    do: put_flash(socket, :info, "Uploaded #{length(tracks)} files, processing started")
+
+  defp scope_user_id(%{user: %{id: id}}), do: id
+  defp scope_user_id(_), do: nil
 
   defp create_track_from_metadata(metadata, spotify_url, scope) do
     user_id =
@@ -475,36 +485,28 @@ defmodule SoundForgeWeb.DashboardLive do
   defp list_tracks(scope, opts \\ [])
 
   defp list_tracks(scope, opts) when is_map(scope) and not is_nil(scope) do
-    try do
-      Music.list_tracks(scope, opts)
-    rescue
-      _ -> []
-    end
+    Music.list_tracks(scope, opts)
+  rescue
+    _ -> []
   end
 
   defp list_tracks(_scope, opts) do
-    try do
-      Music.list_tracks(opts)
-    rescue
-      _ -> []
-    end
+    Music.list_tracks(opts)
+  rescue
+    _ -> []
   end
 
   defp search_tracks(query, scope)
        when byte_size(query) > 0 and is_map(scope) and not is_nil(scope) do
-    try do
-      Music.search_tracks(query, scope)
-    rescue
-      _ -> list_tracks(scope)
-    end
+    Music.search_tracks(query, scope)
+  rescue
+    _ -> list_tracks(scope)
   end
 
   defp search_tracks(query, _scope) when byte_size(query) > 0 do
-    try do
-      Music.search_tracks(query)
-    rescue
-      _ -> list_tracks(nil)
-    end
+    Music.search_tracks(query)
+  rescue
+    _ -> list_tracks(nil)
   end
 
   defp search_tracks(_, scope), do: list_tracks(scope)
@@ -519,19 +521,15 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   defp count_tracks(scope) when is_map(scope) and not is_nil(scope) do
-    try do
-      Music.count_tracks(scope)
-    rescue
-      _ -> 0
-    end
+    Music.count_tracks(scope)
+  rescue
+    _ -> 0
   end
 
   defp count_tracks(_scope) do
-    try do
-      Music.count_tracks()
-    rescue
-      _ -> 0
-    end
+    Music.count_tracks()
+  rescue
+    _ -> 0
   end
 
   defp per_page, do: Application.get_env(:sound_forge, :tracks_per_page, 24)

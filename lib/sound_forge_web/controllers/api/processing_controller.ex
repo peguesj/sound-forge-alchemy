@@ -5,8 +5,8 @@ defmodule SoundForgeWeb.API.ProcessingController do
   """
   use SoundForgeWeb, :controller
 
-  alias SoundForge.Music
   alias SoundForge.Audio.DemucsPort
+  alias SoundForge.Music
 
   action_fallback SoundForgeWeb.API.FallbackController
 
@@ -115,12 +115,10 @@ defmodule SoundForgeWeb.API.ProcessingController do
   end
 
   defp fetch_processing_job(id) do
-    try do
-      job = Music.get_processing_job!(id) |> SoundForge.Repo.preload(track: [])
-      {:ok, job}
-    rescue
-      Ecto.NoResultsError -> {:error, :not_found}
-    end
+    job = Music.get_processing_job!(id) |> SoundForge.Repo.preload(track: [])
+    {:ok, job}
+  rescue
+    Ecto.NoResultsError -> {:error, :not_found}
   end
 
   defp authorize_job(conn, job) do

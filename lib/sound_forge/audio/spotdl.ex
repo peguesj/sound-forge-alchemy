@@ -135,7 +135,7 @@ defmodule SoundForge.Audio.SpotDL do
     json_str = extract_json_array(output)
 
     case Jason.decode(json_str) do
-      {:ok, tracks} when is_list(tracks) and length(tracks) > 0 ->
+      {:ok, [_ | _] = tracks} ->
         {:ok, tracks}
 
       {:ok, []} ->
@@ -158,36 +158,36 @@ defmodule SoundForge.Audio.SpotDL do
   end
 
   defp find_downloaded_file(output_dir, template, format) do
-    # Look for the file that was downloaded
     expected = Path.join(output_dir, "#{template}.#{format}")
 
     if File.exists?(expected) do
-      {:ok, %{size: size}} = File.stat(expected)
-      {:ok, %{path: expected, size: size}}
+      file_with_size(expected)
     else
-      # spotdl may have used a sanitized filename; find recently created files
-      case Path.wildcard(Path.join(output_dir, "*.#{format}"))
-           |> Enum.filter(fn f ->
-             case File.stat(f) do
-               {:ok, %{mtime: mtime}} ->
-                 # File created in the last 60 seconds
-                 case NaiveDateTime.from_erl(mtime) do
-                   {:ok, ndt} -> NaiveDateTime.diff(NaiveDateTime.utc_now(), ndt) < 60
-                   _ -> false
-                 end
-
-               _ ->
-                 false
-             end
-           end)
-           |> Enum.sort_by(fn f -> File.stat!(f).mtime end, :desc) do
-        [newest | _] ->
-          {:ok, %{size: size}} = File.stat(newest)
-          {:ok, %{path: newest, size: size}}
-
-        [] ->
-          {:error, "Downloaded file not found in #{output_dir}"}
+      case find_recent_file(output_dir, format) do
+        nil -> {:error, "Downloaded file not found in #{output_dir}"}
+        path -> file_with_size(path)
       end
+    end
+  end
+
+  defp file_with_size(path) do
+    {:ok, %{size: size}} = File.stat(path)
+    {:ok, %{path: path, size: size}}
+  end
+
+  defp find_recent_file(dir, format) do
+    Path.wildcard(Path.join(dir, "*.#{format}"))
+    |> Enum.filter(&recently_modified?/1)
+    |> Enum.sort_by(fn f -> File.stat!(f).mtime end, :desc)
+    |> List.first()
+  end
+
+  defp recently_modified?(path) do
+    with {:ok, %{mtime: mtime}} <- File.stat(path),
+         {:ok, ndt} <- NaiveDateTime.from_erl(mtime) do
+      NaiveDateTime.diff(NaiveDateTime.utc_now(), ndt) < 60
+    else
+      _ -> false
     end
   end
 
@@ -196,13 +196,11 @@ defmodule SoundForge.Audio.SpotDL do
     client_id = Keyword.get(config, :client_id)
     client_secret = Keyword.get(config, :client_secret)
 
-    cond do
-      is_binary(client_id) and client_id != "" and
-        is_binary(client_secret) and client_secret != "" ->
-        ["--client-id", client_id, "--client-secret", client_secret]
-
-      true ->
-        []
+    if is_binary(client_id) and client_id != "" and
+         is_binary(client_secret) and client_secret != "" do
+      ["--client-id", client_id, "--client-secret", client_secret]
+    else
+      []
     end
   end
 

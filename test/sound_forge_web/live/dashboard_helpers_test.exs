@@ -10,7 +10,7 @@ defmodule SoundForgeWeb.DashboardHelpersTest do
     end
 
     test "caps at 100%" do
-      assert DashboardLive.normalize_spectral(10000, 8000) == 100
+      assert DashboardLive.normalize_spectral(10_000, 8000) == 100
     end
 
     test "handles zero value" do
@@ -26,8 +26,8 @@ defmodule SoundForgeWeb.DashboardHelpersTest do
     end
 
     test "normalizes spectral rolloff" do
-      # 5512 Hz out of 11025 Hz max = 50%
-      assert DashboardLive.normalize_spectral(5512.5, 11025) == 50.0
+      # 5512 Hz out of 11_025 Hz max = 50%
+      assert DashboardLive.normalize_spectral(5512.5, 11_025) == 50.0
     end
 
     test "normalizes zero crossing rate" do

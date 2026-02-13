@@ -54,7 +54,7 @@ defmodule SoundForgeWeb.API.SpotifyControllerTest do
       conn =
         conn
         |> put_req_header("content-type", "application/json")
-        |> post("/api/spotify/fetch", %{url: 12345})
+        |> post("/api/spotify/fetch", %{url: 12_345})
 
       assert %{"error" => "url parameter is required"} = json_response(conn, 400)
     end

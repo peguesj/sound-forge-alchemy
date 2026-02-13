@@ -6,12 +6,12 @@ defmodule SoundForge.Music do
   import Ecto.Query, warn: false
   alias SoundForge.Repo
 
-  alias SoundForge.Music.Track
+  alias SoundForge.Music.AnalysisJob
+  alias SoundForge.Music.AnalysisResult
   alias SoundForge.Music.DownloadJob
   alias SoundForge.Music.ProcessingJob
-  alias SoundForge.Music.AnalysisJob
   alias SoundForge.Music.Stem
-  alias SoundForge.Music.AnalysisResult
+  alias SoundForge.Music.Track
 
   @type scope :: %{user: %{id: term()}}
 
@@ -226,23 +226,25 @@ defmodule SoundForge.Music do
     # Delete the track (cascades to jobs, stems, results via DB)
     case Repo.delete(track) do
       {:ok, deleted_track} ->
-        # Clean up files after successful DB delete
-        Enum.each(stem_paths ++ download_paths, fn path ->
-          full_path =
-            if String.starts_with?(path, "/") do
-              path
-            else
-              Path.join(SoundForge.Storage.base_path(), path)
-            end
-
-          File.rm(full_path)
-        end)
-
+        cleanup_file_paths(stem_paths ++ download_paths)
         {:ok, deleted_track}
 
       error ->
         error
     end
+  end
+
+  defp cleanup_file_paths(paths) do
+    Enum.each(paths, fn path ->
+      full_path = resolve_file_path(path)
+      File.rm(full_path)
+    end)
+  end
+
+  defp resolve_file_path(path) do
+    if String.starts_with?(path, "/"),
+      do: path,
+      else: Path.join(SoundForge.Storage.base_path(), path)
   end
 
   @doc """

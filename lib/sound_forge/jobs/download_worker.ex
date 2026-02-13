@@ -10,8 +10,8 @@ defmodule SoundForge.Jobs.DownloadWorker do
     max_attempts: 3,
     priority: 1
 
-  alias SoundForge.Music
   alias SoundForge.Audio.SpotDL
+  alias SoundForge.Music
 
   require Logger
 
@@ -83,27 +83,40 @@ defmodule SoundForge.Jobs.DownloadWorker do
   @default_min_audio_size 1024
 
   defp validate_audio_file(path, file_size) do
+    min_size = Application.get_env(:sound_forge, :min_audio_size, @default_min_audio_size)
+
     cond do
-      !File.exists?(path) ->
+      not File.exists?(path) ->
         {:error, "Downloaded file does not exist"}
 
-      file_size < Application.get_env(:sound_forge, :min_audio_size, @default_min_audio_size) ->
+      file_size < min_size ->
         {:error, "Downloaded file too small (#{file_size} bytes), likely corrupt"}
 
       true ->
-        # Check for valid audio header (ID3 tag or MPEG sync)
-        case File.read(path) do
-          {:ok, <<0xFF, 0xFB, _rest::binary>>} -> :ok
-          {:ok, <<0xFF, 0xFA, _rest::binary>>} -> :ok
-          {:ok, <<0xFF, 0xF3, _rest::binary>>} -> :ok
-          {:ok, <<0xFF, 0xF2, _rest::binary>>} -> :ok
-          {:ok, <<"ID3", _rest::binary>>} -> :ok
-          {:ok, <<"RIFF", _rest::binary>>} -> :ok
-          {:ok, <<"fLaC", _rest::binary>>} -> :ok
-          {:ok, <<"OggS", _rest::binary>>} -> :ok
-          {:ok, _} -> {:error, "File does not appear to be a valid audio file"}
-          {:error, reason} -> {:error, "Cannot read file: #{inspect(reason)}"}
-        end
+        validate_audio_header(path)
+    end
+  end
+
+  @valid_audio_headers [
+    <<0xFF, 0xFB>>,
+    <<0xFF, 0xFA>>,
+    <<0xFF, 0xF3>>,
+    <<0xFF, 0xF2>>,
+    "ID3",
+    "RIFF",
+    "fLaC",
+    "OggS"
+  ]
+
+  defp validate_audio_header(path) do
+    case File.read(path) do
+      {:ok, data} ->
+        if Enum.any?(@valid_audio_headers, &String.starts_with?(data, &1)),
+          do: :ok,
+          else: {:error, "File does not appear to be a valid audio file"}
+
+      {:error, reason} ->
+        {:error, "Cannot read file: #{inspect(reason)}"}
     end
   end
 

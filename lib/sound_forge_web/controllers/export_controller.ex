@@ -101,27 +101,21 @@ defmodule SoundForgeWeb.ExportController do
   # Fetchers
 
   defp fetch_stem(id) do
-    try do
-      {:ok, Music.get_stem!(id)}
-    rescue
-      Ecto.NoResultsError -> {:error, :not_found}
-    end
+    {:ok, Music.get_stem!(id)}
+  rescue
+    Ecto.NoResultsError -> {:error, :not_found}
   end
 
   defp fetch_track(id) do
-    try do
-      {:ok, Music.get_track!(id)}
-    rescue
-      Ecto.NoResultsError -> {:error, :not_found}
-    end
+    {:ok, Music.get_track!(id)}
+  rescue
+    Ecto.NoResultsError -> {:error, :not_found}
   end
 
   defp fetch_track_with_details(id) do
-    try do
-      {:ok, Music.get_track_with_details!(id)}
-    rescue
-      Ecto.NoResultsError -> {:error, :not_found}
-    end
+    {:ok, Music.get_track_with_details!(id)}
+  rescue
+    Ecto.NoResultsError -> {:error, :not_found}
   end
 
   defp fetch_analysis(track_id) do
@@ -131,7 +125,7 @@ defmodule SoundForgeWeb.ExportController do
     end
   end
 
-  defp check_stems(stems) when is_list(stems) and length(stems) > 0, do: {:ok, stems}
+  defp check_stems([_ | _] = stems), do: {:ok, stems}
   defp check_stems(_), do: {:error, :no_stems}
 
   # Authorization: track owner or nil user_id (legacy/public tracks)

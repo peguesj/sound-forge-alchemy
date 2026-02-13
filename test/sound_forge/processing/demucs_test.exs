@@ -5,9 +5,7 @@ defmodule SoundForge.Processing.DemucsTest do
 
   describe "list_models/0" do
     test "returns a list of models" do
-      models = Demucs.list_models()
-      assert is_list(models)
-      assert length(models) > 0
+      assert [_ | _] = Demucs.list_models()
     end
 
     test "each model has required keys" do

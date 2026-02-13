@@ -10,8 +10,8 @@ defmodule SoundForge.Jobs.ProcessingWorker do
     max_attempts: 2,
     priority: 2
 
-  alias SoundForge.Music
   alias SoundForge.Audio.DemucsPort
+  alias SoundForge.Music
 
   require Logger
 
@@ -69,42 +69,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         stem_records =
           Enum.flat_map(stems, fn {stem_type, relative_path} ->
             stem_path = Path.join(output_dir, relative_path)
-            stem_atom = safe_stem_type(stem_type)
-
-            cond do
-              is_nil(stem_atom) ->
-                Logger.warning("Unknown stem type: #{stem_type}, skipping")
-                []
-
-              !File.exists?(stem_path) ->
-                Logger.warning("Stem file missing: #{stem_path}")
-                []
-
-              true ->
-                file_size =
-                  case File.stat(stem_path) do
-                    {:ok, %{size: size}} -> size
-                    _ -> 0
-                  end
-
-                case Music.create_stem(%{
-                       track_id: track_id,
-                       processing_job_id: job_id,
-                       stem_type: stem_atom,
-                       file_path: stem_path,
-                       file_size: file_size
-                     }) do
-                  {:ok, stem} ->
-                    [stem]
-
-                  {:error, reason} ->
-                    Logger.warning(
-                      "Failed to create stem record for #{stem_type}: #{inspect(reason)}"
-                    )
-
-                    []
-                end
-            end
+            create_stem_record(track_id, job_id, stem_type, stem_path)
           end)
 
         Music.update_processing_job(job, %{
@@ -136,16 +101,54 @@ defmodule SoundForge.Jobs.ProcessingWorker do
     end
   end
 
+  defp create_stem_record(track_id, job_id, stem_type, stem_path) do
+    stem_atom = safe_stem_type(stem_type)
+
+    cond do
+      is_nil(stem_atom) ->
+        Logger.warning("Unknown stem type: #{stem_type}, skipping")
+        []
+
+      not File.exists?(stem_path) ->
+        Logger.warning("Stem file missing: #{stem_path}")
+        []
+
+      true ->
+        persist_stem(track_id, job_id, stem_type, stem_atom, stem_path)
+    end
+  end
+
+  defp persist_stem(track_id, job_id, stem_type, stem_atom, stem_path) do
+    file_size =
+      case File.stat(stem_path) do
+        {:ok, %{size: size}} -> size
+        _ -> 0
+      end
+
+    case Music.create_stem(%{
+           track_id: track_id,
+           processing_job_id: job_id,
+           stem_type: stem_atom,
+           file_path: stem_path,
+           file_size: file_size
+         }) do
+      {:ok, stem} ->
+        [stem]
+
+      {:error, reason} ->
+        Logger.warning("Failed to create stem record for #{stem_type}: #{inspect(reason)}")
+        []
+    end
+  end
+
   defp expected_stem_count("htdemucs_6s"), do: 6
   defp expected_stem_count(_model), do: 4
 
   defp safe_stem_type(type) when is_binary(type) do
-    try do
-      atom = String.to_existing_atom(type)
-      if atom in @known_stem_types, do: atom, else: nil
-    rescue
-      ArgumentError -> nil
-    end
+    atom = String.to_existing_atom(type)
+    if atom in @known_stem_types, do: atom, else: nil
+  rescue
+    ArgumentError -> nil
   end
 
   defp enqueue_analysis(track_id, file_path) do

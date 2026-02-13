@@ -1,4 +1,8 @@
 defmodule SoundForgeWeb.UserAuth do
+  @moduledoc """
+  Handles user authentication for browser sessions, including login,
+  logout, session management, and authentication plugs.
+  """
   use SoundForgeWeb, :verified_routes
 
   import Plug.Conn

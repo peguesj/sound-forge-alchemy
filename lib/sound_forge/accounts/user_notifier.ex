@@ -1,8 +1,12 @@
 defmodule SoundForge.Accounts.UserNotifier do
+  @moduledoc """
+  Delivers email notifications for account-related events such as
+  confirmation, password reset, and email change instructions.
+  """
   import Swoosh.Email
 
-  alias SoundForge.Mailer
   alias SoundForge.Accounts.User
+  alias SoundForge.Mailer
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do

@@ -6,7 +6,7 @@ defmodule SoundForge.Accounts do
   import Ecto.Query, warn: false
   alias SoundForge.Repo
 
-  alias SoundForge.Accounts.{User, UserToken, UserNotifier}
+  alias SoundForge.Accounts.{User, UserNotifier, UserToken}
 
   ## Database getters
 

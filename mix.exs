@@ -72,7 +72,11 @@ defmodule SoundForge.MixProject do
       {:oban, "~> 2.18"},
 
       # Testing
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.0", only: :test},
+
+      # Static analysis
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 

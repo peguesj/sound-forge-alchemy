@@ -66,25 +66,28 @@ defmodule SoundForgeWeb.FileController do
 
   defp parse_range(range_spec, total_size) do
     case String.split(range_spec, "-", parts: 2) do
-      [start_str, ""] ->
-        with {start_byte, _} when start_byte >= 0 <- Integer.parse(start_str),
-             true <- start_byte < total_size do
-          {:ok, {start_byte, total_size - 1}}
-        else
-          _ -> :error
-        end
+      [start_str, ""] -> parse_open_range(start_str, total_size)
+      [start_str, end_str] -> parse_bounded_range(start_str, end_str, total_size)
+      _ -> :error
+    end
+  end
 
-      [start_str, end_str] ->
-        with {start_byte, _} when start_byte >= 0 <- Integer.parse(start_str),
-             {end_byte_raw, _} when end_byte_raw >= 0 <- Integer.parse(end_str) do
-          end_byte = min(end_byte_raw, total_size - 1)
-          if start_byte <= end_byte, do: {:ok, {start_byte, end_byte}}, else: :error
-        else
-          _ -> :error
-        end
+  defp parse_open_range(start_str, total_size) do
+    with {start_byte, _} when start_byte >= 0 <- Integer.parse(start_str),
+         true <- start_byte < total_size do
+      {:ok, {start_byte, total_size - 1}}
+    else
+      _ -> :error
+    end
+  end
 
-      _ ->
-        :error
+  defp parse_bounded_range(start_str, end_str, total_size) do
+    with {start_byte, _} when start_byte >= 0 <- Integer.parse(start_str),
+         {end_byte_raw, _} when end_byte_raw >= 0 <- Integer.parse(end_str) do
+      end_byte = min(end_byte_raw, total_size - 1)
+      if start_byte <= end_byte, do: {:ok, {start_byte, end_byte}}, else: :error
+    else
+      _ -> :error
     end
   end
 end

@@ -380,7 +380,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
     end
 
     test "normalize_spectral caps at 100%" do
-      assert SoundForgeWeb.DashboardLive.normalize_spectral(10000, 8000) == 100
+      assert SoundForgeWeb.DashboardLive.normalize_spectral(10_000, 8000) == 100
     end
 
     test "upload_error_to_string returns human-readable errors" do

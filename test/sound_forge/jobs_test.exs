@@ -2,9 +2,9 @@ defmodule SoundForge.JobsTest do
   use SoundForge.DataCase
   use Oban.Testing, repo: SoundForge.Repo
 
+  alias SoundForge.Jobs.AnalysisWorker
   alias SoundForge.Jobs.DownloadWorker
   alias SoundForge.Jobs.ProcessingWorker
-  alias SoundForge.Jobs.AnalysisWorker
   alias SoundForge.Music
 
   describe "DownloadWorker" do

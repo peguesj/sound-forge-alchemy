@@ -10,8 +10,8 @@ defmodule SoundForge.Jobs.AnalysisWorker do
     max_attempts: 2,
     priority: 2
 
-  alias SoundForge.Music
   alias SoundForge.Audio.AnalyzerPort
+  alias SoundForge.Music
 
   require Logger
 
@@ -33,15 +33,15 @@ defmodule SoundForge.Jobs.AnalysisWorker do
     broadcast_track_progress(track_id, :analysis, :processing, 0)
 
     # Validate input file exists
-    if !File.exists?(file_path) do
+    if File.exists?(file_path) do
+      do_analysis(job, track_id, job_id, file_path, features)
+    else
       error_msg = "Audio file not found: #{file_path}"
       Logger.error(error_msg)
       Music.update_analysis_job(job, %{status: :failed, error: error_msg})
       broadcast_progress(job_id, :failed, 0)
       broadcast_track_progress(track_id, :analysis, :failed, 0)
       {:error, error_msg}
-    else
-      do_analysis(job, track_id, job_id, file_path, features)
     end
   end
 

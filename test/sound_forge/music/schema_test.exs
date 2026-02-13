@@ -1,7 +1,7 @@
 defmodule SoundForge.Music.SchemaTest do
   use SoundForge.DataCase
 
-  alias SoundForge.Music.{Track, Stem, DownloadJob, ProcessingJob, AnalysisJob, AnalysisResult}
+  alias SoundForge.Music.{AnalysisJob, AnalysisResult, DownloadJob, ProcessingJob, Stem, Track}
 
   describe "Track changeset" do
     test "valid attributes" do
@@ -233,6 +233,7 @@ defmodule SoundForge.Music.SchemaTest do
         })
 
       assert changeset.valid?
+
       assert Ecto.Changeset.get_field(changeset, :features) == %{
                "chroma" => [0.1, 0.2, 0.3],
                "mfcc" => [1.0, 2.0]

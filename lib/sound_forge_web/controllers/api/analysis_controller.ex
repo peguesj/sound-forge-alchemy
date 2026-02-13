@@ -15,15 +15,15 @@ defmodule SoundForgeWeb.API.AnalysisController do
       when is_binary(file_path) and file_path != "" do
     analysis_type = Map.get(params, "type", "full")
 
-    if analysis_type not in @valid_analysis_types do
+    if analysis_type in @valid_analysis_types do
+      create_analysis(conn, file_path, analysis_type, Map.get(params, "track_id"))
+    else
       conn
       |> put_status(:bad_request)
       |> json(%{
         error:
           "Invalid analysis type: #{analysis_type}. Valid types: #{Enum.join(@valid_analysis_types, ", ")}"
       })
-    else
-      create_analysis(conn, file_path, analysis_type, Map.get(params, "track_id"))
     end
   end
 
@@ -103,12 +103,10 @@ defmodule SoundForgeWeb.API.AnalysisController do
   end
 
   defp fetch_analysis_job(id) do
-    try do
-      job = Music.get_analysis_job!(id) |> SoundForge.Repo.preload(track: [])
-      {:ok, job}
-    rescue
-      Ecto.NoResultsError -> {:error, :not_found}
-    end
+    job = Music.get_analysis_job!(id) |> SoundForge.Repo.preload(track: [])
+    {:ok, job}
+  rescue
+    Ecto.NoResultsError -> {:error, :not_found}
   end
 
   defp authorize_job(conn, job) do

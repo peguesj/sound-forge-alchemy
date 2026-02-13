@@ -49,26 +49,28 @@ defmodule SoundForgeWeb.HealthController do
     base = SoundForge.Storage.base_path()
 
     if File.dir?(base) do
-      case System.cmd("df", ["-k", base], stderr_to_stdout: true) do
-        {output, 0} ->
-          lines = String.split(output, "\n", trim: true)
-
-          case lines do
-            [_header, data | _] ->
-              parts = String.split(data, ~r/\s+/)
-              available_kb = Enum.at(parts, 3, "0") |> String.to_integer()
-              available_mb = div(available_kb, 1024)
-              %{status: "ok", available_mb: available_mb}
-
-            _ ->
-              %{status: "ok", path: base}
-          end
-
-        _ ->
-          %{status: "ok", path: base}
-      end
+      parse_disk_usage(base)
     else
       %{status: "error", message: "Storage directory missing: #{base}"}
+    end
+  end
+
+  defp parse_disk_usage(base) do
+    case System.cmd("df", ["-k", base], stderr_to_stdout: true) do
+      {output, 0} -> extract_available_space(output, base)
+      _ -> %{status: "ok", path: base}
+    end
+  end
+
+  defp extract_available_space(output, base) do
+    case String.split(output, "\n", trim: true) do
+      [_header, data | _] ->
+        parts = String.split(data, ~r/\s+/)
+        available_kb = Enum.at(parts, 3, "0") |> String.to_integer()
+        %{status: "ok", available_mb: div(available_kb, 1024)}
+
+      _ ->
+        %{status: "ok", path: base}
     end
   end
 

@@ -98,20 +98,16 @@ defmodule SoundForge.Storage do
 
     if File.dir?(base) do
       orphans = find_orphaned_files(base, known_paths)
-
-      deleted_count =
-        Enum.count(orphans, fn path ->
-          case File.rm(path) do
-            :ok -> true
-            {:error, :enoent} -> true
-            _ -> false
-          end
-        end)
-
-      {:ok, deleted_count}
+      {:ok, delete_files(orphans)}
     else
       {:ok, 0}
     end
+  end
+
+  defp delete_files(paths) do
+    Enum.count(paths, fn path ->
+      File.rm(path) in [:ok, {:error, :enoent}]
+    end)
   end
 
   defp referenced_file_paths do
@@ -141,36 +137,39 @@ defmodule SoundForge.Storage do
   defp find_orphaned_files(dir, known_paths) do
     case File.ls(dir) do
       {:ok, entries} ->
-        Enum.flat_map(entries, fn entry ->
-          path = Path.join(dir, entry)
-
-          if File.dir?(path) do
-            find_orphaned_files(path, known_paths)
-          else
-            if MapSet.member?(known_paths, path), do: [], else: [path]
-          end
-        end)
+        entries
+        |> Enum.map(&Path.join(dir, &1))
+        |> Enum.flat_map(&classify_path(&1, known_paths))
 
       {:error, _} ->
         []
     end
   end
 
+  defp classify_path(path, known_paths) do
+    if File.dir?(path) do
+      find_orphaned_files(path, known_paths)
+    else
+      if MapSet.member?(known_paths, path), do: [], else: [path]
+    end
+  end
+
   defp count_files(dir) do
     dir
     |> File.ls!()
-    |> Enum.reduce({0, 0}, fn entry, {count, size} ->
-      path = Path.join(dir, entry)
+    |> Enum.map(&Path.join(dir, &1))
+    |> Enum.reduce({0, 0}, &accumulate_file_stats/2)
+  end
 
-      if File.dir?(path) do
-        {sub_count, sub_size} = count_files(path)
-        {count + sub_count, size + sub_size}
-      else
-        case File.stat(path) do
-          {:ok, %{size: file_size}} -> {count + 1, size + file_size}
-          _ -> {count, size}
-        end
+  defp accumulate_file_stats(path, {count, size}) do
+    if File.dir?(path) do
+      {sub_count, sub_size} = count_files(path)
+      {count + sub_count, size + sub_size}
+    else
+      case File.stat(path) do
+        {:ok, %{size: file_size}} -> {count + 1, size + file_size}
+        _ -> {count, size}
       end
-    end)
+    end
   end
 end
