@@ -12,7 +12,7 @@ defmodule SoundForge.Spotify.HTTPClient do
 
   @token_url "https://accounts.spotify.com/api/token"
   @api_base_url "https://api.spotify.com/v1"
-  @token_ttl 3500
+  @default_token_ttl 3500
   @token_table :spotify_tokens
 
   @doc """
@@ -129,7 +129,8 @@ defmodule SoundForge.Spotify.HTTPClient do
   end
 
   defp cache_token(token) do
-    expires_at = System.system_time(:second) + @token_ttl
+    ttl = Application.get_env(:sound_forge, :spotify_token_ttl, @default_token_ttl)
+    expires_at = System.system_time(:second) + ttl
     :ets.insert(@token_table, {:access_token, token, expires_at})
   end
 

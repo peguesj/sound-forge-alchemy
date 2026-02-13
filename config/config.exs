@@ -26,7 +26,16 @@ config :sound_forge,
   max_upload_size: 100_000_000,
   tracks_per_page: 24,
   download_quality: "320k",
-  analysis_features: ["tempo", "key", "energy", "spectral"]
+  analysis_features: ["tempo", "key", "energy", "spectral"],
+  # Audio processing timeouts (ms)
+  analyzer_timeout: 120_000,
+  demucs_timeout: 300_000,
+  demucs_output_dir: "/tmp/demucs",
+  min_audio_size: 1024,
+  # Spotify token cache TTL (seconds, Spotify tokens expire in 3600s)
+  spotify_token_ttl: 3500,
+  # API token TTL (days)
+  api_token_ttl_days: 30
 
 # Configure the endpoint
 config :sound_forge, SoundForgeWeb.Endpoint,

@@ -80,15 +80,14 @@ defmodule SoundForge.Jobs.DownloadWorker do
     Application.get_env(:sound_forge, :downloads_dir, "priv/uploads/downloads")
   end
 
-  # Minimum valid MP3 file size (a few KB - catches empty/corrupt files)
-  @min_audio_size 1024
+  @default_min_audio_size 1024
 
   defp validate_audio_file(path, file_size) do
     cond do
       !File.exists?(path) ->
         {:error, "Downloaded file does not exist"}
 
-      file_size < @min_audio_size ->
+      file_size < Application.get_env(:sound_forge, :min_audio_size, @default_min_audio_size) ->
         {:error, "Downloaded file too small (#{file_size} bytes), likely corrupt"}
 
       true ->
@@ -121,6 +120,12 @@ defmodule SoundForge.Jobs.DownloadWorker do
         }
         |> SoundForge.Jobs.ProcessingWorker.new()
         |> Oban.insert()
+        |> case do
+          {:ok, _} -> :ok
+          {:error, reason} ->
+            Logger.error("Failed to enqueue processing worker for track #{track_id}: #{inspect(reason)}")
+            {:error, reason}
+        end
 
       {:error, reason} ->
         Logger.error("Failed to create processing job for track #{track_id}: #{inspect(reason)}")

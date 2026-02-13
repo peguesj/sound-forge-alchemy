@@ -31,8 +31,7 @@ defmodule SoundForge.Audio.AnalyzerPort do
   use GenServer
   require Logger
 
-  # 2 minutes for analysis
-  @timeout 120_000
+  @default_timeout 120_000
   @valid_features ~w(tempo key energy spectral mfcc chroma all)
 
   # Client API
@@ -74,7 +73,7 @@ defmodule SoundForge.Audio.AnalyzerPort do
 
     case validate_features(features) do
       :ok ->
-        GenServer.call(server, {:analyze, audio_path, features}, @timeout)
+        GenServer.call(server, {:analyze, audio_path, features}, analyzer_timeout())
 
       {:error, invalid} ->
         {:error, {:invalid_features, invalid}}
@@ -154,6 +153,10 @@ defmodule SoundForge.Audio.AnalyzerPort do
   end
 
   # Private Helpers
+
+  defp analyzer_timeout do
+    Application.get_env(:sound_forge, :analyzer_timeout, @default_timeout)
+  end
 
   defp find_python do
     case System.find_executable("python3") || System.find_executable("python") do

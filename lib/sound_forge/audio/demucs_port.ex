@@ -28,10 +28,9 @@ defmodule SoundForge.Audio.DemucsPort do
   use GenServer
   require Logger
 
-  @timeout 300_000  # 5 minutes for stem separation
+  @default_timeout 300_000
   @valid_models ~w(htdemucs htdemucs_ft mdx_extra)
   @default_model "htdemucs"
-  @default_output_dir "/tmp/demucs"
 
   # Client API
 
@@ -76,7 +75,7 @@ defmodule SoundForge.Audio.DemucsPort do
   """
   def separate(audio_path, opts \\ []) do
     model = Keyword.get(opts, :model, @default_model)
-    output_dir = Keyword.get(opts, :output_dir, @default_output_dir)
+    output_dir = Keyword.get(opts, :output_dir, demucs_output_dir())
     progress_callback = Keyword.get(opts, :progress_callback)
 
     server = Keyword.get(opts, :server, __MODULE__)
@@ -87,7 +86,7 @@ defmodule SoundForge.Audio.DemucsPort do
         GenServer.call(
           server,
           {:separate, audio_path, model, output_dir, progress_callback},
-          @timeout
+          demucs_timeout()
         )
 
       {:error, _} = error ->
@@ -164,6 +163,14 @@ defmodule SoundForge.Audio.DemucsPort do
   end
 
   # Private Helpers
+
+  defp demucs_timeout do
+    Application.get_env(:sound_forge, :demucs_timeout, @default_timeout)
+  end
+
+  defp demucs_output_dir do
+    Application.get_env(:sound_forge, :demucs_output_dir, "/tmp/demucs")
+  end
 
   defp find_python do
     case System.find_executable("python3") || System.find_executable("python") do

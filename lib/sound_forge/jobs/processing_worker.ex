@@ -154,6 +154,12 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         }
         |> SoundForge.Jobs.AnalysisWorker.new()
         |> Oban.insert()
+        |> case do
+          {:ok, _} -> :ok
+          {:error, reason} ->
+            Logger.error("Failed to enqueue analysis worker for track #{track_id}: #{inspect(reason)}")
+            {:error, reason}
+        end
 
       {:error, reason} ->
         Logger.error("Failed to create analysis job for track #{track_id}: #{inspect(reason)}")
