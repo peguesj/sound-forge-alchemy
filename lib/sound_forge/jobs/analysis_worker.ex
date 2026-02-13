@@ -27,6 +27,7 @@ defmodule SoundForge.Jobs.AnalysisWorker do
     job = Music.get_analysis_job!(job_id)
     Music.update_analysis_job(job, %{status: :processing, progress: 0})
     broadcast_progress(job_id, :processing, 0)
+    broadcast_track_progress(track_id, :analysis, :processing, 0)
 
     case AnalyzerPort.analyze(file_path, features) do
       {:ok, results} ->
@@ -51,12 +52,22 @@ defmodule SoundForge.Jobs.AnalysisWorker do
         })
 
         broadcast_progress(job_id, :completed, 100)
+        broadcast_track_progress(track_id, :analysis, :completed, 100)
+
+        # Broadcast that the track is fully processed
+        Phoenix.PubSub.broadcast(
+          SoundForge.PubSub,
+          "track_pipeline:#{track_id}",
+          {:pipeline_complete, %{track_id: track_id}}
+        )
+
         :ok
 
       {:error, reason} ->
         error_msg = inspect(reason)
         Music.update_analysis_job(job, %{status: :failed, error: error_msg})
         broadcast_progress(job_id, :failed, 0)
+        broadcast_track_progress(track_id, :analysis, :failed, 0)
         {:error, error_msg}
     end
   end
@@ -66,6 +77,15 @@ defmodule SoundForge.Jobs.AnalysisWorker do
       SoundForge.PubSub,
       "jobs:#{job_id}",
       {:job_progress, %{job_id: job_id, status: status, progress: progress}}
+    )
+  end
+
+  defp broadcast_track_progress(track_id, stage, status, progress) do
+    Phoenix.PubSub.broadcast(
+      SoundForge.PubSub,
+      "track_pipeline:#{track_id}",
+      {:pipeline_progress,
+       %{track_id: track_id, stage: stage, status: status, progress: progress}}
     )
   end
 end

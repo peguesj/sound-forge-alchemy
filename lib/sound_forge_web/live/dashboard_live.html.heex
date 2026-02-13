@@ -41,6 +41,14 @@
 
         <!-- Analysis & Stems -->
         <div class="flex-1">
+          <!-- Pipeline Progress (if active) -->
+          <div :if={Map.has_key?(@pipelines, @track.id)} class="mb-6">
+            <SoundForgeWeb.Components.JobProgress.pipeline_progress
+              pipeline={Map.get(@pipelines, @track.id, %{})}
+              track_title={@track.title}
+            />
+          </div>
+
           <!-- Analysis Results -->
           <div :if={@analysis} class="mb-8">
             <h2 class="text-lg font-semibold text-gray-300 mb-4">Analysis</h2>
@@ -166,6 +174,27 @@
       </form>
     </div>
 
+    <!-- Active Pipelines -->
+    <div :if={map_size(@pipelines) > 0} class="px-6 pt-4">
+      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Active Pipelines</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
+        <div :for={{track_id, pipeline} <- @pipelines} class="relative">
+          <SoundForgeWeb.Components.JobProgress.pipeline_progress
+            pipeline={pipeline}
+            track_title={pipeline_track_title(@streams.tracks, track_id)}
+          />
+          <button
+            :if={pipeline_complete?(pipeline)}
+            phx-click="dismiss_pipeline"
+            phx-value-track-id={track_id}
+            class="absolute top-2 right-2 text-gray-500 hover:text-white text-xs"
+          >
+            &times;
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="flex">
       <!-- Main Content -->
       <main class="flex-1 p-6">
@@ -212,24 +241,6 @@
           <p class="text-sm mt-2">Paste a Spotify URL above to get started</p>
         </div>
       </main>
-
-      <!-- Active Jobs Sidebar -->
-      <aside :if={map_size(@active_jobs) > 0} class="w-80 bg-gray-900 border-l border-gray-800 p-4">
-        <h2 class="font-semibold text-gray-300 mb-4">Active Jobs</h2>
-        <div :for={{_job_id, job} <- @active_jobs} class="mb-3 bg-gray-800 rounded-lg p-3">
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-300"><%= job.status %></span>
-            <span class="text-purple-400"><%= job.progress %>%</span>
-          </div>
-          <div class="mt-2 bg-gray-700 rounded-full h-2">
-            <div
-              class="bg-purple-500 h-2 rounded-full transition-all"
-              style={"width: #{job.progress}%"}
-            >
-            </div>
-          </div>
-        </div>
-      </aside>
     </div>
   <% end %>
 </div>

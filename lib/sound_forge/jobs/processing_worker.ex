@@ -27,6 +27,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
     job = Music.get_processing_job!(job_id)
     Music.update_processing_job(job, %{status: :processing, progress: 0})
     broadcast_progress(job_id, :processing, 0)
+    broadcast_track_progress(track_id, :processing, :processing, 0)
 
     progress_callback = fn percent, _message ->
       Music.update_processing_job(job, %{progress: percent})
@@ -65,6 +66,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         })
 
         broadcast_progress(job_id, :completed, 100)
+        broadcast_track_progress(track_id, :processing, :completed, 100)
 
         # Chain: enqueue analysis job
         enqueue_analysis(track_id, file_path)
@@ -75,6 +77,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         error_msg = inspect(reason)
         Music.update_processing_job(job, %{status: :failed, error: error_msg})
         broadcast_progress(job_id, :failed, 0)
+        broadcast_track_progress(track_id, :processing, :failed, 0)
         {:error, error_msg}
     end
   end
@@ -102,6 +105,15 @@ defmodule SoundForge.Jobs.ProcessingWorker do
       SoundForge.PubSub,
       "jobs:#{job_id}",
       {:job_progress, %{job_id: job_id, status: status, progress: progress}}
+    )
+  end
+
+  defp broadcast_track_progress(track_id, stage, status, progress) do
+    Phoenix.PubSub.broadcast(
+      SoundForge.PubSub,
+      "track_pipeline:#{track_id}",
+      {:pipeline_progress,
+       %{track_id: track_id, stage: stage, status: status, progress: progress}}
     )
   end
 end

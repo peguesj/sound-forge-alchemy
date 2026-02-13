@@ -27,6 +27,7 @@ defmodule SoundForge.Jobs.DownloadWorker do
     job = Music.get_download_job!(job_id)
     Music.update_download_job(job, %{status: :downloading, progress: 0})
     broadcast_progress(job_id, :downloading, 0)
+    broadcast_track_progress(track_id, :download, :downloading, 0)
 
     # Execute download (yt-dlp/spotdl)
     case execute_download(spotify_url, quality, track_id) do
@@ -39,6 +40,7 @@ defmodule SoundForge.Jobs.DownloadWorker do
         })
 
         broadcast_progress(job_id, :completed, 100)
+        broadcast_track_progress(track_id, :download, :completed, 100)
 
         # Chain: enqueue stem separation
         enqueue_processing(track_id, output_path)
@@ -48,6 +50,7 @@ defmodule SoundForge.Jobs.DownloadWorker do
       {:error, reason} ->
         Music.update_download_job(job, %{status: :failed, error: reason})
         broadcast_progress(job_id, :failed, 0)
+        broadcast_track_progress(track_id, :download, :failed, 0)
         {:error, reason}
     end
   end
@@ -110,6 +113,15 @@ defmodule SoundForge.Jobs.DownloadWorker do
       SoundForge.PubSub,
       "jobs:#{job_id}",
       {:job_progress, %{job_id: job_id, status: status, progress: progress}}
+    )
+  end
+
+  defp broadcast_track_progress(track_id, stage, status, progress) do
+    Phoenix.PubSub.broadcast(
+      SoundForge.PubSub,
+      "track_pipeline:#{track_id}",
+      {:pipeline_progress,
+       %{track_id: track_id, stage: stage, status: status, progress: progress}}
     )
   end
 end
