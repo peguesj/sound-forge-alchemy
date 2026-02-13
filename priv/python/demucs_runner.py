@@ -5,7 +5,7 @@ Demucs Runner - Stem Separation Wrapper
 @description Wraps Demucs for stem separation with progress reporting
 @features Stem separation (vocals, drums, bass, other)
 @author Sound Forge Alchemy Team
-@version 2.0.0
+@version 2.1.0
 @license MIT
 """
 
@@ -17,13 +17,23 @@ import argparse
 from pathlib import Path
 
 
+def emit(data):
+    """Print JSON to stdout with explicit flush for Erlang Port communication."""
+    print(json.dumps(data), flush=True)
+
+
+def emit_error(data):
+    """Print JSON error to stderr with explicit flush."""
+    print(json.dumps(data), file=sys.stderr, flush=True)
+
+
 def run_demucs(audio_path: str, model: str = "htdemucs", output_dir: str = "/tmp/demucs"):
     """
     Run Demucs stem separation on an audio file
 
     Args:
         audio_path: Path to the audio file to process
-        model: Demucs model to use (htdemucs, htdemucs_ft, mdx_extra)
+        model: Demucs model to use (htdemucs, htdemucs_ft, htdemucs_6s, mdx_extra)
         output_dir: Directory to store output stems
 
     Returns:
@@ -31,22 +41,20 @@ def run_demucs(audio_path: str, model: str = "htdemucs", output_dir: str = "/tmp
     """
     # Validate input file
     if not os.path.exists(audio_path):
-        error_msg = json.dumps({
+        emit_error({
             "type": "error",
             "message": f"Audio file not found: {audio_path}"
         })
-        print(error_msg, file=sys.stderr)
         sys.exit(1)
 
     # Create output directory
     try:
         os.makedirs(output_dir, exist_ok=True)
     except Exception as e:
-        error_msg = json.dumps({
+        emit_error({
             "type": "error",
             "message": f"Failed to create output directory: {str(e)}"
         })
-        print(error_msg, file=sys.stderr)
         sys.exit(1)
 
     # Build Demucs command using the same Python that's running this script
@@ -59,11 +67,11 @@ def run_demucs(audio_path: str, model: str = "htdemucs", output_dir: str = "/tmp
     ]
 
     # Report progress - starting
-    print(json.dumps({
+    emit({
         "type": "progress",
         "percent": 0,
         "message": "Starting Demucs stem separation"
-    }))
+    })
 
     # Run Demucs
     try:
@@ -84,39 +92,36 @@ def run_demucs(audio_path: str, model: str = "htdemucs", output_dir: str = "/tmp
                     if len(parts) > 0:
                         percent_str = parts[0].strip().split()[-1]
                         percent = int(float(percent_str))
-                        print(json.dumps({
+                        emit({
                             "type": "progress",
                             "percent": percent,
                             "message": f"Processing: {percent}%"
-                        }))
+                        })
                 except (ValueError, IndexError):
                     pass
 
         stdout, stderr = process.communicate()
 
         if process.returncode != 0:
-            error_msg = json.dumps({
+            emit_error({
                 "type": "error",
                 "message": f"Demucs failed with exit code {process.returncode}",
                 "stderr": stderr
             })
-            print(error_msg, file=sys.stderr)
             sys.exit(1)
 
     except FileNotFoundError:
-        error_msg = json.dumps({
+        emit_error({
             "type": "error",
             "message": "Demucs not found. Please install: pip install demucs"
         })
-        print(error_msg, file=sys.stderr)
         sys.exit(1)
 
     except Exception as e:
-        error_msg = json.dumps({
+        emit_error({
             "type": "error",
             "message": f"Demucs execution failed: {str(e)}"
         })
-        print(error_msg, file=sys.stderr)
         sys.exit(1)
 
     # Locate output stems
@@ -124,11 +129,10 @@ def run_demucs(audio_path: str, model: str = "htdemucs", output_dir: str = "/tmp
     stem_dir = os.path.join(output_dir, model, track_name)
 
     if not os.path.exists(stem_dir):
-        error_msg = json.dumps({
+        emit_error({
             "type": "error",
             "message": f"Output directory not found: {stem_dir}"
         })
-        print(error_msg, file=sys.stderr)
         sys.exit(1)
 
     # Find stem files - stem types depend on model
@@ -151,22 +155,20 @@ def run_demucs(audio_path: str, model: str = "htdemucs", output_dir: str = "/tmp
     # Verify we got all expected stems
     expected = len(stem_types)
     if len(stems) != expected:
-        error_msg = json.dumps({
+        emit_error({
             "type": "error",
             "message": f"Expected {expected} stems, found {len(stems)}",
             "found": list(stems.keys())
         })
-        print(error_msg, file=sys.stderr)
         sys.exit(1)
 
     # Report success
-    result = json.dumps({
+    emit({
         "type": "result",
         "stems": stems,
         "model": model,
         "output_dir": stem_dir
     })
-    print(result)
     sys.exit(0)
 
 

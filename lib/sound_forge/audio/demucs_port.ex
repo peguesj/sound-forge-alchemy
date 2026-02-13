@@ -197,6 +197,7 @@ defmodule SoundForge.Audio.DemucsPort do
 
   defp open_port(python, script, audio_path, model, output_dir) do
     args = [
+      "-u",
       script,
       audio_path,
       "--model",
