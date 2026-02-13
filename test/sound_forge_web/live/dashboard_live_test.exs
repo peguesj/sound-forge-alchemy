@@ -229,6 +229,140 @@ defmodule SoundForgeWeb.DashboardLiveTest do
     end
   end
 
+  describe "job_progress event" do
+    test "handles job_progress messages", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      send(
+        view.pid,
+        {:job_progress,
+         %{
+           job_id: Ecto.UUID.generate(),
+           status: :downloading,
+           progress: 42
+         }}
+      )
+
+      html = render(view)
+      assert html =~ "Sound Forge Alchemy"
+    end
+  end
+
+  describe "retry pipeline" do
+    test "rejects invalid pipeline stage", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      html =
+        render_click(view, "retry_pipeline", %{
+          "track-id" => Ecto.UUID.generate(),
+          "stage" => "nonexistent_atom_xyzzy"
+        })
+
+      assert html =~ "Invalid pipeline stage"
+    end
+
+    test "retries download stage for existing track", %{conn: conn, user: user} do
+      track =
+        track_fixture(%{
+          title: "Retry Track",
+          user_id: user.id,
+          spotify_url: "https://open.spotify.com/track/abc123"
+        })
+
+      {:ok, view, _html} = live(conn, "/")
+
+      html =
+        render_click(view, "retry_pipeline", %{
+          "track-id" => track.id,
+          "stage" => "download"
+        })
+
+      assert html =~ "Retrying download"
+    end
+
+    test "retries processing stage for existing track", %{conn: conn, user: user} do
+      track = track_fixture(%{title: "Retry Processing", user_id: user.id})
+      {:ok, view, _html} = live(conn, "/")
+
+      html =
+        render_click(view, "retry_pipeline", %{
+          "track-id" => track.id,
+          "stage" => "processing"
+        })
+
+      assert html =~ "Retrying processing"
+    end
+
+    test "retries analysis stage for existing track", %{conn: conn, user: user} do
+      track = track_fixture(%{title: "Retry Analysis", user_id: user.id})
+      {:ok, view, _html} = live(conn, "/")
+
+      html =
+        render_click(view, "retry_pipeline", %{
+          "track-id" => track.id,
+          "stage" => "analysis"
+        })
+
+      assert html =~ "Retrying analysis"
+    end
+  end
+
+  describe "delete track error paths" do
+    test "shows error for nonexistent track ID", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      html =
+        render_click(view, "delete_track", %{"id" => Ecto.UUID.generate()})
+
+      assert html =~ "Track not found"
+    end
+
+    test "shows error for invalid UUID", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      html = render_click(view, "delete_track", %{"id" => "not-a-uuid"})
+      assert html =~ "Track not found"
+    end
+  end
+
+  describe "page event" do
+    test "navigates to a specific page", %{conn: conn, user: user} do
+      # Create enough tracks to paginate
+      for i <- 1..26 do
+        track_fixture(%{title: "Page Track #{i}", user_id: user.id})
+      end
+
+      {:ok, view, _html} = live(conn, "/")
+      html = render_click(view, "page", %{"page" => "2"})
+      assert html =~ "Sound Forge Alchemy"
+    end
+
+    test "handles invalid page number gracefully", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+      html = render_click(view, "page", %{"page" => "abc"})
+      assert html =~ "Sound Forge Alchemy"
+    end
+
+    test "handles negative page number", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+      html = render_click(view, "page", %{"page" => "-5"})
+      assert html =~ "Sound Forge Alchemy"
+    end
+  end
+
+  describe "sort with invalid field" do
+    test "falls back to newest for invalid sort", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      html =
+        view
+        |> element("form[phx-change='sort']")
+        |> render_change(%{"sort_by" => "nonexistent_field_xyzzy"})
+
+      assert html =~ "Sound Forge Alchemy"
+    end
+  end
+
   describe "pagination helpers" do
     test "pagination_range returns full range for small page counts" do
       assert SoundForgeWeb.DashboardLive.pagination_range(1, 5) == [1, 2, 3, 4, 5]

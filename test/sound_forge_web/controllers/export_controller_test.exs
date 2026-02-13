@@ -142,6 +142,11 @@ defmodule SoundForgeWeb.ExportControllerTest do
       conn = get(conn, ~p"/export/stems/#{track.id}")
       assert json_response(conn, 403)["error"] =~ "Access denied"
     end
+
+    test "returns 404 for invalid UUID", %{conn: conn} do
+      conn = get(conn, ~p"/export/stems/not-a-uuid")
+      assert json_response(conn, 404)["error"] =~ "not found"
+    end
   end
 
   describe "GET /export/analysis/:track_id" do
@@ -183,6 +188,45 @@ defmodule SoundForgeWeb.ExportControllerTest do
     test "returns 404 for nonexistent track", %{conn: conn} do
       conn = get(conn, ~p"/export/analysis/#{Ecto.UUID.generate()}")
       assert json_response(conn, 404)["error"] =~ "Not found"
+    end
+
+    test "returns 404 for invalid UUID", %{conn: conn} do
+      conn = get(conn, ~p"/export/analysis/not-a-uuid")
+      assert json_response(conn, 404)["error"] =~ "Not found"
+    end
+  end
+
+  describe "path traversal protection" do
+    test "stem with path traversal in file_path returns 404", %{conn: conn, user: user} do
+      track = track_fixture(%{user_id: user.id})
+      processing_job = processing_job_fixture(%{track_id: track.id})
+
+      stem =
+        stem_fixture(%{
+          track_id: track.id,
+          processing_job_id: processing_job.id,
+          stem_type: :vocals,
+          file_path: "/etc/../etc/passwd"
+        })
+
+      conn = get(conn, ~p"/export/stem/#{stem.id}")
+      assert json_response(conn, 404)["error"] =~ "not found"
+    end
+
+    test "stem with nil file_path returns 404", %{conn: conn, user: user} do
+      track = track_fixture(%{user_id: user.id})
+      processing_job = processing_job_fixture(%{track_id: track.id})
+
+      stem =
+        stem_fixture(%{
+          track_id: track.id,
+          processing_job_id: processing_job.id,
+          stem_type: :vocals,
+          file_path: nil
+        })
+
+      conn = get(conn, ~p"/export/stem/#{stem.id}")
+      assert json_response(conn, 404)["error"] =~ "not found"
     end
   end
 end
