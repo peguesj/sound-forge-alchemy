@@ -49,9 +49,9 @@ def run_demucs(audio_path: str, model: str = "htdemucs", output_dir: str = "/tmp
         print(error_msg, file=sys.stderr)
         sys.exit(1)
 
-    # Build Demucs command
+    # Build Demucs command using the same Python that's running this script
     cmd = [
-        "python", "-m", "demucs",
+        sys.executable, "-m", "demucs",
         "--mp3",           # Output as MP3
         "-n", model,       # Model name
         "-o", output_dir,  # Output directory
@@ -131,9 +131,12 @@ def run_demucs(audio_path: str, model: str = "htdemucs", output_dir: str = "/tmp
         print(error_msg, file=sys.stderr)
         sys.exit(1)
 
-    # Find stem files
+    # Find stem files - stem types depend on model
     stems = {}
-    stem_types = ["vocals", "drums", "bass", "other"]
+    if model == "htdemucs_6s":
+        stem_types = ["vocals", "drums", "bass", "guitar", "piano", "other"]
+    else:
+        stem_types = ["vocals", "drums", "bass", "other"]
 
     for stem_type in stem_types:
         stem_path = os.path.join(stem_dir, f"{stem_type}.mp3")
@@ -145,11 +148,12 @@ def run_demucs(audio_path: str, model: str = "htdemucs", output_dir: str = "/tmp
             if os.path.exists(stem_path_no_ext):
                 stems[stem_type] = stem_path_no_ext
 
-    # Verify we got all stems
-    if len(stems) != 4:
+    # Verify we got all expected stems
+    expected = len(stem_types)
+    if len(stems) != expected:
         error_msg = json.dumps({
             "type": "error",
-            "message": f"Expected 4 stems, found {len(stems)}",
+            "message": f"Expected {expected} stems, found {len(stems)}",
             "found": list(stems.keys())
         })
         print(error_msg, file=sys.stderr)
@@ -190,7 +194,7 @@ Examples:
         '--model',
         type=str,
         default='htdemucs',
-        choices=['htdemucs', 'htdemucs_ft', 'mdx_extra'],
+        choices=['htdemucs', 'htdemucs_ft', 'htdemucs_6s', 'mdx_extra'],
         help='Demucs model to use (default: htdemucs)'
     )
 
