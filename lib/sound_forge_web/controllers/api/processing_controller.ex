@@ -38,12 +38,12 @@ defmodule SoundForgeWeb.API.ProcessingController do
     model = Map.get(params, "model", "htdemucs")
     track_id = Map.get(params, "track_id")
 
-    unless File.exists?(file_path) do
+    if File.exists?(file_path) do
+      create_processing(conn, file_path, model, track_id)
+    else
       conn
       |> put_status(:bad_request)
       |> json(%{error: "Audio file not found: #{Path.basename(file_path)}"})
-    else
-      create_processing(conn, file_path, model, track_id)
     end
   end
 
