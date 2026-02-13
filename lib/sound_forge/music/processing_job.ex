@@ -5,6 +5,19 @@ defmodule SoundForge.Music.ProcessingJob do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{
+          id: binary(),
+          model: String.t() | nil,
+          status: :queued | :downloading | :processing | :completed | :failed,
+          progress: integer(),
+          output_path: String.t() | nil,
+          options: map() | nil,
+          error: String.t() | nil,
+          track_id: binary() | nil,
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
+        }
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 

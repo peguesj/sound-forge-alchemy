@@ -5,6 +5,17 @@ defmodule SoundForge.Music.Stem do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{
+          id: binary(),
+          stem_type: :vocals | :drums | :bass | :other | :guitar | :piano,
+          file_path: String.t() | nil,
+          file_size: integer() | nil,
+          processing_job_id: binary() | nil,
+          track_id: binary() | nil,
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
+        }
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 

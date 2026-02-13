@@ -80,10 +80,10 @@ defmodule SoundForgeWeb.API.AnalysisController do
           type: analysis_type
         })
 
-      {:error, changeset} ->
+      {:error, _changeset} ->
         conn
         |> put_status(:bad_request)
-        |> json(%{error: inspect(changeset.errors)})
+        |> json(%{error: "Failed to create analysis job"})
     end
   end
 

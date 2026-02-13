@@ -5,6 +5,21 @@ defmodule SoundForge.Music.AnalysisResult do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{
+          id: binary(),
+          tempo: float() | nil,
+          key: String.t() | nil,
+          energy: float() | nil,
+          spectral_centroid: float() | nil,
+          spectral_rolloff: float() | nil,
+          zero_crossing_rate: float() | nil,
+          features: map() | nil,
+          track_id: binary() | nil,
+          analysis_job_id: binary() | nil,
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
+        }
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 

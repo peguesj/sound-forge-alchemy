@@ -5,6 +5,20 @@ defmodule SoundForge.Music.Track do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{
+          id: binary(),
+          spotify_id: String.t() | nil,
+          spotify_url: String.t() | nil,
+          title: String.t() | nil,
+          artist: String.t() | nil,
+          album: String.t() | nil,
+          album_art_url: String.t() | nil,
+          duration: integer() | nil,
+          user_id: integer() | nil,
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
+        }
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 

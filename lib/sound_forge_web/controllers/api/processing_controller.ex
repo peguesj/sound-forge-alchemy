@@ -63,10 +63,10 @@ defmodule SoundForgeWeb.API.ProcessingController do
               model: model
             })
 
-          {:error, changeset} ->
+          {:error, _changeset} ->
             conn
             |> put_status(:bad_request)
-            |> json(%{error: inspect(changeset.errors)})
+            |> json(%{error: "Failed to create processing job"})
         end
 
       {:error, {:invalid_model, _}} ->
