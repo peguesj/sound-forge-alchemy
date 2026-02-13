@@ -83,26 +83,21 @@ defmodule SoundForgeWeb.API.ProcessingController do
   end
 
   def show(conn, %{"id" => id}) do
-    case Ecto.UUID.cast(id) do
-      {:ok, _} ->
-        try do
-          job = Music.get_processing_job!(id)
-
-          json(conn, %{
-            success: true,
-            job_id: job.id,
-            status: to_string(job.status),
-            progress: job.progress || 0,
-            model: job.model || "htdemucs",
-            result: job.options
-          })
-        rescue
-          Ecto.NoResultsError ->
-            conn |> put_status(:not_found) |> json(%{error: "Job not found"})
-        end
-
-      :error ->
-        conn |> put_status(:not_found) |> json(%{error: "Job not found"})
+    with {:ok, _} <- Ecto.UUID.cast(id),
+         {:ok, job} <- fetch_processing_job(id),
+         :ok <- authorize_job(conn, job) do
+      json(conn, %{
+        success: true,
+        job_id: job.id,
+        status: to_string(job.status),
+        progress: job.progress || 0,
+        model: job.model || "htdemucs",
+        result: job.options
+      })
+    else
+      {:error, :not_found} -> conn |> put_status(:not_found) |> json(%{error: "Job not found"})
+      {:error, :forbidden} -> conn |> put_status(:forbidden) |> json(%{error: "Access denied"})
+      :error -> conn |> put_status(:not_found) |> json(%{error: "Job not found"})
     end
   end
 
@@ -115,6 +110,33 @@ defmodule SoundForgeWeb.API.ProcessingController do
 
     case Music.create_track(%{title: title}) do
       {:ok, track} -> track.id
+      _ -> nil
+    end
+  end
+
+  defp fetch_processing_job(id) do
+    try do
+      job = Music.get_processing_job!(id) |> SoundForge.Repo.preload(track: [])
+      {:ok, job}
+    rescue
+      Ecto.NoResultsError -> {:error, :not_found}
+    end
+  end
+
+  defp authorize_job(conn, job) do
+    user_id = get_user_id(conn)
+    track = job.track
+
+    if is_nil(track) or is_nil(track.user_id) or track.user_id == user_id do
+      :ok
+    else
+      {:error, :forbidden}
+    end
+  end
+
+  defp get_user_id(conn) do
+    case conn.assigns do
+      %{current_user: %{id: id}} -> id
       _ -> nil
     end
   end

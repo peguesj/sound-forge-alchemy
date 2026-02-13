@@ -169,7 +169,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
       track_id = Ecto.UUID.generate()
       send(view.pid, {:pipeline_complete, %{track_id: track_id}})
 
-      html = render(view)
+      _html = render(view)
       # Pipeline should show as active (if track was found)
       # The dismiss is handled by the event
       render_click(view, "dismiss_pipeline", %{"track-id" => track_id})

@@ -5,7 +5,7 @@ defmodule SoundForge.Music.Stem do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @stem_type_values [:vocals, :drums, :bass, :other]
+  @stem_type_values [:vocals, :drums, :bass, :other, :guitar, :piano]
 
   schema "stems" do
     field :stem_type, Ecto.Enum, values: @stem_type_values

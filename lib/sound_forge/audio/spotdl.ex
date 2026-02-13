@@ -160,7 +160,10 @@ defmodule SoundForge.Audio.SpotDL do
              case File.stat(f) do
                {:ok, %{mtime: mtime}} ->
                  # File created in the last 60 seconds
-                 NaiveDateTime.diff(NaiveDateTime.utc_now(), mtime |> NaiveDateTime.from_erl!()) < 60
+                 case NaiveDateTime.from_erl(mtime) do
+                   {:ok, ndt} -> NaiveDateTime.diff(NaiveDateTime.utc_now(), ndt) < 60
+                   _ -> false
+                 end
 
                _ ->
                  false

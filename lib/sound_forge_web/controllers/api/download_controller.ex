@@ -48,25 +48,40 @@ defmodule SoundForgeWeb.API.DownloadController do
   end
 
   def show(conn, %{"id" => id}) do
-    case Ecto.UUID.cast(id) do
-      {:ok, _} ->
-        try do
-          job = Music.get_download_job!(id)
+    with {:ok, _} <- Ecto.UUID.cast(id),
+         {:ok, job} <- fetch_download_job(id),
+         :ok <- authorize_job(conn, job) do
+      json(conn, %{
+        success: true,
+        job_id: job.id,
+        status: to_string(job.status),
+        progress: job.progress || 0,
+        result: if(job.output_path, do: %{file_path: job.output_path}, else: nil)
+      })
+    else
+      {:error, :not_found} -> conn |> put_status(:not_found) |> json(%{error: "Job not found"})
+      {:error, :forbidden} -> conn |> put_status(:forbidden) |> json(%{error: "Access denied"})
+      :error -> conn |> put_status(:not_found) |> json(%{error: "Job not found"})
+    end
+  end
 
-          json(conn, %{
-            success: true,
-            job_id: job.id,
-            status: to_string(job.status),
-            progress: job.progress || 0,
-            result: if(job.output_path, do: %{file_path: job.output_path}, else: nil)
-          })
-        rescue
-          Ecto.NoResultsError ->
-            conn |> put_status(:not_found) |> json(%{error: "Job not found"})
-        end
+  defp fetch_download_job(id) do
+    try do
+      job = Music.get_download_job!(id) |> SoundForge.Repo.preload(:track)
+      {:ok, job}
+    rescue
+      Ecto.NoResultsError -> {:error, :not_found}
+    end
+  end
 
-      :error ->
-        conn |> put_status(:not_found) |> json(%{error: "Job not found"})
+  defp authorize_job(conn, job) do
+    user_id = get_user_id(conn)
+    track = job.track
+
+    if is_nil(track) or is_nil(track.user_id) or track.user_id == user_id do
+      :ok
+    else
+      {:error, :forbidden}
     end
   end
 
