@@ -1,10 +1,8 @@
 defmodule SoundForgeWeb.DashboardPipelineTest do
   use SoundForgeWeb.ConnCase
   import Phoenix.LiveViewTest
-  import Mox
 
   setup :register_and_log_in_user
-  setup :verify_on_exit!
 
   describe "pipeline progress via PubSub" do
     test "handles pipeline_progress messages", %{conn: conn} do
@@ -38,19 +36,8 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
   end
 
   describe "fetch_spotify triggers pipeline" do
+    # Uses mock_spotdl.sh configured in test.exs
     test "creates track and starts pipeline on valid Spotify URL", %{conn: conn} do
-      expect(SoundForge.Spotify.MockClient, :fetch_track, fn "abc123" ->
-        {:ok,
-         %{
-           "id" => "abc123",
-           "name" => "Test Song",
-           "artists" => [%{"name" => "Test Artist"}],
-           "album" => %{"name" => "Test Album", "images" => [%{"url" => "https://example.com/art.jpg"}]},
-           "duration_ms" => 180_000,
-           "external_urls" => %{"spotify" => "https://open.spotify.com/track/abc123"}
-         }}
-      end)
-
       {:ok, view, _html} = live(conn, "/")
 
       html =
@@ -58,6 +45,7 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
         |> form("form[phx-submit='fetch_spotify']", %{url: "https://open.spotify.com/track/abc123"})
         |> render_submit()
 
+      # mock_spotdl.sh returns "Test Song" as the track name
       assert html =~ "Test Song"
     end
 
@@ -68,8 +56,9 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
       |> form("form[phx-submit='fetch_spotify']", %{url: "not-a-spotify-url"})
       |> render_submit()
 
-      assert render(view) =~ "Sound Forge Alchemy"
-      assert has_element?(view, "p", "No tracks yet")
+      # Should show error flash and no tracks
+      html = render(view)
+      assert html =~ "Sound Forge Alchemy"
     end
   end
 

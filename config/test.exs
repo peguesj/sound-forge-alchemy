@@ -51,5 +51,8 @@ config :sound_forge, :spotify,
   client_id: "test_client_id",
   client_secret: "test_client_secret"
 
+# Use mock spotdl script for testing
+config :sound_forge, :spotdl_cmd, Path.expand("test/support/mock_spotdl.sh", __DIR__ |> Path.dirname())
+
 # Configure Oban for testing
 config :sound_forge, Oban, testing: :manual

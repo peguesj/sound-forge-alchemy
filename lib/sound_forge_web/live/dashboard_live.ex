@@ -127,10 +127,8 @@ defmodule SoundForgeWeb.DashboardLive do
   def handle_event("fetch_spotify", %{"url" => url}, socket) do
     scope = socket.assigns[:current_scope]
 
-    case fetch_spotify_metadata(url) do
-      {:ok, metadata} ->
-        tracks_data = extract_track_items(metadata)
-
+    case SoundForge.Audio.SpotDL.fetch_metadata(url) do
+      {:ok, tracks_data} ->
         socket =
           Enum.reduce(tracks_data, assign(socket, :spotify_url, ""), fn track_meta, acc ->
             case start_single_pipeline(track_meta, url, scope) do
@@ -407,12 +405,12 @@ defmodule SoundForgeWeb.DashboardLive do
   # -- Private helpers --
 
   defp start_single_pipeline(track_meta, original_url, scope) do
-    # Check for duplicate by spotify_id
-    spotify_id = track_meta["id"]
-    spotify_url = get_in(track_meta, ["external_urls", "spotify"]) || original_url
+    # spotdl uses "song_id" for the Spotify track ID
+    spotify_id = track_meta["song_id"] || track_meta["id"]
+    spotify_url = track_meta["url"] || original_url
 
     with :ok <- check_duplicate(spotify_id, scope),
-         {:ok, track} <- create_track_from_metadata(track_meta, scope),
+         {:ok, track} <- create_track_from_metadata(track_meta, spotify_url, scope),
          {:ok, download_job} <- Music.create_download_job(%{track_id: track.id, status: :queued}) do
       %{
         "track_id" => track.id,
@@ -428,29 +426,6 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
-  defp extract_track_items(%{"tracks" => %{"items" => items}}) when is_list(items) do
-    # Album response - items are track objects directly
-    Enum.map(items, fn
-      %{"track" => track} when is_map(track) -> track  # Playlist items wrap in "track"
-      item -> item
-    end)
-  end
-
-  defp extract_track_items(%{"tracks" => %{"items" => items}} = meta) when is_map(meta) do
-    # Playlist response
-    items
-    |> Enum.filter(fn item -> is_map(item) end)
-    |> Enum.map(fn
-      %{"track" => track} when is_map(track) -> track
-      item -> item
-    end)
-  end
-
-  defp extract_track_items(metadata) when is_map(metadata) do
-    # Single track - wrap in list
-    [metadata]
-  end
-
   defp check_duplicate(nil, _scope), do: :ok
 
   defp check_duplicate(spotify_id, _scope) do
@@ -460,34 +435,40 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
-  defp create_track_from_metadata(metadata, scope) do
+  defp create_track_from_metadata(metadata, spotify_url, scope) do
     user_id =
       case scope do
         %{user: %{id: id}} -> id
         _ -> nil
       end
 
+    # spotdl metadata format:
+    #   name, artists (list of strings), album_name, album_artist,
+    #   song_id, duration (seconds), cover_url, url
     attrs = %{
-      title: metadata["name"] || metadata["title"] || "Unknown",
+      title: metadata["name"] || "Unknown",
       artist: extract_artist(metadata),
-      album: get_in(metadata, ["album", "name"]) || metadata["album"],
-      album_art_url: extract_album_art(metadata),
-      spotify_id: metadata["id"],
-      spotify_url: metadata["external_urls"]["spotify"],
-      duration: metadata["duration_ms"],
+      album: metadata["album_name"] || metadata["album"],
+      album_art_url: metadata["cover_url"],
+      spotify_id: metadata["song_id"] || metadata["id"],
+      spotify_url: spotify_url,
+      duration: normalize_duration(metadata["duration"]),
       user_id: user_id
     }
 
     Music.create_track(attrs)
   end
 
+  # spotdl returns artists as a list of strings
+  defp extract_artist(%{"artists" => [name | _]}) when is_binary(name), do: name
+  # Spotify API format fallback (list of objects)
   defp extract_artist(%{"artists" => [%{"name" => name} | _]}), do: name
   defp extract_artist(%{"artist" => artist}) when is_binary(artist), do: artist
   defp extract_artist(_), do: nil
 
-  defp extract_album_art(%{"album" => %{"images" => [%{"url" => url} | _]}}), do: url
-  defp extract_album_art(%{"album_art_url" => url}) when is_binary(url), do: url
-  defp extract_album_art(_), do: nil
+  # spotdl returns duration in seconds; we store milliseconds
+  defp normalize_duration(seconds) when is_number(seconds), do: round(seconds * 1000)
+  defp normalize_duration(_), do: nil
 
   defp list_tracks(scope, opts \\ [])
 
@@ -557,14 +538,6 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   defp total_pages(_, _), do: 1
-
-  defp fetch_spotify_metadata(url) do
-    try do
-      SoundForge.Spotify.fetch_metadata(url)
-    rescue
-      _ -> {:error, "Spotify module not available"}
-    end
-  end
 
   defp retry_pipeline_stage(track_id, :download) do
     track = Music.get_track!(track_id)
