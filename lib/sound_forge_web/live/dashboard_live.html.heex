@@ -1,0 +1,93 @@
+<div class="min-h-screen bg-gray-950 text-white">
+  <!-- Header -->
+  <header class="bg-gray-900 border-b border-gray-800 px-6 py-4">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold text-purple-400">Sound Forge Alchemy</h1>
+      <span class="text-sm text-gray-500">v3.0.0</span>
+    </div>
+  </header>
+  
+<!-- Spotify Input -->
+  <div class="px-6 py-4 bg-gray-900/50">
+    <form phx-submit="fetch_spotify" class="flex gap-3">
+      <input
+        type="text"
+        name="url"
+        value={@spotify_url}
+        placeholder="Paste a Spotify URL (track, album, or playlist)..."
+        class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+      />
+      <button
+        type="submit"
+        class="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg font-medium transition-colors"
+      >
+        Fetch
+      </button>
+    </form>
+  </div>
+
+  <div class="flex">
+    <!-- Main Content -->
+    <main class="flex-1 p-6">
+      <!-- Search -->
+      <form phx-change="search" class="mb-6">
+        <input
+          type="text"
+          name="query"
+          value={@search_query}
+          placeholder="Search tracks..."
+          phx-debounce="300"
+          class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500"
+        />
+      </form>
+      
+<!-- Track Grid -->
+      <div
+        id="tracks"
+        phx-update="stream"
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+      >
+        <div
+          :for={{dom_id, track} <- @streams.tracks}
+          id={dom_id}
+          class="bg-gray-800 rounded-lg p-4 hover:bg-gray-750 transition-colors cursor-pointer border border-gray-700"
+        >
+          <div class="aspect-square bg-gray-700 rounded-md mb-3 overflow-hidden">
+            <img
+              :if={track.album_art_url}
+              src={track.album_art_url}
+              class="w-full h-full object-cover"
+              alt={track.title}
+            />
+          </div>
+          <h3 class="font-medium text-white truncate">{track.title}</h3>
+          <p class="text-sm text-gray-400 truncate">{track.artist}</p>
+          <p class="text-xs text-gray-500">{track.album}</p>
+        </div>
+      </div>
+
+      <div :if={@track_count == 0} class="text-center text-gray-500 py-12">
+        <p class="text-lg">No tracks yet</p>
+        <p class="text-sm mt-2">Paste a Spotify URL above to get started</p>
+      </div>
+    </main>
+    
+<!-- Active Jobs Sidebar -->
+    <aside :if={map_size(@active_jobs) > 0} class="w-80 bg-gray-900 border-l border-gray-800 p-4">
+      <h2 class="font-semibold text-gray-300 mb-4">Active Jobs</h2>
+      <div :for={{job_id, job} <- @active_jobs} class="mb-3 bg-gray-800 rounded-lg p-3">
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-300">{job.status}</span>
+          <span class="text-purple-400">{job.progress}%</span>
+        </div>
+        <div class="mt-2 bg-gray-700 rounded-full h-2">
+          <div
+            class="bg-purple-500 h-2 rounded-full transition-all"
+            style={"width: #{job.progress}%"}
+          >
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>

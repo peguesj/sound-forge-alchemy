@@ -7,11 +7,16 @@ defmodule SoundForge.Application do
 
   @impl true
   def start(_type, _args) do
+    # Initialize Spotify HTTP client ETS table for token caching
+    SoundForge.Spotify.HTTPClient.init()
+
     children = [
       SoundForgeWeb.Telemetry,
       SoundForge.Repo,
       {DNSCluster, query: Application.get_env(:sound_forge, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: SoundForge.PubSub},
+      # Start Oban for background job processing
+      {Oban, Application.fetch_env!(:sound_forge, Oban)},
       # Start a worker by calling: SoundForge.Worker.start_link(arg)
       # {SoundForge.Worker, arg},
       # Start to serve requests, typically the last entry

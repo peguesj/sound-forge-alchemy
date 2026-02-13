@@ -65,7 +65,13 @@ defmodule SoundForge.MixProject do
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+
+      # Background jobs (replaces Redis + custom job queue)
+      {:oban, "~> 2.18"},
+
+      # Testing
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 

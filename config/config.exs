@@ -52,6 +52,11 @@ config :tailwind,
     cd: Path.expand("..", __DIR__)
   ]
 
+# Configure Oban
+config :sound_forge, Oban,
+  repo: SoundForge.Repo,
+  queues: [download: 3, processing: 2, analysis: 2]
+
 # Configure Elixir's Logger
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",

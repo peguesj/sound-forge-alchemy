@@ -17,13 +17,34 @@ defmodule SoundForgeWeb.Router do
   scope "/", SoundForgeWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", DashboardLive, :index
+    live "/tracks/:id", DashboardLive, :show
+    get "/files/*path", FileController, :serve
   end
 
   # Other scopes may use custom stacks.
-  # scope "/api", SoundForgeWeb do
-  #   pipe_through :api
-  # end
+  scope "/", SoundForgeWeb do
+    pipe_through :api
+
+    get "/health", HealthController, :index
+  end
+
+  # API routes
+  scope "/api", SoundForgeWeb.API do
+    pipe_through :api
+
+    post "/spotify/fetch", SpotifyController, :fetch
+
+    post "/download/track", DownloadController, :create
+    get "/download/job/:id", DownloadController, :show
+
+    post "/processing/separate", ProcessingController, :create
+    get "/processing/job/:id", ProcessingController, :show
+    get "/processing/models", ProcessingController, :models
+
+    post "/analysis/analyze", AnalysisController, :create
+    get "/analysis/job/:id", AnalysisController, :show
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:sound_forge, :dev_routes) do

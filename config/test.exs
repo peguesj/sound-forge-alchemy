@@ -39,3 +39,14 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# Configure mock Spotify client for testing
+config :sound_forge, :spotify_client, SoundForge.Spotify.MockClient
+
+# Configure Spotify credentials for testing (will not be used with mock)
+config :sound_forge, :spotify,
+  client_id: "test_client_id",
+  client_secret: "test_client_secret"
+
+# Configure Oban for testing
+config :sound_forge, Oban, testing: :manual
