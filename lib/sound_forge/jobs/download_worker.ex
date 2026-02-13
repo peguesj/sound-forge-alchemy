@@ -12,6 +12,8 @@ defmodule SoundForge.Jobs.DownloadWorker do
 
   alias SoundForge.Music
 
+  require Logger
+
   @impl Oban.Worker
   def perform(%Oban.Job{
         args: %{
@@ -37,6 +39,10 @@ defmodule SoundForge.Jobs.DownloadWorker do
         })
 
         broadcast_progress(job_id, :completed, 100)
+
+        # Chain: enqueue stem separation
+        enqueue_processing(track_id, output_path)
+
         :ok
 
       {:error, reason} ->
@@ -76,6 +82,26 @@ defmodule SoundForge.Jobs.DownloadWorker do
 
       {error_output, _code} ->
         {:error, "Download failed: #{error_output}"}
+    end
+  end
+
+  defp enqueue_processing(track_id, file_path) do
+    model = Application.get_env(:sound_forge, :default_demucs_model, "htdemucs")
+
+    case Music.create_processing_job(%{track_id: track_id, model: model, status: :queued}) do
+      {:ok, processing_job} ->
+        %{
+          "track_id" => track_id,
+          "job_id" => processing_job.id,
+          "file_path" => file_path,
+          "model" => model
+        }
+        |> SoundForge.Jobs.ProcessingWorker.new()
+        |> Oban.insert()
+
+      {:error, reason} ->
+        Logger.error("Failed to create processing job for track #{track_id}: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 

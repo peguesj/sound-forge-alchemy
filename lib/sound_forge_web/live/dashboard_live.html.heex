@@ -2,92 +2,173 @@
   <!-- Header -->
   <header class="bg-gray-900 border-b border-gray-800 px-6 py-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-purple-400">Sound Forge Alchemy</h1>
+      <.link navigate={~p"/"} class="text-2xl font-bold text-purple-400 hover:text-purple-300 transition-colors">
+        Sound Forge Alchemy
+      </.link>
       <span class="text-sm text-gray-500">v3.0.0</span>
     </div>
   </header>
-  
-<!-- Spotify Input -->
-  <div class="px-6 py-4 bg-gray-900/50">
-    <form phx-submit="fetch_spotify" class="flex gap-3">
-      <input
-        type="text"
-        name="url"
-        value={@spotify_url}
-        placeholder="Paste a Spotify URL (track, album, or playlist)..."
-        class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-      />
-      <button
-        type="submit"
-        class="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg font-medium transition-colors"
-      >
-        Fetch
-      </button>
-    </form>
-  </div>
 
-  <div class="flex">
-    <!-- Main Content -->
-    <main class="flex-1 p-6">
-      <!-- Search -->
-      <form phx-change="search" class="mb-6">
-        <input
-          type="text"
-          name="query"
-          value={@search_query}
-          placeholder="Search tracks..."
-          phx-debounce="300"
-          class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500"
-        />
-      </form>
-      
-<!-- Track Grid -->
-      <div
-        id="tracks"
-        phx-update="stream"
-        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-      >
-        <div
-          :for={{dom_id, track} <- @streams.tracks}
-          id={dom_id}
-          class="bg-gray-800 rounded-lg p-4 hover:bg-gray-750 transition-colors cursor-pointer border border-gray-700"
-        >
-          <div class="aspect-square bg-gray-700 rounded-md mb-3 overflow-hidden">
+  <%= if @live_action == :show && @track do %>
+    <!-- Track Detail View -->
+    <div class="px-6 py-4">
+      <.link navigate={~p"/"} class="text-sm text-gray-400 hover:text-white transition-colors">
+        &larr; Back to library
+      </.link>
+    </div>
+
+    <div class="px-6 pb-6">
+      <div class="flex gap-8">
+        <!-- Track Info -->
+        <div class="w-64 shrink-0">
+          <div class="aspect-square bg-gray-800 rounded-lg overflow-hidden mb-4">
             <img
-              :if={track.album_art_url}
-              src={track.album_art_url}
+              :if={@track.album_art_url}
+              src={@track.album_art_url}
               class="w-full h-full object-cover"
-              alt={track.title}
+              alt={@track.title}
+            />
+            <div :if={!@track.album_art_url} class="w-full h-full flex items-center justify-center">
+              <svg class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+              </svg>
+            </div>
+          </div>
+          <h1 class="text-xl font-bold"><%= @track.title %></h1>
+          <p class="text-gray-400"><%= @track.artist %></p>
+          <p :if={@track.album} class="text-sm text-gray-500"><%= @track.album %></p>
+        </div>
+
+        <!-- Analysis & Stems -->
+        <div class="flex-1">
+          <!-- Analysis Results -->
+          <div :if={@analysis} class="mb-8">
+            <h2 class="text-lg font-semibold text-gray-300 mb-4">Analysis</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div :if={@analysis.tempo} class="bg-gray-800 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase">Tempo</p>
+                <p class="text-2xl font-bold text-purple-400"><%= Float.round(@analysis.tempo, 1) %></p>
+                <p class="text-xs text-gray-500">BPM</p>
+              </div>
+              <div :if={@analysis.key} class="bg-gray-800 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase">Key</p>
+                <p class="text-2xl font-bold text-purple-400"><%= @analysis.key %></p>
+              </div>
+              <div :if={@analysis.energy} class="bg-gray-800 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase">Energy</p>
+                <p class="text-2xl font-bold text-purple-400"><%= Float.round(@analysis.energy, 3) %></p>
+              </div>
+              <div :if={@analysis.spectral_centroid} class="bg-gray-800 rounded-lg p-4">
+                <p class="text-xs text-gray-500 uppercase">Spectral Centroid</p>
+                <p class="text-2xl font-bold text-purple-400"><%= Float.round(@analysis.spectral_centroid, 0) %></p>
+                <p class="text-xs text-gray-500">Hz</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stems -->
+          <div :if={length(@stems) > 0} class="mb-8">
+            <h2 class="text-lg font-semibold text-gray-300 mb-4">Stems</h2>
+            <.live_component
+              module={SoundForgeWeb.AudioPlayerLive}
+              id={"player-#{@track.id}"}
+              track={@track}
+              stems={@stems}
             />
           </div>
-          <h3 class="font-medium text-white truncate">{track.title}</h3>
-          <p class="text-sm text-gray-400 truncate">{track.artist}</p>
-          <p class="text-xs text-gray-500">{track.album}</p>
-        </div>
-      </div>
 
-      <div :if={@track_count == 0} class="text-center text-gray-500 py-12">
-        <p class="text-lg">No tracks yet</p>
-        <p class="text-sm mt-2">Paste a Spotify URL above to get started</p>
-      </div>
-    </main>
-    
-<!-- Active Jobs Sidebar -->
-    <aside :if={map_size(@active_jobs) > 0} class="w-80 bg-gray-900 border-l border-gray-800 p-4">
-      <h2 class="font-semibold text-gray-300 mb-4">Active Jobs</h2>
-      <div :for={{job_id, job} <- @active_jobs} class="mb-3 bg-gray-800 rounded-lg p-3">
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-300">{job.status}</span>
-          <span class="text-purple-400">{job.progress}%</span>
-        </div>
-        <div class="mt-2 bg-gray-700 rounded-full h-2">
-          <div
-            class="bg-purple-500 h-2 rounded-full transition-all"
-            style={"width: #{job.progress}%"}
-          >
+          <div :if={length(@stems) == 0} class="text-center py-12 text-gray-500">
+            <p>No stems available yet.</p>
+            <p class="text-sm mt-1">Process this track to separate it into stems.</p>
           </div>
         </div>
       </div>
-    </aside>
-  </div>
+    </div>
+  <% else %>
+    <!-- Library Index View -->
+    <!-- Spotify Input -->
+    <div class="px-6 py-4 bg-gray-900/50">
+      <form phx-submit="fetch_spotify" class="flex gap-3">
+        <input
+          type="text"
+          name="url"
+          value={@spotify_url}
+          placeholder="Paste a Spotify URL (track, album, or playlist)..."
+          class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+        />
+        <button
+          type="submit"
+          class="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg font-medium transition-colors"
+        >
+          Fetch
+        </button>
+      </form>
+    </div>
+
+    <div class="flex">
+      <!-- Main Content -->
+      <main class="flex-1 p-6">
+        <!-- Search -->
+        <form phx-change="search" class="mb-6">
+          <input
+            type="text"
+            name="query"
+            value={@search_query}
+            placeholder="Search tracks..."
+            phx-debounce="300"
+            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500"
+          />
+        </form>
+
+        <!-- Track Grid -->
+        <div
+          id="tracks"
+          phx-update="stream"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+        >
+          <.link
+            :for={{dom_id, track} <- @streams.tracks}
+            navigate={~p"/tracks/#{track.id}"}
+            id={dom_id}
+            class="bg-gray-800 rounded-lg p-4 hover:bg-gray-750 transition-colors cursor-pointer border border-gray-700 hover:border-purple-500/50"
+          >
+            <div class="aspect-square bg-gray-700 rounded-md mb-3 overflow-hidden">
+              <img
+                :if={track.album_art_url}
+                src={track.album_art_url}
+                class="w-full h-full object-cover"
+                alt={track.title}
+              />
+            </div>
+            <h3 class="font-medium text-white truncate"><%= track.title %></h3>
+            <p class="text-sm text-gray-400 truncate"><%= track.artist %></p>
+            <p class="text-xs text-gray-500"><%= track.album %></p>
+          </.link>
+        </div>
+
+        <div :if={@track_count == 0} class="text-center text-gray-500 py-12">
+          <p class="text-lg">No tracks yet</p>
+          <p class="text-sm mt-2">Paste a Spotify URL above to get started</p>
+        </div>
+      </main>
+
+      <!-- Active Jobs Sidebar -->
+      <aside :if={map_size(@active_jobs) > 0} class="w-80 bg-gray-900 border-l border-gray-800 p-4">
+        <h2 class="font-semibold text-gray-300 mb-4">Active Jobs</h2>
+        <div :for={{_job_id, job} <- @active_jobs} class="mb-3 bg-gray-800 rounded-lg p-3">
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-300"><%= job.status %></span>
+            <span class="text-purple-400"><%= job.progress %>%</span>
+          </div>
+          <div class="mt-2 bg-gray-700 rounded-full h-2">
+            <div
+              class="bg-purple-500 h-2 rounded-full transition-all"
+              style={"width: #{job.progress}%"}
+            >
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  <% end %>
 </div>

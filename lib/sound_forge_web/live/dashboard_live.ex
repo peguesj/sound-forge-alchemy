@@ -1,6 +1,8 @@
 defmodule SoundForgeWeb.DashboardLive do
   use SoundForgeWeb, :live_view
 
+  alias SoundForge.Music
+
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -14,14 +16,43 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:spotify_url, "")
       |> assign(:active_jobs, %{})
       |> assign(:track_count, 0)
+      |> assign(:track, nil)
+      |> assign(:stems, [])
+      |> assign(:analysis, nil)
       |> stream(:tracks, list_tracks())
 
     {:ok, socket}
   end
 
   @impl true
+  def handle_params(%{"id" => id}, _uri, socket) do
+    track = Music.get_track_with_details!(id)
+    analysis = List.first(track.analysis_results)
+
+    if connected?(socket) do
+      # Subscribe to job progress for this track's jobs
+      Enum.each(track.stems, fn stem ->
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, "jobs:#{stem.processing_job_id}")
+      end)
+    end
+
+    {:noreply,
+     socket
+     |> assign(:page_title, track.title)
+     |> assign(:live_action, :show)
+     |> assign(:track, track)
+     |> assign(:stems, track.stems)
+     |> assign(:analysis, analysis)}
+  rescue
+    Ecto.NoResultsError ->
+      {:noreply,
+       socket
+       |> put_flash(:error, "Track not found")
+       |> push_navigate(to: ~p"/")}
+  end
+
   def handle_params(_params, _uri, socket) do
-    {:noreply, socket}
+    {:noreply, assign(socket, :live_action, :index)}
   end
 
   @impl true
@@ -67,7 +98,7 @@ defmodule SoundForgeWeb.DashboardLive do
 
   defp list_tracks do
     try do
-      SoundForge.Music.list_tracks()
+      Music.list_tracks()
     rescue
       _ -> []
     end
@@ -75,7 +106,7 @@ defmodule SoundForgeWeb.DashboardLive do
 
   defp search_tracks(query) when byte_size(query) > 0 do
     try do
-      SoundForge.Music.search_tracks(query)
+      Music.search_tracks(query)
     rescue
       _ -> list_tracks()
     end

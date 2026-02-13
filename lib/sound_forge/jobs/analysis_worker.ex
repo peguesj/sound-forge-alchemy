@@ -1,0 +1,71 @@
+defmodule SoundForge.Jobs.AnalysisWorker do
+  @moduledoc """
+  Oban worker for audio analysis using librosa via AnalyzerPort.
+
+  Receives an analysis job ID, calls AnalyzerPort to extract audio features,
+  and creates an AnalysisResult record with the extracted data.
+  """
+  use Oban.Worker,
+    queue: :analysis,
+    max_attempts: 2,
+    priority: 2
+
+  alias SoundForge.Music
+  alias SoundForge.Audio.AnalyzerPort
+
+  require Logger
+
+  @impl Oban.Worker
+  def perform(%Oban.Job{
+        args: %{
+          "track_id" => track_id,
+          "job_id" => job_id,
+          "file_path" => file_path,
+          "features" => features
+        }
+      }) do
+    job = Music.get_analysis_job!(job_id)
+    Music.update_analysis_job(job, %{status: :processing, progress: 0})
+    broadcast_progress(job_id, :processing, 0)
+
+    case AnalyzerPort.analyze(file_path, features) do
+      {:ok, results} ->
+        # Create AnalysisResult record
+        {:ok, _analysis_result} =
+          Music.create_analysis_result(%{
+            track_id: track_id,
+            analysis_job_id: job_id,
+            tempo: get_in(results, ["tempo", "bpm"]) || results["tempo"],
+            key: get_in(results, ["key", "key"]) || results["key"],
+            energy: get_in(results, ["energy", "rms_mean"]) || results["energy"],
+            spectral_centroid: get_in(results, ["spectral", "centroid_mean"]),
+            spectral_rolloff: get_in(results, ["spectral", "rolloff_mean"]),
+            zero_crossing_rate: get_in(results, ["energy", "zcr_mean"]),
+            features: results
+          })
+
+        Music.update_analysis_job(job, %{
+          status: :completed,
+          progress: 100,
+          results: results
+        })
+
+        broadcast_progress(job_id, :completed, 100)
+        :ok
+
+      {:error, reason} ->
+        error_msg = inspect(reason)
+        Music.update_analysis_job(job, %{status: :failed, error: error_msg})
+        broadcast_progress(job_id, :failed, 0)
+        {:error, error_msg}
+    end
+  end
+
+  defp broadcast_progress(job_id, status, progress) do
+    Phoenix.PubSub.broadcast(
+      SoundForge.PubSub,
+      "jobs:#{job_id}",
+      {:job_progress, %{job_id: job_id, status: status, progress: progress}}
+    )
+  end
+end

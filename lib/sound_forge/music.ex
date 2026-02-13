@@ -67,7 +67,23 @@ defmodule SoundForge.Music do
       ** (Ecto.NoResultsError)
 
   """
+  def get_track(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, _uuid} -> {:ok, Repo.get(Track, id)}
+      :error -> {:error, :invalid_id}
+    end
+  end
+
   def get_track!(id), do: Repo.get!(Track, id)
+
+  @doc """
+  Gets a track with preloaded stems and latest analysis result.
+  """
+  def get_track_with_details!(id) do
+    Track
+    |> Repo.get!(id)
+    |> Repo.preload([:stems, :analysis_results])
+  end
 
   @doc """
   Creates a track.
