@@ -83,5 +83,65 @@ defmodule SoundForgeWeb.Plugs.RateLimiterTest do
       conn2 = RateLimiter.call(build_conn(), opts)
       refute conn2.halted
     end
+
+    test "uses X-Forwarded-For header when present" do
+      opts = RateLimiter.init(limit: 1, window_ms: 60_000)
+
+      # First request from IP "10.0.0.1"
+      conn1 =
+        build_conn()
+        |> Plug.Conn.put_req_header("x-forwarded-for", "10.0.0.1")
+        |> RateLimiter.call(opts)
+
+      refute conn1.halted
+
+      # Second request from same forwarded IP should be blocked
+      conn2 =
+        build_conn()
+        |> Plug.Conn.put_req_header("x-forwarded-for", "10.0.0.1")
+        |> RateLimiter.call(opts)
+
+      assert conn2.halted
+      assert conn2.status == 429
+    end
+
+    test "different X-Forwarded-For IPs have separate limits" do
+      opts = RateLimiter.init(limit: 1, window_ms: 60_000)
+
+      conn1 =
+        build_conn()
+        |> Plug.Conn.put_req_header("x-forwarded-for", "10.0.0.1")
+        |> RateLimiter.call(opts)
+
+      refute conn1.halted
+
+      # Different IP should still be allowed
+      conn2 =
+        build_conn()
+        |> Plug.Conn.put_req_header("x-forwarded-for", "10.0.0.2")
+        |> RateLimiter.call(opts)
+
+      refute conn2.halted
+    end
+
+    test "uses first IP from X-Forwarded-For chain" do
+      opts = RateLimiter.init(limit: 1, window_ms: 60_000)
+
+      # Multi-hop chain: client, proxy1, proxy2
+      conn1 =
+        build_conn()
+        |> Plug.Conn.put_req_header("x-forwarded-for", "10.0.0.1, 192.168.1.1, 172.16.0.1")
+        |> RateLimiter.call(opts)
+
+      refute conn1.halted
+
+      # Same client IP in chain should be blocked
+      conn2 =
+        build_conn()
+        |> Plug.Conn.put_req_header("x-forwarded-for", "10.0.0.1, 192.168.1.2")
+        |> RateLimiter.call(opts)
+
+      assert conn2.halted
+    end
   end
 end

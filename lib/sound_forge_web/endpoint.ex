@@ -8,7 +8,9 @@ defmodule SoundForgeWeb.Endpoint do
     store: :cookie,
     key: "_sound_forge_key",
     signing_salt: "MT5FKG01",
-    same_site: "Lax"
+    same_site: "Lax",
+    http_only: true,
+    secure: Mix.env() == :prod
   ]
 
   socket "/socket", SoundForgeWeb.UserSocket,

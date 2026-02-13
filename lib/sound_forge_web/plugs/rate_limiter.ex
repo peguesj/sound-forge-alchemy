@@ -57,12 +57,23 @@ defmodule SoundForgeWeb.Plugs.RateLimiter do
   end
 
   defp rate_limit_key(conn) do
-    ip =
-      conn.remote_ip
-      |> :inet.ntoa()
-      |> to_string()
-
+    ip = client_ip(conn)
     "rate:#{ip}"
+  end
+
+  defp client_ip(conn) do
+    case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
+      [forwarded | _] ->
+        forwarded
+        |> String.split(",")
+        |> List.first()
+        |> String.trim()
+
+      [] ->
+        conn.remote_ip
+        |> :inet.ntoa()
+        |> to_string()
+    end
   end
 
   defp clean_old_entries(key, window_start) do

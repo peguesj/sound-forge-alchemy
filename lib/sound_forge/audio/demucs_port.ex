@@ -70,7 +70,7 @@ defmodule SoundForge.Audio.DemucsPort do
       {:ok, result} = DemucsPort.separate("/path/to/song.mp3",
         model: "mdx_extra",
         output_dir: "/custom/output",
-        progress_callback: fn pct, message -> IO.puts("\#{pct}%: \#{message}") end
+        progress_callback: fn pct, message -> Logger.info("\#{pct}%: \#{message}") end
       )
   """
   def separate(audio_path, opts \\ []) do
