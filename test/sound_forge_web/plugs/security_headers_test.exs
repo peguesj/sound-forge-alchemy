@@ -14,5 +14,6 @@ defmodule SoundForgeWeb.Plugs.SecurityHeadersTest do
     assert headers["permissions-policy"] =~ "camera=()"
     assert headers["content-security-policy"] =~ "default-src 'self'"
     assert headers["content-security-policy"] =~ "img-src"
+    refute headers["content-security-policy"] =~ "unsafe-eval"
   end
 end

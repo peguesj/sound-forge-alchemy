@@ -31,26 +31,31 @@
     </script>
   </head>
   <body class="bg-gray-950">
-    <ul class="menu menu-horizontal w-full relative z-10 flex items-center gap-4 px-4 sm:px-6 lg:px-8 justify-end">
-      <%= if @current_scope do %>
-        <li>
-          {@current_scope.user.email}
-        </li>
-        <li>
-          <.link href={~p"/users/settings"}>Settings</.link>
-        </li>
-        <li>
-          <.link href={~p"/users/log-out"} method="delete">Log out</.link>
-        </li>
-      <% else %>
-        <li>
-          <.link href={~p"/users/register"}>Register</.link>
-        </li>
-        <li>
-          <.link href={~p"/users/log-in"}>Log in</.link>
-        </li>
-      <% end %>
-    </ul>
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:bg-purple-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg">
+      Skip to main content
+    </a>
+    <nav class="bg-gray-900/80 border-b border-gray-800" aria-label="Account navigation">
+      <ul class="flex items-center gap-4 px-4 sm:px-6 lg:px-8 justify-end py-2 text-sm text-gray-400">
+        <%= if @current_scope do %>
+          <li class="text-gray-500">
+            {@current_scope.user.email}
+          </li>
+          <li>
+            <.link href={~p"/users/settings"} class="hover:text-white transition-colors">Settings</.link>
+          </li>
+          <li>
+            <.link href={~p"/users/log-out"} method="delete" class="hover:text-white transition-colors">Log out</.link>
+          </li>
+        <% else %>
+          <li>
+            <.link href={~p"/users/register"} class="hover:text-white transition-colors">Register</.link>
+          </li>
+          <li>
+            <.link href={~p"/users/log-in"} class="hover:text-white transition-colors">Log in</.link>
+          </li>
+        <% end %>
+      </ul>
+    </nav>
     {@inner_content}
   </body>
 </html>

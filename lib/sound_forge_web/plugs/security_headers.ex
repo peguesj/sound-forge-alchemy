@@ -23,7 +23,7 @@ defmodule SoundForgeWeb.Plugs.SecurityHeaders do
   defp csp_value do
     directives = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://i.scdn.co https://*.spotifycdn.com",
       "font-src 'self' data:",

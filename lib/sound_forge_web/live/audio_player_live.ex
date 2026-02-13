@@ -49,6 +49,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
         <button
           phx-click="toggle_play"
           phx-target={@myself}
+          aria-label={if @playing, do: "Pause", else: "Play"}
           class="w-12 h-12 rounded-full bg-purple-600 hover:bg-purple-500 flex items-center justify-center transition-colors"
         >
           <svg :if={!@playing} class="w-5 h-5 ml-0.5 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -65,7 +66,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
 
         <!-- Master Volume -->
         <div class="flex items-center gap-2 ml-auto">
-          <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M3 9v6h4l5 5V4L7 9H3z"/>
           </svg>
           <input
@@ -76,6 +77,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
             phx-change="master_volume"
             phx-target={@myself}
             name="level"
+            aria-label="Master volume"
             class="w-24 accent-purple-500"
           />
           <span class="text-xs text-gray-500 w-8"><%= @master_volume %>%</span>
@@ -98,6 +100,8 @@ defmodule SoundForgeWeb.AudioPlayerLive do
             phx-click="solo_stem"
             phx-value-stem={stem.stem_type}
             phx-target={@myself}
+            aria-label={"Solo #{stem.stem_type}"}
+            aria-pressed={to_string(@solo_stem == to_string(stem.stem_type))}
             class={"px-2 py-1 rounded text-xs font-medium transition-colors " <>
               if(@solo_stem == to_string(stem.stem_type),
                 do: "bg-yellow-500 text-black",
@@ -111,6 +115,8 @@ defmodule SoundForgeWeb.AudioPlayerLive do
             phx-click="toggle_stem"
             phx-value-stem={stem.stem_type}
             phx-target={@myself}
+            aria-label={"Mute #{stem.stem_type}"}
+            aria-pressed={to_string(MapSet.member?(@muted_stems, to_string(stem.stem_type)))}
             class={"px-2 py-1 rounded text-xs font-medium transition-colors " <>
               if(MapSet.member?(@muted_stems, to_string(stem.stem_type)),
                 do: "bg-red-500/20 text-red-400",
@@ -129,6 +135,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
             phx-value-stem={stem.stem_type}
             phx-target={@myself}
             name="level"
+            aria-label={"#{String.capitalize(to_string(stem.stem_type))} volume"}
             class={"flex-1 " <> stem_accent_color(stem.stem_type)}
           />
           <span class="text-xs text-gray-500 w-8">
