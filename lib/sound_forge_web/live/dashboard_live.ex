@@ -1,4 +1,7 @@
 defmodule SoundForgeWeb.DashboardLive do
+  @moduledoc """
+  Main dashboard LiveView for track management, pipeline control, and audio playback.
+  """
   use SoundForgeWeb, :live_view
 
   alias SoundForge.Music

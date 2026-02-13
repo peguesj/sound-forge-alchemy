@@ -1,4 +1,7 @@
 defmodule SoundForgeWeb.UserSocket do
+  @moduledoc """
+  WebSocket connection handler for real-time channel communication.
+  """
   use Phoenix.Socket
 
   channel "jobs:*", SoundForgeWeb.JobChannel

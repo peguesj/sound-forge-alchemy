@@ -1,4 +1,7 @@
 defmodule SoundForgeWeb.HealthController do
+  @moduledoc """
+  Health check endpoint for monitoring and load balancers.
+  """
   use SoundForgeWeb, :controller
 
   @version "3.0.0"

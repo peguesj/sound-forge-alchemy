@@ -8,6 +8,7 @@ defmodule SoundForgeWeb.Plugs.RateLimiter do
   @default_limit 60
   @default_window_ms 60_000
 
+  @spec init(keyword()) :: %{limit: pos_integer(), window_ms: pos_integer()}
   def init(opts) do
     %{
       limit: Keyword.get(opts, :limit, @default_limit),
@@ -15,6 +16,7 @@ defmodule SoundForgeWeb.Plugs.RateLimiter do
     }
   end
 
+  @spec call(Plug.Conn.t(), %{limit: pos_integer(), window_ms: pos_integer()}) :: Plug.Conn.t()
   def call(conn, %{limit: limit, window_ms: window_ms}) do
     ensure_table()
     key = rate_limit_key(conn)

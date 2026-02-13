@@ -1,4 +1,7 @@
 defmodule SoundForgeWeb.Components.JobProgress do
+  @moduledoc """
+  Components for rendering pipeline and job progress indicators.
+  """
   use Phoenix.Component
 
   @stages [:download, :processing, :analysis]
@@ -41,6 +44,7 @@ defmodule SoundForgeWeb.Components.JobProgress do
             phx-click="retry_pipeline"
             phx-value-track-id={@pipeline[:track_id] || ""}
             phx-value-stage={stage}
+            aria-label={"Retry #{stage_label(stage)} stage"}
             class="text-xs text-red-400 hover:text-red-300 underline shrink-0"
           >
             Retry

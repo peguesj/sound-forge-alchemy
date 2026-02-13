@@ -1,4 +1,7 @@
 defmodule SoundForgeWeb.JobChannel do
+  @moduledoc """
+  Channel for real-time job progress updates via WebSocket.
+  """
   use SoundForgeWeb, :channel
 
   @impl true

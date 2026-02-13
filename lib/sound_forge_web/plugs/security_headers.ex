@@ -7,9 +7,11 @@ defmodule SoundForgeWeb.Plugs.SecurityHeaders do
   @behaviour Plug
 
   @impl true
+  @spec init(keyword()) :: keyword()
   def init(opts), do: opts
 
   @impl true
+  @spec call(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def call(conn, _opts) do
     conn
     |> put_resp_header("x-content-type-options", "nosniff")

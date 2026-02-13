@@ -1,4 +1,7 @@
 defmodule SoundForgeWeb.FileController do
+  @moduledoc """
+  Serves audio files from storage with path traversal protection.
+  """
   use SoundForgeWeb, :controller
 
   alias SoundForge.Storage

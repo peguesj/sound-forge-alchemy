@@ -11,8 +11,10 @@ defmodule SoundForgeWeb.Plugs.APIAuth do
 
   @default_token_ttl_days 30
 
+  @spec init(keyword()) :: keyword()
   def init(opts), do: opts
 
+  @spec call(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def call(conn, _opts) do
     with ["Bearer " <> token] <- get_req_header(conn, "authorization"),
          {:ok, decoded} <- Base.url_decode64(token, padding: false),

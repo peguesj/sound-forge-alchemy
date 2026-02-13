@@ -1,4 +1,7 @@
 defmodule SoundForgeWeb.AudioPlayerLive do
+  @moduledoc """
+  LiveComponent for audio playback with per-stem volume, solo, and mute controls.
+  """
   use SoundForgeWeb, :live_component
 
   @impl true

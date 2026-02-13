@@ -88,6 +88,7 @@
             phx-click="delete_track"
             phx-value-id={@track.id}
             data-confirm="Delete this track and all associated files?"
+            aria-label={"Delete #{@track.title}"}
             class="mt-4 w-full bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 border border-red-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
           >
             Delete Track
@@ -292,6 +293,7 @@
         />
         <button
           type="submit"
+          aria-label="Fetch track from Spotify URL"
           class="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg font-medium transition-colors"
         >
           Fetch
@@ -332,6 +334,7 @@
             <button
               type="submit"
               disabled={length(@uploads.audio.entries) == 0}
+              aria-label="Upload selected audio files"
               class={[
                 "px-6 py-2.5 rounded-lg font-medium transition-colors text-sm",
                 if(length(@uploads.audio.entries) > 0,
@@ -481,6 +484,7 @@
             :if={@page > 1}
             phx-click="page"
             phx-value-page={@page - 1}
+            aria-label="Go to previous page"
             class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
           >
             Previous
@@ -489,6 +493,8 @@
             <button
               phx-click="page"
               phx-value-page={p}
+              aria-label={"Go to page #{p}"}
+              aria-current={if(p == @page, do: "page")}
               class={[
                 "w-8 h-8 rounded-lg text-sm transition-colors",
                 if(p == @page,
@@ -504,6 +510,7 @@
             :if={@page < total_pages(@track_count, @per_page)}
             phx-click="page"
             phx-value-page={@page + 1}
+            aria-label="Go to next page"
             class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
           >
             Next
