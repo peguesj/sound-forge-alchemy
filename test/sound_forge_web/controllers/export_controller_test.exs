@@ -78,6 +78,36 @@ defmodule SoundForgeWeb.ExportControllerTest do
   end
 
   describe "GET /export/stems/:track_id" do
+    test "downloads zip file with stems when authorized", %{conn: conn, user: user} do
+      track = track_fixture(%{title: "My Song", user_id: user.id})
+      processing_job = processing_job_fixture(%{track_id: track.id})
+
+      # Create temp stem files
+      tmp1 = Path.join(System.tmp_dir!(), "test_vocals_#{System.unique_integer([:positive])}.wav")
+      tmp2 = Path.join(System.tmp_dir!(), "test_drums_#{System.unique_integer([:positive])}.wav")
+      File.write!(tmp1, "vocals audio data")
+      File.write!(tmp2, "drums audio data")
+
+      stem_fixture(%{track_id: track.id, processing_job_id: processing_job.id, stem_type: :vocals, file_path: tmp1})
+      stem_fixture(%{track_id: track.id, processing_job_id: processing_job.id, stem_type: :drums, file_path: tmp2})
+
+      conn = get(conn, ~p"/export/stems/#{track.id}")
+      assert response(conn, 200)
+      assert get_resp_header(conn, "content-type") |> List.first() =~ "zip"
+      assert get_resp_header(conn, "content-disposition") |> List.first() =~ "My Song"
+      assert get_resp_header(conn, "content-disposition") |> List.first() =~ ".zip"
+
+      # Verify zip content
+      {:ok, zip_entries} = :zip.list_dir(conn.resp_body)
+      # :zip.list_dir returns [:zip_comment | entries], first is comment
+      entry_names = zip_entries |> tl() |> Enum.map(fn {:zip_file, name, _, _, _, _} -> to_string(name) end)
+      assert Enum.any?(entry_names, &String.contains?(&1, "vocals"))
+      assert Enum.any?(entry_names, &String.contains?(&1, "drums"))
+
+      File.rm(tmp1)
+      File.rm(tmp2)
+    end
+
     test "returns 404 when track has no stems", %{conn: conn, user: user} do
       track = track_fixture(%{user_id: user.id})
       conn = get(conn, ~p"/export/stems/#{track.id}")

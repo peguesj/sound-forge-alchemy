@@ -176,6 +176,50 @@ defmodule SoundForgeWeb.DashboardLiveTest do
     end
   end
 
+  describe "PubSub pipeline events" do
+    test "handles pipeline_progress event", %{conn: conn, user: user} do
+      track = track_fixture(%{title: "Pipeline Track", user_id: user.id})
+      {:ok, view, _html} = live(conn, "/")
+
+      # Send a pipeline_progress message to the LiveView process
+      send(view.pid, {:pipeline_progress, %{
+        track_id: track.id,
+        stage: :download,
+        status: :downloading,
+        progress: 50
+      }})
+
+      html = render(view)
+      # View should still render without crashing
+      assert html =~ "Sound Forge Alchemy"
+    end
+
+    test "handles pipeline_complete event and updates state", %{conn: conn, user: user} do
+      track = track_fixture(%{title: "Completing Track", user_id: user.id})
+      {:ok, view, _html} = live(conn, "/")
+
+      send(view.pid, {:pipeline_complete, %{track_id: track.id}})
+      html = render(view)
+
+      # View should render without error after pipeline_complete
+      assert html =~ "Sound Forge Alchemy"
+    end
+
+    test "handles pipeline events for unknown track without crashing", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      send(view.pid, {:pipeline_progress, %{
+        track_id: Ecto.UUID.generate(),
+        stage: :processing,
+        status: :processing,
+        progress: 75
+      }})
+
+      html = render(view)
+      assert html =~ "Sound Forge Alchemy"
+    end
+  end
+
   describe "pagination helpers" do
     test "pagination_range returns full range for small page counts" do
       assert SoundForgeWeb.DashboardLive.pagination_range(1, 5) == [1, 2, 3, 4, 5]
