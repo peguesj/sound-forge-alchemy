@@ -29,7 +29,31 @@ defmodule SoundForge.Jobs.AnalysisWorker do
     broadcast_progress(job_id, :processing, 0)
     broadcast_track_progress(track_id, :analysis, :processing, 0)
 
-    case AnalyzerPort.analyze(file_path, features) do
+    # Validate input file exists
+    if !File.exists?(file_path) do
+      error_msg = "Audio file not found: #{file_path}"
+      Music.update_analysis_job(job, %{status: :failed, error: error_msg})
+      broadcast_progress(job_id, :failed, 0)
+      broadcast_track_progress(track_id, :analysis, :failed, 0)
+      {:error, error_msg}
+    else
+      do_analysis(job, track_id, job_id, file_path, features)
+    end
+  end
+
+  defp do_analysis(job, track_id, job_id, file_path, features) do
+    # Start a dedicated port process for this job
+    {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_analyzer()
+
+    result =
+      try do
+        AnalyzerPort.analyze(file_path, features, server: port_pid)
+      catch
+        :exit, reason ->
+          {:error, "Port process crashed: #{inspect(reason)}"}
+      end
+
+    case result do
       {:ok, results} ->
         # Create AnalysisResult record
         {:ok, _analysis_result} =

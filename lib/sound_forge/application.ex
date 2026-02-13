@@ -18,10 +18,12 @@ defmodule SoundForge.Application do
       SoundForge.Repo,
       {DNSCluster, query: Application.get_env(:sound_forge, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: SoundForge.PubSub},
+      # DynamicSupervisor for audio processing port processes
+      SoundForge.Audio.PortSupervisor,
       # Start Oban for background job processing
       {Oban, Application.fetch_env!(:sound_forge, Oban)},
-      # Start a worker by calling: SoundForge.Worker.start_link(arg)
-      # {SoundForge.Worker, arg},
+      # Oban telemetry handler for job lifecycle tracking
+      SoundForge.Telemetry.ObanHandler,
       # Start to serve requests, typically the last entry
       SoundForgeWeb.Endpoint
     ]

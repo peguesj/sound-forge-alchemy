@@ -30,7 +30,18 @@ defmodule SoundForgeWeb.Components.JobProgress do
             >
             </div>
           </div>
-          <span class="text-xs text-gray-500 w-8 text-right">{stage_progress(@pipeline, stage)}%</span>
+          <span :if={!stage_failed?(@pipeline, stage)} class="text-xs text-gray-500 w-8 text-right">
+            {stage_progress(@pipeline, stage)}%
+          </span>
+          <button
+            :if={stage_failed?(@pipeline, stage)}
+            phx-click="retry_pipeline"
+            phx-value-track-id={@pipeline[:track_id] || ""}
+            phx-value-stage={stage}
+            class="text-xs text-red-400 hover:text-red-300 underline shrink-0"
+          >
+            Retry
+          </button>
         </div>
       </div>
     </div>
@@ -109,6 +120,10 @@ defmodule SoundForgeWeb.Components.JobProgress do
       true ->
         "bg-purple-900 text-purple-300"
     end
+  end
+
+  defp stage_failed?(pipeline, stage) do
+    match?(%{status: :failed}, Map.get(pipeline, stage))
   end
 
   defp stage_label(:download), do: "Download"

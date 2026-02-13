@@ -93,7 +93,7 @@
                     <span><%= Float.round(@analysis.spectral_centroid, 0) %> Hz</span>
                   </div>
                   <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-purple-500 rounded-full" style={"width: #{min(100, @analysis.spectral_centroid / 80)}%"}></div>
+                    <div class="h-full bg-purple-500 rounded-full" style={"width: #{normalize_spectral(@analysis.spectral_centroid, 8000)}%"}></div>
                   </div>
                 </div>
                 <div :if={@analysis.spectral_rolloff}>
@@ -102,7 +102,7 @@
                     <span><%= Float.round(@analysis.spectral_rolloff, 0) %> Hz</span>
                   </div>
                   <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-blue-500 rounded-full" style={"width: #{min(100, @analysis.spectral_rolloff / 110)}%"}></div>
+                    <div class="h-full bg-blue-500 rounded-full" style={"width: #{normalize_spectral(@analysis.spectral_rolloff, 11025)}%"}></div>
                   </div>
                 </div>
                 <div :if={@analysis.zero_crossing_rate}>
@@ -111,7 +111,7 @@
                     <span><%= Float.round(@analysis.zero_crossing_rate, 4) %></span>
                   </div>
                   <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-green-500 rounded-full" style={"width: #{min(100, @analysis.zero_crossing_rate * 500)}%"}></div>
+                    <div class="h-full bg-green-500 rounded-full" style={"width: #{normalize_spectral(@analysis.zero_crossing_rate, 0.2)}%"}></div>
                   </div>
                 </div>
               </div>

@@ -136,6 +136,27 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, assign(socket, :pipelines, pipelines)}
   end
 
+  @impl true
+  def handle_event("retry_pipeline", %{"track-id" => track_id, "stage" => stage}, socket) do
+    case retry_pipeline_stage(track_id, String.to_existing_atom(stage)) do
+      {:ok, _} ->
+        # Reset the failed stage to queued
+        pipelines = socket.assigns.pipelines
+        pipeline = Map.get(pipelines, track_id, %{})
+        stage_atom = String.to_existing_atom(stage)
+        updated_pipeline = Map.put(pipeline, stage_atom, %{status: :queued, progress: 0})
+        pipelines = Map.put(pipelines, track_id, updated_pipeline)
+
+        {:noreply,
+         socket
+         |> assign(:pipelines, pipelines)
+         |> put_flash(:info, "Retrying #{stage}...")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Retry failed: #{reason}")}
+    end
+  end
+
   # Track-level pipeline progress (from workers)
   @impl true
   def handle_info({:pipeline_progress, %{track_id: track_id, stage: stage} = payload}, socket) do
@@ -199,6 +220,12 @@ defmodule SoundForgeWeb.DashboardLive do
     match?(%{status: :completed}, Map.get(pipeline, :analysis))
   end
 
+
+  def normalize_spectral(value, max_expected) when is_number(value) and max_expected > 0 do
+    min(100, Float.round(value / max_expected * 100, 1))
+  end
+
+  def normalize_spectral(_, _), do: 0
   # -- Private helpers --
 
   defp start_pipeline(url, scope) do
@@ -215,7 +242,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> SoundForge.Jobs.DownloadWorker.new()
       |> Oban.insert()
 
-      pipeline = %{download: %{status: :queued, progress: 0}}
+      pipeline = %{track_id: track.id, download: %{status: :queued, progress: 0}}
       {:ok, track, pipeline}
     end
   end
@@ -288,6 +315,55 @@ defmodule SoundForgeWeb.DashboardLive do
       SoundForge.Spotify.fetch_metadata(url)
     rescue
       _ -> {:error, "Spotify module not available"}
+    end
+  end
+
+  defp retry_pipeline_stage(track_id, :download) do
+    track = Music.get_track!(track_id)
+
+    with {:ok, job} <- Music.create_download_job(%{track_id: track_id, status: :queued}) do
+      %{
+        "track_id" => track_id,
+        "spotify_url" => track.spotify_url,
+        "quality" => "320k",
+        "job_id" => job.id
+      }
+      |> SoundForge.Jobs.DownloadWorker.new()
+      |> Oban.insert()
+    end
+  end
+
+  defp retry_pipeline_stage(track_id, :processing) do
+    # Find the downloaded file to re-process
+    downloads_dir = Application.get_env(:sound_forge, :downloads_dir, "priv/uploads/downloads")
+    file_path = Path.join(downloads_dir, "#{track_id}.mp3")
+    model = Application.get_env(:sound_forge, :default_demucs_model, "htdemucs")
+
+    with {:ok, job} <- Music.create_processing_job(%{track_id: track_id, model: model, status: :queued}) do
+      %{
+        "track_id" => track_id,
+        "job_id" => job.id,
+        "file_path" => file_path,
+        "model" => model
+      }
+      |> SoundForge.Jobs.ProcessingWorker.new()
+      |> Oban.insert()
+    end
+  end
+
+  defp retry_pipeline_stage(track_id, :analysis) do
+    downloads_dir = Application.get_env(:sound_forge, :downloads_dir, "priv/uploads/downloads")
+    file_path = Path.join(downloads_dir, "#{track_id}.mp3")
+
+    with {:ok, job} <- Music.create_analysis_job(%{track_id: track_id, status: :queued}) do
+      %{
+        "track_id" => track_id,
+        "job_id" => job.id,
+        "file_path" => file_path,
+        "features" => ["tempo", "key", "energy", "spectral"]
+      }
+      |> SoundForge.Jobs.AnalysisWorker.new()
+      |> Oban.insert()
     end
   end
 end

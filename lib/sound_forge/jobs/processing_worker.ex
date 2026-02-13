@@ -34,29 +34,58 @@ defmodule SoundForge.Jobs.ProcessingWorker do
       broadcast_progress(job_id, :processing, percent)
     end
 
-    case DemucsPort.separate(file_path, model: model, progress_callback: progress_callback) do
+    # Start a dedicated port process for this job
+    {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_demucs()
+
+    result =
+      try do
+        DemucsPort.separate(file_path,
+          model: model,
+          progress_callback: progress_callback,
+          server: port_pid
+        )
+      catch
+        :exit, reason ->
+          {:error, "Port process crashed: #{inspect(reason)}"}
+      end
+
+    case result do
       {:ok, %{stems: stems, output_dir: output_dir}} ->
+        # Validate stem count (htdemucs produces 4, htdemucs_6s produces 6)
+        expected = expected_stem_count(model)
+
+        if map_size(stems) < expected do
+          Logger.warning(
+            "Expected #{expected} stems from #{model}, got #{map_size(stems)} for track #{track_id}"
+          )
+        end
+
         # Create Stem records for each separated stem
         stem_records =
-          Enum.map(stems, fn {stem_type, relative_path} ->
+          Enum.flat_map(stems, fn {stem_type, relative_path} ->
             stem_path = Path.join(output_dir, relative_path)
 
-            file_size =
-              case File.stat(stem_path) do
-                {:ok, %{size: size}} -> size
-                _ -> 0
-              end
+            if File.exists?(stem_path) do
+              file_size =
+                case File.stat(stem_path) do
+                  {:ok, %{size: size}} -> size
+                  _ -> 0
+                end
 
-            {:ok, stem} =
-              Music.create_stem(%{
-                track_id: track_id,
-                processing_job_id: job_id,
-                stem_type: String.to_existing_atom(stem_type),
-                file_path: stem_path,
-                file_size: file_size
-              })
+              {:ok, stem} =
+                Music.create_stem(%{
+                  track_id: track_id,
+                  processing_job_id: job_id,
+                  stem_type: String.to_existing_atom(stem_type),
+                  file_path: stem_path,
+                  file_size: file_size
+                })
 
-            stem
+              [stem]
+            else
+              Logger.warning("Stem file missing: #{stem_path}")
+              []
+            end
           end)
 
         Music.update_processing_job(job, %{
@@ -81,6 +110,9 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         {:error, error_msg}
     end
   end
+
+  defp expected_stem_count("htdemucs_6s"), do: 6
+  defp expected_stem_count(_model), do: 4
 
   defp enqueue_analysis(track_id, file_path) do
     case Music.create_analysis_job(%{track_id: track_id, status: :queued}) do

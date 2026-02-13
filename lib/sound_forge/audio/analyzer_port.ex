@@ -41,7 +41,13 @@ defmodule SoundForge.Audio.AnalyzerPort do
   Starts the analyzer port GenServer.
   """
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    name = Keyword.get(opts, :name)
+
+    if name do
+      GenServer.start_link(__MODULE__, opts, name: name)
+    else
+      GenServer.start_link(__MODULE__, opts)
+    end
   end
 
   @doc """
@@ -63,11 +69,12 @@ defmodule SoundForge.Audio.AnalyzerPort do
       {:ok, results} = AnalyzerPort.analyze("/path/to/song.mp3", ["tempo", "key"])
       {:ok, results} = AnalyzerPort.analyze("/path/to/song.mp3", ["all"])
   """
-  def analyze(audio_path, features \\ ["tempo", "key", "energy"]) do
-    # Validate features
+  def analyze(audio_path, features \\ ["tempo", "key", "energy"], opts \\ []) do
+    server = Keyword.get(opts, :server, __MODULE__)
+
     case validate_features(features) do
       :ok ->
-        GenServer.call(__MODULE__, {:analyze, audio_path, features}, @timeout)
+        GenServer.call(server, {:analyze, audio_path, features}, @timeout)
 
       {:error, invalid} ->
         {:error, {:invalid_features, invalid}}

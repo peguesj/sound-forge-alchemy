@@ -39,7 +39,13 @@ defmodule SoundForge.Audio.DemucsPort do
   Starts the Demucs port GenServer.
   """
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    name = Keyword.get(opts, :name)
+
+    if name do
+      GenServer.start_link(__MODULE__, opts, name: name)
+    else
+      GenServer.start_link(__MODULE__, opts)
+    end
   end
 
   @doc """
@@ -73,11 +79,13 @@ defmodule SoundForge.Audio.DemucsPort do
     output_dir = Keyword.get(opts, :output_dir, @default_output_dir)
     progress_callback = Keyword.get(opts, :progress_callback)
 
+    server = Keyword.get(opts, :server, __MODULE__)
+
     # Validate model
     case validate_model(model) do
       :ok ->
         GenServer.call(
-          __MODULE__,
+          server,
           {:separate, audio_path, model, output_dir, progress_callback},
           @timeout
         )
