@@ -27,6 +27,12 @@ defmodule SoundForge.Telemetry.ObanHandler do
   @doc false
   def handle_event([:oban, :job, :start], _measurements, meta, _config) do
     Logger.info("Oban job started: #{meta.job.worker} (queue: #{meta.job.queue})")
+
+    :telemetry.execute(
+      [:sound_forge, :oban, :job, :start],
+      %{count: 1},
+      %{worker: meta.job.worker, queue: meta.job.queue}
+    )
   end
 
   def handle_event([:oban, :job, :stop], measurements, meta, _config) do
@@ -35,6 +41,12 @@ defmodule SoundForge.Telemetry.ObanHandler do
     Logger.info(
       "Oban job completed: #{meta.job.worker} in #{duration_ms}ms (queue: #{meta.job.queue})"
     )
+
+    :telemetry.execute(
+      [:sound_forge, :oban, :job, :stop],
+      %{duration_ms: duration_ms, count: 1},
+      %{worker: meta.job.worker, queue: meta.job.queue}
+    )
   end
 
   def handle_event([:oban, :job, :exception], measurements, meta, _config) do
@@ -42,6 +54,12 @@ defmodule SoundForge.Telemetry.ObanHandler do
 
     Logger.error(
       "Oban job failed: #{meta.job.worker} after #{duration_ms}ms - #{inspect(meta.reason)} (attempt #{meta.job.attempt}/#{meta.job.max_attempts})"
+    )
+
+    :telemetry.execute(
+      [:sound_forge, :oban, :job, :exception],
+      %{duration_ms: duration_ms, count: 1},
+      %{worker: meta.job.worker, queue: meta.job.queue, attempt: meta.job.attempt}
     )
 
     # Broadcast pipeline failure if this is one of our pipeline workers

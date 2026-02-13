@@ -54,5 +54,34 @@ defmodule SoundForgeWeb.Plugs.RateLimiterTest do
       assert get_resp_header(conn, "x-ratelimit-limit") == ["10"]
       assert get_resp_header(conn, "x-ratelimit-remaining") == ["9"]
     end
+
+    test "returns 429 when limit is exceeded", %{conn: conn} do
+      opts = RateLimiter.init(limit: 2, window_ms: 60_000)
+
+      # Exhaust the limit
+      _conn1 = RateLimiter.call(conn, opts)
+      _conn2 = RateLimiter.call(build_conn(), opts)
+
+      # Third request should be blocked
+      conn3 = RateLimiter.call(build_conn(), opts)
+      assert conn3.halted
+      assert conn3.status == 429
+      assert get_resp_header(conn3, "x-ratelimit-remaining") == ["0"]
+      assert get_resp_header(conn3, "retry-after") == ["60"]
+
+      body = Jason.decode!(conn3.resp_body)
+      assert body["error"] == "Too Many Requests"
+    end
+
+    test "resets after window expires" do
+      opts = RateLimiter.init(limit: 1, window_ms: 1)
+
+      _conn1 = RateLimiter.call(build_conn(), opts)
+      # Wait for the window to expire
+      Process.sleep(5)
+
+      conn2 = RateLimiter.call(build_conn(), opts)
+      refute conn2.halted
+    end
   end
 end

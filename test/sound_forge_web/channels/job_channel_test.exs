@@ -43,4 +43,24 @@ defmodule SoundForgeWeb.JobChannelTest do
 
     assert_push "job:failed", %{error: "Download failed"}
   end
+
+  test "receives pipeline:complete from PubSub", %{socket: _socket} do
+    Phoenix.PubSub.broadcast(
+      SoundForge.PubSub,
+      "jobs:test-job-123",
+      {:pipeline_complete, %{track_id: "track-abc"}}
+    )
+
+    assert_push "pipeline:complete", %{track_id: "track-abc"}
+  end
+
+  test "receives pipeline:progress from PubSub", %{socket: _socket} do
+    Phoenix.PubSub.broadcast(
+      SoundForge.PubSub,
+      "jobs:test-job-123",
+      {:pipeline_progress, %{track_id: "track-abc", stage: :processing, status: :processing, progress: 50}}
+    )
+
+    assert_push "pipeline:progress", %{track_id: "track-abc", progress: 50}
+  end
 end

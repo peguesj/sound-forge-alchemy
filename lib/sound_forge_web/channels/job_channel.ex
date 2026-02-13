@@ -26,4 +26,16 @@ defmodule SoundForgeWeb.JobChannel do
     push(socket, "job:failed", payload)
     {:noreply, socket}
   end
+
+  @impl true
+  def handle_info({:pipeline_complete, payload}, socket) do
+    push(socket, "pipeline:complete", payload)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:pipeline_progress, payload}, socket) do
+    push(socket, "pipeline:progress", payload)
+    {:noreply, socket}
+  end
 end
