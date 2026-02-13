@@ -29,11 +29,14 @@ defmodule SoundForgeWeb.ExportController do
       zip_path = create_stems_zip(track, stems)
       zip_filename = "#{sanitize_filename(track.title)}_stems.zip"
 
-      conn
-      |> put_resp_content_type("application/zip")
-      |> put_resp_header("content-disposition", ~s(attachment; filename="#{zip_filename}"))
-      |> send_file(200, zip_path)
-      |> tap(fn _ -> File.rm(zip_path) end)
+      try do
+        conn
+        |> put_resp_content_type("application/zip")
+        |> put_resp_header("content-disposition", ~s(attachment; filename="#{zip_filename}"))
+        |> send_file(200, zip_path)
+      after
+        File.rm(zip_path)
+      end
     else
       {:error, :not_found} -> conn |> put_status(:not_found) |> json(%{error: "Track not found"})
       {:error, :no_stems} -> conn |> put_status(:not_found) |> json(%{error: "No stems available"})
