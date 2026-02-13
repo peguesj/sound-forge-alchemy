@@ -41,15 +41,8 @@ defmodule SoundForgeWeb.DashboardLive do
     track = Music.get_track_with_details!(id)
 
     if owns_track?(socket, track) do
+      subscribe_to_track(socket, track)
       analysis = List.first(track.analysis_results)
-
-      if connected?(socket) do
-        Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
-
-        Enum.each(track.stems, fn stem ->
-          Phoenix.PubSub.subscribe(SoundForge.PubSub, "jobs:#{stem.processing_job_id}")
-        end)
-      end
 
       {:noreply,
        socket
@@ -183,36 +176,26 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   def handle_event("delete_track", %{"id" => id}, socket) do
-    case Music.get_track(id) do
-      {:ok, track} when not is_nil(track) ->
-        if owns_track?(socket, track) do
-          case Music.delete_track_with_files(track) do
-            {:ok, _} ->
-              pipelines = Map.delete(socket.assigns.pipelines, id)
+    with {:ok, track} <- fetch_owned_track(socket, id),
+         {:ok, _} <- Music.delete_track_with_files(track) do
+      pipelines = Map.delete(socket.assigns.pipelines, id)
 
-              {:noreply,
-               socket
-               |> stream_delete_by_dom_id(:tracks, "tracks-#{id}")
-               |> assign(:pipelines, pipelines)
-               |> update(:track_count, fn c -> max(c - 1, 0) end)
-               |> put_flash(:info, "Track deleted")
-               |> then(fn s ->
-                 if socket.assigns.live_action == :show do
-                   push_navigate(s, to: ~p"/")
-                 else
-                   s
-                 end
-               end)}
+      socket =
+        socket
+        |> stream_delete_by_dom_id(:tracks, "tracks-#{id}")
+        |> assign(:pipelines, pipelines)
+        |> update(:track_count, fn c -> max(c - 1, 0) end)
+        |> put_flash(:info, "Track deleted")
 
-            {:error, _} ->
-              {:noreply, put_flash(socket, :error, "Failed to delete track")}
-          end
-        else
-          {:noreply, put_flash(socket, :error, "Track not found")}
-        end
+      socket =
+        if socket.assigns.live_action == :show,
+          do: push_navigate(socket, to: ~p"/"),
+          else: socket
 
-      _ ->
-        {:noreply, put_flash(socket, :error, "Track not found")}
+      {:noreply, socket}
+    else
+      {:error, :not_found} -> {:noreply, put_flash(socket, :error, "Track not found")}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Failed to delete track")}
     end
   end
 
@@ -463,6 +446,16 @@ defmodule SoundForgeWeb.DashboardLive do
 
   defp scope_user_id(%{user: %{id: id}}), do: id
   defp scope_user_id(_), do: nil
+
+  defp subscribe_to_track(socket, track) do
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
+
+      Enum.each(track.stems, fn stem ->
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, "jobs:#{stem.processing_job_id}")
+      end)
+    end
+  end
 
   defp socket_user_id(socket) do
     socket.assigns[:current_user_id]
