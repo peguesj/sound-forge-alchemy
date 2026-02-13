@@ -21,6 +21,11 @@ defmodule SoundForgeWeb.Plugs.SecurityHeaders do
   end
 
   defp csp_value do
+    frame_src =
+      if Application.get_env(:sound_forge, :dev_routes),
+        do: "frame-src 'self'",
+        else: "frame-src 'none'"
+
     directives = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
@@ -29,7 +34,7 @@ defmodule SoundForgeWeb.Plugs.SecurityHeaders do
       "font-src 'self' data:",
       "connect-src 'self' ws: wss:",
       "media-src 'self' blob:",
-      "frame-src 'none'",
+      frame_src,
       "object-src 'none'",
       "base-uri 'self'"
     ]
