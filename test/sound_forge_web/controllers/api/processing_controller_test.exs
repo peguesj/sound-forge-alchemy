@@ -3,6 +3,8 @@ defmodule SoundForgeWeb.API.ProcessingControllerTest do
 
   alias SoundForge.Music
 
+  setup :register_and_auth_api_user
+
   describe "POST /api/processing/separate" do
     test "creates separation job with default model", %{conn: conn} do
       conn =

@@ -35,4 +35,65 @@ defmodule SoundForgeWeb.ConnCase do
     SoundForge.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
+
+  @doc """
+  Setup helper that registers and logs in users.
+
+      setup :register_and_log_in_user
+
+  It stores an updated connection and a registered user in the
+  test context.
+  """
+  def register_and_log_in_user(%{conn: conn} = context) do
+    user = SoundForge.AccountsFixtures.user_fixture()
+    scope = SoundForge.Accounts.Scope.for_user(user)
+
+    opts =
+      context
+      |> Map.take([:token_authenticated_at])
+      |> Enum.into([])
+
+    %{conn: log_in_user(conn, user, opts), user: user, scope: scope}
+  end
+
+  @doc """
+  Logs the given `user` into the `conn`.
+
+  It returns an updated `conn`.
+  """
+  def log_in_user(conn, user, opts \\ []) do
+    token = SoundForge.Accounts.generate_user_session_token(user)
+
+    maybe_set_token_authenticated_at(token, opts[:token_authenticated_at])
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Conn.put_session(:user_token, token)
+  end
+
+  @doc """
+  Setup helper that registers a user and adds API Bearer token auth.
+
+      setup :register_and_auth_api_user
+
+  It stores an updated connection with Bearer token, the user, and scope.
+  """
+  def register_and_auth_api_user(%{conn: conn}) do
+    user = SoundForge.AccountsFixtures.user_fixture()
+    scope = SoundForge.Accounts.Scope.for_user(user)
+    token = SoundForge.Accounts.generate_user_session_token(user)
+    encoded = Base.url_encode64(token, padding: false)
+
+    conn =
+      conn
+      |> Plug.Conn.put_req_header("authorization", "Bearer #{encoded}")
+
+    %{conn: conn, user: user, scope: scope}
+  end
+
+  defp maybe_set_token_authenticated_at(_token, nil), do: nil
+
+  defp maybe_set_token_authenticated_at(token, authenticated_at) do
+    SoundForge.AccountsFixtures.override_token_authenticated_at(token, authenticated_at)
+  end
 end

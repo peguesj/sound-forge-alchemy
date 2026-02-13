@@ -16,32 +16,20 @@ defmodule SoundForge.Music do
   # Track functions
 
   @doc """
-  Returns the list of tracks.
-
-  ## Examples
-
-      iex> list_tracks()
-      [%Track{}, ...]
-
+  Returns the list of tracks, optionally scoped to a user.
   """
   def list_tracks do
     Repo.all(Track)
   end
 
+  def list_tracks(%{user: %{id: user_id}}) do
+    Track
+    |> where([t], t.user_id == ^user_id)
+    |> Repo.all()
+  end
+
   @doc """
-  Searches tracks by title or artist.
-
-  Returns a list of tracks where the title or artist matches the given query
-  using case-insensitive pattern matching.
-
-  ## Examples
-
-      iex> search_tracks("beatles")
-      [%Track{artist: "The Beatles", ...}]
-
-      iex> search_tracks("nonexistent")
-      []
-
+  Searches tracks by title or artist, optionally scoped to a user.
   """
   def search_tracks(query) when is_binary(query) and query != "" do
     pattern = "%#{query}%"
@@ -52,6 +40,17 @@ defmodule SoundForge.Music do
   end
 
   def search_tracks(_query), do: []
+
+  def search_tracks(query, %{user: %{id: user_id}}) when is_binary(query) and query != "" do
+    pattern = "%#{query}%"
+
+    Track
+    |> where([t], t.user_id == ^user_id)
+    |> where([t], ilike(t.title, ^pattern) or ilike(t.artist, ^pattern))
+    |> Repo.all()
+  end
+
+  def search_tracks(_query, _scope), do: []
 
   @doc """
   Gets a single track.

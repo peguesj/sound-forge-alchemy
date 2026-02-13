@@ -6,6 +6,7 @@ defmodule SoundForge.AudioTest do
 
   describe "AnalyzerPort" do
     test "module compiles and exports expected functions" do
+      Code.ensure_loaded!(AnalyzerPort)
       assert function_exported?(AnalyzerPort, :start_link, 0)
       assert function_exported?(AnalyzerPort, :start_link, 1)
       assert function_exported?(AnalyzerPort, :analyze, 1)
@@ -50,9 +51,7 @@ defmodule SoundForge.AudioTest do
     end
 
     test "handles missing Python executable gracefully" do
-      # This test requires mocking System.find_executable, which is complex
-      # In a real test environment, we would use Mox or similar
-      # For now, we just verify the error handling path exists
+      Code.ensure_loaded!(AnalyzerPort)
       assert function_exported?(AnalyzerPort, :handle_call, 3)
     end
 
@@ -75,7 +74,8 @@ defmodule SoundForge.AudioTest do
 
   describe "DemucsPort" do
     test "module compiles and exports expected functions" do
-      # Note: start_link with default args creates both /0 and /1 arities
+      Code.ensure_loaded!(DemucsPort)
+      assert function_exported?(DemucsPort, :start_link, 0)
       assert function_exported?(DemucsPort, :start_link, 1)
       assert function_exported?(DemucsPort, :separate, 2)
       assert function_exported?(DemucsPort, :validate_model, 1)
@@ -124,9 +124,7 @@ defmodule SoundForge.AudioTest do
     end
 
     test "handles missing Python executable gracefully" do
-      # This test requires mocking System.find_executable, which is complex
-      # In a real test environment, we would use Mox or similar
-      # For now, we just verify the error handling path exists
+      Code.ensure_loaded!(DemucsPort)
       assert function_exported?(DemucsPort, :handle_call, 3)
     end
 

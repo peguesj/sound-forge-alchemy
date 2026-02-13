@@ -13,6 +13,7 @@ defmodule SoundForge.Music.Track do
     field :album, :string
     field :album_art_url, :string
     field :duration, :integer
+    field :user_id, :integer
 
     has_many :download_jobs, SoundForge.Music.DownloadJob
     has_many :processing_jobs, SoundForge.Music.ProcessingJob
@@ -26,7 +27,7 @@ defmodule SoundForge.Music.Track do
   @doc false
   def changeset(track, attrs) do
     track
-    |> cast(attrs, [:spotify_id, :spotify_url, :title, :artist, :album, :album_art_url, :duration])
+    |> cast(attrs, [:spotify_id, :spotify_url, :title, :artist, :album, :album_art_url, :duration, :user_id])
     |> validate_required([:title])
     |> unique_constraint(:spotify_id)
   end

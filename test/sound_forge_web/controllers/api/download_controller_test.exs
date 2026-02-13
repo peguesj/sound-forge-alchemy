@@ -3,6 +3,8 @@ defmodule SoundForgeWeb.API.DownloadControllerTest do
 
   alias SoundForge.Music
 
+  setup :register_and_auth_api_user
+
   describe "POST /api/download/track" do
     test "creates download job for valid URL", %{conn: conn} do
       conn =

@@ -3,6 +3,7 @@ defmodule SoundForgeWeb.API.SpotifyControllerTest do
 
   import Mox
 
+  setup :register_and_auth_api_user
   setup :verify_on_exit!
 
   describe "POST /api/spotify/fetch" do

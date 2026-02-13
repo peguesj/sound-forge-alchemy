@@ -1,13 +1,17 @@
 /**
- * AudioPlayer Hook - Multi-stem Web Audio API player
+ * AudioPlayer Hook - Multi-stem Web Audio API player with WaveSurfer waveform
  *
  * Loads multiple audio stems and plays them simultaneously with
  * independent volume control per stem, solo, and mute.
+ * Renders a waveform visualization using WaveSurfer.js for the first stem.
  */
+import WaveSurfer from "wavesurfer.js"
+
 const AudioPlayer = {
   mounted() {
     this.audioContext = null
     this.stems = {}
+    this.wavesurfer = null
     this.isPlaying = false
     this.startTime = 0
     this.pauseOffset = 0
@@ -49,7 +53,8 @@ const AudioPlayer = {
           gainNode: gainNode,
           source: null,
           volume: 1.0,
-          muted: false
+          muted: false,
+          url: stem.url
         }
       } catch (err) {
         console.warn(`Failed to load stem ${stem.type}:`, err)
@@ -63,6 +68,49 @@ const AudioPlayer = {
     const maxDuration = Math.max(...durations, 0)
     this.duration = maxDuration
     this.pushEvent("player_ready", { duration: maxDuration })
+
+    // Initialize WaveSurfer waveform using the first stem (vocals preferred)
+    this.initWaveform(stemData)
+  },
+
+  initWaveform(stemData) {
+    const waveformEl = this.el.querySelector("[id^='waveform-']")
+    if (!waveformEl) return
+
+    // Prefer vocals stem for waveform, fallback to first available
+    const vocalsUrl = stemData.find(s => s.type === "vocals")?.url
+    const firstUrl = stemData[0]?.url
+    const waveformUrl = vocalsUrl || firstUrl
+    if (!waveformUrl) return
+
+    this.wavesurfer = WaveSurfer.create({
+      container: waveformEl,
+      waveColor: "#6b7280",
+      progressColor: "#a855f7",
+      cursorColor: "#c084fc",
+      height: 80,
+      barWidth: 2,
+      barGap: 1,
+      barRadius: 2,
+      responsive: true,
+      interact: true,
+      // Use MediaElement backend so WaveSurfer doesn't play audio itself
+      // (we handle playback via Web Audio API for multi-stem)
+      backend: "WebAudio",
+      media: document.createElement("audio")
+    })
+
+    this.wavesurfer.load(waveformUrl)
+
+    // Mute wavesurfer's own audio - we use our Web Audio API stems
+    this.wavesurfer.setVolume(0)
+
+    // Handle click-to-seek on the waveform
+    this.wavesurfer.on("interaction", (newTime) => {
+      const seekTime = newTime * this.duration
+      this.seek(seekTime)
+      this.pushEvent("time_update", { time: seekTime })
+    })
   },
 
   togglePlay() {
@@ -117,6 +165,12 @@ const AudioPlayer = {
     if (wasPlaying) this.pause()
     this.pauseOffset = time
     if (wasPlaying) this.play()
+
+    // Update waveform cursor position
+    if (this.wavesurfer && this.duration > 0) {
+      this.wavesurfer.seekTo(time / this.duration)
+    }
+
     this.pushEvent("time_update", { time })
   },
 
@@ -148,11 +202,9 @@ const AudioPlayer = {
   soloStem(stemType) {
     Object.entries(this.stems).forEach(([type, stem]) => {
       if (stemType) {
-        // Solo mode: mute all except soloed stem
         const volume = type === stemType ? stem.volume : 0
         stem.gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime)
       } else {
-        // Unsolo: restore volumes based on mute state
         const volume = stem.muted ? 0 : stem.volume
         stem.gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime)
       }
@@ -167,8 +219,13 @@ const AudioPlayer = {
           this.pause()
           this.pauseOffset = 0
           this.pushEvent("time_update", { time: 0 })
+          if (this.wavesurfer) this.wavesurfer.seekTo(0)
         } else {
           this.pushEvent("time_update", { time: currentTime })
+          // Sync waveform cursor
+          if (this.wavesurfer && this.duration > 0) {
+            this.wavesurfer.seekTo(currentTime / this.duration)
+          }
         }
       }
     }, 250)
@@ -188,6 +245,9 @@ const AudioPlayer = {
         stem.source.stop()
       }
     })
+    if (this.wavesurfer) {
+      this.wavesurfer.destroy()
+    }
     if (this.audioContext) {
       this.audioContext.close()
     }

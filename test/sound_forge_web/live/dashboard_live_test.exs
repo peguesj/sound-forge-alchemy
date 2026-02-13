@@ -2,6 +2,8 @@ defmodule SoundForgeWeb.DashboardLiveTest do
   use SoundForgeWeb.ConnCase
   import Phoenix.LiveViewTest
 
+  setup :register_and_log_in_user
+
   test "renders dashboard page", %{conn: conn} do
     {:ok, _view, html} = live(conn, "/")
     assert html =~ "Sound Forge Alchemy"
@@ -26,5 +28,11 @@ defmodule SoundForgeWeb.DashboardLiveTest do
   test "displays version number", %{conn: conn} do
     {:ok, _view, html} = live(conn, "/")
     assert html =~ "v3.0.0"
+  end
+
+  test "redirects unauthenticated users to login", %{conn: _conn} do
+    conn = build_conn()
+    {:error, {:redirect, %{to: to}}} = live(conn, "/")
+    assert to == "/users/log-in"
   end
 end

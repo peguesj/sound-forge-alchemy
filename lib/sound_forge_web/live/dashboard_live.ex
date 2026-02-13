@@ -9,6 +9,8 @@ defmodule SoundForgeWeb.DashboardLive do
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "tracks")
     end
 
+    scope = socket.assigns[:current_scope]
+
     socket =
       socket
       |> assign(:page_title, "Sound Forge Alchemy")
@@ -19,7 +21,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:track, nil)
       |> assign(:stems, [])
       |> assign(:analysis, nil)
-      |> stream(:tracks, list_tracks())
+      |> stream(:tracks, list_tracks(scope))
 
     {:ok, socket}
   end
@@ -30,7 +32,6 @@ defmodule SoundForgeWeb.DashboardLive do
     analysis = List.first(track.analysis_results)
 
     if connected?(socket) do
-      # Subscribe to job progress for this track's jobs
       Enum.each(track.stems, fn stem ->
         Phoenix.PubSub.subscribe(SoundForge.PubSub, "jobs:#{stem.processing_job_id}")
       end)
@@ -57,7 +58,8 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   def handle_event("search", %{"query" => query}, socket) do
-    tracks = search_tracks(query)
+    scope = socket.assigns[:current_scope]
+    tracks = search_tracks(query, scope)
 
     socket =
       socket
@@ -96,7 +98,15 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, assign(socket, :active_jobs, jobs)}
   end
 
-  defp list_tracks do
+  defp list_tracks(scope) when is_map(scope) and not is_nil(scope) do
+    try do
+      Music.list_tracks(scope)
+    rescue
+      _ -> []
+    end
+  end
+
+  defp list_tracks(_scope) do
     try do
       Music.list_tracks()
     rescue
@@ -104,15 +114,23 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
-  defp search_tracks(query) when byte_size(query) > 0 do
+  defp search_tracks(query, scope) when byte_size(query) > 0 and is_map(scope) and not is_nil(scope) do
     try do
-      Music.search_tracks(query)
+      Music.search_tracks(query, scope)
     rescue
-      _ -> list_tracks()
+      _ -> list_tracks(scope)
     end
   end
 
-  defp search_tracks(_), do: list_tracks()
+  defp search_tracks(query, _scope) when byte_size(query) > 0 do
+    try do
+      Music.search_tracks(query)
+    rescue
+      _ -> list_tracks(nil)
+    end
+  end
+
+  defp search_tracks(_, scope), do: list_tracks(scope)
 
   defp fetch_spotify_metadata(url) do
     try do

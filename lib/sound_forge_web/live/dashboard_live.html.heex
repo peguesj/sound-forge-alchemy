@@ -44,7 +44,8 @@
           <!-- Analysis Results -->
           <div :if={@analysis} class="mb-8">
             <h2 class="text-lg font-semibold text-gray-300 mb-4">Analysis</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- Primary Metrics -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div :if={@analysis.tempo} class="bg-gray-800 rounded-lg p-4">
                 <p class="text-xs text-gray-500 uppercase">Tempo</p>
                 <p class="text-2xl font-bold text-purple-400"><%= Float.round(@analysis.tempo, 1) %></p>
@@ -64,6 +65,66 @@
                 <p class="text-xs text-gray-500">Hz</p>
               </div>
             </div>
+
+            <!-- Spectral Feature Bars -->
+            <div :if={@analysis.spectral_centroid || @analysis.spectral_rolloff || @analysis.zero_crossing_rate} class="bg-gray-800 rounded-lg p-4 mb-6">
+              <h3 class="text-sm font-medium text-gray-400 mb-3">Spectral Features</h3>
+              <div class="space-y-3">
+                <div :if={@analysis.spectral_centroid}>
+                  <div class="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Centroid</span>
+                    <span><%= Float.round(@analysis.spectral_centroid, 0) %> Hz</span>
+                  </div>
+                  <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-purple-500 rounded-full" style={"width: #{min(100, @analysis.spectral_centroid / 80)}%"}></div>
+                  </div>
+                </div>
+                <div :if={@analysis.spectral_rolloff}>
+                  <div class="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Rolloff</span>
+                    <span><%= Float.round(@analysis.spectral_rolloff, 0) %> Hz</span>
+                  </div>
+                  <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-500 rounded-full" style={"width: #{min(100, @analysis.spectral_rolloff / 110)}%"}></div>
+                  </div>
+                </div>
+                <div :if={@analysis.zero_crossing_rate}>
+                  <div class="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Zero Crossing Rate</span>
+                    <span><%= Float.round(@analysis.zero_crossing_rate, 4) %></span>
+                  </div>
+                  <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-green-500 rounded-full" style={"width: #{min(100, @analysis.zero_crossing_rate * 500)}%"}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Raw Features (expandable) -->
+            <details :if={@analysis.features && map_size(@analysis.features) > 0} class="bg-gray-800 rounded-lg">
+              <summary class="p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-300">
+                All Features (<%= map_size(@analysis.features) %> categories)
+              </summary>
+              <div class="px-4 pb-4 space-y-3">
+                <div :for={{category, values} <- @analysis.features} class="text-xs">
+                  <p class="text-gray-400 font-medium mb-1 capitalize"><%= category %></p>
+                  <div :if={is_map(values)} class="grid grid-cols-2 gap-x-4 gap-y-1 pl-2">
+                    <div :for={{key, val} <- values} class="flex justify-between">
+                      <span class="text-gray-500"><%= key %></span>
+                      <span :if={is_number(val)} class="text-gray-300 font-mono"><%= Float.round(val / 1, 4) %></span>
+                      <span :if={is_binary(val)} class="text-gray-300"><%= val %></span>
+                      <span :if={!is_number(val) && !is_binary(val)} class="text-gray-300"><%= inspect(val) %></span>
+                    </div>
+                  </div>
+                  <p :if={!is_map(values)} class="text-gray-300 pl-2"><%= inspect(values) %></p>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div :if={!@analysis} class="mb-8 bg-gray-800 rounded-lg p-6 text-center text-gray-500">
+            <p>No analysis data yet.</p>
+            <p class="text-sm mt-1">Analysis runs automatically after stem separation.</p>
           </div>
 
           <!-- Stems -->

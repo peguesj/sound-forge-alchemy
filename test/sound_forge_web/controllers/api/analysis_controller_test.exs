@@ -3,6 +3,8 @@ defmodule SoundForgeWeb.API.AnalysisControllerTest do
 
   alias SoundForge.Music
 
+  setup :register_and_auth_api_user
+
   describe "POST /api/analysis/analyze" do
     test "creates analysis job with default type", %{conn: conn} do
       conn =
