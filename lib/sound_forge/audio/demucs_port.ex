@@ -217,13 +217,8 @@ defmodule SoundForge.Audio.DemucsPort do
   defp extract_lines(buffer) do
     lines = String.split(buffer, "\n")
 
-    case List.pop_at(lines, -1) do
-      {incomplete, complete_lines} ->
-        {complete_lines, incomplete || ""}
-
-      nil ->
-        {[], buffer}
-    end
+    {incomplete, complete_lines} = List.pop_at(lines, -1)
+    {complete_lines, incomplete || ""}
   end
 
   defp process_json_line(line, state) do
