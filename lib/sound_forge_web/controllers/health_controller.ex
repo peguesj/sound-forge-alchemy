@@ -34,18 +34,10 @@ defmodule SoundForgeWeb.HealthController do
   end
 
   defp check_oban do
-    try do
-      queues = Oban.check_queue(conf: Oban.config())
-      running = Enum.count(queues, fn q -> q.paused == false end)
-      %{status: "ok", running_queues: running}
-    rescue
-      _ ->
-        # Fallback: just check the Oban process is alive
-        if Process.whereis(Oban) do
-          %{status: "ok"}
-        else
-          %{status: "error", message: "Oban not running"}
-        end
+    if Process.whereis(Oban.Registry) do
+      %{status: "ok"}
+    else
+      %{status: "error", message: "Oban not running"}
     end
   end
 
