@@ -179,11 +179,15 @@ defmodule SoundForgeWeb.ExportController do
     files =
       stems
       |> Enum.filter(fn stem -> stem.file_path && File.exists?(resolve_path(stem.file_path)) end)
-      |> Enum.map(fn stem ->
+      |> Enum.flat_map(fn stem ->
         full_path = resolve_path(stem.file_path)
         ext = Path.extname(full_path)
         entry_name = "#{sanitize_filename(track.title)} - #{stem.stem_type}#{ext}"
-        {String.to_charlist(entry_name), File.read!(full_path)}
+
+        case File.read(full_path) do
+          {:ok, data} -> [{String.to_charlist(entry_name), data}]
+          {:error, _} -> []
+        end
       end)
 
     {:ok, _} = :zip.create(String.to_charlist(zip_path), files)

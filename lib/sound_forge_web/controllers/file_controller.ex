@@ -36,7 +36,7 @@ defmodule SoundForgeWeb.FileController do
             |> send_file(200, path)
         end
 
-      {:error, :enoent} ->
+      {:error, _} ->
         conn |> put_status(:not_found) |> json(%{error: "File not found"})
     end
   end

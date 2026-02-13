@@ -77,5 +77,29 @@ defmodule SoundForgeWeb.FileControllerTest do
 
       assert conn.status == 416
     end
+
+    test "blocks null byte injection in path", %{conn: conn} do
+      conn = get(conn, "/files/test%00.mp3")
+      assert conn.status in [400, 403, 404]
+    end
+
+    test "blocks path with prefix overlap", %{conn: conn} do
+      # If storage base is "priv/uploads", a path like "../uploads_backup/evil.txt"
+      # should not be served even though it starts with similar prefix
+      conn = get(conn, "/files/../uploads_backup/evil.txt")
+      assert conn.status in [403, 404]
+    end
+
+    test "serves file in subdirectory", %{conn: conn} do
+      base = SoundForge.Storage.base_path()
+      sub_dir = Path.join(base, "subdir")
+      File.mkdir_p!(sub_dir)
+      File.write!(Path.join(sub_dir, "nested.mp3"), "ID3" <> :crypto.strong_rand_bytes(100))
+
+      conn = get(conn, ~p"/files/subdir/nested.mp3")
+      assert conn.status == 200
+
+      File.rm_rf!(sub_dir)
+    end
   end
 end
