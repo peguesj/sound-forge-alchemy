@@ -37,6 +37,15 @@
           <h1 class="text-xl font-bold"><%= @track.title %></h1>
           <p class="text-gray-400"><%= @track.artist %></p>
           <p :if={@track.album} class="text-sm text-gray-500"><%= @track.album %></p>
+
+          <button
+            phx-click="delete_track"
+            phx-value-id={@track.id}
+            data-confirm="Delete this track and all associated files?"
+            class="mt-4 w-full bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 border border-red-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+          >
+            Delete Track
+          </button>
         </div>
 
         <!-- Analysis & Stems -->

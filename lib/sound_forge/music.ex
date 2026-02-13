@@ -137,6 +137,40 @@ defmodule SoundForge.Music do
   end
 
   @doc """
+  Deletes a track and cleans up all associated files from storage.
+  """
+  def delete_track_with_files(%Track{} = track) do
+    track = Repo.preload(track, [:stems, :download_jobs])
+
+    # Collect file paths to clean up
+    stem_paths = Enum.map(track.stems, & &1.file_path) |> Enum.filter(& &1)
+
+    download_paths =
+      Enum.map(track.download_jobs, & &1.output_path) |> Enum.filter(& &1)
+
+    # Delete the track (cascades to jobs, stems, results via DB)
+    case Repo.delete(track) do
+      {:ok, deleted_track} ->
+        # Clean up files after successful DB delete
+        Enum.each(stem_paths ++ download_paths, fn path ->
+          full_path =
+            if String.starts_with?(path, "/") do
+              path
+            else
+              Path.join(SoundForge.Storage.base_path(), path)
+            end
+
+          File.rm(full_path)
+        end)
+
+        {:ok, deleted_track}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking track changes.
 
   ## Examples

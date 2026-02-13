@@ -1,34 +1,51 @@
 defmodule SoundForgeWeb.API.AnalysisController do
   @moduledoc """
   Controller for audio analysis operations.
+  Creates analysis jobs and enqueues Oban workers.
   """
   use SoundForgeWeb, :controller
 
+  alias SoundForge.Music
+
   action_fallback SoundForgeWeb.API.FallbackController
 
-  @doc """
-  POST /api/analysis/analyze
-  Starts an audio analysis job.
-  """
   def create(conn, %{"file_path" => file_path} = params)
       when is_binary(file_path) and file_path != "" do
     analysis_type = Map.get(params, "type", "full")
+    track_id = Map.get(params, "track_id")
+    features = type_to_features(analysis_type)
 
-    case start_analysis_job(file_path, analysis_type) do
+    # Create a track if not provided
+    track_id = track_id || create_placeholder_track(file_path)
+
+    case Music.create_analysis_job(%{
+           track_id: track_id,
+           status: :queued,
+           results: %{type: analysis_type, file_path: file_path}
+         }) do
       {:ok, job} ->
+        %{
+          "track_id" => track_id,
+          "job_id" => job.id,
+          "file_path" => file_path,
+          "features" => features
+        }
+        |> SoundForge.Jobs.AnalysisWorker.new()
+        |> Oban.insert()
+
         conn
         |> put_status(:created)
         |> json(%{
           success: true,
           job_id: job.id,
-          status: job.status,
-          type: get_in(job.results, ["type"]) || Map.get(job.results || %{}, :type, analysis_type)
+          status: to_string(job.status),
+          type: analysis_type
         })
 
-      {:error, reason} ->
+      {:error, changeset} ->
         conn
         |> put_status(:bad_request)
-        |> json(%{error: to_string(reason)})
+        |> json(%{error: inspect(changeset.errors)})
     end
   end
 
@@ -38,124 +55,42 @@ defmodule SoundForgeWeb.API.AnalysisController do
     |> json(%{error: "file_path parameter is required"})
   end
 
-  @doc """
-  GET /api/analysis/job/:id
-  Gets the status and results of an analysis job.
-  """
   def show(conn, %{"id" => id}) do
-    case get_analysis_job(id) do
-      {:ok, job} ->
-        json(conn, %{
-          success: true,
-          job_id: job.id,
-          status: job.status,
-          progress: job.progress,
-          type: get_in(job.results, ["type"]) || Map.get(job.results || %{}, :type, "full"),
-          result: job.results
-        })
+    case Ecto.UUID.cast(id) do
+      {:ok, _} ->
+        try do
+          job = Music.get_analysis_job!(id)
 
-      {:error, :not_found} ->
-        conn
-        |> put_status(:not_found)
-        |> json(%{error: "Job not found"})
+          json(conn, %{
+            success: true,
+            job_id: job.id,
+            status: to_string(job.status),
+            progress: job.progress || 0,
+            type: get_in(job.results || %{}, ["type"]) || "full",
+            result: job.results
+          })
+        rescue
+          Ecto.NoResultsError ->
+            conn |> put_status(:not_found) |> json(%{error: "Job not found"})
+        end
 
-      {:error, reason} ->
-        conn
-        |> put_status(:bad_request)
-        |> json(%{error: to_string(reason)})
+      :error ->
+        conn |> put_status(:not_found) |> json(%{error: "Job not found"})
     end
   end
 
-  # Private helpers
-  defp start_analysis_job(file_path, analysis_type) do
-    if Code.ensure_loaded?(SoundForge.Jobs.Analysis) do
-      SoundForge.Jobs.Analysis.create_job(file_path, analysis_type)
-    else
-      # Stub response
-      {:ok,
-       %{
-         id: generate_job_id(),
-         status: "pending",
-         type: analysis_type,
-         file_path: file_path
-       }}
-    end
-  rescue
-    UndefinedFunctionError ->
-      {:ok,
-       %{
-         id: generate_job_id(),
-         status: "pending",
-         type: analysis_type,
-         file_path: file_path
-       }}
-  end
+  defp type_to_features("full"), do: ["tempo", "key", "energy", "spectral"]
+  defp type_to_features("tempo"), do: ["tempo"]
+  defp type_to_features("key"), do: ["key"]
+  defp type_to_features("spectral"), do: ["spectral"]
+  defp type_to_features(type), do: [type]
 
-  defp get_analysis_job(id) do
-    if Code.ensure_loaded?(SoundForge.Jobs.Analysis) do
-      SoundForge.Jobs.Analysis.get_job(id)
-    else
-      # Stub response
-      {:ok,
-       %{
-         id: id,
-         status: "completed",
-         progress: 100,
-         type: "full",
-         result: %{
-           tempo: 120.5,
-           key: "C",
-           mode: "major",
-           time_signature: "4/4",
-           duration_ms: 180_000,
-           loudness: -8.5,
-           energy: 0.75,
-           danceability: 0.68,
-           acousticness: 0.12,
-           instrumentalness: 0.85,
-           liveness: 0.10,
-           valence: 0.60,
-           sections: [
-             %{start: 0, end: 30_000, label: "intro"},
-             %{start: 30_000, end: 90_000, label: "verse"},
-             %{start: 90_000, end: 150_000, label: "chorus"},
-             %{start: 150_000, end: 180_000, label: "outro"}
-           ]
-         }
-       }}
-    end
-  rescue
-    UndefinedFunctionError ->
-      {:ok,
-       %{
-         id: id,
-         status: "completed",
-         progress: 100,
-         type: "full",
-         result: %{
-           tempo: 120.5,
-           key: "C",
-           mode: "major",
-           time_signature: "4/4",
-           duration_ms: 180_000,
-           loudness: -8.5,
-           energy: 0.75,
-           danceability: 0.68,
-           acousticness: 0.12,
-           instrumentalness: 0.85,
-           liveness: 0.10,
-           valence: 0.60,
-           sections: [
-             %{start: 0, end: 30_000, label: "intro"},
-             %{start: 30_000, end: 90_000, label: "verse"},
-             %{start: 90_000, end: 150_000, label: "chorus"},
-             %{start: 150_000, end: 180_000, label: "outro"}
-           ]
-         }
-       }}
-  end
+  defp create_placeholder_track(file_path) do
+    title = file_path |> Path.basename() |> Path.rootname()
 
-  defp generate_job_id do
-    :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
+    case Music.create_track(%{title: title}) do
+      {:ok, track} -> track.id
+      _ -> nil
+    end
   end
 end

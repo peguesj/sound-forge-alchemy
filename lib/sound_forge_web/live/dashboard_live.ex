@@ -100,6 +100,37 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   @impl true
+  def handle_event("delete_track", %{"id" => id}, socket) do
+    case Music.get_track(id) do
+      {:ok, track} when not is_nil(track) ->
+        case Music.delete_track_with_files(track) do
+          {:ok, _} ->
+            pipelines = Map.delete(socket.assigns.pipelines, id)
+
+            {:noreply,
+             socket
+             |> stream_delete_by_dom_id(:tracks, "tracks-#{id}")
+             |> assign(:pipelines, pipelines)
+             |> update(:track_count, fn c -> max(c - 1, 0) end)
+             |> put_flash(:info, "Track deleted")
+             |> then(fn s ->
+               if socket.assigns.live_action == :show do
+                 push_navigate(s, to: ~p"/")
+               else
+                 s
+               end
+             end)}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to delete track")}
+        end
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Track not found")}
+    end
+  end
+
+  @impl true
   def handle_event("dismiss_pipeline", %{"track-id" => track_id}, socket) do
     pipelines = Map.delete(socket.assigns.pipelines, track_id)
     {:noreply, assign(socket, :pipelines, pipelines)}

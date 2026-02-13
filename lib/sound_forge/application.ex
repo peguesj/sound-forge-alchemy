@@ -10,6 +10,9 @@ defmodule SoundForge.Application do
     # Initialize Spotify HTTP client ETS table for token caching
     SoundForge.Spotify.HTTPClient.init()
 
+    # Ensure upload directories exist
+    SoundForge.Storage.ensure_directories!()
+
     children = [
       SoundForgeWeb.Telemetry,
       SoundForge.Repo,

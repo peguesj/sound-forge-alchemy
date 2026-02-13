@@ -1,26 +1,39 @@
 defmodule SoundForgeWeb.API.DownloadController do
   @moduledoc """
   Controller for track download operations.
+  Creates tracks from Spotify URLs and enqueues download jobs.
   """
   use SoundForgeWeb, :controller
 
+  alias SoundForge.Music
+
   action_fallback SoundForgeWeb.API.FallbackController
 
-  @doc """
-  POST /api/download/track
-  Starts a download job for a track.
-  """
   def create(conn, %{"url" => url}) when is_binary(url) and url != "" do
-    case start_download_job(url) do
-      {:ok, job} ->
-        conn
-        |> put_status(:created)
-        |> json(%{
-          success: true,
-          job_id: job.id,
-          status: job.status
-        })
+    user_id = get_user_id(conn)
 
+    with {:ok, metadata} <- SoundForge.Spotify.fetch_metadata(url),
+         {:ok, track} <- create_track(metadata, url, user_id),
+         {:ok, job} <- Music.create_download_job(%{track_id: track.id, status: :queued}) do
+      # Enqueue the download worker
+      %{
+        "track_id" => track.id,
+        "spotify_url" => url,
+        "quality" => "320k",
+        "job_id" => job.id
+      }
+      |> SoundForge.Jobs.DownloadWorker.new()
+      |> Oban.insert()
+
+      conn
+      |> put_status(:created)
+      |> json(%{
+        success: true,
+        job_id: job.id,
+        status: to_string(job.status),
+        track_id: track.id
+      })
+    else
       {:error, reason} ->
         conn
         |> put_status(:bad_request)
@@ -34,81 +47,54 @@ defmodule SoundForgeWeb.API.DownloadController do
     |> json(%{error: "url parameter is required"})
   end
 
-  @doc """
-  GET /api/download/job/:id
-  Gets the status of a download job.
-  """
   def show(conn, %{"id" => id}) do
-    case get_download_job(id) do
-      {:ok, job} ->
-        json(conn, %{
-          success: true,
-          job_id: job.id,
-          status: job.status,
-          progress: job.progress,
-          result: if(job.output_path, do: %{file_path: job.output_path}, else: nil)
-        })
+    case Ecto.UUID.cast(id) do
+      {:ok, _} ->
+        try do
+          job = Music.get_download_job!(id)
 
-      {:error, :not_found} ->
-        conn
-        |> put_status(:not_found)
-        |> json(%{error: "Job not found"})
+          json(conn, %{
+            success: true,
+            job_id: job.id,
+            status: to_string(job.status),
+            progress: job.progress || 0,
+            result: if(job.output_path, do: %{file_path: job.output_path}, else: nil)
+          })
+        rescue
+          Ecto.NoResultsError ->
+            conn |> put_status(:not_found) |> json(%{error: "Job not found"})
+        end
 
-      {:error, reason} ->
-        conn
-        |> put_status(:bad_request)
-        |> json(%{error: to_string(reason)})
+      :error ->
+        conn |> put_status(:not_found) |> json(%{error: "Job not found"})
     end
   end
 
-  # Private helpers - try to call context modules if they exist
-  defp start_download_job(url) do
-    if Code.ensure_loaded?(SoundForge.Jobs.Download) do
-      SoundForge.Jobs.Download.create_job(url)
-    else
-      # Stub response
-      {:ok,
-       %{
-         id: generate_job_id(),
-         status: "pending",
-         url: url
-       }}
-    end
-  rescue
-    UndefinedFunctionError ->
-      {:ok,
-       %{
-         id: generate_job_id(),
-         status: "pending",
-         url: url
-       }}
+  defp create_track(metadata, url, user_id) do
+    attrs = %{
+      title: metadata["name"] || "Unknown",
+      artist: extract_artist(metadata),
+      album: get_in(metadata, ["album", "name"]),
+      album_art_url: extract_album_art(metadata),
+      spotify_id: metadata["id"],
+      spotify_url: url,
+      duration: metadata["duration_ms"],
+      user_id: user_id
+    }
+
+    Music.create_track(attrs)
   end
 
-  defp get_download_job(id) do
-    if Code.ensure_loaded?(SoundForge.Jobs.Download) do
-      SoundForge.Jobs.Download.get_job(id)
-    else
-      # Stub response
-      {:ok,
-       %{
-         id: id,
-         status: "completed",
-         progress: 100,
-         result: %{file_path: "/tmp/example.mp3"}
-       }}
-    end
-  rescue
-    UndefinedFunctionError ->
-      {:ok,
-       %{
-         id: id,
-         status: "completed",
-         progress: 100,
-         result: %{file_path: "/tmp/example.mp3"}
-       }}
-  end
+  defp extract_artist(%{"artists" => [%{"name" => name} | _]}), do: name
+  defp extract_artist(_), do: nil
 
-  defp generate_job_id do
-    :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
+  defp extract_album_art(%{"album" => %{"images" => [%{"url" => url} | _]}}), do: url
+  defp extract_album_art(_), do: nil
+
+  defp get_user_id(conn) do
+    case conn.assigns do
+      %{current_user: %{id: id}} -> id
+      _ -> nil
+    end
   end
 end
