@@ -131,6 +131,22 @@ defmodule SoundForgeWeb.ExportControllerTest do
       assert json_response(conn, 404)["error"] =~ "No stems"
     end
 
+    test "returns 422 when stem files are unreadable", %{conn: conn, user: user} do
+      track = track_fixture(%{title: "Bad Files", user_id: user.id})
+      pj = processing_job_fixture(%{track_id: track.id})
+
+      # Stems exist in DB but point to nonexistent files
+      stem_fixture(%{
+        track_id: track.id,
+        processing_job_id: pj.id,
+        stem_type: :vocals,
+        file_path: "/nonexistent/vocals.wav"
+      })
+
+      conn = get(conn, ~p"/export/stems/#{track.id}")
+      assert json_response(conn, 422)["error"] =~ "could not be read"
+    end
+
     test "returns 404 for nonexistent track", %{conn: conn} do
       conn = get(conn, ~p"/export/stems/#{Ecto.UUID.generate()}")
       assert json_response(conn, 404)["error"] =~ "not found"
