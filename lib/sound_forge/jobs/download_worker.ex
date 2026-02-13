@@ -23,6 +23,9 @@ defmodule SoundForge.Jobs.DownloadWorker do
           "job_id" => job_id
         }
       }) do
+    Logger.metadata(track_id: track_id, job_id: job_id, worker: "DownloadWorker")
+    Logger.info("Starting download from #{spotify_url}")
+
     # Update job status to downloading
     job = Music.get_download_job!(job_id)
     Music.update_download_job(job, %{status: :downloading, progress: 0})
@@ -42,6 +45,7 @@ defmodule SoundForge.Jobs.DownloadWorker do
               file_size: file_size
             })
 
+            Logger.info("Download complete, file_size=#{file_size}")
             broadcast_progress(job_id, :completed, 100)
             broadcast_track_progress(track_id, :download, :completed, 100)
 

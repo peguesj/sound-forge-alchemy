@@ -12,9 +12,17 @@ defmodule SoundForgeWeb.API.SpotifyController do
         json(conn, %{success: true, metadata: metadata})
 
       {:error, reason} ->
+        message =
+          case reason do
+            msg when is_binary(msg) -> msg
+            {:api_error, status, _body} -> "Spotify API error (#{status})"
+            atom when is_atom(atom) -> to_string(atom)
+            other -> inspect(other)
+          end
+
         conn
         |> put_status(:bad_request)
-        |> json(%{error: to_string(reason)})
+        |> json(%{error: message})
     end
   end
 

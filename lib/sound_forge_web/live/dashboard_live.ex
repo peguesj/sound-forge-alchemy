@@ -24,13 +24,13 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:analysis, nil)
       |> assign(:sort_by, :newest)
       |> assign(:page, 1)
-      |> assign(:per_page, 24)
+      |> assign(:per_page, per_page())
       |> allow_upload(:audio,
         accept: ~w(.mp3 .wav .flac .ogg .m4a .aac .wma),
         max_entries: 5,
-        max_file_size: 100_000_000
+        max_file_size: Application.get_env(:sound_forge, :max_upload_size, 100_000_000)
       )
-      |> stream(:tracks, list_tracks(scope, page: 1, per_page: 24))
+      |> stream(:tracks, list_tracks(scope, page: 1, per_page: per_page()))
 
     {:ok, socket}
   end
@@ -81,9 +81,18 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, socket}
   end
 
+  @valid_sort_fields ~w(newest oldest title artist)a
+
   @impl true
   def handle_event("sort", %{"sort_by" => sort_by}, socket) do
-    sort_atom = String.to_existing_atom(sort_by)
+    sort_atom =
+      try do
+        atom = String.to_existing_atom(sort_by)
+        if atom in @valid_sort_fields, do: atom, else: :newest
+      rescue
+        ArgumentError -> :newest
+      end
+
     scope = socket.assigns[:current_scope]
     per_page = socket.assigns.per_page
     tracks = list_tracks(scope, sort_by: sort_atom, page: 1, per_page: per_page)
@@ -97,7 +106,12 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   def handle_event("page", %{"page" => page_str}, socket) do
-    page = String.to_integer(page_str)
+    page =
+      case Integer.parse(page_str) do
+        {n, _} when n > 0 -> n
+        _ -> 1
+      end
+
     scope = socket.assigns[:current_scope]
     per_page = socket.assigns.per_page
     sort_by = socket.assigns.sort_by
@@ -283,24 +297,36 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, assign(socket, :pipelines, pipelines)}
   end
 
+  @valid_pipeline_stages ~w(download processing analysis)a
+
   @impl true
   def handle_event("retry_pipeline", %{"track-id" => track_id, "stage" => stage}, socket) do
-    case retry_pipeline_stage(track_id, String.to_existing_atom(stage)) do
-      {:ok, _} ->
-        # Reset the failed stage to queued
-        pipelines = socket.assigns.pipelines
-        pipeline = Map.get(pipelines, track_id, %{})
-        stage_atom = String.to_existing_atom(stage)
-        updated_pipeline = Map.put(pipeline, stage_atom, %{status: :queued, progress: 0})
-        pipelines = Map.put(pipelines, track_id, updated_pipeline)
+    stage_atom =
+      try do
+        atom = String.to_existing_atom(stage)
+        if atom in @valid_pipeline_stages, do: atom, else: nil
+      rescue
+        ArgumentError -> nil
+      end
 
-        {:noreply,
-         socket
-         |> assign(:pipelines, pipelines)
-         |> put_flash(:info, "Retrying #{stage}...")}
+    if is_nil(stage_atom) do
+      {:noreply, put_flash(socket, :error, "Invalid pipeline stage")}
+    else
+      case retry_pipeline_stage(track_id, stage_atom) do
+        {:ok, _} ->
+          pipelines = socket.assigns.pipelines
+          pipeline = Map.get(pipelines, track_id, %{})
+          updated_pipeline = Map.put(pipeline, stage_atom, %{status: :queued, progress: 0})
+          pipelines = Map.put(pipelines, track_id, updated_pipeline)
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Retry failed: #{reason}")}
+          {:noreply,
+           socket
+           |> assign(:pipelines, pipelines)
+           |> put_flash(:info, "Retrying #{stage}...")}
+
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "Retry failed: #{reason}")}
+      end
     end
   end
 
@@ -391,7 +417,7 @@ defmodule SoundForgeWeb.DashboardLive do
       %{
         "track_id" => track.id,
         "spotify_url" => spotify_url,
-        "quality" => "320k",
+        "quality" => Application.get_env(:sound_forge, :download_quality, "320k"),
         "job_id" => download_job.id
       }
       |> SoundForge.Jobs.DownloadWorker.new()
@@ -524,6 +550,8 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
+  defp per_page, do: Application.get_env(:sound_forge, :tracks_per_page, 24)
+
   defp total_pages(track_count, per_page) when per_page > 0 do
     max(1, ceil(track_count / per_page))
   end
@@ -545,7 +573,7 @@ defmodule SoundForgeWeb.DashboardLive do
       %{
         "track_id" => track_id,
         "spotify_url" => track.spotify_url,
-        "quality" => "320k",
+        "quality" => Application.get_env(:sound_forge, :download_quality, "320k"),
         "job_id" => job.id
       }
       |> SoundForge.Jobs.DownloadWorker.new()
@@ -580,7 +608,7 @@ defmodule SoundForgeWeb.DashboardLive do
         "track_id" => track_id,
         "job_id" => job.id,
         "file_path" => file_path,
-        "features" => ["tempo", "key", "energy", "spectral"]
+        "features" => Application.get_env(:sound_forge, :analysis_features, ["tempo", "key", "energy", "spectral"])
       }
       |> SoundForge.Jobs.AnalysisWorker.new()
       |> Oban.insert()

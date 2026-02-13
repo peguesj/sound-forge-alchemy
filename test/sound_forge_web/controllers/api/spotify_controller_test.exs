@@ -58,5 +58,64 @@ defmodule SoundForgeWeb.API.SpotifyControllerTest do
 
       assert %{"error" => "url parameter is required"} = json_response(conn, 400)
     end
+
+    test "returns error for invalid Spotify URL format", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post("/api/spotify/fetch", %{url: "https://example.com/not-spotify"})
+
+      assert %{"error" => _} = json_response(conn, 400)
+    end
+
+    test "returns metadata for album URL", %{conn: conn} do
+      expect(SoundForge.Spotify.MockClient, :fetch_album, fn "album123" ->
+        {:ok,
+         %{
+           "id" => "album123",
+           "name" => "Test Album",
+           "artists" => [%{"name" => "Test Artist"}],
+           "tracks" => %{"items" => []}
+         }}
+      end)
+
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post("/api/spotify/fetch", %{url: "https://open.spotify.com/album/album123"})
+
+      assert %{"success" => true, "metadata" => _} = json_response(conn, 200)
+    end
+
+    test "returns metadata for playlist URL", %{conn: conn} do
+      expect(SoundForge.Spotify.MockClient, :fetch_playlist, fn "playlist456" ->
+        {:ok,
+         %{
+           "id" => "playlist456",
+           "name" => "Test Playlist",
+           "tracks" => %{"items" => []}
+         }}
+      end)
+
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post("/api/spotify/fetch", %{url: "https://open.spotify.com/playlist/playlist456"})
+
+      assert %{"success" => true, "metadata" => _} = json_response(conn, 200)
+    end
+
+    test "returns error when Spotify API fails", %{conn: conn} do
+      expect(SoundForge.Spotify.MockClient, :fetch_track, fn "fail999" ->
+        {:error, {:api_error, 404, %{"error" => %{"message" => "not found"}}}}
+      end)
+
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post("/api/spotify/fetch", %{url: "https://open.spotify.com/track/fail999"})
+
+      assert %{"error" => _} = json_response(conn, 400)
+    end
   end
 end

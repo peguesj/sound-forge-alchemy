@@ -24,6 +24,9 @@ defmodule SoundForge.Jobs.AnalysisWorker do
           "features" => features
         }
       }) do
+    Logger.metadata(track_id: track_id, job_id: job_id, worker: "AnalysisWorker")
+    Logger.info("Starting analysis, features=#{inspect(features)}")
+
     job = Music.get_analysis_job!(job_id)
     Music.update_analysis_job(job, %{status: :processing, progress: 0})
     broadcast_progress(job_id, :processing, 0)
@@ -32,6 +35,7 @@ defmodule SoundForge.Jobs.AnalysisWorker do
     # Validate input file exists
     if !File.exists?(file_path) do
       error_msg = "Audio file not found: #{file_path}"
+      Logger.error(error_msg)
       Music.update_analysis_job(job, %{status: :failed, error: error_msg})
       broadcast_progress(job_id, :failed, 0)
       broadcast_track_progress(track_id, :analysis, :failed, 0)
@@ -75,6 +79,7 @@ defmodule SoundForge.Jobs.AnalysisWorker do
           results: results
         })
 
+        Logger.info("Analysis complete")
         broadcast_progress(job_id, :completed, 100)
         broadcast_track_progress(track_id, :analysis, :completed, 100)
 
@@ -89,6 +94,7 @@ defmodule SoundForge.Jobs.AnalysisWorker do
 
       {:error, reason} ->
         error_msg = inspect(reason)
+        Logger.error("Analysis failed: #{error_msg}")
         Music.update_analysis_job(job, %{status: :failed, error: error_msg})
         broadcast_progress(job_id, :failed, 0)
         broadcast_track_progress(track_id, :analysis, :failed, 0)

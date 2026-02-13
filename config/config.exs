@@ -22,7 +22,11 @@ config :sound_forge, :scopes,
 
 config :sound_forge,
   ecto_repos: [SoundForge.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  max_upload_size: 100_000_000,
+  tracks_per_page: 24,
+  download_quality: "320k",
+  analysis_features: ["tempo", "key", "energy", "spectral"]
 
 # Configure the endpoint
 config :sound_forge, SoundForgeWeb.Endpoint,
@@ -96,7 +100,7 @@ config :mime, :types, %{
 # Configure Elixir's Logger
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: [:request_id, :track_id, :job_id, :worker]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

@@ -44,8 +44,15 @@ defmodule SoundForgeWeb.Plugs.RateLimiter do
 
   defp ensure_table do
     case :ets.info(:rate_limiter) do
-      :undefined -> :ets.new(:rate_limiter, [:bag, :public, :named_table])
-      _ -> :ok
+      :undefined ->
+        try do
+          :ets.new(:rate_limiter, [:bag, :public, :named_table])
+        rescue
+          ArgumentError -> :ok
+        end
+
+      _ ->
+        :ok
     end
   end
 

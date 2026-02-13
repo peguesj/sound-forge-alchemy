@@ -24,6 +24,9 @@ defmodule SoundForge.Jobs.ProcessingWorker do
           "model" => model
         }
       }) do
+    Logger.metadata(track_id: track_id, job_id: job_id, worker: "ProcessingWorker")
+    Logger.info("Starting stem separation with model=#{model}")
+
     job = Music.get_processing_job!(job_id)
     Music.update_processing_job(job, %{status: :processing, progress: 0})
     broadcast_progress(job_id, :processing, 0)
@@ -94,6 +97,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
           output_path: output_dir
         })
 
+        Logger.info("Stem separation complete, stems=#{length(stem_records)}")
         broadcast_progress(job_id, :completed, 100)
         broadcast_track_progress(track_id, :processing, :completed, 100)
 
@@ -104,6 +108,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
 
       {:error, reason} ->
         error_msg = inspect(reason)
+        Logger.error("Stem separation failed: #{error_msg}")
         Music.update_processing_job(job, %{status: :failed, error: error_msg})
         broadcast_progress(job_id, :failed, 0)
         broadcast_track_progress(track_id, :processing, :failed, 0)
@@ -121,7 +126,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
           "track_id" => track_id,
           "job_id" => analysis_job.id,
           "file_path" => file_path,
-          "features" => ["tempo", "key", "energy", "spectral"]
+          "features" => Application.get_env(:sound_forge, :analysis_features, ["tempo", "key", "energy", "spectral"])
         }
         |> SoundForge.Jobs.AnalysisWorker.new()
         |> Oban.insert()
