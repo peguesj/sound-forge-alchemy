@@ -10,6 +10,8 @@ defmodule SoundForge.Audio.SpotDL do
   require Logger
 
   @spotdl_cmd "spotdl"
+  @metadata_timeout 60_000
+  @download_timeout 300_000
 
   @doc """
   Fetches metadata for a Spotify URL using `spotdl save`.
@@ -40,9 +42,13 @@ defmodule SoundForge.Audio.SpotDL do
 
     Logger.info("Fetching metadata via spotdl for #{url}")
 
-    case System.cmd(spotdl_cmd(), args, stderr_to_stdout: true) do
+    case run_cmd(args, @metadata_timeout) do
       {output, 0} ->
         parse_save_output(output)
+
+      {:error, :timeout} ->
+        Logger.error("spotdl metadata fetch timed out after #{div(@metadata_timeout, 1000)}s")
+        {:error, "Metadata fetch timed out. Spotify may be rate-limiting requests."}
 
       {error_output, code} ->
         Logger.error("spotdl save failed (exit #{code}): #{String.slice(error_output, 0, 500)}")
@@ -93,12 +99,13 @@ defmodule SoundForge.Audio.SpotDL do
 
     Logger.info("Starting spotdl download for #{url}")
 
-    case System.cmd(spotdl_cmd(), args,
-           stderr_to_stdout: true,
-           cd: output_dir
-         ) do
+    case run_cmd(args, @download_timeout) do
       {_output, 0} ->
         find_downloaded_file(output_dir, output_template, format)
+
+      {:error, :timeout} ->
+        Logger.error("spotdl download timed out after #{div(@download_timeout, 1000)}s")
+        {:error, "Download timed out. Spotify may be rate-limiting requests."}
 
       {error_output, code} ->
         Logger.error(
@@ -126,6 +133,53 @@ defmodule SoundForge.Audio.SpotDL do
   end
 
   # -- Private --
+
+  defp run_cmd(args, timeout) do
+    cmd = System.find_executable(spotdl_cmd())
+    unless cmd, do: raise(%ErlangError{original: :enoent})
+
+    port =
+      Port.open({:spawn_executable, cmd}, [
+        :binary,
+        :exit_status,
+        :stderr_to_stdout,
+        args: args
+      ])
+
+    collect_output(port, "", timeout)
+  end
+
+  defp collect_output(port, acc, timeout) do
+    receive do
+      {^port, {:data, data}} ->
+        if String.contains?(data, "rate/request limit") do
+          kill_port(port)
+          {:error, :timeout}
+        else
+          collect_output(port, acc <> data, timeout)
+        end
+
+      {^port, {:exit_status, status}} ->
+        {acc, status}
+    after
+      timeout ->
+        kill_port(port)
+        {:error, :timeout}
+    end
+  end
+
+  defp kill_port(port) do
+    case :erlang.port_info(port, :os_pid) do
+      {:os_pid, os_pid} ->
+        Port.close(port)
+        System.cmd("kill", ["-9", to_string(os_pid)], stderr_to_stdout: true)
+
+      _ ->
+        Port.close(port)
+    end
+  catch
+    _, _ -> :ok
+  end
 
   defp parse_save_output(output) do
     # spotdl save --save-file - outputs JSON array of track objects to stdout

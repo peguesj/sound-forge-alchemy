@@ -21,10 +21,11 @@ defmodule SoundForge.Jobs.DownloadWorkerTest do
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "jobs:#{download_job.id}")
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
 
+      # URL contains "fail" which triggers mock_spotdl.sh download failure
       job = %Oban.Job{
         args: %{
           "track_id" => track.id,
-          "spotify_url" => "https://open.spotify.com/track/fake123",
+          "spotify_url" => "https://open.spotify.com/track/fail123",
           "quality" => "320",
           "job_id" => download_job.id
         }
@@ -49,20 +50,20 @@ defmodule SoundForge.Jobs.DownloadWorkerTest do
   end
 
   describe "perform/1 - validation" do
-    test "fails on missing audio file after download", %{
+    test "fails on download failure from spotdl", %{
       track: track,
       download_job: download_job
     } do
+      # URL contains "fail" which triggers mock_spotdl.sh download failure
       job = %Oban.Job{
         args: %{
           "track_id" => track.id,
-          "spotify_url" => "https://open.spotify.com/track/fake",
+          "spotify_url" => "https://open.spotify.com/track/testfail",
           "quality" => "128",
           "job_id" => download_job.id
         }
       }
 
-      # spotdl will fail, resulting in error
       assert {:error, _} = DownloadWorker.perform(job)
     end
   end
