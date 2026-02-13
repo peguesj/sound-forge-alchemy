@@ -25,8 +25,8 @@ defmodule SoundForgeWeb.ExportController do
     with {:ok, _} <- Ecto.UUID.cast(track_id),
          {:ok, track} <- fetch_track_with_details(track_id),
          :ok <- authorize(conn, track),
-         {:ok, stems} <- check_stems(track.stems) do
-      zip_path = create_stems_zip(track, stems)
+         {:ok, stems} <- check_stems(track.stems),
+         {:ok, zip_path} <- build_stems_zip(track, stems) do
       zip_filename = "#{sanitize_filename(track.title)}_stems.zip"
 
       try do
@@ -43,6 +43,9 @@ defmodule SoundForgeWeb.ExportController do
 
       {:error, :no_stems} ->
         conn |> put_status(:not_found) |> json(%{error: "No stems available"})
+
+      {:error, :no_readable_files} ->
+        conn |> put_status(422) |> json(%{error: "Stem files could not be read"})
 
       {:error, :forbidden} ->
         conn |> put_status(:forbidden) |> json(%{error: "Access denied"})
@@ -180,7 +183,7 @@ defmodule SoundForgeWeb.ExportController do
     end
   end
 
-  defp create_stems_zip(track, stems) do
+  defp build_stems_zip(track, stems) do
     tmp_dir = System.tmp_dir!()
     zip_path = Path.join(tmp_dir, "sfa_stems_#{track.id}.zip")
 
@@ -198,8 +201,12 @@ defmodule SoundForgeWeb.ExportController do
         end
       end)
 
-    {:ok, _} = :zip.create(String.to_charlist(zip_path), files)
-    zip_path
+    if files == [] do
+      {:error, :no_readable_files}
+    else
+      {:ok, _} = :zip.create(String.to_charlist(zip_path), files)
+      {:ok, zip_path}
+    end
   end
 
   defp stem_filename(stem) do
