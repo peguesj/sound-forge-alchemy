@@ -125,5 +125,20 @@ defmodule SoundForgeWeb.API.AnalysisControllerTest do
       conn = get(conn, "/api/analysis/job/not-a-uuid")
       assert %{"error" => "Job not found"} = json_response(conn, 404)
     end
+
+    test "returns 403 when accessing another user's job", %{conn: conn} do
+      other_user = SoundForge.AccountsFixtures.user_fixture()
+      {:ok, track} = Music.create_track(%{title: "Other User Track", user_id: other_user.id})
+
+      {:ok, job} =
+        Music.create_analysis_job(%{
+          track_id: track.id,
+          status: :queued,
+          results: %{type: "full"}
+        })
+
+      conn = get(conn, "/api/analysis/job/#{job.id}")
+      assert %{"error" => "Access denied"} = json_response(conn, 403)
+    end
   end
 end

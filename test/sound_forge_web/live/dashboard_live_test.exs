@@ -389,4 +389,44 @@ defmodule SoundForgeWeb.DashboardLiveTest do
       assert SoundForgeWeb.DashboardLive.upload_error_to_string(:too_many_files) =~ "max 5"
     end
   end
+
+  describe "IDOR protection" do
+    test "cannot view another user's track detail", %{conn: conn} do
+      other_user = SoundForge.AccountsFixtures.user_fixture()
+      track = track_fixture(%{title: "Other User Track", user_id: other_user.id})
+
+      {:error, {:live_redirect, %{to: "/", flash: flash}}} =
+        live(conn, ~p"/tracks/#{track.id}")
+
+      assert flash["error"] =~ "Track not found"
+    end
+
+    test "cannot delete another user's track", %{conn: conn} do
+      other_user = SoundForge.AccountsFixtures.user_fixture()
+      track = track_fixture(%{title: "Protected Track", user_id: other_user.id})
+
+      {:ok, view, _html} = live(conn, "/")
+
+      html = render_click(view, "delete_track", %{"id" => track.id})
+      assert html =~ "Track not found"
+
+      # Verify track still exists
+      assert {:ok, _} = SoundForge.Music.get_track(track.id)
+    end
+
+    test "cannot retry pipeline on another user's track", %{conn: conn} do
+      other_user = SoundForge.AccountsFixtures.user_fixture()
+      track = track_fixture(%{title: "Protected Pipeline", user_id: other_user.id})
+
+      {:ok, view, _html} = live(conn, "/")
+
+      html =
+        render_click(view, "retry_pipeline", %{
+          "track-id" => track.id,
+          "stage" => "download"
+        })
+
+      assert html =~ "Track not found"
+    end
+  end
 end

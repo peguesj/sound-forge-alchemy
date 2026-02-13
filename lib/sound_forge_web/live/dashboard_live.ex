@@ -7,12 +7,14 @@ defmodule SoundForgeWeb.DashboardLive do
   alias SoundForge.Music
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     scope = socket.assigns[:current_scope]
+    current_user_id = resolve_user_id(scope, session)
 
     socket =
       socket
       |> assign(:page_title, "Sound Forge Alchemy")
+      |> assign(:current_user_id, current_user_id)
       |> assign(:search_query, "")
       |> assign(:spotify_url, "")
       |> assign(:active_jobs, %{})
@@ -37,23 +39,31 @@ defmodule SoundForgeWeb.DashboardLive do
   @impl true
   def handle_params(%{"id" => id}, _uri, socket) do
     track = Music.get_track_with_details!(id)
-    analysis = List.first(track.analysis_results)
 
-    if connected?(socket) do
-      Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
+    if owns_track?(socket, track) do
+      analysis = List.first(track.analysis_results)
 
-      Enum.each(track.stems, fn stem ->
-        Phoenix.PubSub.subscribe(SoundForge.PubSub, "jobs:#{stem.processing_job_id}")
-      end)
+      if connected?(socket) do
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
+
+        Enum.each(track.stems, fn stem ->
+          Phoenix.PubSub.subscribe(SoundForge.PubSub, "jobs:#{stem.processing_job_id}")
+        end)
+      end
+
+      {:noreply,
+       socket
+       |> assign(:page_title, track.title)
+       |> assign(:live_action, :show)
+       |> assign(:track, track)
+       |> assign(:stems, track.stems)
+       |> assign(:analysis, analysis)}
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, "Track not found")
+       |> push_navigate(to: ~p"/")}
     end
-
-    {:noreply,
-     socket
-     |> assign(:page_title, track.title)
-     |> assign(:live_action, :show)
-     |> assign(:track, track)
-     |> assign(:stems, track.stems)
-     |> assign(:analysis, analysis)}
   rescue
     Ecto.NoResultsError ->
       {:noreply,
@@ -175,26 +185,30 @@ defmodule SoundForgeWeb.DashboardLive do
   def handle_event("delete_track", %{"id" => id}, socket) do
     case Music.get_track(id) do
       {:ok, track} when not is_nil(track) ->
-        case Music.delete_track_with_files(track) do
-          {:ok, _} ->
-            pipelines = Map.delete(socket.assigns.pipelines, id)
+        if owns_track?(socket, track) do
+          case Music.delete_track_with_files(track) do
+            {:ok, _} ->
+              pipelines = Map.delete(socket.assigns.pipelines, id)
 
-            {:noreply,
-             socket
-             |> stream_delete_by_dom_id(:tracks, "tracks-#{id}")
-             |> assign(:pipelines, pipelines)
-             |> update(:track_count, fn c -> max(c - 1, 0) end)
-             |> put_flash(:info, "Track deleted")
-             |> then(fn s ->
-               if socket.assigns.live_action == :show do
-                 push_navigate(s, to: ~p"/")
-               else
-                 s
-               end
-             end)}
+              {:noreply,
+               socket
+               |> stream_delete_by_dom_id(:tracks, "tracks-#{id}")
+               |> assign(:pipelines, pipelines)
+               |> update(:track_count, fn c -> max(c - 1, 0) end)
+               |> put_flash(:info, "Track deleted")
+               |> then(fn s ->
+                 if socket.assigns.live_action == :show do
+                   push_navigate(s, to: ~p"/")
+                 else
+                   s
+                 end
+               end)}
 
-          {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Failed to delete track")}
+            {:error, _} ->
+              {:noreply, put_flash(socket, :error, "Failed to delete track")}
+          end
+        else
+          {:noreply, put_flash(socket, :error, "Track not found")}
         end
 
       _ ->
@@ -223,17 +237,20 @@ defmodule SoundForgeWeb.DashboardLive do
     if is_nil(stage_atom) do
       {:noreply, put_flash(socket, :error, "Invalid pipeline stage")}
     else
-      case retry_pipeline_stage(track_id, stage_atom) do
-        {:ok, _} ->
-          pipelines = socket.assigns.pipelines
-          pipeline = Map.get(pipelines, track_id, %{})
-          updated_pipeline = Map.put(pipeline, stage_atom, %{status: :queued, progress: 0})
-          pipelines = Map.put(pipelines, track_id, updated_pipeline)
+      with {:ok, track} <- fetch_owned_track(socket, track_id),
+           {:ok, _} <- retry_pipeline_stage(track.id, stage_atom) do
+        pipelines = socket.assigns.pipelines
+        pipeline = Map.get(pipelines, track_id, %{})
+        updated_pipeline = Map.put(pipeline, stage_atom, %{status: :queued, progress: 0})
+        pipelines = Map.put(pipelines, track_id, updated_pipeline)
 
-          {:noreply,
-           socket
-           |> assign(:pipelines, pipelines)
-           |> put_flash(:info, "Retrying #{stage}...")}
+        {:noreply,
+         socket
+         |> assign(:pipelines, pipelines)
+         |> put_flash(:info, "Retrying #{stage}...")}
+      else
+        {:error, :not_found} ->
+          {:noreply, put_flash(socket, :error, "Track not found")}
 
         {:error, reason} ->
           {:noreply, put_flash(socket, :error, "Retry failed: #{reason}")}
@@ -446,6 +463,36 @@ defmodule SoundForgeWeb.DashboardLive do
 
   defp scope_user_id(%{user: %{id: id}}), do: id
   defp scope_user_id(_), do: nil
+
+  defp socket_user_id(socket) do
+    socket.assigns[:current_user_id]
+  end
+
+  defp resolve_user_id(%{user: %{id: id}}, _session), do: id
+
+  defp resolve_user_id(_, session) do
+    with token when is_binary(token) <- session["user_token"],
+         {user, _inserted_at} <- SoundForge.Accounts.get_user_by_session_token(token) do
+      user.id
+    else
+      _ -> nil
+    end
+  end
+
+  defp owns_track?(socket, track) do
+    user_id = socket_user_id(socket)
+    is_nil(track.user_id) or track.user_id == user_id
+  end
+
+  defp fetch_owned_track(socket, track_id) do
+    case Music.get_track(track_id) do
+      {:ok, track} when not is_nil(track) ->
+        if owns_track?(socket, track), do: {:ok, track}, else: {:error, :not_found}
+
+      _ ->
+        {:error, :not_found}
+    end
+  end
 
   defp create_track_from_metadata(metadata, spotify_url, scope) do
     user_id =

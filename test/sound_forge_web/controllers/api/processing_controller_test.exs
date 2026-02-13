@@ -126,6 +126,21 @@ defmodule SoundForgeWeb.API.ProcessingControllerTest do
       conn = get(conn, "/api/processing/job/not-a-uuid")
       assert %{"error" => "Job not found"} = json_response(conn, 404)
     end
+
+    test "returns 403 when accessing another user's job", %{conn: conn} do
+      other_user = SoundForge.AccountsFixtures.user_fixture()
+      {:ok, track} = Music.create_track(%{title: "Other User Track", user_id: other_user.id})
+
+      {:ok, job} =
+        Music.create_processing_job(%{
+          track_id: track.id,
+          model: "htdemucs",
+          status: :queued
+        })
+
+      conn = get(conn, "/api/processing/job/#{job.id}")
+      assert %{"error" => "Access denied"} = json_response(conn, 403)
+    end
   end
 
   describe "GET /api/processing/models" do
