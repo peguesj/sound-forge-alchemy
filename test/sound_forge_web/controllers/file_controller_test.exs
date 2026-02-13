@@ -59,5 +59,23 @@ defmodule SoundForgeWeb.FileControllerTest do
 
       assert conn.status == 416
     end
+
+    test "returns 416 for malformed range header", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("range", "bytes=abc-def")
+        |> get(~p"/files/test_audio.mp3")
+
+      assert conn.status == 416
+    end
+
+    test "returns 416 for negative range values", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("range", "bytes=-1-100")
+        |> get(~p"/files/test_audio.mp3")
+
+      assert conn.status == 416
+    end
   end
 end

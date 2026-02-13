@@ -59,13 +59,21 @@ defmodule SoundForgeWeb.FileController do
   defp parse_range(range_spec, total_size) do
     case String.split(range_spec, "-", parts: 2) do
       [start_str, ""] ->
-        start_byte = String.to_integer(start_str)
-        if start_byte < total_size, do: {:ok, {start_byte, total_size - 1}}, else: :error
+        with {start_byte, _} when start_byte >= 0 <- Integer.parse(start_str),
+             true <- start_byte < total_size do
+          {:ok, {start_byte, total_size - 1}}
+        else
+          _ -> :error
+        end
 
       [start_str, end_str] ->
-        start_byte = String.to_integer(start_str)
-        end_byte = min(String.to_integer(end_str), total_size - 1)
-        if start_byte <= end_byte, do: {:ok, {start_byte, end_byte}}, else: :error
+        with {start_byte, _} when start_byte >= 0 <- Integer.parse(start_str),
+             {end_byte_raw, _} when end_byte_raw >= 0 <- Integer.parse(end_str) do
+          end_byte = min(end_byte_raw, total_size - 1)
+          if start_byte <= end_byte, do: {:ok, {start_byte, end_byte}}, else: :error
+        else
+          _ -> :error
+        end
 
       _ ->
         :error

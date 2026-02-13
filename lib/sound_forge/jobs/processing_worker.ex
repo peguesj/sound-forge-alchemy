@@ -15,6 +15,8 @@ defmodule SoundForge.Jobs.ProcessingWorker do
 
   require Logger
 
+  @known_stem_types ~w(vocals drums bass other guitar piano)a
+
   @impl Oban.Worker
   def perform(%Oban.Job{
         args: %{
@@ -67,27 +69,36 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         stem_records =
           Enum.flat_map(stems, fn {stem_type, relative_path} ->
             stem_path = Path.join(output_dir, relative_path)
+            stem_atom = safe_stem_type(stem_type)
 
-            if File.exists?(stem_path) do
-              file_size =
-                case File.stat(stem_path) do
-                  {:ok, %{size: size}} -> size
-                  _ -> 0
+            cond do
+              is_nil(stem_atom) ->
+                Logger.warning("Unknown stem type: #{stem_type}, skipping")
+                []
+
+              !File.exists?(stem_path) ->
+                Logger.warning("Stem file missing: #{stem_path}")
+                []
+
+              true ->
+                file_size =
+                  case File.stat(stem_path) do
+                    {:ok, %{size: size}} -> size
+                    _ -> 0
+                  end
+
+                case Music.create_stem(%{
+                       track_id: track_id,
+                       processing_job_id: job_id,
+                       stem_type: stem_atom,
+                       file_path: stem_path,
+                       file_size: file_size
+                     }) do
+                  {:ok, stem} -> [stem]
+                  {:error, reason} ->
+                    Logger.warning("Failed to create stem record for #{stem_type}: #{inspect(reason)}")
+                    []
                 end
-
-              {:ok, stem} =
-                Music.create_stem(%{
-                  track_id: track_id,
-                  processing_job_id: job_id,
-                  stem_type: String.to_existing_atom(stem_type),
-                  file_path: stem_path,
-                  file_size: file_size
-                })
-
-              [stem]
-            else
-              Logger.warning("Stem file missing: #{stem_path}")
-              []
             end
           end)
 
@@ -118,6 +129,15 @@ defmodule SoundForge.Jobs.ProcessingWorker do
 
   defp expected_stem_count("htdemucs_6s"), do: 6
   defp expected_stem_count(_model), do: 4
+
+  defp safe_stem_type(type) when is_binary(type) do
+    try do
+      atom = String.to_existing_atom(type)
+      if atom in @known_stem_types, do: atom, else: nil
+    rescue
+      ArgumentError -> nil
+    end
+  end
 
   defp enqueue_analysis(track_id, file_path) do
     case Music.create_analysis_job(%{track_id: track_id, status: :queued}) do

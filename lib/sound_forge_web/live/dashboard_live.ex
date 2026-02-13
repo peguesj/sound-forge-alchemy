@@ -5,10 +5,6 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket) do
-      Phoenix.PubSub.subscribe(SoundForge.PubSub, "tracks")
-    end
-
     scope = socket.assigns[:current_scope]
 
     socket =
@@ -369,13 +365,6 @@ defmodule SoundForgeWeb.DashboardLive do
      |> put_flash(:info, "Pipeline complete! Track is ready.")}
   end
 
-  @impl true
-  def handle_info({:track_added, track}, socket) do
-    {:noreply,
-     socket
-     |> stream_insert(:tracks, track, at: 0)
-     |> update(:track_count, &(&1 + 1))}
-  end
 
   @impl true
   def handle_info({:job_progress, payload}, socket) do
