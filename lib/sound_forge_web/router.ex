@@ -11,6 +11,7 @@ defmodule SoundForgeWeb.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug SoundForgeWeb.Plugs.SecurityHeaders
+    plug SoundForgeWeb.Plugs.RateLimiter, limit: 120, window_ms: 60_000
     plug :fetch_current_scope_for_user
   end
 
