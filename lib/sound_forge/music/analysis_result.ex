@@ -1,4 +1,7 @@
 defmodule SoundForge.Music.AnalysisResult do
+  @moduledoc """
+  Schema for audio analysis results including tempo, key, and spectral features.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

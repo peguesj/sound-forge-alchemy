@@ -1,4 +1,7 @@
 defmodule SoundForge.Music.DownloadJob do
+  @moduledoc """
+  Schema for tracking audio download jobs from Spotify via spotdl.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

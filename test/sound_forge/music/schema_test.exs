@@ -1,7 +1,7 @@
 defmodule SoundForge.Music.SchemaTest do
   use SoundForge.DataCase
 
-  alias SoundForge.Music.{Track, Stem, DownloadJob, ProcessingJob, AnalysisJob}
+  alias SoundForge.Music.{Track, Stem, DownloadJob, ProcessingJob, AnalysisJob, AnalysisResult}
 
   describe "Track changeset" do
     test "valid attributes" do
@@ -117,6 +117,28 @@ defmodule SoundForge.Music.SchemaTest do
       assert changeset.valid?
       assert Ecto.Changeset.get_field(changeset, :status) == :queued
     end
+
+    test "validates progress range 0-100" do
+      changeset =
+        DownloadJob.changeset(%DownloadJob{}, %{
+          track_id: Ecto.UUID.generate(),
+          progress: 101
+        })
+
+      refute changeset.valid?
+      assert {"must be less than or equal to %{number}", _} = changeset.errors[:progress]
+    end
+
+    test "rejects negative progress" do
+      changeset =
+        DownloadJob.changeset(%DownloadJob{}, %{
+          track_id: Ecto.UUID.generate(),
+          progress: -1
+        })
+
+      refute changeset.valid?
+      assert {"must be greater than or equal to %{number}", _} = changeset.errors[:progress]
+    end
   end
 
   describe "ProcessingJob changeset" do
@@ -165,6 +187,56 @@ defmodule SoundForge.Music.SchemaTest do
       changeset = AnalysisJob.changeset(%AnalysisJob{}, %{track_id: Ecto.UUID.generate()})
       assert changeset.valid?
       assert Ecto.Changeset.get_field(changeset, :status) == :queued
+    end
+  end
+
+  describe "AnalysisResult changeset" do
+    test "valid attributes" do
+      changeset =
+        AnalysisResult.changeset(%AnalysisResult{}, %{
+          track_id: Ecto.UUID.generate(),
+          analysis_job_id: Ecto.UUID.generate(),
+          tempo: 120.5,
+          key: "C major",
+          energy: 0.85
+        })
+
+      assert changeset.valid?
+    end
+
+    test "requires track_id and analysis_job_id" do
+      changeset = AnalysisResult.changeset(%AnalysisResult{}, %{})
+      refute changeset.valid?
+      assert {"can't be blank", _} = changeset.errors[:track_id]
+      assert {"can't be blank", _} = changeset.errors[:analysis_job_id]
+    end
+
+    test "accepts spectral features" do
+      changeset =
+        AnalysisResult.changeset(%AnalysisResult{}, %{
+          track_id: Ecto.UUID.generate(),
+          analysis_job_id: Ecto.UUID.generate(),
+          spectral_centroid: 1500.0,
+          spectral_rolloff: 3000.0,
+          zero_crossing_rate: 0.05
+        })
+
+      assert changeset.valid?
+    end
+
+    test "accepts features map" do
+      changeset =
+        AnalysisResult.changeset(%AnalysisResult{}, %{
+          track_id: Ecto.UUID.generate(),
+          analysis_job_id: Ecto.UUID.generate(),
+          features: %{"chroma" => [0.1, 0.2, 0.3], "mfcc" => [1.0, 2.0]}
+        })
+
+      assert changeset.valid?
+      assert Ecto.Changeset.get_field(changeset, :features) == %{
+               "chroma" => [0.1, 0.2, 0.3],
+               "mfcc" => [1.0, 2.0]
+             }
     end
   end
 end

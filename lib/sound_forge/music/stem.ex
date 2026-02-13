@@ -1,4 +1,7 @@
 defmodule SoundForge.Music.Stem do
+  @moduledoc """
+  Schema for individual audio stems produced by Demucs separation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

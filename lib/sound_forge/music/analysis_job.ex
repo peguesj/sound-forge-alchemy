@@ -1,4 +1,7 @@
 defmodule SoundForge.Music.AnalysisJob do
+  @moduledoc """
+  Schema for tracking audio analysis jobs via librosa.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

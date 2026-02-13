@@ -1,4 +1,7 @@
 defmodule SoundForge.Music.ProcessingJob do
+  @moduledoc """
+  Schema for tracking stem separation processing jobs via Demucs.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

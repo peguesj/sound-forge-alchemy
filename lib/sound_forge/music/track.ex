@@ -1,4 +1,7 @@
 defmodule SoundForge.Music.Track do
+  @moduledoc """
+  Schema for audio tracks with Spotify metadata and associated jobs/stems.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 
