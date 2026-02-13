@@ -40,3 +40,6 @@ npm-debug.log
 .env.local
 .env.production
 
+# Uploaded files and downloads (runtime artifacts)
+/priv/uploads/
+
