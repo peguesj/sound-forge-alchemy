@@ -18,6 +18,8 @@ defmodule SoundForge.Application do
       SoundForge.Repo,
       {DNSCluster, query: Application.get_env(:sound_forge, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: SoundForge.PubSub},
+      # Task.Supervisor for async LiveView operations (e.g., SpotDL metadata fetch)
+      {Task.Supervisor, name: SoundForge.TaskSupervisor},
       # DynamicSupervisor for audio processing port processes
       SoundForge.Audio.PortSupervisor,
       # Start Oban for background job processing

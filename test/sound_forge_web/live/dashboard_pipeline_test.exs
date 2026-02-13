@@ -41,15 +41,19 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
 
   describe "fetch_spotify triggers pipeline" do
     # Uses mock_spotdl.sh configured in test.exs
+    # SpotDL metadata fetch is now async via Task.Supervisor
     test "creates track and starts pipeline on valid Spotify URL", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
 
-      html =
-        view
-        |> form("form[phx-submit='fetch_spotify']", %{
-          url: "https://open.spotify.com/track/abc123"
-        })
-        |> render_submit()
+      view
+      |> form("form[phx-submit='fetch_spotify']", %{
+        url: "https://open.spotify.com/track/abc123"
+      })
+      |> render_submit()
+
+      # Wait for async Task to complete and send message back to LiveView
+      Process.sleep(500)
+      html = render(view)
 
       # mock_spotdl.sh returns "Test Song" as the track name
       assert html =~ "Test Song"
@@ -62,7 +66,8 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
       |> form("form[phx-submit='fetch_spotify']", %{url: "not-a-spotify-url"})
       |> render_submit()
 
-      # Should show error flash and no tracks
+      # Wait for async Task to complete
+      Process.sleep(500)
       html = render(view)
       assert html =~ "Sound Forge Alchemy"
     end

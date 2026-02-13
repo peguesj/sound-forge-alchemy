@@ -17,6 +17,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:current_user_id, current_user_id)
       |> assign(:search_query, "")
       |> assign(:spotify_url, "")
+      |> assign(:fetching_spotify, false)
       |> assign(:active_jobs, %{})
       |> assign(:pipelines, %{})
       |> assign(:track_count, count_tracks(scope))
@@ -127,22 +128,15 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   def handle_event("fetch_spotify", %{"url" => url}, socket) do
-    scope = socket.assigns[:current_scope]
+    # Run SpotDL metadata fetch async to avoid blocking the LiveView process
+    lv_pid = self()
 
-    case SoundForge.Audio.SpotDL.fetch_metadata(url) do
-      {:ok, tracks_data} ->
-        socket =
-          tracks_data
-          |> Enum.reduce(assign(socket, :spotify_url, ""), fn track_meta, acc ->
-            add_pipeline_track(acc, track_meta, url, scope)
-          end)
+    Task.Supervisor.async_nolink(SoundForge.TaskSupervisor, fn ->
+      result = SoundForge.Audio.SpotDL.fetch_metadata(url)
+      send(lv_pid, {:spotify_metadata, url, result})
+    end)
 
-        msg = fetch_success_message(tracks_data)
-        {:noreply, put_flash(socket, :info, msg)}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed: #{reason}")}
-    end
+    {:noreply, assign(socket, :fetching_spotify, true)}
   end
 
   @impl true
@@ -239,6 +233,39 @@ defmodule SoundForgeWeb.DashboardLive do
           {:noreply, put_flash(socket, :error, "Retry failed: #{reason}")}
       end
     end
+  end
+
+  # Async SpotDL metadata result
+  @impl true
+  def handle_info({:spotify_metadata, url, {:ok, tracks_data}}, socket) do
+    scope = socket.assigns[:current_scope]
+
+    socket =
+      tracks_data
+      |> Enum.reduce(assign(socket, :spotify_url, ""), fn track_meta, acc ->
+        add_pipeline_track(acc, track_meta, url, scope)
+      end)
+
+    msg = fetch_success_message(tracks_data)
+    {:noreply, socket |> assign(:fetching_spotify, false) |> put_flash(:info, msg)}
+  end
+
+  @impl true
+  def handle_info({:spotify_metadata, _url, {:error, reason}}, socket) do
+    {:noreply,
+     socket |> assign(:fetching_spotify, false) |> put_flash(:error, "Failed: #{reason}")}
+  end
+
+  # Handle Task.Supervisor task failures (e.g., if spotdl process crashes)
+  @impl true
+  def handle_info({ref, _result}, socket) when is_reference(ref) do
+    Process.demonitor(ref, [:flush])
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, socket) do
+    {:noreply, assign(socket, :fetching_spotify, false)}
   end
 
   # Track-level pipeline progress (from workers)
