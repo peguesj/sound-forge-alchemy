@@ -56,6 +56,19 @@ defmodule SoundForgeWeb.API.AnalysisControllerTest do
 
       assert %{"error" => "file_path parameter is required"} = json_response(conn, 400)
     end
+
+    test "returns error for invalid analysis type", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post("/api/analysis/analyze", %{
+          file_path: "/tmp/test.mp3",
+          type: "invalid_type"
+        })
+
+      assert %{"error" => error} = json_response(conn, 400)
+      assert error =~ "Invalid analysis type"
+    end
   end
 
   describe "GET /api/analysis/job/:id" do

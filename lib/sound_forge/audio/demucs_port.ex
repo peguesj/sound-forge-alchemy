@@ -29,7 +29,7 @@ defmodule SoundForge.Audio.DemucsPort do
   require Logger
 
   @default_timeout 300_000
-  @valid_models ~w(htdemucs htdemucs_ft mdx_extra)
+  @valid_models ~w(htdemucs htdemucs_ft htdemucs_6s mdx_extra)
   @default_model "htdemucs"
 
   # Client API

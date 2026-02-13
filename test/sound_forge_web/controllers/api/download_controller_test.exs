@@ -70,6 +70,15 @@ defmodule SoundForgeWeb.API.DownloadControllerTest do
 
       assert %{"error" => "url parameter is required"} = json_response(conn, 400)
     end
+
+    test "returns error for non-Spotify URL", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post("/api/download/track", %{url: "https://example.com/not-spotify"})
+
+      assert %{"error" => "Invalid Spotify URL format"} = json_response(conn, 400)
+    end
   end
 
   describe "GET /api/download/job/:id" do

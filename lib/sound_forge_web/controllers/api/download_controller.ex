@@ -54,7 +54,7 @@ defmodule SoundForgeWeb.API.DownloadController do
       %{
         "track_id" => track.id,
         "spotify_url" => url,
-        "quality" => "320k",
+        "quality" => Application.get_env(:sound_forge, :download_quality, "320k"),
         "job_id" => job.id
       }
       |> SoundForge.Jobs.DownloadWorker.new()

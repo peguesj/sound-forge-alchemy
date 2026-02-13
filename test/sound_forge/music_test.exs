@@ -115,6 +115,72 @@ defmodule SoundForge.MusicTest do
       track = track_fixture()
       assert %Ecto.Changeset{} = Music.change_track(track)
     end
+
+    test "count_tracks/0 returns total track count" do
+      assert Music.count_tracks() == 0
+      track_fixture()
+      assert Music.count_tracks() == 1
+      track_fixture()
+      assert Music.count_tracks() == 2
+    end
+
+    test "get_track/1 returns {:ok, track} for valid ID" do
+      track = track_fixture()
+      assert {:ok, found} = Music.get_track(track.id)
+      assert found.id == track.id
+    end
+
+    test "get_track/1 returns {:ok, nil} for nonexistent ID" do
+      assert {:ok, nil} = Music.get_track(Ecto.UUID.generate())
+    end
+
+    test "get_track/1 returns {:error, :invalid_id} for invalid UUID" do
+      assert {:error, :invalid_id} = Music.get_track("not-a-uuid")
+    end
+
+    test "get_track_with_details!/1 preloads stems and analysis_results" do
+      track = track_fixture()
+      pj = processing_job_fixture(%{track_id: track.id})
+      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals})
+      aj = analysis_job_fixture(%{track_id: track.id})
+      analysis_result_fixture(%{track_id: track.id, analysis_job_id: aj.id})
+
+      detailed = Music.get_track_with_details!(track.id)
+      assert length(detailed.stems) == 1
+      assert length(detailed.analysis_results) == 1
+    end
+
+    test "search_tracks/1 finds tracks by title" do
+      track_fixture(%{title: "Bohemian Rhapsody"})
+      track_fixture(%{title: "Another Song"})
+
+      results = Music.search_tracks("bohemian")
+      assert length(results) == 1
+      assert hd(results).title == "Bohemian Rhapsody"
+    end
+
+    test "search_tracks/1 finds tracks by artist" do
+      track_fixture(%{title: "Song 1", artist: "The Beatles"})
+      track_fixture(%{title: "Song 2", artist: "Pink Floyd"})
+
+      results = Music.search_tracks("beatles")
+      assert length(results) == 1
+    end
+
+    test "search_tracks/1 returns empty list for empty query" do
+      assert Music.search_tracks("") == []
+      assert Music.search_tracks(nil) == []
+    end
+
+    test "delete_track_with_files/1 deletes track and associated records" do
+      track = track_fixture()
+      pj = processing_job_fixture(%{track_id: track.id})
+      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals})
+      download_job_fixture(%{track_id: track.id})
+
+      assert {:ok, _} = Music.delete_track_with_files(track)
+      assert_raise Ecto.NoResultsError, fn -> Music.get_track!(track.id) end
+    end
   end
 
   describe "download_jobs" do

@@ -56,6 +56,19 @@ defmodule SoundForgeWeb.API.ProcessingControllerTest do
 
       assert %{"error" => "file_path parameter is required"} = json_response(conn, 400)
     end
+
+    test "returns error for invalid model", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> post("/api/processing/separate", %{
+          file_path: "/tmp/test.mp3",
+          model: "nonexistent_model"
+        })
+
+      assert %{"error" => error} = json_response(conn, 400)
+      assert error =~ "Invalid model"
+    end
   end
 
   describe "GET /api/processing/job/:id" do
