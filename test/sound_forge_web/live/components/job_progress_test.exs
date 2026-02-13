@@ -7,7 +7,9 @@ defmodule SoundForgeWeb.Components.JobProgressTest do
 
   describe "pipeline_progress/1" do
     test "renders empty pipeline" do
-      html = render_component(&JobProgress.pipeline_progress/1, pipeline: %{}, track_title: "Test")
+      html =
+        render_component(&JobProgress.pipeline_progress/1, pipeline: %{}, track_title: "Test")
+
       assert html =~ "Test"
       assert html =~ "Download"
       assert html =~ "Separate"
@@ -17,7 +19,13 @@ defmodule SoundForgeWeb.Components.JobProgressTest do
 
     test "renders downloading stage" do
       pipeline = %{download: %{status: :downloading, progress: 45}}
-      html = render_component(&JobProgress.pipeline_progress/1, pipeline: pipeline, track_title: "Song")
+
+      html =
+        render_component(&JobProgress.pipeline_progress/1,
+          pipeline: pipeline,
+          track_title: "Song"
+        )
+
       assert html =~ "Song"
       assert html =~ "45%"
       assert html =~ "Processing"
@@ -30,7 +38,12 @@ defmodule SoundForgeWeb.Components.JobProgressTest do
         analysis: %{status: :completed, progress: 100}
       }
 
-      html = render_component(&JobProgress.pipeline_progress/1, pipeline: pipeline, track_title: "Done")
+      html =
+        render_component(&JobProgress.pipeline_progress/1,
+          pipeline: pipeline,
+          track_title: "Done"
+        )
+
       assert html =~ "Complete"
       assert html =~ "100%"
     end
@@ -41,7 +54,12 @@ defmodule SoundForgeWeb.Components.JobProgressTest do
         processing: %{status: :failed, progress: 0}
       }
 
-      html = render_component(&JobProgress.pipeline_progress/1, pipeline: pipeline, track_title: "Failed")
+      html =
+        render_component(&JobProgress.pipeline_progress/1,
+          pipeline: pipeline,
+          track_title: "Failed"
+        )
+
       assert html =~ "Failed"
     end
 
@@ -51,7 +69,12 @@ defmodule SoundForgeWeb.Components.JobProgressTest do
         processing: %{status: :processing, progress: 67}
       }
 
-      html = render_component(&JobProgress.pipeline_progress/1, pipeline: pipeline, track_title: "Separating")
+      html =
+        render_component(&JobProgress.pipeline_progress/1,
+          pipeline: pipeline,
+          track_title: "Separating"
+        )
+
       assert html =~ "67%"
       assert html =~ "Processing"
     end
@@ -59,7 +82,9 @@ defmodule SoundForgeWeb.Components.JobProgressTest do
 
   describe "job_progress/1" do
     test "renders single job progress" do
-      html = render_component(&JobProgress.job_progress/1, job: %{status: :downloading, progress: 50})
+      html =
+        render_component(&JobProgress.job_progress/1, job: %{status: :downloading, progress: 50})
+
       assert html =~ "downloading"
       assert html =~ "50%"
     end

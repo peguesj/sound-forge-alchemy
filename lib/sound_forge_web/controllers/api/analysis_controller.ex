@@ -18,7 +18,10 @@ defmodule SoundForgeWeb.API.AnalysisController do
     if analysis_type not in @valid_analysis_types do
       conn
       |> put_status(:bad_request)
-      |> json(%{error: "Invalid analysis type: #{analysis_type}. Valid types: #{Enum.join(@valid_analysis_types, ", ")}"})
+      |> json(%{
+        error:
+          "Invalid analysis type: #{analysis_type}. Valid types: #{Enum.join(@valid_analysis_types, ", ")}"
+      })
     else
       create_analysis(conn, file_path, analysis_type, Map.get(params, "track_id"))
     end

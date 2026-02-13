@@ -58,7 +58,8 @@ defmodule SoundForgeWeb.JobChannelTest do
     Phoenix.PubSub.broadcast(
       SoundForge.PubSub,
       "jobs:test-job-123",
-      {:pipeline_progress, %{track_id: "track-abc", stage: :processing, status: :processing, progress: 50}}
+      {:pipeline_progress,
+       %{track_id: "track-abc", stage: :processing, status: :processing, progress: 50}}
     )
 
     assert_push "pipeline:progress", %{track_id: "track-abc", progress: 50}

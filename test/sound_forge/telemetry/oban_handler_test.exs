@@ -55,8 +55,8 @@ defmodule SoundForge.Telemetry.ObanHandlerTest do
     meta = %{job: %{worker: "TestWorker", queue: "default"}}
     ObanHandler.handle_event([:oban, :job, :start], %{}, meta, nil)
 
-    assert_receive {:telemetry_event, [:sound_forge, :oban, :job, :start],
-                    %{count: 1}, %{worker: "TestWorker", queue: "default"}}
+    assert_receive {:telemetry_event, [:sound_forge, :oban, :job, :start], %{count: 1},
+                    %{worker: "TestWorker", queue: "default"}}
   after
     :telemetry.detach("test-start-handler")
   end

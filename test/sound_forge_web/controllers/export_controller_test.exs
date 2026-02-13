@@ -11,7 +11,9 @@ defmodule SoundForgeWeb.ExportControllerTest do
       processing_job = processing_job_fixture(%{track_id: track.id})
 
       # Create a temp file to serve
-      tmp_path = Path.join(System.tmp_dir!(), "test_stem_#{System.unique_integer([:positive])}.wav")
+      tmp_path =
+        Path.join(System.tmp_dir!(), "test_stem_#{System.unique_integer([:positive])}.wav")
+
       File.write!(tmp_path, "fake audio data")
 
       stem =
@@ -59,7 +61,9 @@ defmodule SoundForgeWeb.ExportControllerTest do
       track = track_fixture(%{user_id: nil})
       processing_job = processing_job_fixture(%{track_id: track.id})
 
-      tmp_path = Path.join(System.tmp_dir!(), "test_stem_legacy_#{System.unique_integer([:positive])}.wav")
+      tmp_path =
+        Path.join(System.tmp_dir!(), "test_stem_legacy_#{System.unique_integer([:positive])}.wav")
+
       File.write!(tmp_path, "fake audio data")
 
       stem =
@@ -88,8 +92,19 @@ defmodule SoundForgeWeb.ExportControllerTest do
       File.write!(tmp1, "vocals audio data")
       File.write!(tmp2, "drums audio data")
 
-      stem_fixture(%{track_id: track.id, processing_job_id: processing_job.id, stem_type: :vocals, file_path: tmp1})
-      stem_fixture(%{track_id: track.id, processing_job_id: processing_job.id, stem_type: :drums, file_path: tmp2})
+      stem_fixture(%{
+        track_id: track.id,
+        processing_job_id: processing_job.id,
+        stem_type: :vocals,
+        file_path: tmp1
+      })
+
+      stem_fixture(%{
+        track_id: track.id,
+        processing_job_id: processing_job.id,
+        stem_type: :drums,
+        file_path: tmp2
+      })
 
       conn = get(conn, ~p"/export/stems/#{track.id}")
       assert response(conn, 200)
@@ -100,7 +115,9 @@ defmodule SoundForgeWeb.ExportControllerTest do
       # Verify zip content
       {:ok, zip_entries} = :zip.list_dir(conn.resp_body)
       # :zip.list_dir returns [:zip_comment | entries], first is comment
-      entry_names = zip_entries |> tl() |> Enum.map(fn {:zip_file, name, _, _, _, _} -> to_string(name) end)
+      entry_names =
+        zip_entries |> tl() |> Enum.map(fn {:zip_file, name, _, _, _, _} -> to_string(name) end)
+
       assert Enum.any?(entry_names, &String.contains?(&1, "vocals"))
       assert Enum.any?(entry_names, &String.contains?(&1, "drums"))
 

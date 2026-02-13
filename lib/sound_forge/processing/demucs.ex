@@ -6,7 +6,8 @@ defmodule SoundForge.Processing.Demucs do
   @models [
     %{
       name: "htdemucs",
-      description: "Hybrid Transformer Demucs - default 4-stem model (vocals, drums, bass, other)",
+      description:
+        "Hybrid Transformer Demucs - default 4-stem model (vocals, drums, bass, other)",
       stems: 4
     },
     %{

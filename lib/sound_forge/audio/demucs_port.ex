@@ -147,7 +147,10 @@ defmodule SoundForge.Audio.DemucsPort do
   end
 
   @impl true
-  def handle_info({port, {:exit_status, 0}}, %{port: port, caller: caller, buffer: buffer} = state) do
+  def handle_info(
+        {port, {:exit_status, 0}},
+        %{port: port, caller: caller, buffer: buffer} = state
+      ) do
     # Success - parse final result
     result = parse_final_result(buffer)
     GenServer.reply(caller, result)
@@ -155,7 +158,10 @@ defmodule SoundForge.Audio.DemucsPort do
   end
 
   @impl true
-  def handle_info({port, {:exit_status, code}}, %{port: port, caller: caller, buffer: buffer} = state) do
+  def handle_info(
+        {port, {:exit_status, code}},
+        %{port: port, caller: caller, buffer: buffer} = state
+      ) do
     # Failure - try to parse error from buffer
     error = parse_error(buffer, code)
     GenServer.reply(caller, {:error, error})
@@ -242,7 +248,8 @@ defmodule SoundForge.Audio.DemucsPort do
     end
   end
 
-  defp handle_progress(percent, message, %{progress_callback: callback}) when is_function(callback) do
+  defp handle_progress(percent, message, %{progress_callback: callback})
+       when is_function(callback) do
     callback.(percent, message)
   end
 

@@ -50,7 +50,13 @@ defmodule SoundForge.Jobs.CleanupWorkerTest do
 
       track = track_fixture()
       pj = processing_job_fixture(%{track_id: track.id})
-      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: stem_file})
+
+      stem_fixture(%{
+        track_id: track.id,
+        processing_job_id: pj.id,
+        stem_type: :vocals,
+        file_path: stem_file
+      })
 
       # Also create an orphaned file
       orphan_file = Path.join(Storage.stems_path(), "orphan.wav")
@@ -98,7 +104,12 @@ defmodule SoundForge.Jobs.CleanupWorkerTest do
     end
 
     test "returns 0 when storage directory does not exist" do
-      Application.put_env(:sound_forge, :storage_path, "/nonexistent/path/#{System.unique_integer()}")
+      Application.put_env(
+        :sound_forge,
+        :storage_path,
+        "/nonexistent/path/#{System.unique_integer()}"
+      )
+
       assert {:ok, 0} = Storage.cleanup_orphaned()
     end
 

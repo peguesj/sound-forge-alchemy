@@ -43,8 +43,8 @@ defmodule SoundForgeWeb.AudioPlayerLive do
     >
       <!-- Waveform -->
       <div id={"waveform-#{@id}"} class="h-20 mb-4 rounded bg-gray-900"></div>
-
-      <!-- Transport Controls -->
+      
+    <!-- Transport Controls -->
       <div class="flex items-center gap-4 mb-6">
         <button
           phx-click="toggle_play"
@@ -52,22 +52,32 @@ defmodule SoundForgeWeb.AudioPlayerLive do
           aria-label={if @playing, do: "Pause", else: "Play"}
           class="w-12 h-12 rounded-full bg-purple-600 hover:bg-purple-500 flex items-center justify-center transition-colors"
         >
-          <svg :if={!@playing} class="w-5 h-5 ml-0.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z"/>
+          <svg
+            :if={!@playing}
+            class="w-5 h-5 ml-0.5 text-white"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path d="M8 5v14l11-7z" />
           </svg>
           <svg :if={@playing} class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
           </svg>
         </button>
 
         <span class="text-sm text-gray-400 font-mono min-w-[100px]">
-          <%= format_time(@current_time) %> / <%= format_time(@duration) %>
+          {format_time(@current_time)} / {format_time(@duration)}
         </span>
-
-        <!-- Master Volume -->
+        
+    <!-- Master Volume -->
         <div class="flex items-center gap-2 ml-auto">
-          <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M3 9v6h4l5 5V4L7 9H3z"/>
+          <svg
+            class="w-5 h-5 text-gray-400"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M3 9v6h4l5 5V4L7 9H3z" />
           </svg>
           <input
             type="range"
@@ -80,11 +90,11 @@ defmodule SoundForgeWeb.AudioPlayerLive do
             aria-label="Master volume"
             class="w-24 accent-purple-500"
           />
-          <span class="text-xs text-gray-500 w-8"><%= @master_volume %>%</span>
+          <span class="text-xs text-gray-500 w-8">{@master_volume}%</span>
         </div>
       </div>
-
-      <!-- Per-Stem Controls -->
+      
+    <!-- Per-Stem Controls -->
       <div class="space-y-3">
         <div
           :for={stem <- @stems}
@@ -92,10 +102,10 @@ defmodule SoundForgeWeb.AudioPlayerLive do
         >
           <!-- Stem Label -->
           <span class={"text-sm font-medium w-16 " <> stem_text_color(stem.stem_type)}>
-            <%= String.capitalize(to_string(stem.stem_type)) %>
+            {String.capitalize(to_string(stem.stem_type))}
           </span>
-
-          <!-- Solo Button -->
+          
+    <!-- Solo Button -->
           <button
             phx-click="solo_stem"
             phx-value-stem={stem.stem_type}
@@ -109,8 +119,8 @@ defmodule SoundForgeWeb.AudioPlayerLive do
           >
             S
           </button>
-
-          <!-- Mute Button -->
+          
+    <!-- Mute Button -->
           <button
             phx-click="toggle_stem"
             phx-value-stem={stem.stem_type}
@@ -124,8 +134,8 @@ defmodule SoundForgeWeb.AudioPlayerLive do
           >
             M
           </button>
-
-          <!-- Volume Slider -->
+          
+    <!-- Volume Slider -->
           <input
             type="range"
             min="0"
@@ -139,7 +149,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
             class={"flex-1 " <> stem_accent_color(stem.stem_type)}
           />
           <span class="text-xs text-gray-500 w-8">
-            <%= Map.get(@stem_volumes, to_string(stem.stem_type), 100) %>%
+            {Map.get(@stem_volumes, to_string(stem.stem_type), 100)}%
           </span>
         </div>
       </div>
@@ -208,6 +218,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
   defp format_time(seconds) when is_number(seconds) do
     minutes = trunc(seconds / 60)
     secs = trunc(rem(trunc(seconds), 60))
+
     "#{String.pad_leading(to_string(minutes), 2, "0")}:#{String.pad_leading(to_string(secs), 2, "0")}"
   end
 

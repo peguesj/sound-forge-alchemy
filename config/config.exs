@@ -84,10 +84,7 @@ config :sound_forge, Oban,
   queues: [download: 3, processing: 2, analysis: 2],
   plugins: [
     # Prune completed jobs after 7 days, cancelled after 1 day, discarded after 30 days
-    {Oban.Plugins.Pruner,
-     max_age: 7 * 24 * 60 * 60,
-     limit: 10_000,
-     interval: :timer.minutes(5)},
+    {Oban.Plugins.Pruner, max_age: 7 * 24 * 60 * 60, limit: 10_000, interval: :timer.minutes(5)},
     # Rescue orphaned executing jobs after 30 minutes
     {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},
     # Run storage cleanup daily at 3am UTC

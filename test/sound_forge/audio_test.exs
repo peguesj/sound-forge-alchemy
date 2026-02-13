@@ -140,11 +140,12 @@ defmodule SoundForge.AudioTest do
 
       # Try to separate (will fail due to missing Python/file, but that's ok)
       # We're just testing that the callback parameter is accepted
-      _result = GenServer.call(
-        pid,
-        {:separate, "/nonexistent.mp3", "htdemucs", "/tmp/test", callback},
-        5000
-      )
+      _result =
+        GenServer.call(
+          pid,
+          {:separate, "/nonexistent.mp3", "htdemucs", "/tmp/test", callback},
+          5000
+        )
 
       # Just verify the call was accepted
       assert Process.alive?(pid)

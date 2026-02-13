@@ -175,27 +175,31 @@ defmodule SoundForgeWeb.DashboardLive do
         File.cp!(tmp_path, dest_path)
 
         # Create the track
-        user_id = case scope do
-          %{user: %{id: id}} -> id
-          _ -> nil
-        end
+        user_id =
+          case scope do
+            %{user: %{id: id}} -> id
+            _ -> nil
+          end
 
         case Music.create_track(%{
-          title: title,
-          user_id: user_id
-        }) do
+               title: title,
+               user_id: user_id
+             }) do
           {:ok, track} ->
             # Create download job record pointing to the uploaded file
-            {:ok, _job} = Music.create_download_job(%{
-              track_id: track.id,
-              status: :completed,
-              output_path: dest_path,
-              file_size: entry.client_size
-            })
+            {:ok, _job} =
+              Music.create_download_job(%{
+                track_id: track.id,
+                status: :completed,
+                output_path: dest_path,
+                file_size: entry.client_size
+              })
 
             # Kick off processing pipeline (skip download, go straight to processing)
             model = Application.get_env(:sound_forge, :default_demucs_model, "htdemucs")
-            {:ok, processing_job} = Music.create_processing_job(%{track_id: track.id, model: model, status: :queued})
+
+            {:ok, processing_job} =
+              Music.create_processing_job(%{track_id: track.id, model: model, status: :queued})
 
             %{
               "track_id" => track.id,
@@ -222,7 +226,12 @@ defmodule SoundForgeWeb.DashboardLive do
           Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
         end
 
-        pipeline = %{track_id: track.id, download: %{status: :completed, progress: 100}, processing: %{status: :queued, progress: 0}}
+        pipeline = %{
+          track_id: track.id,
+          download: %{status: :completed, progress: 100},
+          processing: %{status: :queued, progress: 0}
+        }
+
         pipelines = Map.put(acc.assigns.pipelines, track.id, pipeline)
 
         acc
@@ -329,7 +338,10 @@ defmodule SoundForgeWeb.DashboardLive do
   def handle_info({:pipeline_progress, %{track_id: track_id, stage: stage} = payload}, socket) do
     pipelines = socket.assigns.pipelines
     pipeline = Map.get(pipelines, track_id, %{})
-    updated_pipeline = Map.put(pipeline, stage, %{status: payload.status, progress: payload.progress})
+
+    updated_pipeline =
+      Map.put(pipeline, stage, %{status: payload.status, progress: payload.progress})
+
     pipelines = Map.put(pipelines, track_id, updated_pipeline)
     {:noreply, assign(socket, :pipelines, pipelines)}
   end
@@ -365,7 +377,6 @@ defmodule SoundForgeWeb.DashboardLive do
      |> put_flash(:info, "Pipeline complete! Track is ready.")}
   end
 
-
   @impl true
   def handle_info({:job_progress, payload}, socket) do
     jobs = Map.put(socket.assigns.active_jobs, payload.job_id, payload)
@@ -379,7 +390,6 @@ defmodule SoundForgeWeb.DashboardLive do
   def pipeline_complete?(pipeline) do
     match?(%{status: :completed}, Map.get(pipeline, :analysis))
   end
-
 
   def normalize_spectral(value, max_expected) when is_number(value) and max_expected > 0 do
     min(100, Float.round(value / max_expected * 100, 1))
@@ -477,7 +487,8 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
-  defp search_tracks(query, scope) when byte_size(query) > 0 and is_map(scope) and not is_nil(scope) do
+  defp search_tracks(query, scope)
+       when byte_size(query) > 0 and is_map(scope) and not is_nil(scope) do
     try do
       Music.search_tracks(query, scope)
     rescue
@@ -549,7 +560,8 @@ defmodule SoundForgeWeb.DashboardLive do
     file_path = Path.join(downloads_dir, "#{track_id}.mp3")
     model = Application.get_env(:sound_forge, :default_demucs_model, "htdemucs")
 
-    with {:ok, job} <- Music.create_processing_job(%{track_id: track_id, model: model, status: :queued}) do
+    with {:ok, job} <-
+           Music.create_processing_job(%{track_id: track_id, model: model, status: :queued}) do
       %{
         "track_id" => track_id,
         "job_id" => job.id,
@@ -570,7 +582,13 @@ defmodule SoundForgeWeb.DashboardLive do
         "track_id" => track_id,
         "job_id" => job.id,
         "file_path" => file_path,
-        "features" => Application.get_env(:sound_forge, :analysis_features, ["tempo", "key", "energy", "spectral"])
+        "features" =>
+          Application.get_env(:sound_forge, :analysis_features, [
+            "tempo",
+            "key",
+            "energy",
+            "spectral"
+          ])
       }
       |> SoundForge.Jobs.AnalysisWorker.new()
       |> Oban.insert()

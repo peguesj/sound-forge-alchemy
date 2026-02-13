@@ -65,7 +65,8 @@ defmodule SoundForge.Audio.SpotDL do
     * `:bitrate` - audio bitrate (default: "320k")
     * `:output_template` - filename template (default: "{track-id}")
   """
-  @spec download(String.t(), keyword()) :: {:ok, %{path: String.t(), size: integer()}} | {:error, String.t()}
+  @spec download(String.t(), keyword()) ::
+          {:ok, %{path: String.t(), size: integer()}} | {:error, String.t()}
   def download(url, opts \\ []) when is_binary(url) do
     output_dir = Keyword.get(opts, :output_dir, default_downloads_dir())
     format = Keyword.get(opts, :format, "mp3")
@@ -77,11 +78,18 @@ defmodule SoundForge.Audio.SpotDL do
     output_path = Path.join(output_dir, "#{output_template}.#{format}")
 
     args =
-      ["download", url,
-       "--output", output_path,
-       "--format", format,
-       "--bitrate", bitrate,
-       "--log-level", "ERROR"] ++ spotify_auth_args()
+      [
+        "download",
+        url,
+        "--output",
+        output_path,
+        "--format",
+        format,
+        "--bitrate",
+        bitrate,
+        "--log-level",
+        "ERROR"
+      ] ++ spotify_auth_args()
 
     Logger.info("Starting spotdl download for #{url}")
 
@@ -93,7 +101,10 @@ defmodule SoundForge.Audio.SpotDL do
         find_downloaded_file(output_dir, output_template, format)
 
       {error_output, code} ->
-        Logger.error("spotdl download failed (exit #{code}): #{String.slice(error_output, 0, 500)}")
+        Logger.error(
+          "spotdl download failed (exit #{code}): #{String.slice(error_output, 0, 500)}"
+        )
+
         {:error, "Download failed: #{String.slice(error_output, 0, 200)}"}
     end
   rescue
@@ -187,7 +198,7 @@ defmodule SoundForge.Audio.SpotDL do
 
     cond do
       is_binary(client_id) and client_id != "" and
-          is_binary(client_secret) and client_secret != "" ->
+        is_binary(client_secret) and client_secret != "" ->
         ["--client-id", client_id, "--client-secret", client_secret]
 
       true ->

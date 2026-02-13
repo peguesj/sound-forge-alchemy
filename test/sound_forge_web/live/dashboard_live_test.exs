@@ -102,7 +102,8 @@ defmodule SoundForgeWeb.DashboardLiveTest do
 
   describe "track detail view" do
     test "shows track detail when navigating to /tracks/:id", %{conn: conn, user: user} do
-      track = track_fixture(%{title: "Test Track Detail", artist: "Test Artist", user_id: user.id})
+      track =
+        track_fixture(%{title: "Test Track Detail", artist: "Test Artist", user_id: user.id})
 
       {:ok, _view, html} = live(conn, ~p"/tracks/#{track.id}")
       assert html =~ "Test Track Detail"
@@ -182,12 +183,16 @@ defmodule SoundForgeWeb.DashboardLiveTest do
       {:ok, view, _html} = live(conn, "/")
 
       # Send a pipeline_progress message to the LiveView process
-      send(view.pid, {:pipeline_progress, %{
-        track_id: track.id,
-        stage: :download,
-        status: :downloading,
-        progress: 50
-      }})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{
+           track_id: track.id,
+           stage: :download,
+           status: :downloading,
+           progress: 50
+         }}
+      )
 
       html = render(view)
       # View should still render without crashing
@@ -208,12 +213,16 @@ defmodule SoundForgeWeb.DashboardLiveTest do
     test "handles pipeline events for unknown track without crashing", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
 
-      send(view.pid, {:pipeline_progress, %{
-        track_id: Ecto.UUID.generate(),
-        stage: :processing,
-        status: :processing,
-        progress: 75
-      }})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{
+           track_id: Ecto.UUID.generate(),
+           stage: :processing,
+           status: :processing,
+           progress: 75
+         }}
+      )
 
       html = render(view)
       assert html =~ "Sound Forge Alchemy"

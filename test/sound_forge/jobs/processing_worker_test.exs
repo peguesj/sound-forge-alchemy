@@ -8,7 +8,10 @@ defmodule SoundForge.Jobs.ProcessingWorkerTest do
 
   setup do
     track = track_fixture()
-    processing_job = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :queued})
+
+    processing_job =
+      processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :queued})
+
     %{track: track, processing_job: processing_job}
   end
 
@@ -21,7 +24,9 @@ defmodule SoundForge.Jobs.ProcessingWorkerTest do
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
 
       # Create a dummy audio file since the worker checks nothing about it pre-port
-      tmp_file = Path.join(System.tmp_dir!(), "test_audio_#{System.unique_integer([:positive])}.mp3")
+      tmp_file =
+        Path.join(System.tmp_dir!(), "test_audio_#{System.unique_integer([:positive])}.mp3")
+
       File.write!(tmp_file, "ID3" <> :crypto.strong_rand_bytes(1024))
       on_exit(fn -> File.rm(tmp_file) end)
 
@@ -61,7 +66,9 @@ defmodule SoundForge.Jobs.ProcessingWorkerTest do
       track: track,
       processing_job: processing_job
     } do
-      tmp_file = Path.join(System.tmp_dir!(), "proc_test_#{System.unique_integer([:positive])}.mp3")
+      tmp_file =
+        Path.join(System.tmp_dir!(), "proc_test_#{System.unique_integer([:positive])}.mp3")
+
       File.write!(tmp_file, "ID3" <> :crypto.strong_rand_bytes(1024))
       on_exit(fn -> File.rm(tmp_file) end)
 

@@ -28,6 +28,7 @@ defmodule SoundForgeWeb.FileController do
         case get_req_header(conn, "range") do
           ["bytes=" <> range_spec] ->
             serve_range(conn, path, size, range_spec, content_type)
+
           _ ->
             conn
             |> put_resp_content_type(content_type)

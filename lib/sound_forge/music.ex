@@ -13,11 +13,15 @@ defmodule SoundForge.Music do
   alias SoundForge.Music.Stem
   alias SoundForge.Music.AnalysisResult
 
+  @type scope :: %{user: %{id: term()}}
+
   # Track functions
 
   @doc """
   Returns the list of tracks, optionally scoped to a user.
   """
+  @spec list_tracks(keyword()) :: [Track.t()]
+  @spec list_tracks(scope()) :: [Track.t()]
   def list_tracks(opts \\ [])
 
   def list_tracks(opts) when is_list(opts) do
@@ -42,10 +46,12 @@ defmodule SoundForge.Music do
   @doc """
   Returns the total count of tracks, optionally scoped to a user.
   """
+  @spec count_tracks() :: non_neg_integer()
   def count_tracks do
     Repo.aggregate(Track, :count)
   end
 
+  @spec count_tracks(scope()) :: non_neg_integer()
   def count_tracks(%{user: %{id: user_id}}) do
     Track
     |> where([t], t.user_id == ^user_id)
@@ -81,6 +87,7 @@ defmodule SoundForge.Music do
   @doc """
   Searches tracks by title or artist, optionally scoped to a user.
   """
+  @spec search_tracks(String.t()) :: [Track.t()]
   def search_tracks(query) when is_binary(query) and query != "" do
     pattern = "%#{query}%"
 
@@ -91,6 +98,7 @@ defmodule SoundForge.Music do
 
   def search_tracks(_query), do: []
 
+  @spec search_tracks(String.t(), scope()) :: [Track.t()]
   def search_tracks(query, %{user: %{id: user_id}}) when is_binary(query) and query != "" do
     pattern = "%#{query}%"
 
@@ -116,6 +124,7 @@ defmodule SoundForge.Music do
       ** (Ecto.NoResultsError)
 
   """
+  @spec get_track(String.t()) :: {:ok, Track.t() | nil} | {:error, :invalid_id}
   def get_track(id) do
     case Ecto.UUID.cast(id) do
       {:ok, _uuid} -> {:ok, Repo.get(Track, id)}
@@ -123,11 +132,13 @@ defmodule SoundForge.Music do
     end
   end
 
+  @spec get_track!(String.t()) :: Track.t()
   def get_track!(id), do: Repo.get!(Track, id)
 
   @doc """
   Gets a track by its Spotify ID. Returns nil if not found.
   """
+  @spec get_track_by_spotify_id(String.t() | nil) :: Track.t() | nil
   def get_track_by_spotify_id(spotify_id) when is_binary(spotify_id) do
     Repo.get_by(Track, spotify_id: spotify_id)
   end
@@ -137,6 +148,7 @@ defmodule SoundForge.Music do
   @doc """
   Gets a track with preloaded stems and latest analysis result.
   """
+  @spec get_track_with_details!(String.t()) :: Track.t()
   def get_track_with_details!(id) do
     Track
     |> Repo.get!(id)
@@ -155,6 +167,7 @@ defmodule SoundForge.Music do
       {:error, %Ecto.Changeset{}}
 
   """
+  @spec create_track(map()) :: {:ok, Track.t()} | {:error, Ecto.Changeset.t()}
   def create_track(attrs \\ %{}) do
     %Track{}
     |> Track.changeset(attrs)
@@ -173,6 +186,7 @@ defmodule SoundForge.Music do
       {:error, %Ecto.Changeset{}}
 
   """
+  @spec update_track(Track.t(), map()) :: {:ok, Track.t()} | {:error, Ecto.Changeset.t()}
   def update_track(%Track{} = track, attrs) do
     track
     |> Track.changeset(attrs)
@@ -191,6 +205,7 @@ defmodule SoundForge.Music do
       {:error, %Ecto.Changeset{}}
 
   """
+  @spec delete_track(Track.t()) :: {:ok, Track.t()} | {:error, Ecto.Changeset.t()}
   def delete_track(%Track{} = track) do
     Repo.delete(track)
   end
@@ -198,6 +213,7 @@ defmodule SoundForge.Music do
   @doc """
   Deletes a track and cleans up all associated files from storage.
   """
+  @spec delete_track_with_files(Track.t()) :: {:ok, Track.t()} | {:error, Ecto.Changeset.t()}
   def delete_track_with_files(%Track{} = track) do
     track = Repo.preload(track, [:stems, :download_jobs])
 
@@ -238,6 +254,7 @@ defmodule SoundForge.Music do
       %Ecto.Changeset{data: %Track{}}
 
   """
+  @spec change_track(Track.t(), map()) :: Ecto.Changeset.t()
   def change_track(%Track{} = track, attrs \\ %{}) do
     Track.changeset(track, attrs)
   end
@@ -249,11 +266,13 @@ defmodule SoundForge.Music do
 
   Raises `Ecto.NoResultsError` if the Download job does not exist.
   """
+  @spec get_download_job!(String.t()) :: DownloadJob.t()
   def get_download_job!(id), do: Repo.get!(DownloadJob, id)
 
   @doc """
   Creates a download job.
   """
+  @spec create_download_job(map()) :: {:ok, DownloadJob.t()} | {:error, Ecto.Changeset.t()}
   def create_download_job(attrs \\ %{}) do
     %DownloadJob{}
     |> DownloadJob.changeset(attrs)
@@ -263,6 +282,8 @@ defmodule SoundForge.Music do
   @doc """
   Updates a download job.
   """
+  @spec update_download_job(DownloadJob.t(), map()) ::
+          {:ok, DownloadJob.t()} | {:error, Ecto.Changeset.t()}
   def update_download_job(%DownloadJob{} = download_job, attrs) do
     download_job
     |> DownloadJob.changeset(attrs)
@@ -276,11 +297,13 @@ defmodule SoundForge.Music do
 
   Raises `Ecto.NoResultsError` if the Processing job does not exist.
   """
+  @spec get_processing_job!(String.t()) :: ProcessingJob.t()
   def get_processing_job!(id), do: Repo.get!(ProcessingJob, id)
 
   @doc """
   Creates a processing job.
   """
+  @spec create_processing_job(map()) :: {:ok, ProcessingJob.t()} | {:error, Ecto.Changeset.t()}
   def create_processing_job(attrs \\ %{}) do
     %ProcessingJob{}
     |> ProcessingJob.changeset(attrs)
@@ -290,6 +313,8 @@ defmodule SoundForge.Music do
   @doc """
   Updates a processing job.
   """
+  @spec update_processing_job(ProcessingJob.t(), map()) ::
+          {:ok, ProcessingJob.t()} | {:error, Ecto.Changeset.t()}
   def update_processing_job(%ProcessingJob{} = processing_job, attrs) do
     processing_job
     |> ProcessingJob.changeset(attrs)
@@ -303,11 +328,13 @@ defmodule SoundForge.Music do
 
   Raises `Ecto.NoResultsError` if the Analysis job does not exist.
   """
+  @spec get_analysis_job!(String.t()) :: AnalysisJob.t()
   def get_analysis_job!(id), do: Repo.get!(AnalysisJob, id)
 
   @doc """
   Creates an analysis job.
   """
+  @spec create_analysis_job(map()) :: {:ok, AnalysisJob.t()} | {:error, Ecto.Changeset.t()}
   def create_analysis_job(attrs \\ %{}) do
     %AnalysisJob{}
     |> AnalysisJob.changeset(attrs)
@@ -317,6 +344,8 @@ defmodule SoundForge.Music do
   @doc """
   Updates an analysis job.
   """
+  @spec update_analysis_job(AnalysisJob.t(), map()) ::
+          {:ok, AnalysisJob.t()} | {:error, Ecto.Changeset.t()}
   def update_analysis_job(%AnalysisJob{} = analysis_job, attrs) do
     analysis_job
     |> AnalysisJob.changeset(attrs)
@@ -328,11 +357,13 @@ defmodule SoundForge.Music do
   @doc """
   Gets a single stem.
   """
+  @spec get_stem!(String.t()) :: Stem.t()
   def get_stem!(id), do: Repo.get!(Stem, id)
 
   @doc """
   Lists all stems for a given track.
   """
+  @spec list_stems_for_track(String.t()) :: [Stem.t()]
   def list_stems_for_track(track_id) do
     Stem
     |> where([s], s.track_id == ^track_id)
@@ -342,6 +373,7 @@ defmodule SoundForge.Music do
   @doc """
   Creates a stem.
   """
+  @spec create_stem(map()) :: {:ok, Stem.t()} | {:error, Ecto.Changeset.t()}
   def create_stem(attrs \\ %{}) do
     %Stem{}
     |> Stem.changeset(attrs)
@@ -353,6 +385,7 @@ defmodule SoundForge.Music do
   @doc """
   Gets the analysis result for a given track.
   """
+  @spec get_analysis_result_for_track(String.t()) :: AnalysisResult.t() | nil
   def get_analysis_result_for_track(track_id) do
     AnalysisResult
     |> where([ar], ar.track_id == ^track_id)
@@ -362,6 +395,7 @@ defmodule SoundForge.Music do
   @doc """
   Creates an analysis result.
   """
+  @spec create_analysis_result(map()) :: {:ok, AnalysisResult.t()} | {:error, Ecto.Changeset.t()}
   def create_analysis_result(attrs \\ %{}) do
     %AnalysisResult{}
     |> AnalysisResult.changeset(attrs)

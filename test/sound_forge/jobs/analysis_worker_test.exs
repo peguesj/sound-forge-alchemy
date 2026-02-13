@@ -54,7 +54,9 @@ defmodule SoundForge.Jobs.AnalysisWorkerTest do
       analysis_job: analysis_job
     } do
       # Create a real file so we pass the exists? check
-      tmp_file = Path.join(System.tmp_dir!(), "analysis_test_#{System.unique_integer([:positive])}.mp3")
+      tmp_file =
+        Path.join(System.tmp_dir!(), "analysis_test_#{System.unique_integer([:positive])}.mp3")
+
       File.write!(tmp_file, "ID3" <> :crypto.strong_rand_bytes(1024))
       on_exit(fn -> File.rm(tmp_file) end)
 

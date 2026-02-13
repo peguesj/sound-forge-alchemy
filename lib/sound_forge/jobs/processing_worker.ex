@@ -94,9 +94,14 @@ defmodule SoundForge.Jobs.ProcessingWorker do
                        file_path: stem_path,
                        file_size: file_size
                      }) do
-                  {:ok, stem} -> [stem]
+                  {:ok, stem} ->
+                    [stem]
+
                   {:error, reason} ->
-                    Logger.warning("Failed to create stem record for #{stem_type}: #{inspect(reason)}")
+                    Logger.warning(
+                      "Failed to create stem record for #{stem_type}: #{inspect(reason)}"
+                    )
+
                     []
                 end
             end
@@ -150,14 +155,25 @@ defmodule SoundForge.Jobs.ProcessingWorker do
           "track_id" => track_id,
           "job_id" => analysis_job.id,
           "file_path" => file_path,
-          "features" => Application.get_env(:sound_forge, :analysis_features, ["tempo", "key", "energy", "spectral"])
+          "features" =>
+            Application.get_env(:sound_forge, :analysis_features, [
+              "tempo",
+              "key",
+              "energy",
+              "spectral"
+            ])
         }
         |> SoundForge.Jobs.AnalysisWorker.new()
         |> Oban.insert()
         |> case do
-          {:ok, _} -> :ok
+          {:ok, _} ->
+            :ok
+
           {:error, reason} ->
-            Logger.error("Failed to enqueue analysis worker for track #{track_id}: #{inspect(reason)}")
+            Logger.error(
+              "Failed to enqueue analysis worker for track #{track_id}: #{inspect(reason)}"
+            )
+
             {:error, reason}
         end
 

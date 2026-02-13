@@ -38,10 +38,17 @@ defmodule SoundForgeWeb.ExportController do
         File.rm(zip_path)
       end
     else
-      {:error, :not_found} -> conn |> put_status(:not_found) |> json(%{error: "Track not found"})
-      {:error, :no_stems} -> conn |> put_status(:not_found) |> json(%{error: "No stems available"})
-      {:error, :forbidden} -> conn |> put_status(:forbidden) |> json(%{error: "Access denied"})
-      :error -> conn |> put_status(:not_found) |> json(%{error: "Track not found"})
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Track not found"})
+
+      {:error, :no_stems} ->
+        conn |> put_status(:not_found) |> json(%{error: "No stems available"})
+
+      {:error, :forbidden} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Access denied"})
+
+      :error ->
+        conn |> put_status(:not_found) |> json(%{error: "Track not found"})
     end
   end
 
@@ -77,10 +84,17 @@ defmodule SoundForgeWeb.ExportController do
       |> put_resp_header("content-disposition", ~s(attachment; filename="#{filename}"))
       |> json(export)
     else
-      {:error, :not_found} -> conn |> put_status(:not_found) |> json(%{error: "Not found"})
-      {:error, :no_analysis} -> conn |> put_status(:not_found) |> json(%{error: "No analysis data"})
-      {:error, :forbidden} -> conn |> put_status(:forbidden) |> json(%{error: "Access denied"})
-      :error -> conn |> put_status(:not_found) |> json(%{error: "Not found"})
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Not found"})
+
+      {:error, :no_analysis} ->
+        conn |> put_status(:not_found) |> json(%{error: "No analysis data"})
+
+      {:error, :forbidden} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Access denied"})
+
+      :error ->
+        conn |> put_status(:not_found) |> json(%{error: "Not found"})
     end
   end
 

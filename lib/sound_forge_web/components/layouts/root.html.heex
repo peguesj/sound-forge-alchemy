@@ -31,7 +31,10 @@
     </script>
   </head>
   <body class="bg-gray-950">
-    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:bg-purple-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg">
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:bg-purple-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg"
+    >
       Skip to main content
     </a>
     <nav class="bg-gray-900/80 border-b border-gray-800" aria-label="Account navigation">
@@ -41,17 +44,29 @@
             {@current_scope.user.email}
           </li>
           <li>
-            <.link href={~p"/users/settings"} class="hover:text-white transition-colors">Settings</.link>
+            <.link href={~p"/users/settings"} class="hover:text-white transition-colors">
+              Settings
+            </.link>
           </li>
           <li>
-            <.link href={~p"/users/log-out"} method="delete" class="hover:text-white transition-colors">Log out</.link>
+            <.link
+              href={~p"/users/log-out"}
+              method="delete"
+              class="hover:text-white transition-colors"
+            >
+              Log out
+            </.link>
           </li>
         <% else %>
           <li>
-            <.link href={~p"/users/register"} class="hover:text-white transition-colors">Register</.link>
+            <.link href={~p"/users/register"} class="hover:text-white transition-colors">
+              Register
+            </.link>
           </li>
           <li>
-            <.link href={~p"/users/log-in"} class="hover:text-white transition-colors">Log in</.link>
+            <.link href={~p"/users/log-in"} class="hover:text-white transition-colors">
+              Log in
+            </.link>
           </li>
         <% end %>
       </ul>

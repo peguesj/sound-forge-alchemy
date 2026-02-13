@@ -27,7 +27,16 @@ defmodule SoundForge.Music.Track do
   @doc false
   def changeset(track, attrs) do
     track
-    |> cast(attrs, [:spotify_id, :spotify_url, :title, :artist, :album, :album_art_url, :duration, :user_id])
+    |> cast(attrs, [
+      :spotify_id,
+      :spotify_url,
+      :title,
+      :artist,
+      :album,
+      :album_art_url,
+      :duration,
+      :user_id
+    ])
     |> validate_required([:title])
     |> validate_length(:title, min: 1, max: 500)
     |> validate_number(:duration, greater_than: 0)

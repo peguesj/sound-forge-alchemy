@@ -37,7 +37,13 @@ defmodule SoundForgeWeb.Plugs.RateLimiter do
       |> put_resp_header("x-ratelimit-limit", to_string(limit))
       |> put_resp_header("x-ratelimit-remaining", "0")
       |> put_resp_header("retry-after", to_string(div(window_ms, 1000)))
-      |> send_resp(429, Jason.encode!(%{error: "Too Many Requests", message: "Rate limit exceeded. Try again later."}))
+      |> send_resp(
+        429,
+        Jason.encode!(%{
+          error: "Too Many Requests",
+          message: "Rate limit exceeded. Try again later."
+        })
+      )
       |> halt()
     end
   end

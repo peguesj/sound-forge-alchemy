@@ -6,20 +6,28 @@ defmodule SoundForge.Storage do
 
   @default_base_path "priv/uploads"
 
+  @spec base_path() :: String.t()
   def base_path do
     Application.get_env(:sound_forge, :storage_path, @default_base_path)
   end
 
+  @spec downloads_path() :: String.t()
   def downloads_path, do: Path.join(base_path(), "downloads")
+
+  @spec stems_path() :: String.t()
   def stems_path, do: Path.join(base_path(), "stems")
+
+  @spec analysis_path() :: String.t()
   def analysis_path, do: Path.join(base_path(), "analysis")
 
   @doc "Ensure all storage directories exist"
+  @spec ensure_directories!() :: :ok
   def ensure_directories! do
     Enum.each([downloads_path(), stems_path(), analysis_path()], &File.mkdir_p!/1)
   end
 
   @doc "Store a file in the given subdirectory"
+  @spec store_file(String.t(), String.t(), String.t()) :: {:ok, String.t()} | {:error, atom()}
   def store_file(source_path, subdirectory, filename) do
     dest_dir = Path.join(base_path(), subdirectory)
     File.mkdir_p!(dest_dir)
@@ -32,11 +40,13 @@ defmodule SoundForge.Storage do
   end
 
   @doc "Get full path for a stored file"
+  @spec file_path(String.t(), String.t()) :: String.t()
   def file_path(subdirectory, filename) do
     Path.join([base_path(), subdirectory, filename])
   end
 
   @doc "Check if a file exists in storage"
+  @spec file_exists?(String.t(), String.t()) :: boolean()
   def file_exists?(subdirectory, filename) do
     subdirectory
     |> file_path(filename)
@@ -44,20 +54,31 @@ defmodule SoundForge.Storage do
   end
 
   @doc "Delete a file from storage"
+  @spec delete_file(String.t(), String.t()) :: :ok | {:error, atom()}
   def delete_file(subdirectory, filename) do
     path = file_path(subdirectory, filename)
+
     case File.rm(path) do
       :ok -> :ok
-      {:error, :enoent} -> :ok  # Already gone
+      # Already gone
+      {:error, :enoent} -> :ok
       {:error, reason} -> {:error, reason}
     end
   end
 
   @doc "Get storage statistics"
+  @spec stats() :: %{
+          base_path: String.t(),
+          file_count: non_neg_integer(),
+          total_size_bytes: non_neg_integer(),
+          total_size_mb: float()
+        }
   def stats do
     base = base_path()
+
     if File.dir?(base) do
       {file_count, total_size} = count_files(base)
+
       %{
         base_path: base,
         file_count: file_count,
@@ -70,6 +91,7 @@ defmodule SoundForge.Storage do
   end
 
   @doc "Clean up orphaned files not referenced in the database"
+  @spec cleanup_orphaned() :: {:ok, non_neg_integer()}
   def cleanup_orphaned do
     known_paths = referenced_file_paths()
     base = base_path()
@@ -139,6 +161,7 @@ defmodule SoundForge.Storage do
     |> File.ls!()
     |> Enum.reduce({0, 0}, fn entry, {count, size} ->
       path = Path.join(dir, entry)
+
       if File.dir?(path) do
         {sub_count, sub_size} = count_files(path)
         {count + sub_count, size + sub_size}

@@ -25,7 +25,10 @@ defmodule SoundForgeWeb.Plugs.APIAuth do
       _ ->
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(401, Jason.encode!(%{error: "Unauthorized", message: "Valid Bearer token required"}))
+        |> send_resp(
+          401,
+          Jason.encode!(%{error: "Unauthorized", message: "Valid Bearer token required"})
+        )
         |> halt()
     end
   end

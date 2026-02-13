@@ -2,34 +2,51 @@
   <!-- Header -->
   <header class="bg-gray-900 border-b border-gray-800 px-6 py-4" role="banner">
     <div class="flex items-center justify-between">
-      <.link navigate={~p"/"} class="text-2xl font-bold text-purple-400 hover:text-purple-300 transition-colors">
+      <.link
+        navigate={~p"/"}
+        class="text-2xl font-bold text-purple-400 hover:text-purple-300 transition-colors"
+      >
         Sound Forge Alchemy
       </.link>
       <span class="text-sm text-gray-500">v3.0.0</span>
     </div>
   </header>
-
-  <!-- Flash Messages -->
-  <div :if={Phoenix.Flash.get(@flash, :info)} id="flash-info" role="alert"
+  
+<!-- Flash Messages -->
+  <div
+    :if={Phoenix.Flash.get(@flash, :info)}
+    id="flash-info"
+    role="alert"
     class="mx-6 mt-3 flex items-center gap-3 bg-purple-900/30 border border-purple-700/50 text-purple-200 rounded-lg px-4 py-3 text-sm"
     phx-click={JS.push("lv:clear-flash", value: %{key: :info}) |> JS.hide(to: "#flash-info")}
   >
     <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+      <path
+        fill-rule="evenodd"
+        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+        clip-rule="evenodd"
+      />
     </svg>
-    <span class="flex-1"><%= Phoenix.Flash.get(@flash, :info) %></span>
+    <span class="flex-1">{Phoenix.Flash.get(@flash, :info)}</span>
     <button type="button" class="text-purple-400 hover:text-white" aria-label="Dismiss">
       &times;
     </button>
   </div>
-  <div :if={Phoenix.Flash.get(@flash, :error)} id="flash-error" role="alert"
+  <div
+    :if={Phoenix.Flash.get(@flash, :error)}
+    id="flash-error"
+    role="alert"
     class="mx-6 mt-3 flex items-center gap-3 bg-red-900/30 border border-red-700/50 text-red-200 rounded-lg px-4 py-3 text-sm"
     phx-click={JS.push("lv:clear-flash", value: %{key: :error}) |> JS.hide(to: "#flash-error")}
   >
     <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+      <path
+        fill-rule="evenodd"
+        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+        clip-rule="evenodd"
+      />
     </svg>
-    <span class="flex-1"><%= Phoenix.Flash.get(@flash, :error) %></span>
+    <span class="flex-1">{Phoenix.Flash.get(@flash, :error)}</span>
     <button type="button" class="text-red-400 hover:text-white" aria-label="Dismiss">
       &times;
     </button>
@@ -54,15 +71,18 @@
               class="w-full h-full object-cover"
               alt={@track.title}
             />
-            <div :if={!@track.album_art_url} class="w-full h-full flex items-center justify-center">
+            <div
+              :if={!@track.album_art_url}
+              class="w-full h-full flex items-center justify-center"
+            >
               <svg class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
               </svg>
             </div>
           </div>
-          <h1 class="text-xl font-bold"><%= @track.title %></h1>
-          <p class="text-gray-400"><%= @track.artist %></p>
-          <p :if={@track.album} class="text-sm text-gray-500"><%= @track.album %></p>
+          <h1 class="text-xl font-bold">{@track.title}</h1>
+          <p class="text-gray-400">{@track.artist}</p>
+          <p :if={@track.album} class="text-sm text-gray-500">{@track.album}</p>
 
           <button
             phx-click="delete_track"
@@ -73,8 +93,8 @@
             Delete Track
           </button>
         </div>
-
-        <!-- Analysis & Stems -->
+        
+<!-- Analysis & Stems -->
         <div class="flex-1">
           <!-- Pipeline Progress (if active) -->
           <div :if={Map.has_key?(@pipelines, @track.id)} class="mb-6">
@@ -83,8 +103,8 @@
               track_title={@track.title}
             />
           </div>
-
-          <!-- Analysis Results -->
+          
+<!-- Analysis Results -->
           <div :if={@analysis} class="mb-8">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-lg font-semibold text-gray-300">Analysis</h2>
@@ -99,75 +119,106 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div :if={@analysis.tempo} class="bg-gray-800 rounded-lg p-4">
                 <p class="text-xs text-gray-500 uppercase">Tempo</p>
-                <p class="text-2xl font-bold text-purple-400"><%= Float.round(@analysis.tempo, 1) %></p>
+                <p class="text-2xl font-bold text-purple-400">
+                  {Float.round(@analysis.tempo, 1)}
+                </p>
                 <p class="text-xs text-gray-500">BPM</p>
               </div>
               <div :if={@analysis.key} class="bg-gray-800 rounded-lg p-4">
                 <p class="text-xs text-gray-500 uppercase">Key</p>
-                <p class="text-2xl font-bold text-purple-400"><%= @analysis.key %></p>
+                <p class="text-2xl font-bold text-purple-400">{@analysis.key}</p>
               </div>
               <div :if={@analysis.energy} class="bg-gray-800 rounded-lg p-4">
                 <p class="text-xs text-gray-500 uppercase">Energy</p>
-                <p class="text-2xl font-bold text-purple-400"><%= Float.round(@analysis.energy, 3) %></p>
+                <p class="text-2xl font-bold text-purple-400">
+                  {Float.round(@analysis.energy, 3)}
+                </p>
               </div>
               <div :if={@analysis.spectral_centroid} class="bg-gray-800 rounded-lg p-4">
                 <p class="text-xs text-gray-500 uppercase">Spectral Centroid</p>
-                <p class="text-2xl font-bold text-purple-400"><%= Float.round(@analysis.spectral_centroid, 0) %></p>
+                <p class="text-2xl font-bold text-purple-400">
+                  {Float.round(@analysis.spectral_centroid, 0)}
+                </p>
                 <p class="text-xs text-gray-500">Hz</p>
               </div>
             </div>
-
-            <!-- Spectral Feature Bars -->
-            <div :if={@analysis.spectral_centroid || @analysis.spectral_rolloff || @analysis.zero_crossing_rate} class="bg-gray-800 rounded-lg p-4 mb-6">
+            
+<!-- Spectral Feature Bars -->
+            <div
+              :if={
+                @analysis.spectral_centroid || @analysis.spectral_rolloff ||
+                  @analysis.zero_crossing_rate
+              }
+              class="bg-gray-800 rounded-lg p-4 mb-6"
+            >
               <h3 class="text-sm font-medium text-gray-400 mb-3">Spectral Features</h3>
               <div class="space-y-3">
                 <div :if={@analysis.spectral_centroid}>
                   <div class="flex justify-between text-xs text-gray-500 mb-1">
                     <span>Centroid</span>
-                    <span><%= Float.round(@analysis.spectral_centroid, 0) %> Hz</span>
+                    <span>{Float.round(@analysis.spectral_centroid, 0)} Hz</span>
                   </div>
                   <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-purple-500 rounded-full" style={"width: #{normalize_spectral(@analysis.spectral_centroid, 8000)}%"}></div>
+                    <div
+                      class="h-full bg-purple-500 rounded-full"
+                      style={"width: #{normalize_spectral(@analysis.spectral_centroid, 8000)}%"}
+                    >
+                    </div>
                   </div>
                 </div>
                 <div :if={@analysis.spectral_rolloff}>
                   <div class="flex justify-between text-xs text-gray-500 mb-1">
                     <span>Rolloff</span>
-                    <span><%= Float.round(@analysis.spectral_rolloff, 0) %> Hz</span>
+                    <span>{Float.round(@analysis.spectral_rolloff, 0)} Hz</span>
                   </div>
                   <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-blue-500 rounded-full" style={"width: #{normalize_spectral(@analysis.spectral_rolloff, 11025)}%"}></div>
+                    <div
+                      class="h-full bg-blue-500 rounded-full"
+                      style={"width: #{normalize_spectral(@analysis.spectral_rolloff, 11025)}%"}
+                    >
+                    </div>
                   </div>
                 </div>
                 <div :if={@analysis.zero_crossing_rate}>
                   <div class="flex justify-between text-xs text-gray-500 mb-1">
                     <span>Zero Crossing Rate</span>
-                    <span><%= Float.round(@analysis.zero_crossing_rate, 4) %></span>
+                    <span>{Float.round(@analysis.zero_crossing_rate, 4)}</span>
                   </div>
                   <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-green-500 rounded-full" style={"width: #{normalize_spectral(@analysis.zero_crossing_rate, 0.2)}%"}></div>
+                    <div
+                      class="h-full bg-green-500 rounded-full"
+                      style={"width: #{normalize_spectral(@analysis.zero_crossing_rate, 0.2)}%"}
+                    >
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-
-            <!-- Raw Features (expandable) -->
-            <details :if={@analysis.features && map_size(@analysis.features) > 0} class="bg-gray-800 rounded-lg">
+            
+<!-- Raw Features (expandable) -->
+            <details
+              :if={@analysis.features && map_size(@analysis.features) > 0}
+              class="bg-gray-800 rounded-lg"
+            >
               <summary class="p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-300">
-                All Features (<%= map_size(@analysis.features) %> categories)
+                All Features ({map_size(@analysis.features)} categories)
               </summary>
               <div class="px-4 pb-4 space-y-3">
                 <div :for={{category, values} <- @analysis.features} class="text-xs">
-                  <p class="text-gray-400 font-medium mb-1 capitalize"><%= category %></p>
+                  <p class="text-gray-400 font-medium mb-1 capitalize">{category}</p>
                   <div :if={is_map(values)} class="grid grid-cols-2 gap-x-4 gap-y-1 pl-2">
                     <div :for={{key, val} <- values} class="flex justify-between">
-                      <span class="text-gray-500"><%= key %></span>
-                      <span :if={is_number(val)} class="text-gray-300 font-mono"><%= Float.round(val / 1, 4) %></span>
-                      <span :if={is_binary(val)} class="text-gray-300"><%= val %></span>
-                      <span :if={!is_number(val) && !is_binary(val)} class="text-gray-300"><%= inspect(val) %></span>
+                      <span class="text-gray-500">{key}</span>
+                      <span :if={is_number(val)} class="text-gray-300 font-mono">
+                        {Float.round(val / 1, 4)}
+                      </span>
+                      <span :if={is_binary(val)} class="text-gray-300">{val}</span>
+                      <span :if={!is_number(val) && !is_binary(val)} class="text-gray-300">
+                        {inspect(val)}
+                      </span>
                     </div>
                   </div>
-                  <p :if={!is_map(values)} class="text-gray-300 pl-2"><%= inspect(values) %></p>
+                  <p :if={!is_map(values)} class="text-gray-300 pl-2">{inspect(values)}</p>
                 </div>
               </div>
             </details>
@@ -177,8 +228,8 @@
             <p>No analysis data yet.</p>
             <p class="text-sm mt-1">Analysis runs automatically after stem separation.</p>
           </div>
-
-          <!-- Stems -->
+          
+<!-- Stems -->
           <div :if={length(@stems) > 0} class="mb-8">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-lg font-semibold text-gray-300">Stems</h2>
@@ -202,10 +253,20 @@
                 href={~p"/export/stem/#{stem.id}"}
                 class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm transition-colors"
               >
-                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                <svg
+                  class="w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
                 </svg>
-                <span class="capitalize"><%= stem.stem_type %></span>
+                <span class="capitalize">{stem.stem_type}</span>
               </.link>
             </div>
           </div>
@@ -245,12 +306,22 @@
                 phx-drop-target={@uploads.audio.ref}
                 class="flex items-center gap-3 bg-gray-800 border border-dashed border-gray-600 rounded-lg px-4 py-2.5 text-gray-400 hover:border-purple-500/50 hover:text-gray-300 transition-colors cursor-pointer"
               >
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                <svg
+                  class="w-5 h-5 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                  />
                 </svg>
                 <span class="text-sm">
                   <%= if length(@uploads.audio.entries) > 0 do %>
-                    <%= length(@uploads.audio.entries) %> file(s) selected
+                    {length(@uploads.audio.entries)} file(s) selected
                   <% else %>
                     Drop audio files or click to browse (MP3, WAV, FLAC, OGG, M4A)
                   <% end %>
@@ -263,36 +334,61 @@
               disabled={length(@uploads.audio.entries) == 0}
               class={[
                 "px-6 py-2.5 rounded-lg font-medium transition-colors text-sm",
-                if(length(@uploads.audio.entries) > 0, do: "bg-green-600 hover:bg-green-700 text-white", else: "bg-gray-700 text-gray-500 cursor-not-allowed")
+                if(length(@uploads.audio.entries) > 0,
+                  do: "bg-green-600 hover:bg-green-700 text-white",
+                  else: "bg-gray-700 text-gray-500 cursor-not-allowed"
+                )
               ]}
             >
               Upload
             </button>
           </div>
-
-          <!-- Upload entries -->
+          
+<!-- Upload entries -->
           <div :if={length(@uploads.audio.entries) > 0} class="mt-2 space-y-1">
             <div :for={entry <- @uploads.audio.entries} class="flex items-center gap-3 text-sm">
-              <span class="text-gray-300 truncate flex-1"><%= entry.client_name %></span>
-              <span class="text-gray-500"><%= Float.round(entry.client_size / 1_000_000, 1) %> MB</span>
-              <div :if={entry.progress > 0 && entry.progress < 100} class="w-24 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                <div class="h-full bg-purple-500 rounded-full transition-all" style={"width: #{entry.progress}%"}></div>
+              <span class="text-gray-300 truncate flex-1">{entry.client_name}</span>
+              <span class="text-gray-500">
+                {Float.round(entry.client_size / 1_000_000, 1)} MB
+              </span>
+              <div
+                :if={entry.progress > 0 && entry.progress < 100}
+                class="w-24 h-1.5 bg-gray-700 rounded-full overflow-hidden"
+              >
+                <div
+                  class="h-full bg-purple-500 rounded-full transition-all"
+                  style={"width: #{entry.progress}%"}
+                >
+                </div>
               </div>
-              <button type="button" phx-click="cancel_upload" phx-value-ref={entry.ref} class="text-gray-500 hover:text-red-400" aria-label={"Cancel upload: #{entry.client_name}"}>
+              <button
+                type="button"
+                phx-click="cancel_upload"
+                phx-value-ref={entry.ref}
+                class="text-gray-500 hover:text-red-400"
+                aria-label={"Cancel upload: #{entry.client_name}"}
+              >
                 &times;
               </button>
               <div :for={err <- upload_errors(@uploads.audio, entry)} class="text-red-400 text-xs">
-                <%= upload_error_to_string(err) %>
+                {upload_error_to_string(err)}
               </div>
             </div>
           </div>
         </form>
       </div>
     </div>
-
-    <!-- Active Pipelines -->
-    <div :if={map_size(@pipelines) > 0} class="px-6 pt-4" aria-live="polite" aria-label="Processing pipelines">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Active Pipelines</h2>
+    
+<!-- Active Pipelines -->
+    <div
+      :if={map_size(@pipelines) > 0}
+      class="px-6 pt-4"
+      aria-live="polite"
+      aria-label="Processing pipelines"
+    >
+      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        Active Pipelines
+      </h2>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
         <div :for={{track_id, pipeline} <- @pipelines} class="relative">
           <SoundForgeWeb.Components.JobProgress.pipeline_progress
@@ -342,8 +438,8 @@
             </select>
           </form>
         </div>
-
-        <!-- Track Grid -->
+        
+<!-- Track Grid -->
         <div
           id="tracks"
           phx-update="stream"
@@ -365,9 +461,9 @@
                 alt={track.title}
               />
             </div>
-            <h3 class="font-medium text-white truncate"><%= track.title %></h3>
-            <p class="text-sm text-gray-400 truncate"><%= track.artist %></p>
-            <p class="text-xs text-gray-500"><%= track.album %></p>
+            <h3 class="font-medium text-white truncate">{track.title}</h3>
+            <p class="text-sm text-gray-400 truncate">{track.artist}</p>
+            <p class="text-xs text-gray-500">{track.album}</p>
           </.link>
         </div>
 
@@ -375,9 +471,12 @@
           <p class="text-lg">No tracks yet</p>
           <p class="text-sm mt-2">Paste a Spotify URL above to get started</p>
         </div>
-
-        <!-- Pagination -->
-        <div :if={@track_count > @per_page && @search_query == ""} class="flex items-center justify-center gap-2 mt-8">
+        
+<!-- Pagination -->
+        <div
+          :if={@track_count > @per_page && @search_query == ""}
+          class="flex items-center justify-center gap-2 mt-8"
+        >
           <button
             :if={@page > 1}
             phx-click="page"
@@ -392,10 +491,13 @@
               phx-value-page={p}
               class={[
                 "w-8 h-8 rounded-lg text-sm transition-colors",
-                if(p == @page, do: "bg-purple-600 text-white", else: "bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700")
+                if(p == @page,
+                  do: "bg-purple-600 text-white",
+                  else: "bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700"
+                )
               ]}
             >
-              <%= p %>
+              {p}
             </button>
           </span>
           <button

@@ -121,9 +121,14 @@ defmodule SoundForge.Jobs.DownloadWorker do
         |> SoundForge.Jobs.ProcessingWorker.new()
         |> Oban.insert()
         |> case do
-          {:ok, _} -> :ok
+          {:ok, _} ->
+            :ok
+
           {:error, reason} ->
-            Logger.error("Failed to enqueue processing worker for track #{track_id}: #{inspect(reason)}")
+            Logger.error(
+              "Failed to enqueue processing worker for track #{track_id}: #{inspect(reason)}"
+            )
+
             {:error, reason}
         end
 

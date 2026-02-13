@@ -76,8 +76,7 @@ defmodule SoundForge.Telemetry.ObanHandler do
         Phoenix.PubSub.broadcast(
           SoundForge.PubSub,
           "track_pipeline:#{track_id}",
-          {:pipeline_progress,
-           %{track_id: track_id, stage: stage, status: :failed, progress: 0}}
+          {:pipeline_progress, %{track_id: track_id, stage: stage, status: :failed, progress: 0}}
         )
       end
     end

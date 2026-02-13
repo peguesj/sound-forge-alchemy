@@ -34,10 +34,15 @@ defmodule SoundForge.Music.SchemaTest do
     end
 
     test "enforces unique spotify_id" do
-      {:ok, _} = SoundForge.Repo.insert(Track.changeset(%Track{}, %{title: "Song 1", spotify_id: "abc123"}))
+      {:ok, _} =
+        SoundForge.Repo.insert(
+          Track.changeset(%Track{}, %{title: "Song 1", spotify_id: "abc123"})
+        )
 
       {:error, changeset} =
-        SoundForge.Repo.insert(Track.changeset(%Track{}, %{title: "Song 2", spotify_id: "abc123"}))
+        SoundForge.Repo.insert(
+          Track.changeset(%Track{}, %{title: "Song 2", spotify_id: "abc123"})
+        )
 
       assert {"has already been taken", _} = changeset.errors[:spotify_id]
     end
@@ -45,12 +50,14 @@ defmodule SoundForge.Music.SchemaTest do
 
   describe "Stem changeset" do
     test "valid attributes" do
-      changeset = Stem.changeset(%Stem{}, %{
-        processing_job_id: Ecto.UUID.generate(),
-        track_id: Ecto.UUID.generate(),
-        stem_type: :vocals,
-        file_path: "/path/to/file.wav"
-      })
+      changeset =
+        Stem.changeset(%Stem{}, %{
+          processing_job_id: Ecto.UUID.generate(),
+          track_id: Ecto.UUID.generate(),
+          stem_type: :vocals,
+          file_path: "/path/to/file.wav"
+        })
+
       assert changeset.valid?
     end
 
@@ -63,22 +70,26 @@ defmodule SoundForge.Music.SchemaTest do
     end
 
     test "validates stem_type inclusion" do
-      changeset = Stem.changeset(%Stem{}, %{
-        processing_job_id: Ecto.UUID.generate(),
-        track_id: Ecto.UUID.generate(),
-        stem_type: :invalid_type
-      })
+      changeset =
+        Stem.changeset(%Stem{}, %{
+          processing_job_id: Ecto.UUID.generate(),
+          track_id: Ecto.UUID.generate(),
+          stem_type: :invalid_type
+        })
+
       refute changeset.valid?
       assert {"is invalid", _} = changeset.errors[:stem_type]
     end
 
     test "accepts all valid stem types" do
       for type <- [:vocals, :drums, :bass, :other, :guitar, :piano] do
-        changeset = Stem.changeset(%Stem{}, %{
-          processing_job_id: Ecto.UUID.generate(),
-          track_id: Ecto.UUID.generate(),
-          stem_type: type
-        })
+        changeset =
+          Stem.changeset(%Stem{}, %{
+            processing_job_id: Ecto.UUID.generate(),
+            track_id: Ecto.UUID.generate(),
+            stem_type: type
+          })
+
         assert changeset.valid?, "Expected #{type} to be valid"
       end
     end
@@ -86,10 +97,12 @@ defmodule SoundForge.Music.SchemaTest do
 
   describe "DownloadJob changeset" do
     test "valid attributes" do
-      changeset = DownloadJob.changeset(%DownloadJob{}, %{
-        track_id: Ecto.UUID.generate(),
-        status: :queued
-      })
+      changeset =
+        DownloadJob.changeset(%DownloadJob{}, %{
+          track_id: Ecto.UUID.generate(),
+          status: :queued
+        })
+
       assert changeset.valid?
     end
 
@@ -108,11 +121,13 @@ defmodule SoundForge.Music.SchemaTest do
 
   describe "ProcessingJob changeset" do
     test "valid attributes" do
-      changeset = ProcessingJob.changeset(%ProcessingJob{}, %{
-        track_id: Ecto.UUID.generate(),
-        status: :queued,
-        model: "htdemucs"
-      })
+      changeset =
+        ProcessingJob.changeset(%ProcessingJob{}, %{
+          track_id: Ecto.UUID.generate(),
+          status: :queued,
+          model: "htdemucs"
+        })
+
       assert changeset.valid?
     end
 
@@ -131,10 +146,12 @@ defmodule SoundForge.Music.SchemaTest do
 
   describe "AnalysisJob changeset" do
     test "valid attributes" do
-      changeset = AnalysisJob.changeset(%AnalysisJob{}, %{
-        track_id: Ecto.UUID.generate(),
-        status: :queued
-      })
+      changeset =
+        AnalysisJob.changeset(%AnalysisJob{}, %{
+          track_id: Ecto.UUID.generate(),
+          status: :queued
+        })
+
       assert changeset.valid?
     end
 

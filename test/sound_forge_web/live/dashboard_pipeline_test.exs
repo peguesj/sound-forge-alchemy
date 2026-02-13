@@ -11,12 +11,16 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
       # Simulate a pipeline progress message
       track_id = Ecto.UUID.generate()
 
-      send(view.pid, {:pipeline_progress, %{
-        track_id: track_id,
-        stage: :download,
-        status: :downloading,
-        progress: 50
-      }})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{
+           track_id: track_id,
+           stage: :download,
+           status: :downloading,
+           progress: 50
+         }}
+      )
 
       # The view should handle this without crashing
       html = render(view)
@@ -42,7 +46,9 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
 
       html =
         view
-        |> form("form[phx-submit='fetch_spotify']", %{url: "https://open.spotify.com/track/abc123"})
+        |> form("form[phx-submit='fetch_spotify']", %{
+          url: "https://open.spotify.com/track/abc123"
+        })
         |> render_submit()
 
       # mock_spotdl.sh returns "Test Song" as the track name
@@ -69,12 +75,16 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
       track_id = Ecto.UUID.generate()
 
       # First add a pipeline
-      send(view.pid, {:pipeline_progress, %{
-        track_id: track_id,
-        stage: :download,
-        status: :completed,
-        progress: 100
-      }})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{
+           track_id: track_id,
+           stage: :download,
+           status: :completed,
+           progress: 100
+         }}
+      )
 
       # Then dismiss it
       render_click(view, "dismiss_pipeline", %{"track-id" => track_id})

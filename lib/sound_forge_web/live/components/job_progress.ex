@@ -25,7 +25,10 @@ defmodule SoundForgeWeb.Components.JobProgress do
           <span class="text-xs text-gray-400 w-20 shrink-0">{stage_label(stage)}</span>
           <div class="flex-1 bg-gray-700 rounded-full h-1.5">
             <div
-              class={["h-1.5 rounded-full transition-all duration-500", stage_bar_class(@pipeline, stage)]}
+              class={[
+                "h-1.5 rounded-full transition-all duration-500",
+                stage_bar_class(@pipeline, stage)
+              ]}
               style={"width: #{stage_progress(@pipeline, stage)}%"}
             >
             </div>
