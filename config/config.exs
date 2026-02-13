@@ -76,8 +76,22 @@ config :sound_forge, Oban,
      limit: 10_000,
      interval: :timer.minutes(5)},
     # Rescue orphaned executing jobs after 30 minutes
-    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},
+    # Run storage cleanup daily at 3am UTC
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 3 * * *", SoundForge.Jobs.CleanupWorker}
+     ]}
   ]
+
+# Register audio MIME types not in default database
+config :mime, :types, %{
+  "audio/flac" => ["flac"],
+  "audio/aac" => ["aac"],
+  "audio/ogg" => ["ogg"],
+  "audio/x-m4a" => ["m4a"],
+  "audio/x-ms-wma" => ["wma"]
+}
 
 # Configure Elixir's Logger
 config :logger, :default_formatter,

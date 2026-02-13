@@ -25,6 +25,11 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:sort_by, :newest)
       |> assign(:page, 1)
       |> assign(:per_page, 24)
+      |> allow_upload(:audio,
+        accept: ~w(.mp3 .wav .flac .ogg .m4a .aac .wma),
+        max_entries: 5,
+        max_file_size: 100_000_000
+      )
       |> stream(:tracks, list_tracks(scope, page: 1, per_page: 24))
 
     {:ok, socket}
@@ -142,6 +147,103 @@ defmodule SoundForgeWeb.DashboardLive do
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed: #{reason}")}
     end
+  end
+
+  @impl true
+  def handle_event("upload_audio", _params, socket) do
+    scope = socket.assigns[:current_scope]
+
+    uploaded_tracks =
+      consume_uploaded_entries(socket, :audio, fn %{path: tmp_path}, entry ->
+        # Derive track title from filename
+        filename = entry.client_name
+        title = filename |> Path.rootname() |> String.replace(~r/[-_]+/, " ") |> String.trim()
+        ext = Path.extname(filename)
+
+        # Store the file
+        SoundForge.Storage.ensure_directories!()
+        dest_filename = "#{Ecto.UUID.generate()}#{ext}"
+        dest_path = Path.join(SoundForge.Storage.downloads_path(), dest_filename)
+        File.cp!(tmp_path, dest_path)
+
+        # Create the track
+        user_id = case scope do
+          %{user: %{id: id}} -> id
+          _ -> nil
+        end
+
+        case Music.create_track(%{
+          title: title,
+          user_id: user_id
+        }) do
+          {:ok, track} ->
+            # Create download job record pointing to the uploaded file
+            {:ok, _job} = Music.create_download_job(%{
+              track_id: track.id,
+              status: :completed,
+              output_path: dest_path,
+              file_size: entry.client_size
+            })
+
+            # Kick off processing pipeline (skip download, go straight to processing)
+            model = Application.get_env(:sound_forge, :default_demucs_model, "htdemucs")
+            {:ok, processing_job} = Music.create_processing_job(%{track_id: track.id, model: model, status: :queued})
+
+            %{
+              "track_id" => track.id,
+              "job_id" => processing_job.id,
+              "file_path" => dest_path,
+              "model" => model
+            }
+            |> SoundForge.Jobs.ProcessingWorker.new()
+            |> Oban.insert()
+
+            {:ok, track}
+
+          error ->
+            File.rm(dest_path)
+            error
+        end
+      end)
+
+    successful = Enum.filter(uploaded_tracks, &match?({:ok, _}, &1))
+
+    socket =
+      Enum.reduce(successful, socket, fn {:ok, track}, acc ->
+        if connected?(acc) do
+          Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
+        end
+
+        pipeline = %{track_id: track.id, download: %{status: :completed, progress: 100}, processing: %{status: :queued, progress: 0}}
+        pipelines = Map.put(acc.assigns.pipelines, track.id, pipeline)
+
+        acc
+        |> assign(:pipelines, pipelines)
+        |> stream_insert(:tracks, track, at: 0)
+        |> update(:track_count, &(&1 + 1))
+      end)
+
+    count = length(successful)
+
+    msg =
+      case count do
+        0 -> nil
+        1 -> "Uploaded 1 file, processing started"
+        n -> "Uploaded #{n} files, processing started"
+      end
+
+    socket = if msg, do: put_flash(socket, :info, msg), else: socket
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("validate_upload", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :audio, ref)}
   end
 
   @impl true
@@ -271,6 +373,11 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   def normalize_spectral(_, _), do: 0
+  def upload_error_to_string(:too_large), do: "File too large (max 100 MB)"
+  def upload_error_to_string(:not_accepted), do: "Invalid file type"
+  def upload_error_to_string(:too_many_files), do: "Too many files (max 5)"
+  def upload_error_to_string(err), do: inspect(err)
+
   # -- Private helpers --
 
   defp start_single_pipeline(track_meta, original_url, scope) do

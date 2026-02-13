@@ -71,8 +71,67 @@ defmodule SoundForge.Storage do
 
   @doc "Clean up orphaned files not referenced in the database"
   def cleanup_orphaned do
-    # Placeholder - will integrate with Music context
-    {:ok, 0}
+    known_paths = referenced_file_paths()
+    base = base_path()
+
+    if File.dir?(base) do
+      orphans = find_orphaned_files(base, known_paths)
+
+      deleted_count =
+        Enum.count(orphans, fn path ->
+          case File.rm(path) do
+            :ok -> true
+            {:error, :enoent} -> true
+            _ -> false
+          end
+        end)
+
+      {:ok, deleted_count}
+    else
+      {:ok, 0}
+    end
+  end
+
+  defp referenced_file_paths do
+    import Ecto.Query
+
+    stem_paths =
+      SoundForge.Music.Stem
+      |> select([s], s.file_path)
+      |> where([s], not is_nil(s.file_path))
+      |> SoundForge.Repo.all()
+
+    download_paths =
+      SoundForge.Music.DownloadJob
+      |> select([d], d.output_path)
+      |> where([d], not is_nil(d.output_path))
+      |> SoundForge.Repo.all()
+
+    base = base_path()
+
+    (stem_paths ++ download_paths)
+    |> Enum.map(fn path ->
+      if String.starts_with?(path, "/"), do: path, else: Path.join(base, path)
+    end)
+    |> MapSet.new()
+  end
+
+  defp find_orphaned_files(dir, known_paths) do
+    case File.ls(dir) do
+      {:ok, entries} ->
+        Enum.flat_map(entries, fn entry ->
+          path = Path.join(dir, entry)
+
+          if File.dir?(path) do
+            find_orphaned_files(path, known_paths)
+          else
+            if MapSet.member?(known_paths, path), do: [], else: [path]
+          end
+        end)
+
+      {:error, _} ->
+        []
+    end
   end
 
   defp count_files(dir) do

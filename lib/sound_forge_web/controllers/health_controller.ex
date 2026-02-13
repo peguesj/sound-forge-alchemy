@@ -7,7 +7,8 @@ defmodule SoundForgeWeb.HealthController do
     checks = %{
       database: check_database(),
       oban: check_oban(),
-      storage: check_storage()
+      storage: check_storage(),
+      storage_stats: storage_stats()
     }
 
     all_ok = Enum.all?(checks, fn {_k, v} -> v.status == "ok" end)
@@ -66,6 +67,13 @@ defmodule SoundForgeWeb.HealthController do
     else
       %{status: "error", message: "Storage directory missing: #{base}"}
     end
+  end
+
+  defp storage_stats do
+    stats = SoundForge.Storage.stats()
+    %{status: "ok", file_count: stats.file_count, total_size_mb: stats.total_size_mb}
+  rescue
+    e -> %{status: "error", message: Exception.message(e)}
   end
 
   defp uptime_seconds do

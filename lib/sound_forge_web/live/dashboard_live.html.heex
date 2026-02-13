@@ -193,8 +193,8 @@
     </div>
   <% else %>
     <!-- Library Index View -->
-    <!-- Spotify Input -->
-    <div class="px-6 py-4 bg-gray-900/50">
+    <!-- Input Section: Spotify URL + File Upload -->
+    <div class="px-6 py-4 bg-gray-900/50 space-y-3">
       <form phx-submit="fetch_spotify" class="flex gap-3">
         <input
           type="text"
@@ -210,6 +210,58 @@
           Fetch
         </button>
       </form>
+
+      <div class="border-t border-gray-800 pt-3">
+        <form phx-submit="upload_audio" phx-change="validate_upload">
+          <div class="flex items-center gap-3">
+            <label class="flex-1 relative">
+              <div
+                phx-drop-target={@uploads.audio.ref}
+                class="flex items-center gap-3 bg-gray-800 border border-dashed border-gray-600 rounded-lg px-4 py-2.5 text-gray-400 hover:border-purple-500/50 hover:text-gray-300 transition-colors cursor-pointer"
+              >
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                <span class="text-sm">
+                  <%= if length(@uploads.audio.entries) > 0 do %>
+                    <%= length(@uploads.audio.entries) %> file(s) selected
+                  <% else %>
+                    Drop audio files or click to browse (MP3, WAV, FLAC, OGG, M4A)
+                  <% end %>
+                </span>
+              </div>
+              <.live_file_input upload={@uploads.audio} class="sr-only" />
+            </label>
+            <button
+              type="submit"
+              disabled={length(@uploads.audio.entries) == 0}
+              class={[
+                "px-6 py-2.5 rounded-lg font-medium transition-colors text-sm",
+                if(length(@uploads.audio.entries) > 0, do: "bg-green-600 hover:bg-green-700 text-white", else: "bg-gray-700 text-gray-500 cursor-not-allowed")
+              ]}
+            >
+              Upload
+            </button>
+          </div>
+
+          <!-- Upload entries -->
+          <div :if={length(@uploads.audio.entries) > 0} class="mt-2 space-y-1">
+            <div :for={entry <- @uploads.audio.entries} class="flex items-center gap-3 text-sm">
+              <span class="text-gray-300 truncate flex-1"><%= entry.client_name %></span>
+              <span class="text-gray-500"><%= Float.round(entry.client_size / 1_000_000, 1) %> MB</span>
+              <div :if={entry.progress > 0 && entry.progress < 100} class="w-24 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div class="h-full bg-purple-500 rounded-full transition-all" style={"width: #{entry.progress}%"}></div>
+              </div>
+              <button type="button" phx-click="cancel_upload" phx-value-ref={entry.ref} class="text-gray-500 hover:text-red-400">
+                &times;
+              </button>
+              <div :for={err <- upload_errors(@uploads.audio, entry)} class="text-red-400 text-xs">
+                <%= upload_error_to_string(err) %>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- Active Pipelines -->
