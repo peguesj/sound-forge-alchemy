@@ -109,7 +109,7 @@ defmodule SoundForge.Audio.DemucsPort do
 
   @impl true
   def init(_opts) do
-    {:ok, %{port: nil, caller: nil, buffer: "", progress_callback: nil}}
+    {:ok, %{port: nil, caller: nil, buffer: "", progress_callback: nil, parsed_result: nil}}
   end
 
   @impl true
@@ -138,10 +138,11 @@ defmodule SoundForge.Audio.DemucsPort do
     new_buffer = buffer <> data
     {lines, remaining} = extract_lines(new_buffer)
 
-    # Process each complete JSON line
-    Enum.each(lines, fn line ->
-      process_json_line(line, state)
-    end)
+    # Process each complete JSON line, capturing result/error if present
+    state =
+      Enum.reduce(lines, state, fn line, acc ->
+        process_json_line(line, acc)
+      end)
 
     {:noreply, %{state | buffer: remaining}}
   end
@@ -149,10 +150,15 @@ defmodule SoundForge.Audio.DemucsPort do
   @impl true
   def handle_info(
         {port, {:exit_status, 0}},
-        %{port: port, caller: caller, buffer: buffer} = state
+        %{port: port, caller: caller, parsed_result: parsed_result, buffer: buffer} = state
       ) do
-    # Success - parse final result
-    result = parse_final_result(buffer)
+    # Use pre-parsed result if available, otherwise try to parse from remaining buffer
+    result =
+      case parsed_result do
+        {:ok, _} = ok -> ok
+        _ -> parse_final_result(buffer)
+      end
+
     GenServer.reply(caller, result)
     {:noreply, reset_state(state)}
   end
@@ -160,10 +166,15 @@ defmodule SoundForge.Audio.DemucsPort do
   @impl true
   def handle_info(
         {port, {:exit_status, code}},
-        %{port: port, caller: caller, buffer: buffer} = state
+        %{port: port, caller: caller, parsed_result: parsed_result, buffer: buffer} = state
       ) do
-    # Failure - try to parse error from buffer
-    error = parse_error(buffer, code)
+    # Use pre-parsed error if available, otherwise try to parse from remaining buffer
+    error =
+      case parsed_result do
+        {:error, message} -> {:error_from_script, message}
+        _ -> parse_error(buffer, code)
+      end
+
     GenServer.reply(caller, {:error, error})
     {:noreply, reset_state(state)}
   end
@@ -226,21 +237,26 @@ defmodule SoundForge.Audio.DemucsPort do
   defp process_json_line(line, state) do
     trimmed = String.trim(line)
 
-    unless trimmed == "" do
+    if trimmed == "" do
+      state
+    else
       case Jason.decode(trimmed) do
         {:ok, %{"type" => "progress", "percent" => percent, "message" => message}} ->
           handle_progress(percent, message, state)
+          state
 
-        {:ok, %{"type" => "error"}} ->
-          # Error will be handled by exit_status
-          :ok
+        {:ok, %{"type" => "error", "message" => message}} ->
+          %{state | parsed_result: {:error, message}}
 
-        {:ok, %{"type" => "result"}} ->
-          # Result will be handled by exit_status
-          :ok
+        {:ok, %{"type" => "result", "stems" => stems, "model" => model, "output_dir" => dir}} ->
+          %{state | parsed_result: {:ok, %{stems: stems, model: model, output_dir: dir}}}
+
+        {:ok, %{"type" => "result"} = data} ->
+          %{state | parsed_result: {:ok, data}}
 
         _ ->
           Logger.debug("Unrecognized output: #{trimmed}")
+          state
       end
     end
   end
@@ -294,6 +310,6 @@ defmodule SoundForge.Audio.DemucsPort do
   end
 
   defp reset_state(state) do
-    %{state | port: nil, caller: nil, buffer: "", progress_callback: nil}
+    %{state | port: nil, caller: nil, buffer: "", progress_callback: nil, parsed_result: nil}
   end
 end
