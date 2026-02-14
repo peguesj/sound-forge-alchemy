@@ -40,7 +40,9 @@ defmodule SoundForge.Audio.SpotDL do
 
     unless credentials_configured?() do
       Logger.error("Spotify API credentials not configured")
-      {:error, "Spotify API credentials not configured. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET."}
+
+      {:error,
+       "Spotify API credentials not configured. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET."}
     else
       case run_helper(["metadata", url], @metadata_timeout) do
         {:ok, output, _stderr} ->
@@ -79,7 +81,7 @@ defmodule SoundForge.Audio.SpotDL do
   @spec download(String.t(), keyword()) ::
           {:ok, %{path: String.t(), size: integer()}} | {:error, String.t()}
   def download(url, opts \\ []) when is_binary(url) do
-    output_dir = Keyword.get(opts, :output_dir, default_downloads_dir())
+    output_dir = Keyword.get(opts, :output_dir, default_downloads_dir()) |> Path.expand()
     format = Keyword.get(opts, :format, "mp3")
     bitrate = Keyword.get(opts, :bitrate, "320k")
     output_template = Keyword.get(opts, :output_template, "{track-id}")

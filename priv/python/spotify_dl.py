@@ -289,7 +289,7 @@ def cmd_download(args):
     emit_error({"status": "downloading", "youtube_url": yt_url})
 
     # Download audio with yt-dlp
-    output_dir = args.output_dir or tempfile.mkdtemp(prefix="sfa_dl_")
+    output_dir = os.path.abspath(args.output_dir) if args.output_dir else tempfile.mkdtemp(prefix="sfa_dl_")
     output_template = args.output_template or meta["song_id"]
     audio_format = args.format or "mp3"
     bitrate = args.bitrate or "320k"
