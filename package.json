@@ -1,6 +1,6 @@
 {
   "name": "sfa",
-  "version": "1.0.0",
+  "version": "4.1.0",
   "description": "Audio stem separation and analysis platform built with Phoenix 1.8 and LiveView. Paste a Spotify URL, download the audio, separate it into stems (vocals, drums, bass, other) using Demucs, analyze audio features with librosa, and explore everything in a real-time dashboard.",
   "main": "index.js",
   "directories": {
