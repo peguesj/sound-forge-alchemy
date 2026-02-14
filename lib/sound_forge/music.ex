@@ -495,7 +495,8 @@ defmodule SoundForge.Music do
   def get_download_path(track_id) do
     query =
       from dj in DownloadJob,
-        where: dj.track_id == ^track_id and dj.status == :completed and not is_nil(dj.output_path),
+        where:
+          dj.track_id == ^track_id and dj.status == :completed and not is_nil(dj.output_path),
         order_by: [desc: dj.updated_at],
         limit: 1,
         select: dj.output_path
@@ -605,6 +606,26 @@ defmodule SoundForge.Music do
     %Stem{}
     |> Stem.changeset(attrs)
     |> Repo.insert()
+  end
+
+  @doc """
+  Deletes all stems for a given track. Used for idempotent re-processing.
+  """
+  @spec delete_stems_for_track(String.t()) :: {non_neg_integer(), nil}
+  def delete_stems_for_track(track_id) do
+    Stem
+    |> where([s], s.track_id == ^track_id)
+    |> Repo.delete_all()
+  end
+
+  @doc """
+  Deletes all analysis results for a given track. Used for idempotent re-analysis.
+  """
+  @spec delete_analysis_for_track(String.t()) :: {non_neg_integer(), nil}
+  def delete_analysis_for_track(track_id) do
+    AnalysisResult
+    |> where([ar], ar.track_id == ^track_id)
+    |> Repo.delete_all()
   end
 
   # AnalysisResult functions

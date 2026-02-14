@@ -333,9 +333,14 @@ defmodule SoundForgeWeb.DashboardLive do
        |> assign(:pipelines, pipelines)
        |> put_flash(:info, "Processing #{track.title}...")}
     else
-      {:error, :not_found} -> {:noreply, put_flash(socket, :error, "Track not found")}
-      {:error, :no_completed_download} -> {:noreply, put_flash(socket, :error, "Download the track first before processing")}
-      {:error, _} -> {:noreply, put_flash(socket, :error, "Could not start processing")}
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Track not found")}
+
+      {:error, :no_completed_download} ->
+        {:noreply, put_flash(socket, :error, "Download the track first before processing")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not start processing")}
     end
   end
 
@@ -357,14 +362,23 @@ defmodule SoundForgeWeb.DashboardLive do
        |> assign(:pipelines, pipelines)
        |> put_flash(:info, "Analyzing #{track.title}...")}
     else
-      {:error, :not_found} -> {:noreply, put_flash(socket, :error, "Track not found")}
-      {:error, :no_completed_download} -> {:noreply, put_flash(socket, :error, "Download the track first before analyzing")}
-      {:error, _} -> {:noreply, put_flash(socket, :error, "Could not start analysis")}
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Track not found")}
+
+      {:error, :no_completed_download} ->
+        {:noreply, put_flash(socket, :error, "Download the track first before analyzing")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not start analysis")}
     end
   end
 
   @impl true
-  def handle_event("add_to_playlist", %{"track-id" => track_id, "playlist-id" => playlist_id}, socket) do
+  def handle_event(
+        "add_to_playlist",
+        %{"track-id" => track_id, "playlist-id" => playlist_id},
+        socket
+      ) do
     with {:ok, track} <- fetch_owned_track(socket, track_id),
          playlist <- Music.get_playlist!(playlist_id) do
       case Music.add_track_to_playlist(playlist, track) do

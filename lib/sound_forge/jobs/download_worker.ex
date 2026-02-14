@@ -77,7 +77,13 @@ defmodule SoundForge.Jobs.DownloadWorker do
   end
 
   defp downloads_dir do
-    Application.get_env(:sound_forge, :downloads_dir, "priv/uploads/downloads")
+    configured = Application.get_env(:sound_forge, :downloads_dir, "priv/uploads/downloads")
+
+    if String.starts_with?(configured, "/") do
+      configured
+    else
+      Path.join(Application.app_dir(:sound_forge), configured) |> Path.expand()
+    end
   end
 
   @default_min_audio_size 1024

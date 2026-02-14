@@ -61,6 +61,9 @@ defmodule SoundForge.Jobs.AnalysisWorker do
 
     case result do
       {:ok, results} ->
+        # Remove existing analysis to prevent duplicates on re-analysis
+        Music.delete_analysis_for_track(track_id)
+
         # Create AnalysisResult record
         # The Python analyzer returns a flat JSON structure, not nested
         {:ok, _analysis_result} =
@@ -121,5 +124,4 @@ defmodule SoundForge.Jobs.AnalysisWorker do
        %{track_id: track_id, stage: stage, status: status, progress: progress}}
     )
   end
-
 end
