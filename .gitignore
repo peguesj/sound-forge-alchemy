@@ -43,3 +43,22 @@ npm-debug.log
 # Uploaded files and downloads (runtime artifacts)
 /priv/uploads/
 
+# Node.js (E2E test dependencies)
+/node_modules/
+package-lock.json
+
+# Claude Code hooks data/logs
+.claude/hooks/data/
+.claude/hooks/logs/
+.claude/hooks/reports/
+
+# Spotify API cache
+.cache
+
+# E2E test artifacts
+/e2e-screenshots/
+/test-screenshots/
+/test-results/
+/tests/e2e/downloads/
+/tests/e2e/screenshots/
+
