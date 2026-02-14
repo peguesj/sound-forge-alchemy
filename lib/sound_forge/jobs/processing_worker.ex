@@ -69,12 +69,19 @@ defmodule SoundForge.Jobs.ProcessingWorker do
           )
         end
 
+        # Remove existing stems to prevent duplicates on re-processing
+        Music.delete_stems_for_track(track_id)
+
         # Create Stem records for each separated stem
         # The Python script returns absolute paths in stems map, so use them directly.
         # If a path is relative, resolve it against output_dir.
         stem_records =
           Enum.flat_map(stems, fn {stem_type, stem_path} ->
-            resolved = if String.starts_with?(stem_path, "/"), do: stem_path, else: Path.join(output_dir, stem_path)
+            resolved =
+              if String.starts_with?(stem_path, "/"),
+                do: stem_path,
+                else: Path.join(output_dir, stem_path)
+
             create_stem_record(track_id, job_id, stem_type, resolved)
           end)
 
