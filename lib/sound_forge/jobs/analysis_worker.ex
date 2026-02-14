@@ -32,11 +32,14 @@ defmodule SoundForge.Jobs.AnalysisWorker do
     broadcast_progress(job_id, :processing, 0)
     broadcast_track_progress(track_id, :analysis, :processing, 0)
 
+    # Resolve relative paths to absolute (relative to app root)
+    resolved_path = SoundForge.Storage.resolve_path(file_path)
+
     # Validate input file exists
-    if File.exists?(file_path) do
-      do_analysis(job, track_id, job_id, file_path, features)
+    if File.exists?(resolved_path) do
+      do_analysis(job, track_id, job_id, resolved_path, features)
     else
-      error_msg = "Audio file not found: #{file_path}"
+      error_msg = "Audio file not found: #{resolved_path}"
       Logger.error(error_msg)
       Music.update_analysis_job(job, %{status: :failed, error: error_msg})
       broadcast_progress(job_id, :failed, 0)
@@ -117,4 +120,5 @@ defmodule SoundForge.Jobs.AnalysisWorker do
        %{track_id: track_id, stage: stage, status: status, progress: progress}}
     )
   end
+
 end

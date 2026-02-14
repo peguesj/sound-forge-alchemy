@@ -90,3 +90,6 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Spotify OAuth requires loopback IP (not "localhost") for insecure redirect URIs
+config :sound_forge, :spotify_redirect_uri, "http://127.0.0.1:4000/auth/spotify/callback"

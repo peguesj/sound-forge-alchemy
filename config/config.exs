@@ -31,6 +31,7 @@ config :sound_forge,
   analyzer_timeout: 120_000,
   demucs_timeout: 300_000,
   demucs_output_dir: "/tmp/demucs",
+  demucs_python: "/Users/jeremiah/.asdf/installs/python/3.11.7/bin/python3",
   min_audio_size: 1024,
   # Spotify token cache TTL (seconds, Spotify tokens expire in 3600s)
   spotify_token_ttl: 3500,

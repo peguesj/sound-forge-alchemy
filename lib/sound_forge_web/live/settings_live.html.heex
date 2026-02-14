@@ -1,0 +1,634 @@
+<a
+  href="#main-content"
+  class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-purple-600 focus:text-white focus:rounded-lg focus:outline-none"
+>
+  Skip to content
+</a>
+<div id="main-content" data-theme="dark" class="min-h-screen bg-gray-950 text-white">
+  <!-- Header -->
+  <header class="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-4" role="banner">
+    <div class="flex items-center justify-between">
+      <.link
+        navigate={~p"/"}
+        class="text-2xl font-bold text-purple-400 hover:text-purple-300 transition-colors"
+      >
+        Sound Forge Alchemy
+      </.link>
+      <span class="text-sm text-gray-500">Settings</span>
+    </div>
+  </header>
+  
+<!-- Flash Messages -->
+  <div
+    :if={Phoenix.Flash.get(@flash, :info)}
+    id="flash-info"
+    role="alert"
+    aria-live="polite"
+    style="display:none;"
+    class="mx-4 sm:mx-6 mt-3 flex items-center gap-3 bg-purple-900/30 border border-purple-700/50 text-purple-200 rounded-lg px-4 py-3 text-sm"
+    phx-mounted={
+      JS.show(transition: {"transition-opacity duration-300", "opacity-0", "opacity-100"})
+      |> JS.hide(
+        transition: {"transition-opacity duration-500", "opacity-100", "opacity-0"},
+        time: 4000
+      )
+    }
+    phx-click={
+      JS.push("lv:clear-flash", value: %{key: :info})
+      |> JS.hide(
+        to: "#flash-info",
+        transition: {"transition-opacity duration-300", "opacity-100", "opacity-0"}
+      )
+    }
+  >
+    <span class="flex-1">{Phoenix.Flash.get(@flash, :info)}</span>
+    <button type="button" class="text-purple-400 hover:text-white" aria-label="Dismiss">
+      &times;
+    </button>
+  </div>
+  <div
+    :if={Phoenix.Flash.get(@flash, :error)}
+    id="flash-error"
+    role="alert"
+    aria-live="assertive"
+    style="display:none;"
+    class="mx-4 sm:mx-6 mt-3 flex items-center gap-3 bg-red-900/30 border border-red-700/50 text-red-200 rounded-lg px-4 py-3 text-sm"
+    phx-mounted={
+      JS.show(transition: {"transition-opacity duration-300", "opacity-0", "opacity-100"})
+      |> JS.hide(
+        transition: {"transition-opacity duration-500", "opacity-100", "opacity-0"},
+        time: 4000
+      )
+    }
+    phx-click={
+      JS.push("lv:clear-flash", value: %{key: :error})
+      |> JS.hide(
+        to: "#flash-error",
+        transition: {"transition-opacity duration-300", "opacity-100", "opacity-0"}
+      )
+    }
+  >
+    <span class="flex-1">{Phoenix.Flash.get(@flash, :error)}</span>
+    <button type="button" class="text-red-400 hover:text-white" aria-label="Dismiss">
+      &times;
+    </button>
+  </div>
+
+  <div class="flex flex-col md:flex-row px-4 sm:px-6 py-6 gap-6">
+    <!-- Sidebar -->
+    <nav class="w-full md:w-48 md:shrink-0" aria-label="Settings sections">
+      <ul class="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0">
+        <li :for={section <- ~w(spotify downloads youtube demucs analysis storage general)a}>
+          <button
+            phx-click="switch_section"
+            phx-value-section={section}
+            aria-current={if(@section == section, do: "page", else: false)}
+            class={[
+              "w-auto md:w-full text-left px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors",
+              if(@section == section,
+                do: "bg-purple-900/50 text-purple-300 font-medium border-l-2 border-purple-400",
+                else: "text-gray-400 hover:text-white hover:bg-gray-800"
+              )
+            ]}
+          >
+            {section_label(section)}
+          </button>
+        </li>
+      </ul>
+    </nav>
+    
+<!-- Content -->
+    <div class="flex-1 w-full max-w-2xl">
+      <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-6">
+        <!-- Validation Error Summary -->
+        <div
+          :if={@form.errors != []}
+          role="alert"
+          class="bg-red-900/20 border border-red-800/50 rounded-lg p-3 text-sm text-red-300"
+        >
+          Please fix the errors below before saving.
+        </div>
+        
+<!-- Spotify Section -->
+        <div :if={@section == :spotify}>
+          <div
+            id="section-content-spotify"
+            style="display:none;"
+            class="space-y-6"
+            phx-mounted={
+              JS.show(
+                transition:
+                  {"transition-all duration-200 ease-out", "opacity-0 translate-y-1",
+                   "opacity-100 translate-y-0"}
+              )
+            }
+          >
+            <div>
+              <div class="flex items-center justify-between">
+                <h2
+                  id="section-heading-spotify"
+                  tabindex="-1"
+                  class="text-lg font-semibold text-white"
+                >
+                  Spotify Integration
+                </h2>
+                <button
+                  type="button"
+                  phx-click="reset_section"
+                  phx-value-section="spotify"
+                  class="text-xs text-gray-500 hover:text-gray-300"
+                >
+                  Reset to defaults
+                </button>
+              </div>
+              <p class="text-sm text-gray-500 mt-1">
+                Manage your Spotify connection and monitor tool availability.
+              </p>
+            </div>
+            
+<!-- OAuth Status -->
+            <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+              <h3 class="text-sm font-medium text-gray-300 mb-3">Spotify Account</h3>
+              <div class="flex flex-wrap items-center gap-3">
+                <div
+                  aria-hidden="true"
+                  class={[
+                    "w-2 h-2 rounded-full",
+                    if(@spotify_linked, do: "bg-green-500", else: "bg-gray-600")
+                  ]}
+                >
+                </div>
+                <span class="text-sm text-gray-400">
+                  {if @spotify_linked, do: "Connected", else: "Not connected"}
+                </span>
+                <div class="sm:ml-auto w-full sm:w-auto mt-2 sm:mt-0">
+                  <%= if @spotify_linked do %>
+                    <button
+                      type="button"
+                      phx-click="unlink_spotify"
+                      class="w-full sm:w-auto px-3 py-1.5 text-xs bg-red-900/30 text-red-400 rounded-lg hover:bg-red-900/50 border border-red-800/50"
+                    >
+                      Unlink
+                    </button>
+                  <% else %>
+                    <button
+                      type="button"
+                      phx-click="link_spotify"
+                      class="w-full sm:w-auto px-3 py-1.5 text-xs bg-green-900/30 text-green-400 rounded-lg hover:bg-green-900/50 border border-green-800/50"
+                    >
+                      Link Spotify
+                    </button>
+                  <% end %>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-2">
+                Linking your Spotify account enables access to private playlists, saved tracks, and playback state.
+                Without it, public playlist data is fetched via embed page fallback.
+              </p>
+            </div>
+            
+<!-- Tool Availability -->
+            <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+              <h3 class="text-sm font-medium text-gray-300 mb-3">Tool Status</h3>
+              <div class="space-y-2" role="list" aria-label="Tool availability">
+                <div class="flex items-center gap-2" role="listitem">
+                  <span class={[
+                    "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium",
+                    if(@spotdl_available,
+                      do: "bg-green-900/30 text-green-400",
+                      else: "bg-red-900/30 text-red-400"
+                    )
+                  ]}>
+                    <div
+                      aria-hidden="true"
+                      class={[
+                        "w-1.5 h-1.5 rounded-full",
+                        if(@spotdl_available, do: "bg-green-400", else: "bg-red-400")
+                      ]}
+                    >
+                    </div>
+                    {if @spotdl_available, do: "Available", else: "Not Found"}
+                  </span>
+                  <span class="text-sm text-gray-400">
+                    SpotDL (Python + spotipy + yt-dlp)
+                  </span>
+                </div>
+                <div class="flex items-center gap-2" role="listitem">
+                  <span class={[
+                    "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium",
+                    if(@ffmpeg_available,
+                      do: "bg-green-900/30 text-green-400",
+                      else: "bg-red-900/30 text-red-400"
+                    )
+                  ]}>
+                    <div
+                      aria-hidden="true"
+                      class={[
+                        "w-1.5 h-1.5 rounded-full",
+                        if(@ffmpeg_available, do: "bg-green-400", else: "bg-red-400")
+                      ]}
+                    >
+                    </div>
+                    {if @ffmpeg_available, do: "Available", else: "Not Found"}
+                  </span>
+                  <span class="text-sm text-gray-400">FFmpeg</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+<!-- Downloads Section -->
+        <div :if={@section == :downloads}>
+          <div
+            id="section-content-downloads"
+            style="display:none;"
+            class="space-y-6"
+            phx-mounted={
+              JS.show(
+                transition:
+                  {"transition-all duration-200 ease-out", "opacity-0 translate-y-1",
+                   "opacity-100 translate-y-0"}
+              )
+            }
+          >
+            <div>
+              <div class="flex items-center justify-between">
+                <h2
+                  id="section-heading-downloads"
+                  tabindex="-1"
+                  class="text-lg font-semibold text-white"
+                >
+                  Download Settings
+                </h2>
+                <button
+                  type="button"
+                  phx-click="reset_section"
+                  phx-value-section="downloads"
+                  class="text-xs text-gray-500 hover:text-gray-300"
+                >
+                  Reset to defaults
+                </button>
+              </div>
+              <p class="text-sm text-gray-500 mt-1">
+                Configure audio quality, format, and output location for downloads.
+              </p>
+            </div>
+
+            <div class="bg-gray-900/50 rounded-lg p-5 border border-gray-800/50 space-y-4">
+              <.input
+                field={@form[:download_quality]}
+                type="select"
+                label="Download Quality"
+                prompt={"Default (#{@defaults.download_quality})"}
+                options={[
+                  {"128 kbps", "128k"},
+                  {"192 kbps", "192k"},
+                  {"256 kbps", "256k"},
+                  {"320 kbps", "320k"}
+                ]}
+              />
+
+              <.input
+                field={@form[:audio_format]}
+                type="select"
+                label="Audio Format"
+                prompt={"Default (#{@defaults.audio_format})"}
+                options={[{"MP3", "mp3"}, {"FLAC", "flac"}, {"WAV", "wav"}, {"OGG", "ogg"}]}
+              />
+
+              <div>
+                <.input
+                  field={@form[:output_directory]}
+                  type="text"
+                  label="Output Directory"
+                  placeholder={@defaults.output_directory}
+                  aria-describedby="output-directory-help"
+                />
+                <p id="output-directory-help" class="mt-1 text-xs text-gray-500">
+                  Absolute path where downloaded tracks are saved. Defaults to the application storage directory.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+<!-- YouTube Section -->
+        <div :if={@section == :youtube}>
+          <div
+            id="section-content-youtube"
+            style="display:none;"
+            class="space-y-6"
+            phx-mounted={
+              JS.show(
+                transition:
+                  {"transition-all duration-200 ease-out", "opacity-0 translate-y-1",
+                   "opacity-100 translate-y-0"}
+              )
+            }
+          >
+            <div>
+              <div class="flex items-center justify-between">
+                <h2
+                  id="section-heading-youtube"
+                  tabindex="-1"
+                  class="text-lg font-semibold text-white"
+                >
+                  YouTube / yt-dlp Settings
+                </h2>
+                <button
+                  type="button"
+                  phx-click="reset_section"
+                  phx-value-section="youtube"
+                  class="text-xs text-gray-500 hover:text-gray-300"
+                >
+                  Reset to defaults
+                </button>
+              </div>
+              <p class="text-sm text-gray-500 mt-1">
+                Tune yt-dlp search and format preferences for YouTube audio extraction.
+              </p>
+            </div>
+
+            <div class="bg-gray-900/50 rounded-lg p-5 border border-gray-800/50 space-y-4">
+              <div>
+                <.input
+                  field={@form[:ytdlp_search_depth]}
+                  type="number"
+                  label="Search Depth"
+                  placeholder={to_string(@defaults.ytdlp_search_depth)}
+                  min="1"
+                  max="20"
+                  aria-describedby="search-depth-help"
+                />
+                <p id="search-depth-help" class="mt-1 text-xs text-gray-500">
+                  Number of YouTube search results to evaluate when matching a track. Higher values improve accuracy but slow downloads.
+                </p>
+              </div>
+
+              <.input
+                field={@form[:ytdlp_preferred_format]}
+                type="select"
+                label="Preferred Format"
+                prompt={"Default (#{@defaults.ytdlp_preferred_format})"}
+                options={[
+                  {"Best Audio", "bestaudio"},
+                  {"Best Audio/Best", "bestaudio/best"},
+                  {"Best", "best"}
+                ]}
+              />
+
+              <.input
+                field={@form[:ytdlp_bitrate]}
+                type="select"
+                label="Bitrate"
+                prompt={"Default (#{@defaults.ytdlp_bitrate})"}
+                options={[
+                  {"128 kbps", "128k"},
+                  {"192 kbps", "192k"},
+                  {"256 kbps", "256k"},
+                  {"320 kbps", "320k"}
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+        
+<!-- Demucs Section -->
+        <div :if={@section == :demucs} class="space-y-6">
+          <div>
+            <div class="flex items-center justify-between">
+              <h2
+                id="section-heading-demucs"
+                tabindex="-1"
+                class="text-lg font-semibold text-white"
+              >
+                Demucs Settings
+              </h2>
+              <button
+                type="button"
+                phx-click="reset_section"
+                phx-value-section="demucs"
+                class="text-xs text-gray-500 hover:text-gray-300"
+              >
+                Reset to defaults
+              </button>
+            </div>
+            <p class="text-sm text-gray-500 mt-1">
+              Configure the AI stem separation model, device, and output settings.
+            </p>
+          </div>
+
+          <div class="bg-gray-900/50 rounded-lg p-5 border border-gray-800/50 space-y-4">
+            <div>
+              <.input
+                field={@form[:demucs_model]}
+                type="select"
+                label="Model"
+                prompt={"Default (#{@defaults.demucs_model})"}
+                options={[
+                  {"HTDemucs", "htdemucs"},
+                  {"HTDemucs Fine-tuned", "htdemucs_ft"},
+                  {"HTDemucs 6-Source", "htdemucs_6s"},
+                  {"MDX Extra", "mdx_extra"}
+                ]}
+                aria-describedby="demucs-model-help"
+              />
+              <p id="demucs-model-help" class="mt-1 text-xs text-gray-500">
+                The neural network model used for stem separation. Fine-tuned variants offer better quality at the cost of speed.
+              </p>
+            </div>
+
+            <.input
+              field={@form[:demucs_output_format]}
+              type="select"
+              label="Output Format"
+              prompt={"Default (#{@defaults.demucs_output_format})"}
+              options={[{"WAV", "wav"}, {"FLAC", "flac"}, {"MP3", "mp3"}]}
+            />
+
+            <.input
+              field={@form[:demucs_device]}
+              type="select"
+              label="Device"
+              prompt={"Default (#{@defaults.demucs_device})"}
+              options={[{"CPU", "cpu"}, {"CUDA (GPU)", "cuda"}]}
+            />
+
+            <div>
+              <.input
+                field={@form[:demucs_timeout]}
+                type="number"
+                label="Timeout (ms)"
+                placeholder={to_string(@defaults.demucs_timeout)}
+                min="1"
+                aria-describedby="demucs-timeout-help"
+              />
+              <p id="demucs-timeout-help" class="mt-1 text-xs text-gray-500">
+                Maximum time in milliseconds to wait for a stem separation job before it is cancelled.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+<!-- Analysis Section -->
+        <div :if={@section == :analysis} class="space-y-6">
+          <div class="flex items-center justify-between">
+            <h2
+              id="section-heading-analysis"
+              tabindex="-1"
+              class="text-lg font-semibold text-white"
+            >
+              Analysis Settings
+            </h2>
+            <button
+              type="button"
+              phx-click="reset_section"
+              phx-value-section="analysis"
+              class="text-xs text-gray-500 hover:text-gray-300"
+            >
+              Reset to defaults
+            </button>
+          </div>
+
+          <fieldset class="space-y-2">
+            <legend class="text-sm text-gray-300">Analysis Features</legend>
+            <div class="space-y-1" role="group" aria-label="Analysis features selection">
+              <.input
+                :for={feature <- ~w(tempo key energy spectral)}
+                field={@form[:analysis_features]}
+                id={"user_settings_analysis_features_#{feature}"}
+                type="checkbox"
+                label={String.capitalize(feature)}
+                name="user_settings[analysis_features][]"
+                value={feature}
+                checked={
+                  feature in (@form[:analysis_features].value || @defaults.analysis_features || [])
+                }
+              />
+            </div>
+          </fieldset>
+
+          <.input
+            field={@form[:analyzer_timeout]}
+            type="number"
+            label="Analyzer Timeout (ms)"
+            placeholder={to_string(@defaults.analyzer_timeout)}
+            min="1"
+          />
+        </div>
+        
+<!-- Storage Section -->
+        <div :if={@section == :storage} class="space-y-6">
+          <div class="flex items-center justify-between">
+            <h2
+              id="section-heading-storage"
+              tabindex="-1"
+              class="text-lg font-semibold text-white"
+            >
+              Storage Settings
+            </h2>
+            <button
+              type="button"
+              phx-click="reset_section"
+              phx-value-section="storage"
+              class="text-xs text-gray-500 hover:text-gray-300"
+            >
+              Reset to defaults
+            </button>
+          </div>
+
+          <div>
+            <.input
+              field={@form[:storage_path]}
+              type="text"
+              label="Storage Path"
+              placeholder={@defaults.storage_path}
+              aria-describedby="storage-path-help"
+            />
+            <p id="storage-path-help" class="mt-1 text-xs text-gray-500">
+              Root directory for all application data including stems, analyses, and temporary files.
+            </p>
+          </div>
+
+          <.input
+            field={@form[:max_file_age_days]}
+            type="number"
+            label="Max File Age (days)"
+            placeholder={to_string(@defaults.max_file_age_days)}
+            min="1"
+          />
+
+          <.input
+            field={@form[:retention_days]}
+            type="number"
+            label="Retention Period (days)"
+            placeholder={to_string(@defaults.retention_days)}
+            min="1"
+          />
+        </div>
+        
+<!-- General Section -->
+        <div :if={@section == :general} class="space-y-6">
+          <div class="flex items-center justify-between">
+            <h2
+              id="section-heading-general"
+              tabindex="-1"
+              class="text-lg font-semibold text-white"
+            >
+              General Settings
+            </h2>
+            <button
+              type="button"
+              phx-click="reset_section"
+              phx-value-section="general"
+              class="text-xs text-gray-500 hover:text-gray-300"
+            >
+              Reset to defaults
+            </button>
+          </div>
+
+          <.input
+            field={@form[:tracks_per_page]}
+            type="number"
+            label="Tracks Per Page"
+            placeholder={to_string(@defaults.tracks_per_page)}
+            min="1"
+            max="100"
+          />
+
+          <.input
+            field={@form[:max_upload_size]}
+            type="number"
+            label="Max Upload Size (bytes)"
+            placeholder={to_string(@defaults.max_upload_size)}
+            min="1"
+          />
+        </div>
+        
+<!-- Save Button -->
+        <div :if={@section != :spotify} class="pt-4 border-t border-gray-800">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <button
+              type="submit"
+              phx-disable-with="Saving..."
+              aria-busy="false"
+              class="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Save Settings
+            </button>
+            <div
+              :if={@form_dirty}
+              class="inline-flex items-center gap-1.5 text-xs text-amber-400"
+              role="status"
+              aria-live="polite"
+            >
+              <div class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></div>
+              Unsaved changes
+            </div>
+          </div>
+        </div>
+      </.form>
+    </div>
+  </div>
+</div>

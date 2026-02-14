@@ -45,6 +45,16 @@ defmodule SoundForge.Storage do
     Path.join([base_path(), subdirectory, filename])
   end
 
+  @doc "Resolve a potentially relative file path to an absolute path."
+  @spec resolve_path(String.t()) :: String.t()
+  def resolve_path("/" <> _ = absolute_path), do: absolute_path
+
+  def resolve_path("priv/" <> _ = relative_path) do
+    Path.join(File.cwd!(), relative_path)
+  end
+
+  def resolve_path(path), do: path
+
   @doc "Check if a file exists in storage"
   @spec file_exists?(String.t(), String.t()) :: boolean()
   def file_exists?(subdirectory, filename) do

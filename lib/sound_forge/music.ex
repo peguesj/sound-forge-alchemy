@@ -9,6 +9,8 @@ defmodule SoundForge.Music do
   alias SoundForge.Music.AnalysisJob
   alias SoundForge.Music.AnalysisResult
   alias SoundForge.Music.DownloadJob
+  alias SoundForge.Music.Playlist
+  alias SoundForge.Music.PlaylistTrack
   alias SoundForge.Music.ProcessingJob
   alias SoundForge.Music.Stem
   alias SoundForge.Music.Track
@@ -26,8 +28,10 @@ defmodule SoundForge.Music do
 
   def list_tracks(opts) when is_list(opts) do
     Track
+    |> apply_filters(opts)
     |> apply_sort(opts)
     |> apply_pagination(opts)
+    |> with_download_status()
     |> Repo.all()
   end
 
@@ -38,8 +42,10 @@ defmodule SoundForge.Music do
   def list_tracks(%{user: %{id: user_id}}, opts) when is_list(opts) do
     Track
     |> where([t], t.user_id == ^user_id)
+    |> apply_filters(opts)
     |> apply_sort(opts)
     |> apply_pagination(opts)
+    |> with_download_status()
     |> Repo.all()
   end
 
@@ -57,6 +63,76 @@ defmodule SoundForge.Music do
     |> where([t], t.user_id == ^user_id)
     |> Repo.aggregate(:count)
   end
+
+  defp apply_filters(query, opts) do
+    filters = Keyword.get(opts, :filters, %{})
+
+    query
+    |> apply_status_filter(Map.get(filters, :status, "all"))
+    |> apply_artist_filter(Map.get(filters, :artist, "all"))
+    |> apply_album_filter(Map.get(filters, :album))
+  end
+
+  defp apply_status_filter(query, "all"), do: query
+
+  defp apply_status_filter(query, "pending") do
+    query
+    |> where(
+      [t],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM download_jobs WHERE download_jobs.track_id = ? AND download_jobs.status = 'completed')",
+        t.id
+      )
+    )
+  end
+
+  defp apply_status_filter(query, "downloaded") do
+    query
+    |> where(
+      [t],
+      fragment(
+        "EXISTS (SELECT 1 FROM download_jobs WHERE download_jobs.track_id = ? AND download_jobs.status = 'completed')",
+        t.id
+      )
+    )
+  end
+
+  defp apply_status_filter(query, "processed") do
+    query
+    |> where(
+      [t],
+      fragment("EXISTS (SELECT 1 FROM stems WHERE stems.track_id = ?)", t.id)
+    )
+  end
+
+  defp apply_status_filter(query, "analyzed") do
+    query
+    |> where(
+      [t],
+      fragment(
+        "EXISTS (SELECT 1 FROM analysis_results WHERE analysis_results.track_id = ?)",
+        t.id
+      )
+    )
+  end
+
+  defp apply_status_filter(query, _), do: query
+
+  defp apply_artist_filter(query, "all"), do: query
+
+  defp apply_artist_filter(query, artist) when is_binary(artist) and artist != "" do
+    where(query, [t], t.artist == ^artist)
+  end
+
+  defp apply_artist_filter(query, _), do: query
+
+  defp apply_album_filter(query, nil), do: query
+
+  defp apply_album_filter(query, album) when is_binary(album) and album != "" do
+    where(query, [t], t.album == ^album)
+  end
+
+  defp apply_album_filter(query, _), do: query
 
   defp apply_pagination(query, opts) do
     per_page = Keyword.get(opts, :per_page)
@@ -84,6 +160,18 @@ defmodule SoundForge.Music do
     end
   end
 
+  defp with_download_status(query) do
+    from(t in query,
+      select_merge: %{
+        download_status:
+          fragment(
+            "(SELECT status FROM download_jobs WHERE track_id = ? ORDER BY inserted_at DESC LIMIT 1)",
+            t.id
+          )
+      }
+    )
+  end
+
   @doc """
   Searches tracks by title or artist, optionally scoped to a user.
   """
@@ -109,6 +197,29 @@ defmodule SoundForge.Music do
   end
 
   def search_tracks(_query, _scope), do: []
+
+  @doc """
+  Returns distinct artist names for the given user scope.
+  """
+  @spec list_distinct_artists(scope()) :: [String.t()]
+  def list_distinct_artists(%{user: %{id: user_id}}) do
+    Track
+    |> where([t], t.user_id == ^user_id and not is_nil(t.artist))
+    |> select([t], t.artist)
+    |> distinct(true)
+    |> order_by([t], asc: t.artist)
+    |> Repo.all()
+  end
+
+  @spec list_distinct_artists() :: [String.t()]
+  def list_distinct_artists do
+    Track
+    |> where([t], not is_nil(t.artist))
+    |> select([t], t.artist)
+    |> distinct(true)
+    |> order_by([t], asc: t.artist)
+    |> Repo.all()
+  end
 
   @doc """
   Gets a single track.
@@ -151,7 +262,9 @@ defmodule SoundForge.Music do
   @spec get_track_with_details!(String.t()) :: Track.t()
   def get_track_with_details!(id) do
     Track
-    |> Repo.get!(id)
+    |> where([t], t.id == ^id)
+    |> with_download_status()
+    |> Repo.one!()
     |> Repo.preload([:stems, :analysis_results])
   end
 
@@ -259,6 +372,99 @@ defmodule SoundForge.Music do
   @spec change_track(Track.t(), map()) :: Ecto.Changeset.t()
   def change_track(%Track{} = track, attrs \\ %{}) do
     Track.changeset(track, attrs)
+  end
+
+  # Playlist functions
+
+  @doc "Lists playlists for a user scope, ordered by name."
+  @spec list_playlists(scope()) :: [Playlist.t()]
+  def list_playlists(%{user: %{id: user_id}}) do
+    Playlist
+    |> where([p], p.user_id == ^user_id)
+    |> order_by([p], asc: p.name)
+    |> Repo.all()
+  end
+
+  @doc "Gets a single playlist with preloaded tracks."
+  @spec get_playlist!(String.t()) :: Playlist.t()
+  def get_playlist!(id) do
+    Playlist
+    |> Repo.get!(id)
+    |> Repo.preload(playlist_tracks: {from(pt in PlaylistTrack, order_by: pt.position), :track})
+  end
+
+  @doc "Gets a playlist by Spotify ID and user ID."
+  @spec get_playlist_by_spotify_id(String.t(), term()) :: Playlist.t() | nil
+  def get_playlist_by_spotify_id(spotify_id, user_id) when is_binary(spotify_id) do
+    Repo.get_by(Playlist, spotify_id: spotify_id, user_id: user_id)
+  end
+
+  def get_playlist_by_spotify_id(_, _), do: nil
+
+  @doc "Creates a playlist."
+  @spec create_playlist(map()) :: {:ok, Playlist.t()} | {:error, Ecto.Changeset.t()}
+  def create_playlist(attrs \\ %{}) do
+    %Playlist{}
+    |> Playlist.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc "Updates a playlist."
+  @spec update_playlist(Playlist.t(), map()) :: {:ok, Playlist.t()} | {:error, Ecto.Changeset.t()}
+  def update_playlist(%Playlist{} = playlist, attrs) do
+    playlist
+    |> Playlist.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc "Deletes a playlist."
+  @spec delete_playlist(Playlist.t()) :: {:ok, Playlist.t()} | {:error, Ecto.Changeset.t()}
+  def delete_playlist(%Playlist{} = playlist) do
+    Repo.delete(playlist)
+  end
+
+  @doc "Adds a track to a playlist at the given position."
+  @spec add_track_to_playlist(Playlist.t(), Track.t(), integer()) ::
+          {:ok, PlaylistTrack.t()} | {:error, Ecto.Changeset.t()}
+  def add_track_to_playlist(%Playlist{} = playlist, %Track{} = track, position \\ 0) do
+    %PlaylistTrack{}
+    |> PlaylistTrack.changeset(%{
+      playlist_id: playlist.id,
+      track_id: track.id,
+      position: position
+    })
+    |> Repo.insert(on_conflict: :nothing)
+  end
+
+  @doc "Removes a track from a playlist."
+  @spec remove_track_from_playlist(Playlist.t(), Track.t()) :: {non_neg_integer(), nil}
+  def remove_track_from_playlist(%Playlist{} = playlist, %Track{} = track) do
+    PlaylistTrack
+    |> where([pt], pt.playlist_id == ^playlist.id and pt.track_id == ^track.id)
+    |> Repo.delete_all()
+  end
+
+  @doc "Lists tracks for a specific playlist with pagination."
+  @spec list_tracks_for_playlist(String.t(), keyword()) :: [Track.t()]
+  def list_tracks_for_playlist(playlist_id, opts \\ []) do
+    Track
+    |> join(:inner, [t], pt in PlaylistTrack,
+      on: pt.track_id == t.id and pt.playlist_id == ^playlist_id
+    )
+    |> order_by([t, pt], asc: pt.position)
+    |> apply_pagination(opts)
+    |> Repo.all()
+  end
+
+  @doc "Returns distinct album names for the given user scope."
+  @spec list_distinct_albums(scope()) :: [String.t()]
+  def list_distinct_albums(%{user: %{id: user_id}}) do
+    Track
+    |> where([t], t.user_id == ^user_id and not is_nil(t.album) and t.album != "")
+    |> select([t], t.album)
+    |> distinct(true)
+    |> order_by([t], asc: t.album)
+    |> Repo.all()
   end
 
   # DownloadJob functions

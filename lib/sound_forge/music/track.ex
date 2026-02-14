@@ -15,6 +15,7 @@ defmodule SoundForge.Music.Track do
           album_art_url: String.t() | nil,
           duration: integer() | nil,
           user_id: integer() | nil,
+          download_status: String.t() | nil,
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
         }
@@ -32,11 +33,16 @@ defmodule SoundForge.Music.Track do
     field :duration, :integer
     field :user_id, :integer
 
+    # Virtual field populated by list_tracks query with latest download job status
+    field :download_status, :string, virtual: true
+
     has_many :download_jobs, SoundForge.Music.DownloadJob
     has_many :processing_jobs, SoundForge.Music.ProcessingJob
     has_many :analysis_jobs, SoundForge.Music.AnalysisJob
     has_many :stems, SoundForge.Music.Stem
     has_many :analysis_results, SoundForge.Music.AnalysisResult
+    has_many :playlist_tracks, SoundForge.Music.PlaylistTrack
+    has_many :playlists, through: [:playlist_tracks, :playlist]
 
     timestamps(type: :utc_datetime)
   end

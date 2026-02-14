@@ -10,6 +10,9 @@
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
+    <script>window.onSpotifyWebPlaybackSDKReady = window.onSpotifyWebPlaybackSDKReady || function(){};</script>
+    <script defer src="https://sdk.scdn.co/spotify-player.js">
+    </script>
     <script>
       (() => {
         const setTheme = (theme) => {
@@ -37,40 +40,6 @@
     >
       Skip to main content
     </a>
-    <nav class="bg-gray-900/80 border-b border-gray-800" aria-label="Account navigation">
-      <ul class="flex items-center gap-4 px-4 sm:px-6 lg:px-8 justify-end py-2 text-sm text-gray-400">
-        <%= if @current_scope do %>
-          <li class="text-gray-500">
-            {@current_scope.user.email}
-          </li>
-          <li>
-            <.link href={~p"/users/settings"} class="hover:text-white transition-colors">
-              Settings
-            </.link>
-          </li>
-          <li>
-            <.link
-              href={~p"/users/log-out"}
-              method="delete"
-              class="hover:text-white transition-colors"
-            >
-              Log out
-            </.link>
-          </li>
-        <% else %>
-          <li>
-            <.link href={~p"/users/register"} class="hover:text-white transition-colors">
-              Register
-            </.link>
-          </li>
-          <li>
-            <.link href={~p"/users/log-in"} class="hover:text-white transition-colors">
-              Log in
-            </.link>
-          </li>
-        <% end %>
-      </ul>
-    </nav>
     {@inner_content}
   </body>
 </html>

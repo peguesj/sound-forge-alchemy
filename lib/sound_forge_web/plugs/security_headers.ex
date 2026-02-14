@@ -25,16 +25,16 @@ defmodule SoundForgeWeb.Plugs.SecurityHeaders do
   defp csp_value do
     frame_src =
       if Application.get_env(:sound_forge, :dev_routes),
-        do: "frame-src 'self'",
-        else: "frame-src 'none'"
+        do: "frame-src 'self' https://sdk.scdn.co",
+        else: "frame-src 'self' https://sdk.scdn.co"
 
     directives = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' https://sdk.scdn.co",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https://i.scdn.co https://*.spotifycdn.com",
+      "img-src 'self' data: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com",
       "font-src 'self' data:",
-      "connect-src 'self' ws: wss:",
+      "connect-src 'self' ws: wss: https://api.spotify.com",
       "media-src 'self' blob:",
       frame_src,
       "object-src 'none'",

@@ -41,12 +41,14 @@ defmodule SoundForge.Jobs.ProcessingWorker do
       broadcast_progress(job_id, :processing, percent)
     end
 
+    resolved_path = SoundForge.Storage.resolve_path(file_path)
+
     result =
       try do
         # Start a dedicated port process for this job
         {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_demucs()
 
-        DemucsPort.separate(file_path,
+        DemucsPort.separate(resolved_path,
           model: model,
           progress_callback: progress_callback,
           server: port_pid

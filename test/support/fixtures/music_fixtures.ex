@@ -24,6 +24,23 @@ defmodule SoundForge.MusicFixtures do
   end
 
   @doc """
+  Generate a playlist.
+  """
+  def playlist_fixture(attrs \\ %{}) do
+    {:ok, playlist} =
+      attrs
+      |> Enum.into(%{
+        name: "Test Playlist #{System.unique_integer([:positive])}",
+        description: "A test playlist",
+        spotify_id: "sp_playlist_#{System.unique_integer([:positive])}",
+        spotify_url: "https://open.spotify.com/playlist/test"
+      })
+      |> SoundForge.Music.create_playlist()
+
+    playlist
+  end
+
+  @doc """
   Generate a download_job.
   """
   def download_job_fixture(attrs \\ %{}) do

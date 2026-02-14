@@ -61,7 +61,7 @@ defmodule SoundForgeWeb.UserSessionControllerTest do
       conn = get(conn, ~p"/users/log-in/#{token}")
       html = html_response(conn, 200)
       refute html =~ "Confirm my account"
-      assert html =~ "Log in"
+      assert html =~ "Keep me logged in"
     end
 
     test "raises error for invalid token", %{conn: conn} do
@@ -89,7 +89,7 @@ defmodule SoundForgeWeb.UserSessionControllerTest do
       conn = get(conn, ~p"/")
       response = html_response(conn, 200)
       assert response =~ user.email
-      assert response =~ ~p"/users/settings"
+      assert response =~ ~p"/settings"
       assert response =~ ~p"/users/log-out"
     end
 
@@ -164,7 +164,7 @@ defmodule SoundForgeWeb.UserSessionControllerTest do
       conn = get(conn, ~p"/")
       response = html_response(conn, 200)
       assert response =~ user.email
-      assert response =~ ~p"/users/settings"
+      assert response =~ ~p"/settings"
       assert response =~ ~p"/users/log-out"
     end
 
@@ -188,7 +188,7 @@ defmodule SoundForgeWeb.UserSessionControllerTest do
       conn = get(conn, ~p"/")
       response = html_response(conn, 200)
       assert response =~ user.email
-      assert response =~ ~p"/users/settings"
+      assert response =~ ~p"/settings"
       assert response =~ ~p"/users/log-out"
     end
 

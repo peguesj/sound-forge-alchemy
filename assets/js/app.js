@@ -25,9 +25,12 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/sound_forge"
 import topbar from "../vendor/topbar"
 import AudioPlayer from "./hooks/audio_player"
+import AutoDismiss from "./hooks/auto_dismiss"
+import ShiftSelect from "./hooks/shift_select"
+import SpotifyPlayer from "./hooks/spotify_player"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-const Hooks = { AudioPlayer, ...colocatedHooks }
+const Hooks = { AudioPlayer, AutoDismiss, ShiftSelect, SpotifyPlayer, ...colocatedHooks }
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
@@ -38,6 +41,16 @@ const liveSocket = new LiveSocket("/live", Socket, {
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
+
+// Accessibility: focus section headings on navigation
+window.addEventListener("phx:focus_section_heading", (event) => {
+  const section = event.detail.section
+  // Small delay to allow the DOM to update after section switch
+  requestAnimationFrame(() => {
+    const heading = document.getElementById(`section-heading-${section}`)
+    if (heading) heading.focus()
+  })
+})
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()

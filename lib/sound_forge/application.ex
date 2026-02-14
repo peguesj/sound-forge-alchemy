@@ -22,6 +22,8 @@ defmodule SoundForge.Application do
       {Task.Supervisor, name: SoundForge.TaskSupervisor},
       # DynamicSupervisor for audio processing port processes
       SoundForge.Audio.PortSupervisor,
+      # ETS-backed notification store
+      SoundForge.Notifications,
       # Start Oban for background job processing
       {Oban, Application.fetch_env!(:sound_forge, Oban)},
       # Oban telemetry handler for job lifecycle tracking

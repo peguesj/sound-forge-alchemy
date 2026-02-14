@@ -3,7 +3,7 @@ defmodule SoundForge.Audio.SpotDLTest do
 
   alias SoundForge.Audio.SpotDL
 
-  # These tests use the mock_spotdl.sh script configured in config/test.exs
+  # These tests use the mock_spotify_dl.py script configured in config/test.exs
 
   describe "fetch_metadata/1" do
     test "returns track metadata for valid Spotify URL" do
@@ -25,6 +25,25 @@ defmodule SoundForge.Audio.SpotDLTest do
     test "returns error for URL containing invalid" do
       assert {:error, _reason} =
                SpotDL.fetch_metadata("https://open.spotify.com/track/invalid")
+    end
+
+    test "returns per-track cover art for playlist URLs (not playlist mosaic)" do
+      assert {:ok, tracks, _playlist} =
+               SpotDL.fetch_metadata("https://open.spotify.com/playlist/pl_test123")
+
+      assert length(tracks) == 2
+
+      [track1, track2] = tracks
+      assert track1["name"] == "Playlist Track 1"
+      assert track2["name"] == "Playlist Track 2"
+
+      # Each track should have its own album art, NOT the playlist mosaic cover
+      assert track1["cover_url"] == "https://example.com/album-art-1.jpg"
+      assert track2["cover_url"] == "https://example.com/album-art-2.jpg"
+
+      # Verify they are distinct from what would be the playlist cover
+      refute track1["cover_url"] == "https://example.com/playlist-mosaic.jpg"
+      refute track2["cover_url"] == "https://example.com/playlist-mosaic.jpg"
     end
   end
 
@@ -59,7 +78,7 @@ defmodule SoundForge.Audio.SpotDLTest do
   end
 
   describe "available?/0" do
-    test "returns true when mock spotdl is configured" do
+    test "returns true when python and mock script are available" do
       assert SpotDL.available?()
     end
   end

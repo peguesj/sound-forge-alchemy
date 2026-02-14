@@ -16,6 +16,21 @@ import Config
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
+# Load .env file in dev/test (Phoenix doesn't auto-load .env)
+if config_env() in [:dev, :test] do
+  env_file = Path.join(File.cwd!(), ".env")
+
+  if File.exists?(env_file) do
+    for line <- File.stream!(env_file),
+        line = String.trim(line),
+        line != "" and not String.starts_with?(line, "#"),
+        [key | rest] = String.split(line, "=", parts: 2),
+        value = List.first(rest, "") do
+      System.put_env(String.trim(key), String.trim(value))
+    end
+  end
+end
+
 if System.get_env("PHX_SERVER") do
   config :sound_forge, SoundForgeWeb.Endpoint, server: true
 end

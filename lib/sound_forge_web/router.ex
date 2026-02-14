@@ -36,12 +36,24 @@ defmodule SoundForgeWeb.Router do
 
     live "/", DashboardLive, :index
     live "/tracks/:id", DashboardLive, :show
+    live "/settings", SettingsLive, :index
     get "/files/*path", FileController, :serve
 
     # Export routes
     get "/export/stem/:id", ExportController, :download_stem
     get "/export/stems/:track_id", ExportController, :download_all_stems
     get "/export/analysis/:track_id", ExportController, :export_analysis
+
+    # Spotify OAuth (initiate - requires auth)
+    get "/auth/spotify", SpotifyOAuthController, :authorize
+  end
+
+  # Spotify OAuth callback - outside auth pipeline because it's an external redirect
+  # from Spotify. Auth is verified inside the controller.
+  scope "/", SoundForgeWeb do
+    pipe_through [:browser]
+
+    get "/auth/spotify/callback", SpotifyOAuthController, :callback
   end
 
   # Other scopes may use custom stacks.

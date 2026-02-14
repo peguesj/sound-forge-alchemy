@@ -1,20 +1,19 @@
 defmodule SoundForge.Audio.SpotDL do
   @moduledoc """
-  Wrapper around the spotdl CLI for Spotify metadata extraction and audio downloading.
+  Wrapper for Spotify metadata extraction and audio downloading.
 
-  spotdl handles URL parsing, metadata fetching, and downloading for tracks,
-  albums, and playlists from Spotify URLs. This replaces the Spotify Web API
-  for the main pipeline flow.
+  Uses a custom Python helper (priv/python/spotify_dl.py) that calls spotipy
+  for metadata and yt-dlp for audio downloading. This replaces the spotdl CLI
+  which hangs due to Spotify's deprecated audio_features endpoint.
   """
 
   require Logger
 
-  @spotdl_cmd "spotdl"
   @metadata_timeout 60_000
   @download_timeout 300_000
 
   @doc """
-  Fetches metadata for a Spotify URL using `spotdl save`.
+  Fetches metadata for a Spotify URL.
 
   Returns a list of track metadata maps for the given URL, whether it's a
   single track, album, or playlist. Each map contains fields like:
@@ -37,30 +36,36 @@ defmodule SoundForge.Audio.SpotDL do
   """
   @spec fetch_metadata(String.t()) :: {:ok, list(map())} | {:error, String.t()}
   def fetch_metadata(url) when is_binary(url) do
-    args = ["save", url, "--save-file", "-", "--log-level", "ERROR"]
-    args = args ++ spotify_auth_args()
+    Logger.info("Fetching metadata for #{url}")
 
-    Logger.info("Fetching metadata via spotdl for #{url}")
+    unless credentials_configured?() do
+      Logger.error("Spotify API credentials not configured")
+      {:error, "Spotify API credentials not configured. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET."}
+    else
+      case run_helper(["metadata", url], @metadata_timeout) do
+        {:ok, output, _stderr} ->
+          parse_json_output(output)
 
-    case run_cmd(args, @metadata_timeout) do
-      {output, 0} ->
-        parse_save_output(output)
+        {:error, :timeout} ->
+          Logger.error("Metadata fetch timed out after #{div(@metadata_timeout, 1000)}s")
+          {:error, "Metadata fetch timed out. Spotify may be rate-limiting requests."}
 
-      {:error, :timeout} ->
-        Logger.error("spotdl metadata fetch timed out after #{div(@metadata_timeout, 1000)}s")
-        {:error, "Metadata fetch timed out. Spotify may be rate-limiting requests."}
-
-      {error_output, code} ->
-        Logger.error("spotdl save failed (exit #{code}): #{String.slice(error_output, 0, 500)}")
-        {:error, "Failed to fetch metadata: #{String.slice(error_output, 0, 200)}"}
+        {:error, reason} ->
+          Logger.error("Metadata fetch failed: #{reason}")
+          {:error, "Failed to fetch metadata: #{reason}"}
+      end
     end
-  rescue
-    e in ErlangError ->
-      {:error, "spotdl not available: #{inspect(e)}"}
+  end
+
+  defp credentials_configured? do
+    config = Application.get_env(:sound_forge, :spotify, [])
+    client_id = Keyword.get(config, :client_id)
+    client_secret = Keyword.get(config, :client_secret)
+    is_binary(client_id) and client_id != "" and is_binary(client_secret) and client_secret != ""
   end
 
   @doc """
-  Downloads a track from a Spotify URL using `spotdl download`.
+  Downloads a track from a Spotify URL.
 
   Returns the path to the downloaded file on success.
 
@@ -81,91 +86,121 @@ defmodule SoundForge.Audio.SpotDL do
 
     File.mkdir_p!(output_dir)
 
-    output_path = Path.join(output_dir, "#{output_template}.#{format}")
+    args = [
+      "download",
+      url,
+      "--output-dir",
+      output_dir,
+      "--output-template",
+      output_template,
+      "--format",
+      format,
+      "--bitrate",
+      bitrate
+    ]
 
-    args =
-      [
-        "download",
-        url,
-        "--output",
-        output_path,
-        "--format",
-        format,
-        "--bitrate",
-        bitrate,
-        "--log-level",
-        "ERROR"
-      ] ++ spotify_auth_args()
+    Logger.info("Starting download for #{url}")
 
-    Logger.info("Starting spotdl download for #{url}")
+    case run_helper(args, @download_timeout) do
+      {:ok, output, _stderr} ->
+        case Jason.decode(output) do
+          {:ok, %{"path" => path, "size" => size}} ->
+            {:ok, %{path: path, size: size}}
 
-    case run_cmd(args, @download_timeout) do
-      {_output, 0} ->
-        find_downloaded_file(output_dir, output_template, format)
+          {:ok, _} ->
+            {:error, "Unexpected response format"}
+
+          {:error, _} ->
+            {:error, "Failed to parse download result"}
+        end
 
       {:error, :timeout} ->
-        Logger.error("spotdl download timed out after #{div(@download_timeout, 1000)}s")
+        Logger.error("Download timed out after #{div(@download_timeout, 1000)}s")
         {:error, "Download timed out. Spotify may be rate-limiting requests."}
 
-      {error_output, code} ->
-        Logger.error(
-          "spotdl download failed (exit #{code}): #{String.slice(error_output, 0, 500)}"
-        )
-
-        {:error, "Download failed: #{String.slice(error_output, 0, 200)}"}
+      {:error, reason} ->
+        Logger.error("Download failed: #{reason}")
+        {:error, "Download failed: #{reason}"}
     end
-  rescue
-    e in ErlangError ->
-      {:error, "spotdl not available: #{inspect(e)}"}
   end
 
   @doc """
-  Checks if spotdl is available on the system.
+  Checks if the helper script and its dependencies are available.
   """
   @spec available?() :: boolean()
   def available? do
-    case System.cmd(spotdl_cmd(), ["--version"], stderr_to_stdout: true) do
-      {_output, 0} -> true
-      _ -> false
-    end
-  rescue
-    _ -> false
+    python = System.find_executable(python_cmd())
+    script = helper_script_path()
+    is_binary(python) and File.exists?(script)
   end
 
   # -- Private --
 
-  defp run_cmd(args, timeout) do
-    cmd = System.find_executable(spotdl_cmd())
-    unless cmd, do: raise(%ErlangError{original: :enoent})
+  defp run_helper(args, timeout) do
+    python = System.find_executable(python_cmd())
+    script = helper_script_path()
+
+    unless python, do: raise(%ErlangError{original: :enoent})
+    unless File.exists?(script), do: raise(%ErlangError{original: :enoent})
+
+    full_args = [script | args]
 
     port =
-      Port.open({:spawn_executable, cmd}, [
+      Port.open({:spawn_executable, python}, [
         :binary,
         :exit_status,
-        :stderr_to_stdout,
-        args: args
+        {:args, full_args},
+        {:env, spotify_env()},
+        :stderr_to_stdout
       ])
 
     collect_output(port, "", timeout)
+  rescue
+    e in ErlangError ->
+      {:error, "Helper not available: #{inspect(e)}"}
   end
 
   defp collect_output(port, acc, timeout) do
     receive do
       {^port, {:data, data}} ->
-        if String.contains?(data, "rate/request limit") do
-          kill_port(port)
-          {:error, :timeout}
-        else
-          collect_output(port, acc <> data, timeout)
-        end
+        collect_output(port, acc <> data, timeout)
 
-      {^port, {:exit_status, status}} ->
-        {acc, status}
+      {^port, {:exit_status, 0}} ->
+        # Split stdout JSON (last line) from stderr status messages
+        lines = String.split(String.trim(acc), "\n")
+        {stderr_lines, stdout_lines} = Enum.split_with(lines, &status_line?/1)
+        stdout = Enum.join(stdout_lines, "\n")
+        stderr = Enum.join(stderr_lines, "\n")
+        {:ok, stdout, stderr}
+
+      {^port, {:exit_status, code}} ->
+        # Try to extract error from output
+        error_msg = extract_error(acc) || "Process exited with code #{code}"
+        {:error, error_msg}
     after
       timeout ->
         kill_port(port)
         {:error, :timeout}
     end
+  end
+
+  defp status_line?(line) do
+    case Jason.decode(line) do
+      {:ok, %{"status" => _}} -> true
+      {:ok, %{"error" => _}} -> true
+      _ -> String.starts_with?(line, "[download]")
+    end
+  end
+
+  defp extract_error(output) do
+    output
+    |> String.split("\n")
+    |> Enum.find_value(fn line ->
+      case Jason.decode(line) do
+        {:ok, %{"error" => msg}} -> msg
+        _ -> nil
+      end
+    end)
   end
 
   defp kill_port(port) do
@@ -181,85 +216,52 @@ defmodule SoundForge.Audio.SpotDL do
     _, _ -> :ok
   end
 
-  defp parse_save_output(output) do
-    # spotdl save --save-file - outputs JSON array of track objects to stdout
-    # But it may also print log lines before the JSON, so we need to find the JSON
+  defp parse_json_output(output) do
     output = String.trim(output)
 
-    json_str = extract_json_array(output)
-
-    case Jason.decode(json_str) do
+    case Jason.decode(output) do
       {:ok, [_ | _] = tracks} ->
         {:ok, tracks}
 
       {:ok, []} ->
         {:error, "No tracks found for this URL"}
 
+      # Playlist format: {"playlist": {...}, "tracks": [...]}
+      {:ok, %{"playlist" => playlist, "tracks" => [_ | _] = tracks}} ->
+        {:ok, tracks, playlist}
+
+      {:ok, %{"playlist" => _playlist, "tracks" => []}} ->
+        {:error, "No tracks found for this URL"}
+
       {:ok, _} ->
-        {:error, "Unexpected response format from spotdl"}
+        {:error, "Unexpected response format"}
 
       {:error, _} ->
-        {:error, "Failed to parse spotdl output"}
+        {:error, "Failed to parse output"}
     end
   end
 
-  defp extract_json_array(output) do
-    # Find the JSON array in the output (starts with [ and ends with ])
-    case Regex.run(~r/\[[\s\S]*\]\s*$/m, output) do
-      [json] -> json
-      _ -> output
-    end
-  end
-
-  defp find_downloaded_file(output_dir, template, format) do
-    expected = Path.join(output_dir, "#{template}.#{format}")
-
-    if File.exists?(expected) do
-      file_with_size(expected)
-    else
-      case find_recent_file(output_dir, format) do
-        nil -> {:error, "Downloaded file not found in #{output_dir}"}
-        path -> file_with_size(path)
-      end
-    end
-  end
-
-  defp file_with_size(path) do
-    {:ok, %{size: size}} = File.stat(path)
-    {:ok, %{path: path, size: size}}
-  end
-
-  defp find_recent_file(dir, format) do
-    Path.wildcard(Path.join(dir, "*.#{format}"))
-    |> Enum.filter(&recently_modified?/1)
-    |> Enum.sort_by(fn f -> File.stat!(f).mtime end, :desc)
-    |> List.first()
-  end
-
-  defp recently_modified?(path) do
-    with {:ok, %{mtime: mtime}} <- File.stat(path),
-         {:ok, ndt} <- NaiveDateTime.from_erl(mtime) do
-      NaiveDateTime.diff(NaiveDateTime.utc_now(), ndt) < 60
-    else
-      _ -> false
-    end
-  end
-
-  defp spotify_auth_args do
+  defp spotify_env do
     config = Application.get_env(:sound_forge, :spotify, [])
-    client_id = Keyword.get(config, :client_id)
-    client_secret = Keyword.get(config, :client_secret)
+    client_id = Keyword.get(config, :client_id) || ""
+    client_secret = Keyword.get(config, :client_secret) || ""
 
-    if is_binary(client_id) and client_id != "" and
-         is_binary(client_secret) and client_secret != "" do
-      ["--client-id", client_id, "--client-secret", client_secret]
-    else
-      []
-    end
+    [
+      {~c"SPOTIPY_CLIENT_ID", String.to_charlist(client_id)},
+      {~c"SPOTIPY_CLIENT_SECRET", String.to_charlist(client_secret)}
+    ]
   end
 
-  defp spotdl_cmd do
-    Application.get_env(:sound_forge, :spotdl_cmd, @spotdl_cmd)
+  defp python_cmd do
+    Application.get_env(:sound_forge, :python_cmd, "python3")
+  end
+
+  defp helper_script_path do
+    Application.get_env(
+      :sound_forge,
+      :spotify_dl_script,
+      Path.join(:code.priv_dir(:sound_forge), "python/spotify_dl.py")
+    )
   end
 
   defp default_downloads_dir do

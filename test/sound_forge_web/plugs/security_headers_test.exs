@@ -27,12 +27,21 @@ defmodule SoundForgeWeb.Plugs.SecurityHeadersTest do
     conn = get(conn, ~p"/")
     headers = Enum.into(conn.resp_headers, %{})
     assert headers["content-security-policy"] =~ "https://i.scdn.co"
+    assert headers["content-security-policy"] =~ "https://*.scdn.co"
   end
 
-  test "CSP allows WebSocket connections", %{conn: conn} do
+  test "CSP allows Spotify SDK script", %{conn: conn} do
     conn = get(conn, ~p"/")
     headers = Enum.into(conn.resp_headers, %{})
-    assert headers["content-security-policy"] =~ "connect-src 'self' ws: wss:"
+    assert headers["content-security-policy"] =~ "https://sdk.scdn.co"
+  end
+
+  test "CSP allows WebSocket and Spotify API connections", %{conn: conn} do
+    conn = get(conn, ~p"/")
+    headers = Enum.into(conn.resp_headers, %{})
+    assert headers["content-security-policy"] =~ "connect-src"
+    assert headers["content-security-policy"] =~ "ws: wss:"
+    assert headers["content-security-policy"] =~ "https://api.spotify.com"
   end
 
   test "CSP restricts base-uri to self", %{conn: conn} do

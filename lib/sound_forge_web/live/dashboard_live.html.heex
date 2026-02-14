@@ -1,522 +1,1573 @@
-<div id="main-content" class="min-h-screen bg-gray-950 text-white">
-  <!-- Header -->
-  <header class="bg-gray-900 border-b border-gray-800 px-6 py-4" role="banner">
-    <div class="flex items-center justify-between">
-      <.link
-        navigate={~p"/"}
-        class="text-2xl font-bold text-purple-400 hover:text-purple-300 transition-colors"
-      >
-        Sound Forge Alchemy
-      </.link>
-      <span class="text-sm text-gray-500">v3.0.0</span>
-    </div>
-  </header>
+<div id="main-content" class="flex flex-col h-screen bg-gray-950 text-white">
+  <!-- Sticky Header -->
+  <SoundForgeWeb.Live.Components.AppHeader.app_header
+    current_scope={@current_scope}
+    current_user_id={@current_user_id}
+    nav_tab={@nav_tab}
+    nav_context={@nav_context}
+  />
   
-<!-- Flash Messages -->
-  <div
-    :if={Phoenix.Flash.get(@flash, :info)}
-    id="flash-info"
-    role="alert"
-    class="mx-6 mt-3 flex items-center gap-3 bg-purple-900/30 border border-purple-700/50 text-purple-200 rounded-lg px-4 py-3 text-sm"
-    phx-click={JS.push("lv:clear-flash", value: %{key: :info}) |> JS.hide(to: "#flash-info")}
-  >
-    <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-      <path
-        fill-rule="evenodd"
-        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-        clip-rule="evenodd"
-      />
-    </svg>
-    <span class="flex-1">{Phoenix.Flash.get(@flash, :info)}</span>
-    <button type="button" class="text-purple-400 hover:text-white" aria-label="Dismiss">
-      &times;
-    </button>
-  </div>
-  <div
-    :if={Phoenix.Flash.get(@flash, :error)}
-    id="flash-error"
-    role="alert"
-    class="mx-6 mt-3 flex items-center gap-3 bg-red-900/30 border border-red-700/50 text-red-200 rounded-lg px-4 py-3 text-sm"
-    phx-click={JS.push("lv:clear-flash", value: %{key: :error}) |> JS.hide(to: "#flash-error")}
-  >
-    <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-      <path
-        fill-rule="evenodd"
-        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-        clip-rule="evenodd"
-      />
-    </svg>
-    <span class="flex-1">{Phoenix.Flash.get(@flash, :error)}</span>
-    <button type="button" class="text-red-400 hover:text-white" aria-label="Dismiss">
-      &times;
-    </button>
-  </div>
-
-  <%= if @live_action == :show && @track do %>
-    <!-- Track Detail View -->
-    <div class="px-6 py-4">
-      <.link navigate={~p"/"} class="text-sm text-gray-400 hover:text-white transition-colors">
-        &larr; Back to library
-      </.link>
-    </div>
-
-    <div class="px-6 pb-6">
-      <div class="flex gap-8">
-        <!-- Track Info -->
-        <div class="w-64 shrink-0">
-          <div class="aspect-square bg-gray-800 rounded-lg overflow-hidden mb-4">
-            <img
-              :if={@track.album_art_url}
-              src={@track.album_art_url}
-              class="w-full h-full object-cover"
-              alt={@track.title}
-            />
-            <div
-              :if={!@track.album_art_url}
-              class="w-full h-full flex items-center justify-center"
-            >
-              <svg class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
-            </div>
-          </div>
-          <h1 class="text-xl font-bold">{@track.title}</h1>
-          <p class="text-gray-400">{@track.artist}</p>
-          <p :if={@track.album} class="text-sm text-gray-500">{@track.album}</p>
-
-          <button
-            phx-click="delete_track"
-            phx-value-id={@track.id}
-            data-confirm="Delete this track and all associated files?"
-            aria-label={"Delete #{@track.title}"}
-            class="mt-4 w-full bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 border border-red-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
-          >
-            Delete Track
-          </button>
-        </div>
-        
-<!-- Analysis & Stems -->
-        <div class="flex-1">
-          <!-- Pipeline Progress (if active) -->
-          <div :if={Map.has_key?(@pipelines, @track.id)} class="mb-6">
-            <SoundForgeWeb.Components.JobProgress.pipeline_progress
-              pipeline={Map.get(@pipelines, @track.id, %{})}
-              track_title={@track.title}
-            />
-          </div>
-          
-<!-- Analysis Results -->
-          <div :if={@analysis} class="mb-8">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-lg font-semibold text-gray-300">Analysis</h2>
-              <.link
-                href={~p"/export/analysis/#{@track.id}"}
-                class="text-sm text-gray-400 hover:text-white transition-colors"
-              >
-                Export JSON
-              </.link>
-            </div>
-            <!-- Primary Metrics -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div :if={@analysis.tempo} class="bg-gray-800 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase">Tempo</p>
-                <p class="text-2xl font-bold text-purple-400">
-                  {Float.round(@analysis.tempo, 1)}
-                </p>
-                <p class="text-xs text-gray-500">BPM</p>
-              </div>
-              <div :if={@analysis.key} class="bg-gray-800 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase">Key</p>
-                <p class="text-2xl font-bold text-purple-400">{@analysis.key}</p>
-              </div>
-              <div :if={@analysis.energy} class="bg-gray-800 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase">Energy</p>
-                <p class="text-2xl font-bold text-purple-400">
-                  {Float.round(@analysis.energy, 3)}
-                </p>
-              </div>
-              <div :if={@analysis.spectral_centroid} class="bg-gray-800 rounded-lg p-4">
-                <p class="text-xs text-gray-500 uppercase">Spectral Centroid</p>
-                <p class="text-2xl font-bold text-purple-400">
-                  {Float.round(@analysis.spectral_centroid, 0)}
-                </p>
-                <p class="text-xs text-gray-500">Hz</p>
-              </div>
-            </div>
-            
-<!-- Spectral Feature Bars -->
-            <div
-              :if={
-                @analysis.spectral_centroid || @analysis.spectral_rolloff ||
-                  @analysis.zero_crossing_rate
-              }
-              class="bg-gray-800 rounded-lg p-4 mb-6"
-            >
-              <h3 class="text-sm font-medium text-gray-400 mb-3">Spectral Features</h3>
-              <div class="space-y-3">
-                <div :if={@analysis.spectral_centroid}>
-                  <div class="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Centroid</span>
-                    <span>{Float.round(@analysis.spectral_centroid, 0)} Hz</span>
-                  </div>
-                  <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      class="h-full bg-purple-500 rounded-full"
-                      style={"width: #{normalize_spectral(@analysis.spectral_centroid, 8000)}%"}
-                    >
-                    </div>
-                  </div>
-                </div>
-                <div :if={@analysis.spectral_rolloff}>
-                  <div class="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Rolloff</span>
-                    <span>{Float.round(@analysis.spectral_rolloff, 0)} Hz</span>
-                  </div>
-                  <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      class="h-full bg-blue-500 rounded-full"
-                      style={"width: #{normalize_spectral(@analysis.spectral_rolloff, 11025)}%"}
-                    >
-                    </div>
-                  </div>
-                </div>
-                <div :if={@analysis.zero_crossing_rate}>
-                  <div class="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Zero Crossing Rate</span>
-                    <span>{Float.round(@analysis.zero_crossing_rate, 4)}</span>
-                  </div>
-                  <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      class="h-full bg-green-500 rounded-full"
-                      style={"width: #{normalize_spectral(@analysis.zero_crossing_rate, 0.2)}%"}
-                    >
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-<!-- Raw Features (expandable) -->
-            <details
-              :if={@analysis.features && map_size(@analysis.features) > 0}
-              class="bg-gray-800 rounded-lg"
-            >
-              <summary class="p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-300">
-                All Features ({map_size(@analysis.features)} categories)
-              </summary>
-              <div class="px-4 pb-4 space-y-3">
-                <div :for={{category, values} <- @analysis.features} class="text-xs">
-                  <p class="text-gray-400 font-medium mb-1 capitalize">{category}</p>
-                  <div :if={is_map(values)} class="grid grid-cols-2 gap-x-4 gap-y-1 pl-2">
-                    <div :for={{key, val} <- values} class="flex justify-between">
-                      <span class="text-gray-500">{key}</span>
-                      <span :if={is_number(val)} class="text-gray-300 font-mono">
-                        {Float.round(val / 1, 4)}
-                      </span>
-                      <span :if={is_binary(val)} class="text-gray-300">{val}</span>
-                      <span :if={!is_number(val) && !is_binary(val)} class="text-gray-300">
-                        {inspect(val)}
-                      </span>
-                    </div>
-                  </div>
-                  <p :if={!is_map(values)} class="text-gray-300 pl-2">{inspect(values)}</p>
-                </div>
-              </div>
-            </details>
-          </div>
-
-          <div :if={!@analysis} class="mb-8 bg-gray-800 rounded-lg p-6 text-center text-gray-500">
-            <p>No analysis data yet.</p>
-            <p class="text-sm mt-1">Analysis runs automatically after stem separation.</p>
-          </div>
-          
-<!-- Stems -->
-          <div :if={length(@stems) > 0} class="mb-8">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-lg font-semibold text-gray-300">Stems</h2>
-              <.link
-                href={~p"/export/stems/#{@track.id}"}
-                class="text-sm bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Download All (ZIP)
-              </.link>
-            </div>
-            <.live_component
-              module={SoundForgeWeb.AudioPlayerLive}
-              id={"player-#{@track.id}"}
-              track={@track}
-              stems={@stems}
-            />
-            <!-- Individual stem downloads -->
-            <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-              <.link
-                :for={stem <- @stems}
-                href={~p"/export/stem/#{stem.id}"}
-                class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm transition-colors"
-              >
-                <svg
-                  class="w-4 h-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                  />
-                </svg>
-                <span class="capitalize">{stem.stem_type}</span>
-              </.link>
-            </div>
-          </div>
-
-          <div :if={length(@stems) == 0} class="text-center py-12 text-gray-500">
-            <p>No stems available yet.</p>
-            <p class="text-sm mt-1">Process this track to separate it into stems.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  <% else %>
-    <!-- Library Index View -->
-    <!-- Input Section: Spotify URL + File Upload -->
-    <div class="px-6 py-4 bg-gray-900/50 space-y-3">
-      <form phx-submit="fetch_spotify" class="flex gap-3">
-        <input
-          type="text"
-          name="url"
-          value={@spotify_url}
-          placeholder="Paste a Spotify URL (track, album, or playlist)..."
-          class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-        />
-        <button
-          type="submit"
-          aria-label="Fetch track from Spotify URL"
-          class="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg font-medium transition-colors"
-        >
-          Fetch
-        </button>
-      </form>
-
-      <div class="border-t border-gray-800 pt-3">
-        <form phx-submit="upload_audio" phx-change="validate_upload">
-          <div class="flex items-center gap-3">
-            <label class="flex-1 relative">
-              <div
-                phx-drop-target={@uploads.audio.ref}
-                class="flex items-center gap-3 bg-gray-800 border border-dashed border-gray-600 rounded-lg px-4 py-2.5 text-gray-400 hover:border-purple-500/50 hover:text-gray-300 transition-colors cursor-pointer"
-              >
-                <svg
-                  class="w-5 h-5 shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                  />
-                </svg>
-                <span class="text-sm">
-                  <%= if length(@uploads.audio.entries) > 0 do %>
-                    {length(@uploads.audio.entries)} file(s) selected
-                  <% else %>
-                    Drop audio files or click to browse (MP3, WAV, FLAC, OGG, M4A)
-                  <% end %>
-                </span>
-              </div>
-              <.live_file_input upload={@uploads.audio} class="sr-only" />
-            </label>
-            <button
-              type="submit"
-              disabled={length(@uploads.audio.entries) == 0}
-              aria-label="Upload selected audio files"
-              class={[
-                "px-6 py-2.5 rounded-lg font-medium transition-colors text-sm",
-                if(length(@uploads.audio.entries) > 0,
-                  do: "bg-green-600 hover:bg-green-700 text-white",
-                  else: "bg-gray-700 text-gray-500 cursor-not-allowed"
-                )
-              ]}
-            >
-              Upload
-            </button>
-          </div>
-          
-<!-- Upload entries -->
-          <div :if={length(@uploads.audio.entries) > 0} class="mt-2 space-y-1">
-            <div :for={entry <- @uploads.audio.entries} class="flex items-center gap-3 text-sm">
-              <span class="text-gray-300 truncate flex-1">{entry.client_name}</span>
-              <span class="text-gray-500">
-                {Float.round(entry.client_size / 1_000_000, 1)} MB
-              </span>
-              <div
-                :if={entry.progress > 0 && entry.progress < 100}
-                class="w-24 h-1.5 bg-gray-700 rounded-full overflow-hidden"
-              >
-                <div
-                  class="h-full bg-purple-500 rounded-full transition-all"
-                  style={"width: #{entry.progress}%"}
-                >
-                </div>
-              </div>
-              <button
-                type="button"
-                phx-click="cancel_upload"
-                phx-value-ref={entry.ref}
-                class="text-gray-500 hover:text-red-400"
-                aria-label={"Cancel upload: #{entry.client_name}"}
-              >
-                &times;
-              </button>
-              <div :for={err <- upload_errors(@uploads.audio, entry)} class="text-red-400 text-xs">
-                {upload_error_to_string(err)}
-              </div>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-    
-<!-- Active Pipelines -->
+<!-- Toast Notifications -->
+  <.live_component module={SoundForgeWeb.Live.Components.ToastStack} id="toast-stack" />
+  
+<!-- Flash Messages (fully non-blocking, auto-dismiss via JS hook) -->
+  <div class="fixed right-6 z-50 pointer-events-none flex flex-col items-end gap-2" style="top: 4.5rem;">
     <div
-      :if={map_size(@pipelines) > 0}
-      class="px-6 pt-4"
-      aria-live="polite"
-      aria-label="Processing pipelines"
+      :if={Phoenix.Flash.get(@flash, :info)}
+      id="flash-info"
+      role="alert"
+      class="pointer-events-auto max-w-sm flex items-center gap-3 bg-purple-900/90 border border-purple-700/50 text-purple-200 rounded-lg px-4 py-3 text-sm shadow-lg backdrop-blur"
+      phx-click={JS.push("lv:clear-flash", value: %{key: :info}) |> JS.hide(to: "#flash-info")}
+      phx-hook="AutoDismiss"
+      data-dismiss-after="4000"
     >
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-        Active Pipelines
-      </h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
-        <div :for={{track_id, pipeline} <- @pipelines} class="relative">
-          <SoundForgeWeb.Components.JobProgress.pipeline_progress
-            pipeline={pipeline}
-            track_title={pipeline_track_title(@streams.tracks, track_id)}
-          />
-          <button
-            :if={pipeline_complete?(pipeline)}
-            phx-click="dismiss_pipeline"
-            phx-value-track-id={track_id}
-            class="absolute top-2 right-2 text-gray-500 hover:text-white text-xs"
-            aria-label="Dismiss pipeline notification"
-          >
-            &times;
-          </button>
-        </div>
-      </div>
+      <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path
+          fill-rule="evenodd"
+          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+          clip-rule="evenodd"
+        />
+      </svg>
+      <span class="flex-1">{Phoenix.Flash.get(@flash, :info)}</span>
+      <button type="button" class="text-purple-400 hover:text-white" aria-label="Dismiss">
+        &times;
+      </button>
     </div>
-
-    <div class="flex">
-      <!-- Main Content -->
-      <main class="flex-1 p-6">
-        <!-- Search & Sort -->
-        <div class="flex gap-3 mb-6">
-          <form phx-change="search" class="flex-1">
-            <input
-              type="text"
-              name="query"
-              value={@search_query}
-              placeholder="Search tracks..."
-              phx-debounce="300"
-              aria-label="Search tracks"
-              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500"
-            />
-          </form>
-          <form phx-change="sort">
-            <select
-              name="sort_by"
-              aria-label="Sort tracks by"
-              class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300"
-            >
-              <option value="newest" selected={@sort_by == :newest}>Newest</option>
-              <option value="oldest" selected={@sort_by == :oldest}>Oldest</option>
-              <option value="title" selected={@sort_by == :title}>Title</option>
-              <option value="artist" selected={@sort_by == :artist}>Artist</option>
-              <option value="duration" selected={@sort_by == :duration}>Duration</option>
-            </select>
-          </form>
-        </div>
-        
-<!-- Track Grid -->
-        <div
-          id="tracks"
-          phx-update="stream"
-          role="list"
-          aria-label="Track library"
-          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-        >
-          <.link
-            :for={{dom_id, track} <- @streams.tracks}
-            navigate={~p"/tracks/#{track.id}"}
-            id={dom_id}
-            class="bg-gray-800 rounded-lg p-4 hover:bg-gray-750 transition-colors cursor-pointer border border-gray-700 hover:border-purple-500/50"
-          >
-            <div class="aspect-square bg-gray-700 rounded-md mb-3 overflow-hidden">
-              <img
-                :if={track.album_art_url}
-                src={track.album_art_url}
-                class="w-full h-full object-cover"
-                alt={track.title}
-              />
-            </div>
-            <h3 class="font-medium text-white truncate">{track.title}</h3>
-            <p class="text-sm text-gray-400 truncate">{track.artist}</p>
-            <p class="text-xs text-gray-500">{track.album}</p>
+    <div
+      :if={Phoenix.Flash.get(@flash, :error)}
+      id="flash-error"
+      role="alert"
+      class="pointer-events-auto max-w-sm flex items-center gap-3 bg-red-900/90 border border-red-700/50 text-red-200 rounded-lg px-4 py-3 text-sm shadow-lg backdrop-blur"
+      phx-click={JS.push("lv:clear-flash", value: %{key: :error}) |> JS.hide(to: "#flash-error")}
+      phx-hook="AutoDismiss"
+      data-dismiss-after="6000"
+    >
+      <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path
+          fill-rule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+          clip-rule="evenodd"
+        />
+      </svg>
+      <span class="flex-1">{Phoenix.Flash.get(@flash, :error)}</span>
+      <button type="button" class="text-red-400 hover:text-white" aria-label="Dismiss">
+        &times;
+      </button>
+    </div>
+  </div>
+  
+<!-- Body: Sidebar + Main -->
+  <div class="flex flex-1 overflow-hidden">
+    <!-- Sidebar -->
+    <SoundForgeWeb.Live.Components.Sidebar.sidebar
+      nav_context={@nav_context}
+      browse_filter={@browse_filter}
+      playlists={@playlists}
+      artists={@artists}
+      albums={@albums}
+      track_count={@track_count}
+    />
+    
+<!-- Main Content (scrollable) -->
+    <main class="flex-1 overflow-y-auto flex flex-col" id="main-scroll">
+      <%= if @live_action == :show && @track do %>
+        <!-- Track Detail View -->
+        <div class="px-6 py-4">
+          <.link navigate={~p"/"} class="text-sm text-gray-400 hover:text-white transition-colors">
+            &larr; Back to library
           </.link>
         </div>
 
-        <div :if={@track_count == 0} class="text-center text-gray-500 py-12">
-          <p class="text-lg">No tracks yet</p>
-          <p class="text-sm mt-2">Paste a Spotify URL above to get started</p>
+        <div class="px-6 pb-20">
+          <div class="flex gap-8">
+            <!-- Track Info -->
+            <div class="w-64 shrink-0">
+              <div class="aspect-square bg-gray-800 rounded-lg overflow-hidden mb-4">
+                <img
+                  :if={@track.album_art_url}
+                  src={@track.album_art_url}
+                  class="w-full h-full object-cover"
+                  alt={@track.title}
+                />
+                <div
+                  :if={!@track.album_art_url}
+                  class="w-full h-full flex items-center justify-center"
+                >
+                  <svg class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                  </svg>
+                </div>
+              </div>
+              <h1 class="text-xl font-bold">{@track.title}</h1>
+              <p class="text-gray-400">{@track.artist}</p>
+              <p :if={@track.album} class="text-sm text-gray-500">{@track.album}</p>
+              <p :if={@track.duration} class="text-xs text-gray-600 mt-1">
+                {format_duration(@track.duration)}
+              </p>
+
+              <!-- Track Actions -->
+              <div class="mt-4 space-y-2">
+                <button
+                  :if={@track.spotify_url && is_nil(@track.download_status)}
+                  phx-click="download_track"
+                  phx-value-id={@track.id}
+                  class="w-full flex items-center gap-2 bg-green-900/30 hover:bg-green-900/60 text-green-400 hover:text-green-300 border border-green-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 12l-4-4m4 4l4-4M6 20h12" />
+                  </svg>
+                  Download
+                </button>
+                <div
+                  :if={@track.download_status == "completed"}
+                  class="w-full flex items-center gap-2 text-green-400 text-sm px-4 py-2"
+                >
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                  </svg>
+                  Downloaded
+                </div>
+                <button
+                  :if={@track.download_status == "failed"}
+                  phx-click="download_track"
+                  phx-value-id={@track.id}
+                  class="w-full flex items-center gap-2 bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 border border-red-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                  </svg>
+                  Retry Download
+                </button>
+                <button
+                  phx-click="process_track"
+                  phx-value-id={@track.id}
+                  class="w-full flex items-center gap-2 bg-blue-900/30 hover:bg-blue-900/60 text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  </svg>
+                  Process (Separate Stems)
+                </button>
+                <button
+                  phx-click="analyze_track"
+                  phx-value-id={@track.id}
+                  class="w-full flex items-center gap-2 bg-purple-900/30 hover:bg-purple-900/60 text-purple-400 hover:text-purple-300 border border-purple-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Analyze
+                </button>
+                <button
+                  phx-click="edit_metadata"
+                  phx-value-id={@track.id}
+                  class="w-full flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit Metadata
+                </button>
+                <!-- Add to Playlist dropdown -->
+                <div :if={length(@playlists) > 0} class="relative" id="playlist-dropdown">
+                  <button
+                    phx-click={JS.toggle(to: "#playlist-menu")}
+                    class="w-full flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 rounded-lg px-4 py-2 text-sm transition-colors"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add to Playlist
+                  </button>
+                  <div id="playlist-menu" class="hidden absolute left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-10 max-h-48 overflow-y-auto">
+                    <button
+                      :for={playlist <- @playlists}
+                      phx-click="add_to_playlist"
+                      phx-value-track-id={@track.id}
+                      phx-value-playlist-id={playlist.id}
+                      class="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      {playlist.name}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  :if={@track.spotify_url && @spotify_linked}
+                  phx-click="play_spotify"
+                  phx-value-uri={"spotify:track:#{@track.spotify_id}"}
+                  class="w-full flex items-center gap-2 bg-green-900/30 hover:bg-green-900/60 text-green-400 hover:text-green-300 border border-green-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  Play on Spotify
+                </button>
+                <button
+                  phx-click="delete_track"
+                  phx-value-id={@track.id}
+                  data-confirm="Delete this track and all associated files?"
+                  aria-label={"Delete #{@track.title}"}
+                  class="w-full flex items-center gap-2 bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 border border-red-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete Track
+                </button>
+              </div>
+            </div>
+            
+<!-- Analysis & Stems -->
+            <div class="flex-1">
+              <!-- Pipeline Progress (if active) -->
+              <div :if={Map.has_key?(@pipelines, @track.id)} class="mb-6">
+                <SoundForgeWeb.Components.JobProgress.pipeline_progress
+                  pipeline={Map.get(@pipelines, @track.id, %{})}
+                  track_title={@track.title}
+                />
+              </div>
+              
+<!-- Analysis Results -->
+              <div :if={@analysis} class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                  <h2 class="text-lg font-semibold text-gray-300">Analysis</h2>
+                  <.link
+                    href={~p"/export/analysis/#{@track.id}"}
+                    class="text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    Export JSON
+                  </.link>
+                </div>
+                <!-- Primary Metrics -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div :if={@analysis.tempo} class="bg-gray-800 rounded-lg p-4">
+                    <p class="text-xs text-gray-500 uppercase">Tempo</p>
+                    <p class="text-2xl font-bold text-purple-400">
+                      {Float.round(@analysis.tempo, 1)}
+                    </p>
+                    <p class="text-xs text-gray-500">BPM</p>
+                  </div>
+                  <div :if={@analysis.key} class="bg-gray-800 rounded-lg p-4">
+                    <p class="text-xs text-gray-500 uppercase">Key</p>
+                    <p class="text-2xl font-bold text-purple-400">{@analysis.key}</p>
+                  </div>
+                  <div :if={@analysis.energy} class="bg-gray-800 rounded-lg p-4">
+                    <p class="text-xs text-gray-500 uppercase">Energy</p>
+                    <p class="text-2xl font-bold text-purple-400">
+                      {Float.round(@analysis.energy, 3)}
+                    </p>
+                  </div>
+                  <div :if={@analysis.spectral_centroid} class="bg-gray-800 rounded-lg p-4">
+                    <p class="text-xs text-gray-500 uppercase">Spectral Centroid</p>
+                    <p class="text-2xl font-bold text-purple-400">
+                      {Float.round(@analysis.spectral_centroid, 0)}
+                    </p>
+                    <p class="text-xs text-gray-500">Hz</p>
+                  </div>
+                </div>
+                
+<!-- Spectral Feature Bars -->
+                <div
+                  :if={
+                    @analysis.spectral_centroid || @analysis.spectral_rolloff ||
+                      @analysis.zero_crossing_rate
+                  }
+                  class="bg-gray-800 rounded-lg p-4 mb-6"
+                >
+                  <h3 class="text-sm font-medium text-gray-400 mb-3">Spectral Features</h3>
+                  <div class="space-y-3">
+                    <div :if={@analysis.spectral_centroid}>
+                      <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Centroid</span>
+                        <span>{Float.round(@analysis.spectral_centroid, 0)} Hz</span>
+                      </div>
+                      <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          class="h-full bg-purple-500 rounded-full"
+                          style={"width: #{normalize_spectral(@analysis.spectral_centroid, 8000)}%"}
+                        >
+                        </div>
+                      </div>
+                    </div>
+                    <div :if={@analysis.spectral_rolloff}>
+                      <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Rolloff</span>
+                        <span>{Float.round(@analysis.spectral_rolloff, 0)} Hz</span>
+                      </div>
+                      <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          class="h-full bg-blue-500 rounded-full"
+                          style={"width: #{normalize_spectral(@analysis.spectral_rolloff, 11025)}%"}
+                        >
+                        </div>
+                      </div>
+                    </div>
+                    <div :if={@analysis.zero_crossing_rate}>
+                      <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Zero Crossing Rate</span>
+                        <span>{Float.round(@analysis.zero_crossing_rate, 4)}</span>
+                      </div>
+                      <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          class="h-full bg-green-500 rounded-full"
+                          style={"width: #{normalize_spectral(@analysis.zero_crossing_rate, 0.2)}%"}
+                        >
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+<!-- Raw Features (expandable) -->
+                <details
+                  :if={@analysis.features && map_size(@analysis.features) > 0}
+                  class="bg-gray-800 rounded-lg"
+                >
+                  <summary class="p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-300">
+                    All Features ({map_size(@analysis.features)} categories)
+                  </summary>
+                  <div class="px-4 pb-4 space-y-3">
+                    <div :for={{category, values} <- @analysis.features} class="text-xs">
+                      <p class="text-gray-400 font-medium mb-1 capitalize">{category}</p>
+                      <div :if={is_map(values)} class="grid grid-cols-2 gap-x-4 gap-y-1 pl-2">
+                        <div :for={{key, val} <- values} class="flex justify-between">
+                          <span class="text-gray-500">{key}</span>
+                          <span :if={is_number(val)} class="text-gray-300 font-mono">
+                            {Float.round(val / 1, 4)}
+                          </span>
+                          <span :if={is_binary(val)} class="text-gray-300">{val}</span>
+                          <span :if={!is_number(val) && !is_binary(val)} class="text-gray-300">
+                            {inspect(val)}
+                          </span>
+                        </div>
+                      </div>
+                      <p :if={!is_map(values)} class="text-gray-300 pl-2">{inspect(values)}</p>
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <div
+                :if={!@analysis}
+                class="mb-8 bg-gray-800 rounded-lg p-6 text-center text-gray-500"
+              >
+                <p>No analysis data yet.</p>
+                <p class="text-sm mt-1">Analysis runs automatically after stem separation.</p>
+              </div>
+              
+<!-- Stems -->
+              <div :if={length(@stems) > 0} class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                  <h2 class="text-lg font-semibold text-gray-300">Stems</h2>
+                  <.link
+                    href={~p"/export/stems/#{@track.id}"}
+                    class="text-sm bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Download All (ZIP)
+                  </.link>
+                </div>
+                <.live_component
+                  module={SoundForgeWeb.AudioPlayerLive}
+                  id={"player-#{@track.id}"}
+                  track={@track}
+                  stems={@stems}
+                />
+                <!-- Individual stem downloads -->
+                <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <.link
+                    :for={stem <- @stems}
+                    href={~p"/export/stem/#{stem.id}"}
+                    class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm transition-colors"
+                  >
+                    <svg
+                      class="w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                    <span class="capitalize">{stem.stem_type}</span>
+                  </.link>
+                </div>
+              </div>
+
+              <div :if={length(@stems) == 0} class="text-center py-12 text-gray-500">
+                <p>No stems available yet.</p>
+                <p class="text-sm mt-1">Process this track to separate it into stems.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% else %>
+        <!-- Library Index View -->
+        <!-- Input Section: Spotify URL + File Upload -->
+        <div class="px-6 py-4 bg-gray-900/50 space-y-3">
+          <form phx-submit="fetch_spotify" class="flex gap-3">
+            <input
+              type="text"
+              name="url"
+              value={@spotify_url}
+              placeholder="Paste a Spotify URL (track, album, or playlist)..."
+              class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+            />
+            <label class="flex items-center gap-2 text-sm text-gray-400 shrink-0">
+              <input
+                type="checkbox"
+                checked={@auto_download}
+                phx-click="toggle_auto_download"
+                class="checkbox checkbox-sm checkbox-primary"
+              /> Auto-download
+            </label>
+            <button
+              type="submit"
+              aria-label="Fetch track from Spotify URL"
+              class="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg font-medium transition-colors"
+            >
+              Fetch
+            </button>
+          </form>
+
+          <div class="border-t border-gray-800 pt-3">
+            <form phx-submit="upload_audio" phx-change="validate_upload">
+              <div class="flex items-center gap-3">
+                <label class="flex-1 relative">
+                  <div
+                    phx-drop-target={@uploads.audio.ref}
+                    class="flex items-center gap-3 bg-gray-800 border border-dashed border-gray-600 rounded-lg px-4 py-2.5 text-gray-400 hover:border-purple-500/50 hover:text-gray-300 transition-colors cursor-pointer"
+                  >
+                    <svg
+                      class="w-5 h-5 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                      />
+                    </svg>
+                    <span class="text-sm">
+                      <%= if length(@uploads.audio.entries) > 0 do %>
+                        {length(@uploads.audio.entries)} file(s) selected
+                      <% else %>
+                        Drop audio files or click to browse (MP3, WAV, FLAC, OGG, M4A)
+                      <% end %>
+                    </span>
+                  </div>
+                  <.live_file_input upload={@uploads.audio} class="sr-only" />
+                </label>
+                <button
+                  type="submit"
+                  disabled={length(@uploads.audio.entries) == 0}
+                  aria-label="Upload selected audio files"
+                  class={[
+                    "px-6 py-2.5 rounded-lg font-medium transition-colors text-sm",
+                    if(length(@uploads.audio.entries) > 0,
+                      do: "bg-green-600 hover:bg-green-700 text-white",
+                      else: "bg-gray-700 text-gray-500 cursor-not-allowed"
+                    )
+                  ]}
+                >
+                  Upload
+                </button>
+              </div>
+              
+<!-- Upload entries -->
+              <div :if={length(@uploads.audio.entries) > 0} class="mt-2 space-y-1">
+                <div
+                  :for={entry <- @uploads.audio.entries}
+                  class="flex items-center gap-3 text-sm"
+                >
+                  <span class="text-gray-300 truncate flex-1">{entry.client_name}</span>
+                  <span class="text-gray-500">
+                    {Float.round(entry.client_size / 1_000_000, 1)} MB
+                  </span>
+                  <div
+                    :if={entry.progress > 0 && entry.progress < 100}
+                    class="w-24 h-1.5 bg-gray-700 rounded-full overflow-hidden"
+                  >
+                    <div
+                      class="h-full bg-purple-500 rounded-full transition-all"
+                      style={"width: #{entry.progress}%"}
+                    >
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    phx-click="cancel_upload"
+                    phx-value-ref={entry.ref}
+                    class="text-gray-500 hover:text-red-400"
+                    aria-label={"Cancel upload: #{entry.client_name}"}
+                  >
+                    &times;
+                  </button>
+                  <div
+                    :for={err <- upload_errors(@uploads.audio, entry)}
+                    class="text-red-400 text-xs"
+                  >
+                    {upload_error_to_string(err)}
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
         
-<!-- Pagination -->
+<!-- Active Pipelines -->
         <div
-          :if={@track_count > @per_page && @search_query == ""}
-          class="flex items-center justify-center gap-2 mt-8"
+          :if={map_size(@pipelines) > 0}
+          class="px-6 pt-4"
+          aria-live="polite"
+          aria-label="Processing pipelines"
         >
-          <button
-            :if={@page > 1}
-            phx-click="page"
-            phx-value-page={@page - 1}
-            aria-label="Go to previous page"
-            class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
-          >
-            Previous
+          <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Active Pipelines
+          </h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
+            <div :for={{track_id, pipeline} <- @pipelines} class="relative">
+              <SoundForgeWeb.Components.JobProgress.pipeline_progress
+                pipeline={pipeline}
+                track_title={pipeline_track_title(@streams.tracks, track_id)}
+              />
+              <button
+                :if={pipeline_complete?(pipeline)}
+                phx-click="dismiss_pipeline"
+                phx-value-track-id={track_id}
+                class="absolute top-2 right-2 text-gray-500 hover:text-white text-xs"
+                aria-label="Dismiss pipeline notification"
+              >
+                &times;
+              </button>
+            </div>
+          </div>
+        </div>
+        
+<!-- Browse Context Breadcrumb -->
+        <div :if={@browse_filter} class="flex items-center gap-2 mb-4 px-6 pt-4">
+          <button phx-click="nav_all_tracks" class="text-gray-500 hover:text-white text-sm">
+            Library
           </button>
-          <span :for={p <- pagination_range(@page, total_pages(@track_count, @per_page))}>
-            <button
-              phx-click="page"
-              phx-value-page={p}
-              aria-label={"Go to page #{p}"}
-              aria-current={if(p == @page, do: "page")}
-              class={[
-                "w-8 h-8 rounded-lg text-sm transition-colors",
-                if(p == @page,
-                  do: "bg-purple-600 text-white",
-                  else: "bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700"
-                )
-              ]}
-            >
-              {p}
-            </button>
+          <span class="text-gray-600">/</span>
+          <span :if={@nav_context == :artist} class="text-gray-500 text-sm">
+            <button phx-click="nav_artists" class="hover:text-white">Artists</button>
           </span>
-          <button
-            :if={@page < total_pages(@track_count, @per_page)}
-            phx-click="page"
-            phx-value-page={@page + 1}
-            aria-label="Go to next page"
-            class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+          <span :if={@nav_context == :album} class="text-gray-500 text-sm">
+            <button phx-click="nav_albums" class="hover:text-white">Albums</button>
+          </span>
+          <span :if={@nav_context in [:artist, :album]} class="text-gray-600">/</span>
+          <span class="text-white text-sm font-medium">
+            <%= cond do %>
+              <% @nav_context == :playlist -> %>
+                {@browse_filter.name}
+              <% @nav_context == :artist -> %>
+                {@browse_filter}
+              <% @nav_context == :album -> %>
+                {@browse_filter}
+              <% true -> %>
+            <% end %>
+          </span>
+        </div>
+        
+<!-- Artist Browse View -->
+        <%= if @nav_context == :artist && is_nil(@browse_filter) do %>
+          <div class="p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">Artists</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              <button
+                :for={artist <- @artists}
+                phx-click="nav_artist"
+                phx-value-name={artist}
+                class="flex flex-col items-center gap-2 p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors group"
+              >
+                <div class="w-20 h-20 rounded-full bg-gray-700 flex items-center justify-center">
+                  <svg
+                    class="w-8 h-8 text-gray-500 group-hover:text-purple-400 transition-colors"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                </div>
+                <span class="text-sm text-gray-300 group-hover:text-white truncate max-w-full">
+                  {artist}
+                </span>
+              </button>
+            </div>
+            <div :if={@artists == []} class="text-center text-gray-500 py-12">
+              <p>No artists found</p>
+            </div>
+          </div>
+        <% end %>
+        
+<!-- Album Browse View -->
+        <%= if @nav_context == :album && is_nil(@browse_filter) do %>
+          <div class="p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">Albums</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              <button
+                :for={album <- @albums}
+                phx-click="nav_album"
+                phx-value-name={album}
+                class="flex flex-col items-center gap-2 p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors group"
+              >
+                <div class="w-20 h-20 rounded-md bg-gray-700 flex items-center justify-center">
+                  <svg
+                    class="w-8 h-8 text-gray-500 group-hover:text-purple-400 transition-colors"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z" />
+                  </svg>
+                </div>
+                <span class="text-sm text-gray-300 group-hover:text-white truncate max-w-full">
+                  {album}
+                </span>
+              </button>
+            </div>
+            <div :if={@albums == []} class="text-center text-gray-500 py-12">
+              <p>No albums found</p>
+            </div>
+          </div>
+        <% end %>
+
+        <%= if !(@nav_context in [:artist, :album] && is_nil(@browse_filter)) do %>
+          <!-- Sticky Search & Sort & Filter & Actions Toolbar -->
+          <div class="sticky top-0 z-30 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800/50">
+          <!-- Search & Sort & View Toggle -->
+          <div class="flex gap-3 px-6 pt-4 mb-4">
+            <form phx-change="search" class="flex-1">
+              <input
+                type="text"
+                name="query"
+                value={@search_query}
+                placeholder="Search tracks..."
+                phx-debounce="300"
+                aria-label="Search tracks"
+                class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500"
+              />
+            </form>
+            <form phx-change="sort">
+              <select
+                name="sort_by"
+                aria-label="Sort tracks by"
+                class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300"
+              >
+                <option value="newest" selected={@sort_by == :newest}>Newest</option>
+                <option value="oldest" selected={@sort_by == :oldest}>Oldest</option>
+                <option value="title" selected={@sort_by == :title}>Title</option>
+                <option value="artist" selected={@sort_by == :artist}>Artist</option>
+                <option value="duration" selected={@sort_by == :duration}>Duration</option>
+              </select>
+            </form>
+            <!-- View Mode Toggle -->
+            <div
+              class="flex bg-gray-800 border border-gray-700 rounded-lg p-0.5"
+              role="group"
+              aria-label="View mode"
+            >
+              <button
+                type="button"
+                phx-click="toggle_view"
+                phx-value-mode="grid"
+                aria-label="Grid view"
+                aria-pressed={to_string(@view_mode == :grid)}
+                class={[
+                  "p-2 rounded-md transition-colors",
+                  if(@view_mode == :grid,
+                    do: "bg-purple-600 text-white",
+                    else: "text-gray-400 hover:text-white"
+                  )
+                ]}
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+              </button>
+              <!-- Compact list -->
+              <button
+                type="button"
+                phx-click="toggle_view"
+                phx-value-mode="list"
+                aria-label="Compact list view"
+                aria-pressed={to_string(@view_mode == :list)}
+                class={[
+                  "p-2 rounded-md transition-colors",
+                  if(@view_mode == :list,
+                    do: "bg-purple-600 text-white",
+                    else: "text-gray-400 hover:text-white"
+                  )
+                ]}
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fill-rule="evenodd"
+                    d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+              <!-- Expanded list -->
+              <button
+                type="button"
+                phx-click="toggle_view"
+                phx-value-mode="list_expanded"
+                aria-label="Expanded list view"
+                aria-pressed={to_string(@view_mode == :list_expanded)}
+                class={[
+                  "p-2 rounded-md transition-colors",
+                  if(@view_mode == :list_expanded,
+                    do: "bg-purple-600 text-white",
+                    else: "text-gray-400 hover:text-white"
+                  )
+                ]}
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fill-rule="evenodd"
+                    d="M3 3a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h14a1 1 0 100-2H3zm0 8a1 1 0 100 2h14a1 1 0 100-2H3zM3 11a1 1 0 100 2h7a1 1 0 100-2H3z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+<!-- Filter Bar -->
+          <form phx-change="filter" class="flex gap-3 px-6 mb-4">
+            <select
+              name="status"
+              aria-label="Filter by status"
+              class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
+            >
+              <option value="all" selected={@filters.status == "all"}>All Status</option>
+              <option value="pending" selected={@filters.status == "pending"}>Pending</option>
+              <option value="downloaded" selected={@filters.status == "downloaded"}>
+                Downloaded
+              </option>
+              <option value="processed" selected={@filters.status == "processed"}>
+                Processed
+              </option>
+              <option value="analyzed" selected={@filters.status == "analyzed"}>Analyzed</option>
+            </select>
+            <select
+              name="artist"
+              aria-label="Filter by artist"
+              class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
+            >
+              <option value="all" selected={@filters.artist == "all"}>All Artists</option>
+              <option
+                :for={artist <- @artists}
+                value={artist}
+                selected={@filters.artist == artist}
+              >
+                {artist}
+              </option>
+            </select>
+          </form>
+          
+<!-- Select All + Batch Actions Toolbar -->
+          <div
+            class="flex items-center gap-3 px-6 mb-4"
+            id="select-toolbar"
+            phx-hook="ShiftSelect"
           >
-            Next
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={@select_all}
+                phx-click="toggle_select_all"
+                class="checkbox checkbox-sm checkbox-primary"
+                aria-label="Select all tracks"
+              />
+              <span class="text-sm text-gray-400">
+                <%= if MapSet.size(@selected_ids) > 0 do %>
+                  {MapSet.size(@selected_ids)} selected
+                <% else %>
+                  Select all
+                <% end %>
+              </span>
+            </label>
+            <!-- Batch actions (visible when selection > 0) -->
+            <div :if={MapSet.size(@selected_ids) > 0} class="flex items-center gap-2 ml-2">
+              <button
+                phx-click="batch_download"
+                class="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+              >
+                Download Selected
+              </button>
+              <button
+                phx-click="batch_analyze"
+                class="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
+              >
+                Analyze Selected
+              </button>
+              <button
+                phx-click="batch_process"
+                class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+              >
+                Process Selected
+              </button>
+              <button
+                phx-click="batch_delete"
+                data-confirm={"Delete #{MapSet.size(@selected_ids)} tracks and all associated files?"}
+                class="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+              >
+                Delete Selected
+              </button>
+            </div>
+          </div>
+          </div>
+          <!-- end sticky toolbar -->
+
+<!-- Track Library (single stream container, view-mode conditional inner rendering) -->
+          <div
+            id="tracks"
+            phx-update="stream"
+            role="list"
+            aria-label="Track library"
+            class={[
+              "flex-1 px-6",
+              if(@view_mode == :grid,
+                do: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+              ),
+              if(@view_mode == :list, do: "divide-y divide-gray-800/60"),
+              if(@view_mode == :list_expanded, do: "divide-y divide-gray-800")
+            ]}
+          >
+            <%= for {dom_id, track} <- @streams.tracks do %>
+              <%= if @view_mode == :grid do %>
+                <!-- Grid Card -->
+                <div
+                  id={dom_id}
+                  class="bg-gray-800 rounded-lg p-4 hover:bg-gray-750 transition-colors border border-gray-700 hover:border-purple-500/50 relative group"
+                >
+                  <input
+                    type="checkbox"
+                    checked={MapSet.member?(@selected_ids, track.id)}
+                    phx-click="toggle_select"
+                    phx-value-id={track.id}
+                    data-select-id={track.id}
+                    class="checkbox checkbox-sm checkbox-primary absolute top-2 left-2 z-10"
+                    aria-label={"Select #{track.title}"}
+                  />
+                  <.link navigate={~p"/tracks/#{track.id}"} class="block">
+                    <div class="aspect-square bg-gray-700 rounded-md mb-3 overflow-hidden relative">
+                      <img
+                        :if={track.album_art_url}
+                        src={track.album_art_url}
+                        class="w-full h-full object-cover"
+                        alt={track.title}
+                      />
+                      <!-- Download status overlay (bottom-right of album art) -->
+                      <div
+                        :if={track.spotify_url && is_nil(track.download_status)}
+                        class="absolute bottom-1.5 right-1.5"
+                      >
+                        <button
+                          phx-click="download_track"
+                          phx-value-id={track.id}
+                          aria-label={"Download #{track.title}"}
+                          class="p-1 bg-black/60 rounded-full text-gray-400 hover:text-white transition-colors"
+                          onclick="event.preventDefault(); event.stopPropagation();"
+                        >
+                          <svg
+                            class="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M12 16V4m0 12l-4-4m4 4l4-4M6 20h12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                      <div
+                        :if={track.download_status == "queued"}
+                        class="absolute bottom-1.5 right-1.5 p-1 bg-black/60 rounded-full"
+                        title="Queued"
+                      >
+                        <svg
+                          class="w-4 h-4 text-gray-400 animate-pulse"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                      </div>
+                      <div
+                        :if={track.download_status == "downloading"}
+                        class="absolute bottom-1.5 right-1.5 p-1 bg-black/60 rounded-full"
+                        title="Downloading"
+                      >
+                        <svg
+                          class="w-4 h-4 text-purple-400 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          />
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                      </div>
+                      <div
+                        :if={track.download_status == "completed"}
+                        class="absolute bottom-1.5 right-1.5 p-1 bg-black/60 rounded-full"
+                        title="Downloaded"
+                      >
+                        <svg
+                          class="w-4 h-4 text-green-400"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                      <div
+                        :if={track.download_status == "failed"}
+                        class="absolute bottom-1.5 right-1.5"
+                      >
+                        <button
+                          phx-click="download_track"
+                          phx-value-id={track.id}
+                          aria-label={"Retry download for #{track.title}"}
+                          class="p-1 bg-black/60 rounded-full text-red-400 hover:text-red-300 transition-colors"
+                          title="Download failed - click to retry"
+                          onclick="event.preventDefault(); event.stopPropagation();"
+                        >
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fill-rule="evenodd"
+                              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <h3 class="font-medium text-white truncate">{track.title}</h3>
+                    <p class="text-sm text-gray-400 truncate">{track.artist}</p>
+                    <p class="text-xs text-gray-500">{track.album}</p>
+                  </.link>
+                  <div class="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      :if={track.spotify_url && @spotify_linked}
+                      phx-click="play_spotify"
+                      phx-value-uri={"spotify:track:#{track.spotify_id}"}
+                      aria-label={"Play #{track.title}"}
+                      class="p-1 text-gray-400 hover:text-green-400 rounded hover:bg-gray-700 transition-colors"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </button>
+                    <button
+                      phx-click="edit_metadata"
+                      phx-value-id={track.id}
+                      aria-label={"Edit #{track.title}"}
+                      class="p-1 text-gray-400 hover:text-purple-400 rounded hover:bg-gray-700 transition-colors"
+                    >
+                      <svg
+                        class="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      phx-click="delete_track"
+                      phx-value-id={track.id}
+                      data-confirm="Delete this track and all associated files?"
+                      aria-label={"Delete #{track.title}"}
+                      class="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-gray-700 transition-colors"
+                    >
+                      <svg
+                        class="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              <% end %>
+              <%= if @view_mode == :list do %>
+                <!-- Compact List Row -->
+                <div
+                  id={dom_id}
+                  class="flex items-center gap-3 px-2 py-1.5 hover:bg-gray-800/40 transition-colors group"
+                >
+                  <input
+                    type="checkbox"
+                    checked={MapSet.member?(@selected_ids, track.id)}
+                    phx-click="toggle_select"
+                    phx-value-id={track.id}
+                    data-select-id={track.id}
+                    class="checkbox checkbox-xs checkbox-primary shrink-0"
+                    aria-label={"Select #{track.title}"}
+                  />
+                  <.link
+                    navigate={~p"/tracks/#{track.id}"}
+                    class="flex items-center gap-3 flex-1 min-w-0 hover:text-purple-400 transition-colors"
+                  >
+                    <div class="w-9 h-9 min-w-[2.25rem] bg-gray-700 rounded overflow-hidden shrink-0">
+                      <img
+                        :if={track.album_art_url}
+                        src={track.album_art_url}
+                        class="w-9 h-9 object-cover"
+                        alt=""
+                      />
+                      <div
+                        :if={!track.album_art_url}
+                        class="w-full h-full flex items-center justify-center"
+                      >
+                        <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-white truncate leading-tight">
+                        {track.title}
+                      </p>
+                      <p class="text-xs text-gray-500 truncate leading-tight">{track.artist}</p>
+                    </div>
+                  </.link>
+                  <div class="flex items-center gap-2 shrink-0 ml-auto">
+                    <span :if={track.duration} class="text-xs text-gray-600 tabular-nums">
+                      {format_duration(track.duration)}
+                    </span>
+                    <!-- Download status indicator -->
+                    <span :if={track.download_status == "queued"} title="Queued">
+                      <svg
+                        class="w-3.5 h-3.5 text-gray-400 animate-pulse"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </span>
+                    <span :if={track.download_status == "downloading"} title="Downloading">
+                      <svg
+                        class="w-3.5 h-3.5 text-purple-400 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          class="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          stroke-width="4"
+                        />
+                        <path
+                          class="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                    </span>
+                    <span :if={track.download_status == "completed"} title="Downloaded">
+                      <svg
+                        class="w-3.5 h-3.5 text-green-400"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                    <button
+                      :if={track.download_status == "failed"}
+                      phx-click="download_track"
+                      phx-value-id={track.id}
+                      aria-label={"Retry download for #{track.title}"}
+                      title="Download failed - click to retry"
+                      class="p-1 text-red-400 hover:text-red-300 rounded hover:bg-gray-700 transition-colors"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fill-rule="evenodd"
+                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      :if={track.spotify_url && is_nil(track.download_status)}
+                      phx-click="download_track"
+                      phx-value-id={track.id}
+                      aria-label={"Download #{track.title}"}
+                      title="Click to download"
+                      class="p-1 text-gray-500 hover:text-gray-300 rounded hover:bg-gray-700 transition-colors"
+                    >
+                      <svg
+                        class="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 16V4m0 12l-4-4m4 4l4-4M6 20h12"
+                        />
+                      </svg>
+                    </button>
+                    <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        :if={track.spotify_url && @spotify_linked}
+                        phx-click="play_spotify"
+                        phx-value-uri={"spotify:track:#{track.spotify_id}"}
+                        aria-label={"Play #{track.title}"}
+                        class="p-1 text-gray-400 hover:text-green-400 rounded hover:bg-gray-700 transition-colors"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </button>
+                      <button
+                        phx-click="edit_metadata"
+                        phx-value-id={track.id}
+                        aria-label={"Edit #{track.title}"}
+                        class="p-1 text-gray-400 hover:text-purple-400 rounded hover:bg-gray-700 transition-colors"
+                      >
+                        <svg
+                          class="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        phx-click="delete_track"
+                        phx-value-id={track.id}
+                        data-confirm="Delete this track and all associated files?"
+                        aria-label={"Delete #{track.title}"}
+                        class="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-gray-700 transition-colors"
+                      >
+                        <svg
+                          class="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+              <%= if @view_mode == :list_expanded do %>
+                <!-- Expanded List Row -->
+                <div
+                  id={dom_id}
+                  class="flex items-center gap-4 px-3 py-3 hover:bg-gray-800/50 transition-colors group"
+                >
+                  <input
+                    type="checkbox"
+                    checked={MapSet.member?(@selected_ids, track.id)}
+                    phx-click="toggle_select"
+                    phx-value-id={track.id}
+                    data-select-id={track.id}
+                    class="checkbox checkbox-sm checkbox-primary shrink-0"
+                    aria-label={"Select #{track.title}"}
+                  />
+                  <.link navigate={~p"/tracks/#{track.id}"} class="shrink-0">
+                    <div class="w-14 h-14 min-w-[3.5rem] bg-gray-700 rounded-md overflow-hidden">
+                      <img
+                        :if={track.album_art_url}
+                        src={track.album_art_url}
+                        class="w-14 h-14 object-cover"
+                        alt={track.title}
+                      />
+                      <div
+                        :if={!track.album_art_url}
+                        class="w-full h-full flex items-center justify-center"
+                      >
+                        <svg class="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </.link>
+                  <div class="flex-1 min-w-0">
+                    <.link
+                      navigate={~p"/tracks/#{track.id}"}
+                      class="hover:text-purple-400 transition-colors"
+                    >
+                      <h3 class="font-medium text-white truncate">{track.title}</h3>
+                    </.link>
+                    <p class="text-sm text-gray-400 truncate">{track.artist}</p>
+                    <p :if={track.album} class="text-xs text-gray-600 truncate">{track.album}</p>
+                  </div>
+                  <span :if={track.duration} class="text-xs text-gray-500 tabular-nums shrink-0">
+                    {format_duration(track.duration)}
+                  </span>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <!-- Download status indicator -->
+                    <span :if={track.download_status == "queued"} class="p-1.5" title="Queued">
+                      <svg
+                        class="w-4 h-4 text-gray-400 animate-pulse"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </span>
+                    <span
+                      :if={track.download_status == "downloading"}
+                      class="p-1.5"
+                      title="Downloading"
+                    >
+                      <svg
+                        class="w-4 h-4 text-purple-400 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          class="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          stroke-width="4"
+                        />
+                        <path
+                          class="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                    </span>
+                    <span
+                      :if={track.download_status == "completed"}
+                      class="p-1.5"
+                      title="Downloaded"
+                    >
+                      <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fill-rule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                    <button
+                      :if={track.download_status == "failed"}
+                      phx-click="download_track"
+                      phx-value-id={track.id}
+                      aria-label={"Retry download for #{track.title}"}
+                      title="Download failed - click to retry"
+                      class="p-1.5 text-red-400 hover:text-red-300 rounded-md hover:bg-gray-700 transition-colors"
+                    >
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fill-rule="evenodd"
+                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      :if={track.spotify_url && is_nil(track.download_status)}
+                      phx-click="download_track"
+                      phx-value-id={track.id}
+                      aria-label={"Download #{track.title}"}
+                      title="Click to download"
+                      class="p-1.5 text-gray-500 hover:text-gray-300 rounded-md hover:bg-gray-700 transition-colors"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 16V4m0 12l-4-4m4 4l4-4M6 20h12"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      :if={track.spotify_url && @spotify_linked}
+                      phx-click="play_spotify"
+                      phx-value-uri={"spotify:track:#{track.spotify_id}"}
+                      aria-label={"Play #{track.title} on Spotify"}
+                      class="p-1.5 text-gray-400 hover:text-green-400 rounded-md hover:bg-gray-700 transition-colors"
+                    >
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </button>
+                    <.link
+                      navigate={~p"/tracks/#{track.id}"}
+                      class="p-1.5 text-gray-400 hover:text-white rounded-md hover:bg-gray-700 transition-colors"
+                      aria-label={"View #{track.title}"}
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                    </.link>
+                    <button
+                      phx-click="edit_metadata"
+                      phx-value-id={track.id}
+                      aria-label={"Edit #{track.title}"}
+                      class="p-1.5 text-gray-400 hover:text-purple-400 rounded-md hover:bg-gray-700 transition-colors"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      phx-click="delete_track"
+                      phx-value-id={track.id}
+                      data-confirm="Delete this track and all associated files?"
+                      aria-label={"Delete #{track.title}"}
+                      class="p-1.5 text-gray-400 hover:text-red-400 rounded-md hover:bg-gray-700 transition-colors"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+
+          <div :if={@track_count == 0} class="text-center text-gray-500 py-12 px-6">
+            <p class="text-lg">No tracks yet</p>
+            <p class="text-sm mt-2">Paste a Spotify URL above to get started</p>
+          </div>
+          
+<!-- Sticky Pagination -->
+          <div
+            :if={@track_count > @per_page && @search_query == ""}
+            class="sticky bottom-0 bg-gray-950/90 backdrop-blur border-t border-gray-800 py-3 px-6"
+          >
+            <div class="flex items-center justify-center gap-2">
+              <button
+                :if={@page > 1}
+                phx-click="page"
+                phx-value-page={@page - 1}
+                aria-label="Go to previous page"
+                class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+              >
+                Previous
+              </button>
+              <span :for={p <- pagination_range(@page, total_pages(@track_count, @per_page))}>
+                <button
+                  phx-click="page"
+                  phx-value-page={p}
+                  aria-label={"Go to page #{p}"}
+                  aria-current={if(p == @page, do: "page")}
+                  class={[
+                    "w-8 h-8 rounded-lg text-sm transition-colors",
+                    if(p == @page,
+                      do: "bg-purple-600 text-white",
+                      else: "bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700"
+                    )
+                  ]}
+                >
+                  {p}
+                </button>
+              </span>
+              <button
+                :if={@page < total_pages(@track_count, @per_page)}
+                phx-click="page"
+                phx-value-page={@page + 1}
+                aria-label="Go to next page"
+                class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        <% end %>
+        <!-- end browse-filter conditional -->
+
+        <!-- Bottom spacer for Spotify player -->
+        <div class="pb-20"></div>
+      <% end %>
+    </main>
+  </div>
+  
+<!-- Metadata Edit Modal -->
+  <div
+    :if={@editing_track}
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+    phx-click="cancel_edit"
+  >
+    <div
+      class="bg-gray-800 border border-gray-700 rounded-xl p-6 w-full max-w-md shadow-2xl"
+      phx-click-away="cancel_edit"
+    >
+      <h2 class="text-lg font-semibold text-white mb-4">Edit Track Metadata</h2>
+      <% {_track, changeset} = @editing_track %>
+      <.form for={changeset} phx-submit="save_metadata" class="space-y-4">
+        <div>
+          <label for="track_title" class="block text-sm text-gray-400 mb-1">Title</label>
+          <input
+            type="text"
+            id="track_title"
+            name="track[title]"
+            value={Ecto.Changeset.get_field(changeset, :title)}
+            required
+            maxlength="500"
+            class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+          />
+        </div>
+        <div>
+          <label for="track_artist" class="block text-sm text-gray-400 mb-1">Artist</label>
+          <input
+            type="text"
+            id="track_artist"
+            name="track[artist]"
+            value={Ecto.Changeset.get_field(changeset, :artist)}
+            class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+          />
+        </div>
+        <div>
+          <label for="track_album" class="block text-sm text-gray-400 mb-1">Album</label>
+          <input
+            type="text"
+            id="track_album"
+            name="track[album]"
+            value={Ecto.Changeset.get_field(changeset, :album)}
+            class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+          />
+        </div>
+        <div>
+          <label for="track_album_art_url" class="block text-sm text-gray-400 mb-1">
+            Album Art URL
+          </label>
+          <input
+            type="url"
+            id="track_album_art_url"
+            name="track[album_art_url]"
+            value={Ecto.Changeset.get_field(changeset, :album_art_url)}
+            class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+          />
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            phx-click="cancel_edit"
+            class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+          >
+            Save Changes
           </button>
         </div>
-      </main>
+      </.form>
     </div>
-  <% end %>
+  </div>
+  
+<!-- Spotify Playback Bar -->
+  <.live_component
+    module={SoundForgeWeb.Live.Components.SpotifyPlayer}
+    id="spotify-player"
+    spotify_playback={@spotify_playback}
+    spotify_linked={@spotify_linked}
+    spotify_premium={@spotify_premium}
+  />
 </div>

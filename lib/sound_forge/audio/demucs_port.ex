@@ -190,9 +190,24 @@ defmodule SoundForge.Audio.DemucsPort do
   end
 
   defp find_python do
-    case System.find_executable("python3") || System.find_executable("python") do
-      nil -> {:error, :python_not_found}
-      python -> {:ok, python}
+    case Application.get_env(:sound_forge, :demucs_python) do
+      nil ->
+        case System.find_executable("python3") || System.find_executable("python") do
+          nil -> {:error, :python_not_found}
+          python -> {:ok, python}
+        end
+
+      configured_python ->
+        if File.exists?(configured_python) do
+          {:ok, configured_python}
+        else
+          Logger.warning("Configured demucs_python not found: #{configured_python}, falling back")
+
+          case System.find_executable("python3") || System.find_executable("python") do
+            nil -> {:error, :python_not_found}
+            python -> {:ok, python}
+          end
+        end
     end
   end
 
@@ -219,12 +234,27 @@ defmodule SoundForge.Audio.DemucsPort do
 
     Logger.debug("Opening Demucs port: #{python} #{Enum.join(args, " ")}")
 
+    env = demucs_port_env()
+
     Port.open({:spawn_executable, python}, [
       :binary,
       :exit_status,
       :stderr_to_stdout,
-      args: args
+      args: args,
+      env: env
     ])
+  end
+
+  defp demucs_port_env do
+    env = []
+
+    env =
+      case Application.get_env(:sound_forge, :demucs_pythonpath) do
+        nil -> env
+        path -> [{~c"PYTHONPATH", String.to_charlist(path)} | env]
+      end
+
+    env
   end
 
   defp extract_lines(buffer) do

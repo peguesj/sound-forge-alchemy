@@ -12,6 +12,9 @@ defmodule SoundForge.Accounts.User do
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
 
+    has_one :settings, SoundForge.Accounts.UserSettings
+    has_one :spotify_oauth_token, SoundForge.Accounts.SpotifyOAuthToken
+
     timestamps(type: :utc_datetime)
   end
 
