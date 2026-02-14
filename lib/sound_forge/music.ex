@@ -488,6 +488,25 @@ defmodule SoundForge.Music do
   end
 
   @doc """
+  Gets the output path of the latest completed download job for a track.
+  Returns `{:ok, path}` or `{:error, :no_completed_download}`.
+  """
+  @spec get_download_path(String.t()) :: {:ok, String.t()} | {:error, :no_completed_download}
+  def get_download_path(track_id) do
+    query =
+      from dj in DownloadJob,
+        where: dj.track_id == ^track_id and dj.status == :completed and not is_nil(dj.output_path),
+        order_by: [desc: dj.updated_at],
+        limit: 1,
+        select: dj.output_path
+
+    case Repo.one(query) do
+      nil -> {:error, :no_completed_download}
+      path -> {:ok, path}
+    end
+  end
+
+  @doc """
   Updates a download job.
   """
   @spec update_download_job(DownloadJob.t(), map()) ::

@@ -334,6 +334,7 @@ defmodule SoundForgeWeb.DashboardLive do
        |> put_flash(:info, "Processing #{track.title}...")}
     else
       {:error, :not_found} -> {:noreply, put_flash(socket, :error, "Track not found")}
+      {:error, :no_completed_download} -> {:noreply, put_flash(socket, :error, "Download the track first before processing")}
       {:error, _} -> {:noreply, put_flash(socket, :error, "Could not start processing")}
     end
   end
@@ -357,6 +358,7 @@ defmodule SoundForgeWeb.DashboardLive do
        |> put_flash(:info, "Analyzing #{track.title}...")}
     else
       {:error, :not_found} -> {:noreply, put_flash(socket, :error, "Track not found")}
+      {:error, :no_completed_download} -> {:noreply, put_flash(socket, :error, "Download the track first before analyzing")}
       {:error, _} -> {:noreply, put_flash(socket, :error, "Could not start analysis")}
     end
   end
@@ -825,6 +827,9 @@ defmodule SoundForgeWeb.DashboardLive do
         {:error, :not_found} ->
           {:noreply, put_flash(socket, :error, "Track not found")}
 
+        {:error, :no_completed_download} ->
+          {:noreply, put_flash(socket, :error, "Download the track first")}
+
         {:error, reason} ->
           {:noreply, put_flash(socket, :error, "Retry failed: #{reason}")}
       end
@@ -925,6 +930,21 @@ defmodule SoundForgeWeb.DashboardLive do
         socket
       end
 
+    # When a stage completes and we're viewing this track, reload its detail data
+    socket =
+      if payload.status == :completed &&
+           socket.assigns.live_action == :show &&
+           socket.assigns.track && socket.assigns.track.id == track_id do
+        track = Music.get_track_with_details!(track_id)
+
+        socket
+        |> assign(:track, track)
+        |> assign(:stems, track.stems)
+        |> assign(:analysis, List.first(track.analysis_results))
+      else
+        socket
+      end
+
     {:noreply, assign(socket, :pipelines, pipelines)}
   end
 
@@ -951,6 +971,20 @@ defmodule SoundForgeWeb.DashboardLive do
 
         _ ->
           socket
+      end
+
+    # If viewing this track's detail, reload analysis and stems
+    socket =
+      if socket.assigns.live_action == :show &&
+           socket.assigns.track && socket.assigns.track.id == track_id do
+        track = Music.get_track_with_details!(track_id)
+
+        socket
+        |> assign(:track, track)
+        |> assign(:stems, track.stems)
+        |> assign(:analysis, List.first(track.analysis_results))
+      else
+        socket
       end
 
     {:noreply,
@@ -1344,11 +1378,10 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   defp retry_pipeline_stage(track_id, :processing, user_id) do
-    downloads_dir = Settings.get(user_id, :output_directory)
-    file_path = Path.join(downloads_dir, "#{track_id}.mp3")
     model = Settings.get(user_id, :demucs_model)
 
-    with {:ok, job} <-
+    with {:ok, file_path} <- Music.get_download_path(track_id),
+         {:ok, job} <-
            Music.create_processing_job(%{track_id: track_id, model: model, status: :queued}) do
       %{
         "track_id" => track_id,
@@ -1358,14 +1391,15 @@ defmodule SoundForgeWeb.DashboardLive do
       }
       |> SoundForge.Jobs.ProcessingWorker.new()
       |> Oban.insert()
+    else
+      {:error, :no_completed_download} -> {:error, :no_completed_download}
+      error -> error
     end
   end
 
   defp retry_pipeline_stage(track_id, :analysis, user_id) do
-    downloads_dir = Settings.get(user_id, :output_directory)
-    file_path = Path.join(downloads_dir, "#{track_id}.mp3")
-
-    with {:ok, job} <- Music.create_analysis_job(%{track_id: track_id, status: :queued}) do
+    with {:ok, file_path} <- Music.get_download_path(track_id),
+         {:ok, job} <- Music.create_analysis_job(%{track_id: track_id, status: :queued}) do
       %{
         "track_id" => track_id,
         "job_id" => job.id,
@@ -1374,6 +1408,9 @@ defmodule SoundForgeWeb.DashboardLive do
       }
       |> SoundForge.Jobs.AnalysisWorker.new()
       |> Oban.insert()
+    else
+      {:error, :no_completed_download} -> {:error, :no_completed_download}
+      error -> error
     end
   end
 

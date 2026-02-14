@@ -62,16 +62,17 @@ defmodule SoundForge.Jobs.AnalysisWorker do
     case result do
       {:ok, results} ->
         # Create AnalysisResult record
+        # The Python analyzer returns a flat JSON structure, not nested
         {:ok, _analysis_result} =
           Music.create_analysis_result(%{
             track_id: track_id,
             analysis_job_id: job_id,
-            tempo: get_in(results, ["tempo", "bpm"]) || results["tempo"],
-            key: get_in(results, ["key", "key"]) || results["key"],
-            energy: get_in(results, ["energy", "rms_mean"]) || results["energy"],
-            spectral_centroid: get_in(results, ["spectral", "centroid_mean"]),
-            spectral_rolloff: get_in(results, ["spectral", "rolloff_mean"]),
-            zero_crossing_rate: get_in(results, ["energy", "zcr_mean"]),
+            tempo: results["tempo"],
+            key: results["key"],
+            energy: results["energy"],
+            spectral_centroid: results["spectral_centroid"],
+            spectral_rolloff: results["spectral_rolloff"],
+            zero_crossing_rate: results["zero_crossing_rate"],
             features: results
           })
 

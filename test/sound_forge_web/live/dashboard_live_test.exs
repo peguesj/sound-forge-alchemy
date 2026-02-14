@@ -280,7 +280,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
       assert html =~ "Retrying download"
     end
 
-    test "retries processing stage for existing track", %{conn: conn, user: user} do
+    test "retries processing stage requires completed download", %{conn: conn, user: user} do
       track = track_fixture(%{title: "Retry Processing", user_id: user.id})
       {:ok, view, _html} = live(conn, "/")
 
@@ -290,10 +290,10 @@ defmodule SoundForgeWeb.DashboardLiveTest do
           "stage" => "processing"
         })
 
-      assert html =~ "Retrying processing"
+      assert html =~ "Download the track first"
     end
 
-    test "retries analysis stage for existing track", %{conn: conn, user: user} do
+    test "retries analysis stage requires completed download", %{conn: conn, user: user} do
       track = track_fixture(%{title: "Retry Analysis", user_id: user.id})
       {:ok, view, _html} = live(conn, "/")
 
@@ -303,7 +303,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
           "stage" => "analysis"
         })
 
-      assert html =~ "Retrying analysis"
+      assert html =~ "Download the track first"
     end
   end
 
