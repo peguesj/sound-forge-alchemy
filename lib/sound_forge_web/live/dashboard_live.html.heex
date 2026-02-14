@@ -11,7 +11,10 @@
   <.live_component module={SoundForgeWeb.Live.Components.ToastStack} id="toast-stack" />
   
 <!-- Flash Messages (fully non-blocking, auto-dismiss via JS hook) -->
-  <div class="fixed right-6 z-50 pointer-events-none flex flex-col items-end gap-2" style="top: 4.5rem;">
+  <div
+    class="fixed right-6 z-50 pointer-events-none flex flex-col items-end gap-2"
+    style="top: 4.5rem;"
+  >
     <div
       :if={Phoenix.Flash.get(@flash, :info)}
       id="flash-info"
@@ -104,8 +107,8 @@
               <p :if={@track.duration} class="text-xs text-gray-600 mt-1">
                 {format_duration(@track.duration)}
               </p>
-
-              <!-- Track Actions -->
+              
+<!-- Track Actions -->
               <div class="mt-4 space-y-2">
                 <button
                   :if={@track.spotify_url && is_nil(@track.download_status)}
@@ -114,7 +117,12 @@
                   class="w-full flex items-center gap-2 bg-green-900/30 hover:bg-green-900/60 text-green-400 hover:text-green-300 border border-green-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 12l-4-4m4 4l4-4M6 20h12" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 16V4m0 12l-4-4m4 4l4-4M6 20h12"
+                    />
                   </svg>
                   Download
                 </button>
@@ -123,7 +131,11 @@
                   class="w-full flex items-center gap-2 text-green-400 text-sm px-4 py-2"
                 >
                   <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
                   Downloaded
                 </div>
@@ -134,7 +146,11 @@
                   class="w-full flex items-center gap-2 bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 border border-red-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
                 >
                   <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    <path
+                      fill-rule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
                   Retry Download
                 </button>
@@ -144,7 +160,12 @@
                   class="w-full flex items-center gap-2 bg-blue-900/30 hover:bg-blue-900/60 text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                    />
                   </svg>
                   Process (Separate Stems)
                 </button>
@@ -154,7 +175,12 @@
                   class="w-full flex items-center gap-2 bg-purple-900/30 hover:bg-purple-900/60 text-purple-400 hover:text-purple-300 border border-purple-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
                   </svg>
                   Analyze
                 </button>
@@ -164,7 +190,12 @@
                   class="w-full flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 rounded-lg px-4 py-2 text-sm transition-colors"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
                   </svg>
                   Edit Metadata
                 </button>
@@ -175,11 +206,19 @@
                     class="w-full flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 rounded-lg px-4 py-2 text-sm transition-colors"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 4v16m8-8H4"
+                      />
                     </svg>
                     Add to Playlist
                   </button>
-                  <div id="playlist-menu" class="hidden absolute left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-10 max-h-48 overflow-y-auto">
+                  <div
+                    id="playlist-menu"
+                    class="hidden absolute left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-10 max-h-48 overflow-y-auto"
+                  >
                     <button
                       :for={playlist <- @playlists}
                       phx-click="add_to_playlist"
@@ -210,7 +249,12 @@
                   class="w-full flex items-center gap-2 bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 border border-red-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
                   </svg>
                   Delete Track
                 </button>
@@ -641,189 +685,191 @@
         <%= if !(@nav_context in [:artist, :album] && is_nil(@browse_filter)) do %>
           <!-- Sticky Search & Sort & Filter & Actions Toolbar -->
           <div class="sticky top-0 z-30 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800/50">
-          <!-- Search & Sort & View Toggle -->
-          <div class="flex gap-3 px-6 pt-4 mb-4">
-            <form phx-change="search" class="flex-1">
-              <input
-                type="text"
-                name="query"
-                value={@search_query}
-                placeholder="Search tracks..."
-                phx-debounce="300"
-                aria-label="Search tracks"
-                class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500"
-              />
-            </form>
-            <form phx-change="sort">
-              <select
-                name="sort_by"
-                aria-label="Sort tracks by"
-                class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300"
+            <!-- Search & Sort & View Toggle -->
+            <div class="flex gap-3 px-6 pt-4 mb-4">
+              <form phx-change="search" class="flex-1">
+                <input
+                  type="text"
+                  name="query"
+                  value={@search_query}
+                  placeholder="Search tracks..."
+                  phx-debounce="300"
+                  aria-label="Search tracks"
+                  class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500"
+                />
+              </form>
+              <form phx-change="sort">
+                <select
+                  name="sort_by"
+                  aria-label="Sort tracks by"
+                  class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300"
+                >
+                  <option value="newest" selected={@sort_by == :newest}>Newest</option>
+                  <option value="oldest" selected={@sort_by == :oldest}>Oldest</option>
+                  <option value="title" selected={@sort_by == :title}>Title</option>
+                  <option value="artist" selected={@sort_by == :artist}>Artist</option>
+                  <option value="duration" selected={@sort_by == :duration}>Duration</option>
+                </select>
+              </form>
+              <!-- View Mode Toggle -->
+              <div
+                class="flex bg-gray-800 border border-gray-700 rounded-lg p-0.5"
+                role="group"
+                aria-label="View mode"
               >
-                <option value="newest" selected={@sort_by == :newest}>Newest</option>
-                <option value="oldest" selected={@sort_by == :oldest}>Oldest</option>
-                <option value="title" selected={@sort_by == :title}>Title</option>
-                <option value="artist" selected={@sort_by == :artist}>Artist</option>
-                <option value="duration" selected={@sort_by == :duration}>Duration</option>
+                <button
+                  type="button"
+                  phx-click="toggle_view"
+                  phx-value-mode="grid"
+                  aria-label="Grid view"
+                  aria-pressed={to_string(@view_mode == :grid)}
+                  class={[
+                    "p-2 rounded-md transition-colors",
+                    if(@view_mode == :grid,
+                      do: "bg-purple-600 text-white",
+                      else: "text-gray-400 hover:text-white"
+                    )
+                  ]}
+                >
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
+                </button>
+                <!-- Compact list -->
+                <button
+                  type="button"
+                  phx-click="toggle_view"
+                  phx-value-mode="list"
+                  aria-label="Compact list view"
+                  aria-pressed={to_string(@view_mode == :list)}
+                  class={[
+                    "p-2 rounded-md transition-colors",
+                    if(@view_mode == :list,
+                      do: "bg-purple-600 text-white",
+                      else: "text-gray-400 hover:text-white"
+                    )
+                  ]}
+                >
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fill-rule="evenodd"
+                      d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+                <!-- Expanded list -->
+                <button
+                  type="button"
+                  phx-click="toggle_view"
+                  phx-value-mode="list_expanded"
+                  aria-label="Expanded list view"
+                  aria-pressed={to_string(@view_mode == :list_expanded)}
+                  class={[
+                    "p-2 rounded-md transition-colors",
+                    if(@view_mode == :list_expanded,
+                      do: "bg-purple-600 text-white",
+                      else: "text-gray-400 hover:text-white"
+                    )
+                  ]}
+                >
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fill-rule="evenodd"
+                      d="M3 3a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h14a1 1 0 100-2H3zm0 8a1 1 0 100 2h14a1 1 0 100-2H3zM3 11a1 1 0 100 2h7a1 1 0 100-2H3z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+<!-- Filter Bar -->
+            <form phx-change="filter" class="flex gap-3 px-6 mb-4">
+              <select
+                name="status"
+                aria-label="Filter by status"
+                class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
+              >
+                <option value="all" selected={@filters.status == "all"}>All Status</option>
+                <option value="pending" selected={@filters.status == "pending"}>Pending</option>
+                <option value="downloaded" selected={@filters.status == "downloaded"}>
+                  Downloaded
+                </option>
+                <option value="processed" selected={@filters.status == "processed"}>
+                  Processed
+                </option>
+                <option value="analyzed" selected={@filters.status == "analyzed"}>
+                  Analyzed
+                </option>
+              </select>
+              <select
+                name="artist"
+                aria-label="Filter by artist"
+                class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
+              >
+                <option value="all" selected={@filters.artist == "all"}>All Artists</option>
+                <option
+                  :for={artist <- @artists}
+                  value={artist}
+                  selected={@filters.artist == artist}
+                >
+                  {artist}
+                </option>
               </select>
             </form>
-            <!-- View Mode Toggle -->
-            <div
-              class="flex bg-gray-800 border border-gray-700 rounded-lg p-0.5"
-              role="group"
-              aria-label="View mode"
-            >
-              <button
-                type="button"
-                phx-click="toggle_view"
-                phx-value-mode="grid"
-                aria-label="Grid view"
-                aria-pressed={to_string(@view_mode == :grid)}
-                class={[
-                  "p-2 rounded-md transition-colors",
-                  if(@view_mode == :grid,
-                    do: "bg-purple-600 text-white",
-                    else: "text-gray-400 hover:text-white"
-                  )
-                ]}
-              >
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                </svg>
-              </button>
-              <!-- Compact list -->
-              <button
-                type="button"
-                phx-click="toggle_view"
-                phx-value-mode="list"
-                aria-label="Compact list view"
-                aria-pressed={to_string(@view_mode == :list)}
-                class={[
-                  "p-2 rounded-md transition-colors",
-                  if(@view_mode == :list,
-                    do: "bg-purple-600 text-white",
-                    else: "text-gray-400 hover:text-white"
-                  )
-                ]}
-              >
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fill-rule="evenodd"
-                    d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </button>
-              <!-- Expanded list -->
-              <button
-                type="button"
-                phx-click="toggle_view"
-                phx-value-mode="list_expanded"
-                aria-label="Expanded list view"
-                aria-pressed={to_string(@view_mode == :list_expanded)}
-                class={[
-                  "p-2 rounded-md transition-colors",
-                  if(@view_mode == :list_expanded,
-                    do: "bg-purple-600 text-white",
-                    else: "text-gray-400 hover:text-white"
-                  )
-                ]}
-              >
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fill-rule="evenodd"
-                    d="M3 3a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h14a1 1 0 100-2H3zm0 8a1 1 0 100 2h14a1 1 0 100-2H3zM3 11a1 1 0 100 2h7a1 1 0 100-2H3z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-          
-<!-- Filter Bar -->
-          <form phx-change="filter" class="flex gap-3 px-6 mb-4">
-            <select
-              name="status"
-              aria-label="Filter by status"
-              class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
-            >
-              <option value="all" selected={@filters.status == "all"}>All Status</option>
-              <option value="pending" selected={@filters.status == "pending"}>Pending</option>
-              <option value="downloaded" selected={@filters.status == "downloaded"}>
-                Downloaded
-              </option>
-              <option value="processed" selected={@filters.status == "processed"}>
-                Processed
-              </option>
-              <option value="analyzed" selected={@filters.status == "analyzed"}>Analyzed</option>
-            </select>
-            <select
-              name="artist"
-              aria-label="Filter by artist"
-              class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
-            >
-              <option value="all" selected={@filters.artist == "all"}>All Artists</option>
-              <option
-                :for={artist <- @artists}
-                value={artist}
-                selected={@filters.artist == artist}
-              >
-                {artist}
-              </option>
-            </select>
-          </form>
-          
+            
 <!-- Select All + Batch Actions Toolbar -->
-          <div
-            class="flex items-center gap-3 px-6 mb-4"
-            id="select-toolbar"
-            phx-hook="ShiftSelect"
-          >
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={@select_all}
-                phx-click="toggle_select_all"
-                class="checkbox checkbox-sm checkbox-primary"
-                aria-label="Select all tracks"
-              />
-              <span class="text-sm text-gray-400">
-                <%= if MapSet.size(@selected_ids) > 0 do %>
-                  {MapSet.size(@selected_ids)} selected
-                <% else %>
-                  Select all
-                <% end %>
-              </span>
-            </label>
-            <!-- Batch actions (visible when selection > 0) -->
-            <div :if={MapSet.size(@selected_ids) > 0} class="flex items-center gap-2 ml-2">
-              <button
-                phx-click="batch_download"
-                class="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
-              >
-                Download Selected
-              </button>
-              <button
-                phx-click="batch_analyze"
-                class="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
-              >
-                Analyze Selected
-              </button>
-              <button
-                phx-click="batch_process"
-                class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-              >
-                Process Selected
-              </button>
-              <button
-                phx-click="batch_delete"
-                data-confirm={"Delete #{MapSet.size(@selected_ids)} tracks and all associated files?"}
-                class="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
-              >
-                Delete Selected
-              </button>
+            <div
+              class="flex items-center gap-3 px-6 mb-4"
+              id="select-toolbar"
+              phx-hook="ShiftSelect"
+            >
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={@select_all}
+                  phx-click="toggle_select_all"
+                  class="checkbox checkbox-sm checkbox-primary"
+                  aria-label="Select all tracks"
+                />
+                <span class="text-sm text-gray-400">
+                  <%= if MapSet.size(@selected_ids) > 0 do %>
+                    {MapSet.size(@selected_ids)} selected
+                  <% else %>
+                    Select all
+                  <% end %>
+                </span>
+              </label>
+              <!-- Batch actions (visible when selection > 0) -->
+              <div :if={MapSet.size(@selected_ids) > 0} class="flex items-center gap-2 ml-2">
+                <button
+                  phx-click="batch_download"
+                  class="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                >
+                  Download Selected
+                </button>
+                <button
+                  phx-click="batch_analyze"
+                  class="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
+                >
+                  Analyze Selected
+                </button>
+                <button
+                  phx-click="batch_process"
+                  class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                >
+                  Process Selected
+                </button>
+                <button
+                  phx-click="batch_delete"
+                  data-confirm={"Delete #{MapSet.size(@selected_ids)} tracks and all associated files?"}
+                  class="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+                >
+                  Delete Selected
+                </button>
+              </div>
             </div>
-          </div>
           </div>
           <!-- end sticky toolbar -->
 
