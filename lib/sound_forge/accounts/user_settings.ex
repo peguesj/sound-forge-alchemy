@@ -45,6 +45,9 @@ defmodule SoundForge.Accounts.UserSettings do
     field :tracks_per_page, :integer
     field :max_upload_size, :integer
 
+    # Debug
+    field :debug_mode, :boolean, default: false
+
     timestamps(type: :utc_datetime)
   end
 
@@ -65,7 +68,8 @@ defmodule SoundForge.Accounts.UserSettings do
     :max_file_age_days,
     :retention_days,
     :tracks_per_page,
-    :max_upload_size
+    :max_upload_size,
+    :debug_mode
   ]
 
   def changeset(settings, attrs) do

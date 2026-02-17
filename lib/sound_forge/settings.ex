@@ -25,7 +25,8 @@ defmodule SoundForge.Settings do
     max_file_age_days: {:sound_forge, :max_file_age_days, 30},
     retention_days: {:sound_forge, :retention_days, 90},
     tracks_per_page: {:sound_forge, :tracks_per_page, 24},
-    max_upload_size: {:sound_forge, :max_upload_size, 100_000_000}
+    max_upload_size: {:sound_forge, :max_upload_size, 100_000_000},
+    debug_mode: {:sound_forge, :debug_mode, false}
   }
 
   @doc "Returns the global defaults map (key -> resolved default value)."
