@@ -33,47 +33,79 @@ defmodule SoundForge.Jobs.DownloadWorker do
     broadcast_progress(job_id, :downloading, 0)
     broadcast_track_progress(track_id, :download, :downloading, 0)
 
-    # Download via spotdl
-    case SpotDL.download(spotify_url,
-           output_dir: downloads_dir(),
-           bitrate: quality,
-           output_template: track_id
-         ) do
-      {:ok, %{path: output_path, size: file_size}} ->
-        # Validate the downloaded file
-        case validate_audio_file(output_path, file_size) do
-          :ok ->
-            Music.update_download_job(job, %{
-              status: :completed,
-              progress: 100,
-              output_path: output_path,
-              file_size: file_size
-            })
+    # Download via spotdl (Spotify API -> YouTube -> yt-dlp)
+    dl_opts = [output_dir: downloads_dir(), bitrate: quality, output_template: track_id]
 
-            Logger.info("Download complete, file_size=#{file_size}")
-            broadcast_progress(job_id, :completed, 100)
-            broadcast_track_progress(track_id, :download, :completed, 100)
-
-            # Chain: enqueue stem separation
-            enqueue_processing(track_id, output_path)
-
-            :ok
-
-          {:error, reason} ->
-            Logger.error("Download validation failed: #{reason}")
-            Music.update_download_job(job, %{status: :failed, error: reason})
-            broadcast_progress(job_id, :failed, 0)
-            broadcast_track_progress(track_id, :download, :failed, 0)
-            File.rm(output_path)
-            {:error, reason}
-        end
+    case SpotDL.download(spotify_url, dl_opts) do
+      {:ok, result} ->
+        handle_download_success(result, track_id, job_id, job)
 
       {:error, reason} ->
+        Logger.warning("Spotify download failed: #{reason} -- attempting direct fallback")
+        attempt_direct_fallback(track_id, job_id, job, dl_opts, reason)
+    end
+  end
+
+  defp handle_download_success(%{path: output_path, size: file_size}, track_id, job_id, job) do
+    case validate_audio_file(output_path, file_size) do
+      :ok ->
+        Music.update_download_job(job, %{
+          status: :completed,
+          progress: 100,
+          output_path: output_path,
+          file_size: file_size
+        })
+
+        Logger.info("Download complete, file_size=#{file_size}")
+        broadcast_progress(job_id, :completed, 100)
+        broadcast_track_progress(track_id, :download, :completed, 100)
+
+        enqueue_processing(track_id, output_path)
+
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Download validation failed: #{reason}")
         Music.update_download_job(job, %{status: :failed, error: reason})
         broadcast_progress(job_id, :failed, 0)
         broadcast_track_progress(track_id, :download, :failed, 0)
+        File.rm(output_path)
         {:error, reason}
     end
+  end
+
+  defp attempt_direct_fallback(track_id, job_id, job, dl_opts, original_reason) do
+    track = Music.get_track!(track_id)
+
+    if has_searchable_metadata?(track) do
+      Logger.info("Fallback: searching YouTube directly for \"#{track.title}\" by #{track.artist}")
+
+      metadata = %{title: track.title, artist: track.artist, duration: track.duration}
+
+      case SpotDL.download_direct(metadata, dl_opts) do
+        {:ok, result} ->
+          Logger.info("Direct fallback succeeded for track #{track_id}")
+          handle_download_success(result, track_id, job_id, job)
+
+        {:error, fallback_reason} ->
+          Logger.error("Direct fallback also failed: #{fallback_reason}")
+          Music.update_download_job(job, %{status: :failed, error: original_reason})
+          broadcast_progress(job_id, :failed, 0)
+          broadcast_track_progress(track_id, :download, :failed, 0)
+          {:error, original_reason}
+      end
+    else
+      Logger.error("Cannot attempt direct fallback: track #{track_id} missing title/artist")
+      Music.update_download_job(job, %{status: :failed, error: original_reason})
+      broadcast_progress(job_id, :failed, 0)
+      broadcast_track_progress(track_id, :download, :failed, 0)
+      {:error, original_reason}
+    end
+  end
+
+  defp has_searchable_metadata?(track) do
+    is_binary(track.title) and track.title != "" and
+      is_binary(track.artist) and track.artist != ""
   end
 
   defp downloads_dir do

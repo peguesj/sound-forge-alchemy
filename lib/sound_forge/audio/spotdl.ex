@@ -127,6 +127,77 @@ defmodule SoundForge.Audio.SpotDL do
   end
 
   @doc """
+  Downloads a track by searching YouTube directly with the provided metadata.
+
+  Bypasses the Spotify API entirely -- useful as a fallback when Spotify is
+  unavailable but the track's metadata is already stored in the database.
+
+  ## Options
+
+  Same as `download/2`.
+  """
+  @spec download_direct(map(), keyword()) ::
+          {:ok, %{path: String.t(), size: integer()}} | {:error, String.t()}
+  def download_direct(metadata, opts \\ []) do
+    title = Map.get(metadata, :title) || Map.get(metadata, "title")
+    artist = Map.get(metadata, :artist) || Map.get(metadata, "artist")
+    duration = Map.get(metadata, :duration) || Map.get(metadata, "duration")
+
+    if is_nil(title) or title == "" or is_nil(artist) or artist == "" do
+      {:error, "Cannot search YouTube without title and artist"}
+    else
+      output_dir = Keyword.get(opts, :output_dir, default_downloads_dir()) |> Path.expand()
+      format = Keyword.get(opts, :format, "mp3")
+      bitrate = Keyword.get(opts, :bitrate, "320k")
+      output_template = Keyword.get(opts, :output_template, "direct")
+
+      File.mkdir_p!(output_dir)
+
+      args =
+        [
+          "download-direct",
+          "--title",
+          to_string(title),
+          "--artist",
+          to_string(artist),
+          "--output-dir",
+          output_dir,
+          "--output-template",
+          output_template,
+          "--format",
+          format,
+          "--bitrate",
+          bitrate
+        ] ++
+          if(duration, do: ["--duration", to_string(duration)], else: [])
+
+      Logger.info("Starting direct download (no Spotify API): \"#{title}\" by #{artist}")
+
+      case run_helper(args, @download_timeout) do
+        {:ok, output, _stderr} ->
+          case Jason.decode(output) do
+            {:ok, %{"path" => path, "size" => size}} ->
+              {:ok, %{path: path, size: size}}
+
+            {:ok, _} ->
+              {:error, "Unexpected response format"}
+
+            {:error, _} ->
+              {:error, "Failed to parse download result"}
+          end
+
+        {:error, :timeout} ->
+          Logger.error("Direct download timed out after #{div(@download_timeout, 1000)}s")
+          {:error, "Direct download timed out"}
+
+        {:error, reason} ->
+          Logger.error("Direct download failed: #{reason}")
+          {:error, "Direct download failed: #{reason}"}
+      end
+    end
+  end
+
+  @doc """
   Checks if the helper script and its dependencies are available.
   """
   @spec available?() :: boolean()

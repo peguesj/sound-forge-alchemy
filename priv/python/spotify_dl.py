@@ -257,44 +257,28 @@ def search_youtube(query, duration_hint=None):
     return best.get("url") or best.get("webpage_url")
 
 
-def cmd_download(args):
-    """Download audio from a Spotify URL via YouTube."""
+def _download_from_youtube(query, duration_hint, args, output_template_default):
+    """Shared download logic: search YouTube then download via yt-dlp.
+
+    Returns (output_path, file_size) on success, calls sys.exit(1) on failure.
+    """
     import yt_dlp
 
-    sp = get_spotify_client()
-    item_type, item_id = extract_spotify_info(args.url)
+    emit_error({"status": "searching", "query": query})
 
-    if not item_type:
-        emit_error({"error": "Invalid Spotify URL"})
-        sys.exit(1)
-
-    if item_type != "track":
-        emit_error({"error": "Download only supports single tracks"})
-        sys.exit(1)
-
-    # Get track metadata from Spotify
-    meta = fetch_track_metadata(sp, item_id)
-    artist_str = ", ".join(meta["artists"])
-    search_query = f"{meta['name']} {artist_str}"
-
-    emit_error({"status": "searching", "query": search_query})
-
-    # Search YouTube for the track
-    yt_url = search_youtube(search_query, duration_hint=meta.get("duration"))
+    yt_url = search_youtube(query, duration_hint=duration_hint)
 
     if not yt_url:
-        emit_error({"error": f"No YouTube results for: {search_query}"})
+        emit_error({"error": f"No YouTube results for: {query}"})
         sys.exit(1)
 
     emit_error({"status": "downloading", "youtube_url": yt_url})
 
-    # Download audio with yt-dlp
     output_dir = os.path.abspath(args.output_dir) if args.output_dir else tempfile.mkdtemp(prefix="sfa_dl_")
-    output_template = args.output_template or meta["song_id"]
+    output_template = args.output_template or output_template_default
     audio_format = args.format or "mp3"
     bitrate = args.bitrate or "320k"
 
-    # Strip 'k' suffix for yt-dlp if present
     bitrate_num = bitrate.rstrip("kK")
 
     output_path = os.path.join(output_dir, f"{output_template}.{audio_format}")
@@ -316,11 +300,9 @@ def cmd_download(args):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([yt_url])
 
-    # Find the output file (yt-dlp may change extension)
     if os.path.exists(output_path):
         file_size = os.path.getsize(output_path)
     else:
-        # Search for any file matching the template
         pattern = os.path.join(output_dir, f"{output_template}.*")
         import glob
         matches = glob.glob(pattern)
@@ -331,7 +313,46 @@ def cmd_download(args):
             emit_error({"error": "Downloaded file not found"})
             sys.exit(1)
 
+    return output_path, file_size
+
+
+def cmd_download(args):
+    """Download audio from a Spotify URL via YouTube."""
+    sp = get_spotify_client()
+    item_type, item_id = extract_spotify_info(args.url)
+
+    if not item_type:
+        emit_error({"error": "Invalid Spotify URL"})
+        sys.exit(1)
+
+    if item_type != "track":
+        emit_error({"error": "Download only supports single tracks"})
+        sys.exit(1)
+
+    meta = fetch_track_metadata(sp, item_id)
+    artist_str = ", ".join(meta["artists"])
+    search_query = f"{meta['name']} {artist_str}"
+
+    output_path, file_size = _download_from_youtube(
+        search_query, meta.get("duration"), args, meta["song_id"]
+    )
+
     emit({"path": output_path, "size": file_size, "metadata": meta})
+
+
+def cmd_download_direct(args):
+    """Download audio by searching YouTube directly with provided metadata.
+
+    Skips all Spotify API calls -- uses title/artist/duration from CLI args.
+    """
+    search_query = f"{args.title} {args.artist}"
+    duration_hint = float(args.duration) if args.duration else None
+
+    output_path, file_size = _download_from_youtube(
+        search_query, duration_hint, args, args.output_template or "direct"
+    )
+
+    emit({"path": output_path, "size": file_size})
 
 
 def main():
@@ -350,12 +371,27 @@ def main():
     dl_parser.add_argument("--format", default="mp3", help="Audio format (default: mp3)")
     dl_parser.add_argument("--bitrate", default="320k", help="Audio bitrate (default: 320k)")
 
+    # download-direct command (no Spotify API -- uses provided metadata)
+    dd_parser = subparsers.add_parser(
+        "download-direct",
+        help="Download audio using metadata (no Spotify API)",
+    )
+    dd_parser.add_argument("--title", required=True, help="Track title")
+    dd_parser.add_argument("--artist", required=True, help="Artist name")
+    dd_parser.add_argument("--duration", help="Duration in seconds (used as search hint)")
+    dd_parser.add_argument("--output-dir", help="Output directory")
+    dd_parser.add_argument("--output-template", help="Output filename template (without extension)")
+    dd_parser.add_argument("--format", default="mp3", help="Audio format (default: mp3)")
+    dd_parser.add_argument("--bitrate", default="320k", help="Audio bitrate (default: 320k)")
+
     args = parser.parse_args()
 
     if args.command == "metadata":
         cmd_metadata(args)
     elif args.command == "download":
         cmd_download(args)
+    elif args.command == "download-direct":
+        cmd_download_direct(args)
 
 
 if __name__ == "__main__":
