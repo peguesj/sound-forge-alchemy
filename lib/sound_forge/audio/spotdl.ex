@@ -233,6 +233,9 @@ defmodule SoundForge.Audio.SpotDL do
     unless python, do: raise(%ErlangError{original: :enoent})
     unless File.exists?(script), do: raise(%ErlangError{original: :enoent})
 
+    subcmd = List.first(args) || "unknown"
+    Logger.metadata(spotdl_cmd: subcmd)
+
     full_args = [script | args]
 
     port =
