@@ -22,10 +22,14 @@ defmodule SoundForge.Jobs.DownloadWorker do
           "spotify_url" => spotify_url,
           "quality" => quality,
           "job_id" => job_id
-        }
-      }) do
-    Logger.metadata(track_id: track_id, job_id: job_id, worker: "DownloadWorker")
-    Logger.info("Starting download from #{spotify_url}")
+        },
+        attempt: attempt
+      } = oban_job) do
+    Logger.metadata(track_id: track_id, job_id: job_id, worker: "DownloadWorker", stage: "download")
+
+    Logger.info(
+      "[oban.DownloadWorker] perform entry: track_id=#{track_id} spotify_url=#{spotify_url} quality=#{quality} attempt=#{attempt}/#{oban_job.max_attempts}"
+    )
 
     # Update job status to downloading
     job = Music.get_download_job!(job_id)
@@ -38,17 +42,24 @@ defmodule SoundForge.Jobs.DownloadWorker do
 
     case SpotDL.download(spotify_url, dl_opts) do
       {:ok, result} ->
+        Logger.debug("[oban.DownloadWorker] SpotDL.download returned :ok, path=#{result.path} size=#{result.size}")
         handle_download_success(result, track_id, job_id, job)
 
       {:error, reason} ->
-        Logger.warning("Spotify download failed: #{reason} -- attempting direct fallback")
+        Logger.debug("[oban.DownloadWorker] SpotDL.download returned :error, reason=#{reason}")
+        Logger.warning("[oban.DownloadWorker] Spotify download failed: #{reason} -- attempting direct fallback")
         attempt_direct_fallback(track_id, job_id, job, dl_opts, reason)
     end
   end
 
   defp handle_download_success(%{path: output_path, size: file_size}, track_id, job_id, job) do
+    Logger.metadata(stage: "validate")
+    Logger.debug("[oban.DownloadWorker] validating output_path=#{output_path} file_size=#{file_size}")
+
     case validate_audio_file(output_path, file_size) do
       :ok ->
+        Logger.debug("[oban.DownloadWorker] validation passed for output_path=#{output_path}")
+
         Music.update_download_job(job, %{
           status: :completed,
           progress: 100,
@@ -56,7 +67,7 @@ defmodule SoundForge.Jobs.DownloadWorker do
           file_size: file_size
         })
 
-        Logger.info("Download complete, file_size=#{file_size}")
+        Logger.info("[oban.DownloadWorker] download complete: output_path=#{output_path} file_size=#{file_size}")
         broadcast_progress(job_id, :completed, 100)
         broadcast_track_progress(track_id, :download, :completed, 100)
 
@@ -65,7 +76,8 @@ defmodule SoundForge.Jobs.DownloadWorker do
         :ok
 
       {:error, reason} ->
-        Logger.error("Download validation failed: #{reason}")
+        Logger.debug("[oban.DownloadWorker] validation failed: #{reason}")
+        Logger.error("[oban.DownloadWorker] download validation failed: #{reason}")
         Music.update_download_job(job, %{status: :failed, error: reason})
         broadcast_progress(job_id, :failed, 0)
         broadcast_track_progress(track_id, :download, :failed, 0)
@@ -75,27 +87,30 @@ defmodule SoundForge.Jobs.DownloadWorker do
   end
 
   defp attempt_direct_fallback(track_id, job_id, job, dl_opts, original_reason) do
+    Logger.metadata(stage: "fallback")
     track = Music.get_track!(track_id)
 
     if has_searchable_metadata?(track) do
-      Logger.info("Fallback: searching YouTube directly for \"#{track.title}\" by #{track.artist}")
+      Logger.info(
+        "[oban.DownloadWorker] fallback: title=#{track.title} artist=#{track.artist} duration=#{inspect(track.duration)}"
+      )
 
       metadata = %{title: track.title, artist: track.artist, duration: track.duration}
 
       case SpotDL.download_direct(metadata, dl_opts) do
         {:ok, result} ->
-          Logger.info("Direct fallback succeeded for track #{track_id}")
+          Logger.info("[oban.DownloadWorker] direct fallback succeeded for track #{track_id}")
           handle_download_success(result, track_id, job_id, job)
 
         {:error, fallback_reason} ->
-          Logger.error("Direct fallback also failed: #{fallback_reason}")
+          Logger.error("[oban.DownloadWorker] direct fallback also failed: #{fallback_reason}")
           Music.update_download_job(job, %{status: :failed, error: original_reason})
           broadcast_progress(job_id, :failed, 0)
           broadcast_track_progress(track_id, :download, :failed, 0)
           {:error, original_reason}
       end
     else
-      Logger.error("Cannot attempt direct fallback: track #{track_id} missing title/artist")
+      Logger.error("[oban.DownloadWorker] cannot attempt direct fallback: track #{track_id} missing title/artist")
       Music.update_download_job(job, %{status: :failed, error: original_reason})
       broadcast_progress(job_id, :failed, 0)
       broadcast_track_progress(track_id, :download, :failed, 0)
@@ -159,6 +174,7 @@ defmodule SoundForge.Jobs.DownloadWorker do
   end
 
   defp enqueue_processing(track_id, file_path) do
+    Logger.metadata(stage: "enqueue")
     model = Application.get_env(:sound_forge, :default_demucs_model, "htdemucs")
 
     case Music.create_processing_job(%{track_id: track_id, model: model, status: :queued}) do
@@ -173,11 +189,12 @@ defmodule SoundForge.Jobs.DownloadWorker do
         |> Oban.insert()
         |> case do
           {:ok, _} ->
+            Logger.info("[oban.DownloadWorker] enqueued processing: processing_job_id=#{processing_job.id} model=#{model}")
             :ok
 
           {:error, reason} ->
             Logger.error(
-              "Failed to enqueue processing worker for track #{track_id}: #{inspect(reason)}"
+              "[oban.DownloadWorker] failed to enqueue processing worker for track #{track_id}: #{inspect(reason)}"
             )
 
             {:error, reason}
@@ -190,6 +207,8 @@ defmodule SoundForge.Jobs.DownloadWorker do
   end
 
   defp broadcast_progress(job_id, status, progress) do
+    Logger.debug("[oban.DownloadWorker] broadcast jobs:#{job_id} status=#{status} progress=#{progress}")
+
     Phoenix.PubSub.broadcast(
       SoundForge.PubSub,
       "jobs:#{job_id}",
@@ -198,6 +217,8 @@ defmodule SoundForge.Jobs.DownloadWorker do
   end
 
   defp broadcast_track_progress(track_id, stage, status, progress) do
+    Logger.debug("[oban.DownloadWorker] broadcast track_pipeline:#{track_id} stage=#{stage} status=#{status} progress=#{progress}")
+
     Phoenix.PubSub.broadcast(
       SoundForge.PubSub,
       "track_pipeline:#{track_id}",
