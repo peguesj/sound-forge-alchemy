@@ -46,6 +46,8 @@ defmodule SoundForge.Telemetry.ObanHandler do
       %{count: 1},
       %{worker: job.worker, queue: job.queue}
     )
+
+    broadcast_worker_status(job.worker, :started)
   end
 
   def handle_event([:oban, :job, :stop], measurements, meta, _config) do
@@ -67,6 +69,8 @@ defmodule SoundForge.Telemetry.ObanHandler do
       %{duration_ms: duration_ms, count: 1},
       %{worker: job.worker, queue: job.queue}
     )
+
+    broadcast_worker_status(job.worker, :stopped)
   end
 
   def handle_event([:oban, :job, :exception], measurements, meta, _config) do
@@ -93,7 +97,12 @@ defmodule SoundForge.Telemetry.ObanHandler do
     )
 
     broadcast_pipeline_failure(job)
+    broadcast_worker_status(job.worker, :exception)
   end
+
+  @worker_status_topic "debug:worker_status"
+
+  def worker_status_topic, do: @worker_status_topic
 
   # -- Private --
 
@@ -169,6 +178,14 @@ defmodule SoundForge.Telemetry.ObanHandler do
         )
       end
     end
+  end
+
+  defp broadcast_worker_status(worker, event) do
+    Phoenix.PubSub.broadcast(
+      SoundForge.PubSub,
+      @worker_status_topic,
+      {:worker_status_change, %{worker: worker, event: event}}
+    )
   end
 
   defp worker_to_stage("SoundForge.Jobs.DownloadWorker"), do: :download

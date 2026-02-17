@@ -60,6 +60,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:trace_selected_job, nil)
       |> assign(:trace_timeline, [])
       |> assign(:trace_graph, %{nodes: [], links: []})
+      |> assign(:worker_stats, [])
       |> allow_upload(:audio,
         accept: ~w(.mp3 .wav .flac .ogg .m4a .aac .wma),
         max_entries: 5,
@@ -71,10 +72,15 @@ defmodule SoundForgeWeb.DashboardLive do
       if connected?(socket) and current_user_id do
         SoundForge.Notifications.subscribe(current_user_id)
 
-        # Subscribe to debug log stream if debug mode is enabled
-        if Settings.get(current_user_id, :debug_mode) do
-          Phoenix.PubSub.subscribe(SoundForge.PubSub, SoundForge.Debug.LogBroadcaster.topic())
-        end
+        # Subscribe to debug streams and load initial data if debug mode is enabled
+        socket =
+          if Settings.get(current_user_id, :debug_mode) do
+            Phoenix.PubSub.subscribe(SoundForge.PubSub, SoundForge.Debug.LogBroadcaster.topic())
+            Phoenix.PubSub.subscribe(SoundForge.PubSub, SoundForge.Telemetry.ObanHandler.worker_status_topic())
+            assign(socket, :worker_stats, SoundForge.Debug.Jobs.worker_stats())
+          else
+            socket
+          end
 
         # Send Spotify token once on mount so the SDK player can initialize
         case SoundForge.Spotify.OAuth.get_valid_access_token(current_user_id) do
@@ -825,7 +831,26 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   def handle_event("toggle_debug_workers", _params, socket) do
-    {:noreply, update(socket, :debug_workers_open, &(!&1))}
+    opening = !socket.assigns.debug_workers_open
+
+    socket =
+      if opening do
+        assign(socket, :worker_stats, SoundForge.Debug.Jobs.worker_stats())
+      else
+        socket
+      end
+
+    {:noreply, assign(socket, :debug_workers_open, opening)}
+  end
+
+  @impl true
+  def handle_event("filter_logs_by_worker", %{"worker" => worker_name}, socket) do
+    namespace = "oban.#{worker_name}"
+
+    {:noreply,
+     socket
+     |> assign(:debug_tab, :logs)
+     |> assign(:debug_log_filter_ns, namespace)}
   end
 
   @impl true
@@ -1187,6 +1212,11 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:debug_log_namespaces, namespaces)}
   end
 
+  @impl true
+  def handle_info({:worker_status_change, _payload}, socket) do
+    {:noreply, assign(socket, :worker_stats, SoundForge.Debug.Jobs.worker_stats())}
+  end
+
   # -- Template helpers --
 
   def filtered_debug_logs(logs, level_filter, ns_filter, search) do
@@ -1216,6 +1246,10 @@ defmodule SoundForgeWeb.DashboardLive do
   def log_line_border(:error), do: "border-l-2 border-red-500"
   def log_line_border(_), do: ""
 
+  def worker_status_class(:active), do: "bg-green-500 animate-pulse"
+  def worker_status_class(:errored), do: "bg-red-500"
+  def worker_status_class(_), do: "bg-gray-500"
+
   def duration_since(nil, _), do: "?"
   def duration_since(_, nil), do: "?"
 
@@ -1234,6 +1268,20 @@ defmodule SoundForgeWeb.DashboardLive do
   defp format_duration_ms(ms) when ms < 1_000, do: "#{ms}ms"
   defp format_duration_ms(ms) when ms < 60_000, do: "#{Float.round(ms / 1_000, 1)}s"
   defp format_duration_ms(ms), do: "#{Float.round(ms / 60_000, 1)}m"
+
+  def format_job_time(nil), do: "-"
+  def format_job_time(%NaiveDateTime{} = dt), do: Calendar.strftime(dt, "%H:%M:%S")
+  def format_job_time(%DateTime{} = dt), do: Calendar.strftime(dt, "%H:%M:%S")
+  def format_job_time(_), do: "-"
+
+  def job_state_badge_class("completed"), do: "bg-green-900/50 text-green-300"
+  def job_state_badge_class("executing"), do: "bg-blue-900/50 text-blue-300"
+  def job_state_badge_class("available"), do: "bg-gray-700 text-gray-300"
+  def job_state_badge_class("scheduled"), do: "bg-gray-700 text-gray-300"
+  def job_state_badge_class("retryable"), do: "bg-amber-900/50 text-amber-300"
+  def job_state_badge_class("discarded"), do: "bg-red-900/50 text-red-300"
+  def job_state_badge_class("cancelled"), do: "bg-red-900/50 text-red-300"
+  def job_state_badge_class(_), do: "bg-gray-700 text-gray-300"
 
   def pipeline_track_title(_streams, _track_id), do: "Track"
 

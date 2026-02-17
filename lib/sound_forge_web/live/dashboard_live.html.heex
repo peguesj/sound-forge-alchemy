@@ -1688,37 +1688,60 @@
           <%= if @trace_selected_job do %>
             <!-- Timeline -->
             <div class="px-3 py-2 border-b border-gray-800">
-              <h3 class="text-xs font-semibold text-gray-400 uppercase mb-2">Timeline</h3>
-              <div class="space-y-1">
+              <h3 class="text-xs font-semibold text-gray-400 uppercase mb-2">
+                Timeline
+                <span class="text-gray-600 font-normal ml-1">
+                  ({length(@trace_timeline)} events)
+                </span>
+              </h3>
+              <div class="space-y-0.5">
                 <div
                   :for={{event, idx} <- Enum.with_index(@trace_timeline)}
-                  class="flex items-center gap-2 text-xs"
+                  class="flex flex-col"
                 >
-                  <div class={[
-                    "w-2 h-2 rounded-full shrink-0",
-                    case event.event do
-                      "completed" -> "bg-green-500"
-                      "failed" -> "bg-red-500"
-                      "started" -> "bg-blue-500"
-                      _ -> "bg-gray-500"
-                    end
-                  ]}>
+                  <div class="flex items-center gap-2 text-xs">
+                    <!-- Vertical timeline connector -->
+                    <div class="flex flex-col items-center w-3 shrink-0">
+                      <div class={[
+                        "w-2 h-2 rounded-full",
+                        case event.event do
+                          "completed" -> "bg-green-500"
+                          "failed" -> "bg-red-500"
+                          "started" -> "bg-blue-500"
+                          _ -> "bg-gray-500"
+                        end
+                      ]}>
+                      </div>
+                    </div>
+                    <span class="text-gray-600 w-14 shrink-0 font-mono text-[10px]">
+                      {format_job_time(event.timestamp)}
+                    </span>
+                    <span class="text-gray-500 w-16 shrink-0 truncate">
+                      {event.worker |> String.replace("Worker", "")}
+                    </span>
+                    <span class={[
+                      "font-medium",
+                      case event.event do
+                        "completed" -> "text-green-400"
+                        "failed" -> "text-red-400"
+                        "started" -> "text-blue-400"
+                        _ -> "text-gray-400"
+                      end
+                    ]}>
+                      {event.event}
+                    </span>
+                    <span :if={idx > 0} class="text-gray-600 text-[10px] ml-auto shrink-0">
+                      +{duration_since(Enum.at(@trace_timeline, idx - 1).timestamp, event.timestamp)}
+                    </span>
                   </div>
-                  <span class="text-gray-600 w-16 shrink-0">{event.worker |> String.replace("Worker", "")}</span>
-                  <span class={[
-                    "font-medium",
-                    case event.event do
-                      "completed" -> "text-green-400"
-                      "failed" -> "text-red-400"
-                      "started" -> "text-blue-400"
-                      _ -> "text-gray-400"
-                    end
-                  ]}>
-                    {event.event}
-                  </span>
-                  <span :if={idx > 0} class="text-gray-600 text-[10px]">
-                    +{duration_since(Enum.at(@trace_timeline, idx - 1).timestamp, event.timestamp)}
-                  </span>
+                  <!-- Error snippet for failed events -->
+                  <div
+                    :if={event.error}
+                    class="ml-5 mt-0.5 mb-1 px-2 py-1 bg-red-900/20 border-l-2 border-red-500 rounded-r text-[10px] text-red-300 font-mono truncate"
+                    title={event.error}
+                  >
+                    {String.slice(event.error || "", 0..120)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1759,8 +1782,40 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          <div :if={@debug_workers_open} class="px-4 pb-3">
-            <p class="text-xs text-gray-500">Worker status will be implemented in US-008.</p>
+          <div :if={@debug_workers_open} class="px-3 pb-3 space-y-2">
+            <div
+              :for={w <- @worker_stats}
+              phx-click="filter_logs_by_worker"
+              phx-value-worker={w.worker}
+              class="bg-gray-800/60 rounded-lg p-3 cursor-pointer hover:bg-gray-700/60 transition-colors"
+            >
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2">
+                  <span class={["w-2.5 h-2.5 rounded-full", worker_status_class(w.status)]}></span>
+                  <span class="text-sm font-medium text-gray-200">
+                    {String.replace(w.worker, "Worker", "")}
+                  </span>
+                </div>
+                <span class="text-[10px] text-gray-500 uppercase">{w.status}</span>
+              </div>
+              <div class="flex gap-4 text-xs text-gray-400">
+                <span>
+                  <span class="text-blue-400 font-medium">{w.running}</span> running
+                </span>
+                <span>
+                  <span class="text-gray-300 font-medium">{w.queued}</span> queued
+                </span>
+                <span>
+                  <span class={["font-medium", if(w.failed > 0, do: "text-red-400", else: "text-gray-500")]}>
+                    {w.failed}
+                  </span>
+                  failed
+                </span>
+              </div>
+            </div>
+            <p :if={@worker_stats == []} class="text-xs text-gray-500 text-center py-2">
+              No workers configured.
+            </p>
           </div>
         </div>
 

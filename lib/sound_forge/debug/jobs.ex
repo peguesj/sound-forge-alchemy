@@ -74,12 +74,73 @@ defmodule SoundForge.Debug.Jobs do
     |> Repo.all()
   end
 
+  @workers [
+    "SoundForge.Jobs.DownloadWorker",
+    "SoundForge.Jobs.ProcessingWorker",
+    "SoundForge.Jobs.AnalysisWorker"
+  ]
+
+  @doc "Returns worker status stats: running, queued, and failed (last hour) counts per worker."
+  def worker_stats do
+    one_hour_ago = DateTime.utc_now() |> DateTime.add(-3600, :second)
+
+    running_counts = count_by_worker_and_states(["executing"])
+    queued_counts = count_by_worker_and_states(["available", "scheduled", "retryable"])
+    failed_counts = count_failed_since(one_hour_ago)
+
+    Enum.map(@workers, fn worker ->
+      short = worker |> String.split(".") |> List.last()
+      running = Map.get(running_counts, worker, 0)
+      queued = Map.get(queued_counts, worker, 0)
+      failed = Map.get(failed_counts, worker, 0)
+
+      status =
+        cond do
+          failed > 0 -> :errored
+          running > 0 -> :active
+          true -> :idle
+        end
+
+      %{
+        worker: short,
+        full_worker: worker,
+        running: running,
+        queued: queued,
+        failed: failed,
+        status: status
+      }
+    end)
+  end
+
+  defp count_by_worker_and_states(states) do
+    from(j in "oban_jobs",
+      where: j.state in ^states and j.worker in ^@workers,
+      group_by: j.worker,
+      select: {j.worker, count(j.id)}
+    )
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  defp count_failed_since(since) do
+    from(j in "oban_jobs",
+      where:
+        j.worker in ^@workers and
+          j.state in ^["discarded", "cancelled"] and
+          j.attempted_at >= ^since,
+      group_by: j.worker,
+      select: {j.worker, count(j.id)}
+    )
+    |> Repo.all()
+    |> Map.new()
+  end
+
   @doc "Builds a timeline of events for a set of jobs (for a single track pipeline)."
   def build_timeline(jobs) do
     Enum.flat_map(jobs, fn job ->
       worker_short = job.worker |> String.split(".") |> List.last()
       stage = worker_to_stage(job.worker)
-      error_snippet = extract_last_error(job.errors)
+      error_snippet = extract_last_error(Map.get(job, :errors))
 
       events = [
         %{
