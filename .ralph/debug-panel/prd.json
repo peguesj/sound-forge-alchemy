@@ -167,8 +167,8 @@
         "Verify in browser: trigger download, see job appear in Active, move to History on completion, click anchor to see logs"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Active/history queries with cursor-based pagination in Debug.Jobs. Queue pill tabs, job rows with state badges, anchor-to-logs interaction. Active tab refreshes via PubSub worker_status_change events."
     },
     {
       "id": "US-010",

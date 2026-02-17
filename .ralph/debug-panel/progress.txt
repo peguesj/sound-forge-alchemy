@@ -93,3 +93,15 @@ Started: Tue Feb 17 09:44:42 EST 2026
 - Files changed: lib/sound_forge/debug/jobs.ex, lib/sound_forge/telemetry/oban_handler.ex, lib/sound_forge_web/live/dashboard_live.ex, lib/sound_forge_web/live/dashboard_live.html.heex
 - Learnings: PubSub from telemetry handler for UI reactivity is clean - the LiveView just re-queries on each event instead of trying to maintain derived state.
 ---
+
+## US-009 - Implement queue panel with active/history tabs and log anchoring
+- Added active_jobs/0 and history_jobs/1 to Debug.Jobs with cursor-based pagination (before_id, per_page)
+- Queue collapsible with pill tabs (Active/History), active tab shows count badge
+- Active tab: jobs in executing/available/scheduled/retryable states, auto-refreshes via PubSub
+- History tab: completed/cancelled/discarded jobs from last 24h, manual refresh, "Load more" pagination
+- Job rows: short worker name, args summary (track title or ID), state badge (color-coded), attempt/max, duration
+- Anchor icon button switches to Logs tab and sets search filter to job ID for log correlation
+- Template helpers: short_worker/1, job_args_summary/1, job_duration/1, job_state_badge_class/1, format_job_time/1
+- Files changed: lib/sound_forge/debug/jobs.ex, lib/sound_forge_web/live/dashboard_live.ex, lib/sound_forge_web/live/dashboard_live.html.heex
+- Learnings: Cursor-based pagination with "fetch N+1, take N" pattern is simple and efficient. Anchor-to-logs via text search filter is pragmatic - no need for complex log ID indexing.
+---
