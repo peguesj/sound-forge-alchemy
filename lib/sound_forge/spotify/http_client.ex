@@ -4,6 +4,15 @@ defmodule SoundForge.Spotify.HTTPClient do
 
   Implements token caching via ETS to avoid unnecessary token requests.
   Tokens are cached for 3500 seconds (Spotify tokens expire in 3600s).
+
+  ## Testing
+
+  In test mode, HTTP requests are intercepted via `Req.Test` plug to prevent
+  real network calls. Configure in `config/test.exs`:
+
+      config :sound_forge, :spotify_req_options, plug: {Req.Test, SoundForge.Spotify.HTTPClient}
+
+  Then in tests, use `Req.Test.stub/2` or `Req.Test.expect/2` to define responses.
   """
 
   @behaviour SoundForge.Spotify.Client
@@ -58,7 +67,11 @@ defmodule SoundForge.Spotify.HTTPClient do
   defp make_api_request(resource_type, id, token) do
     url = "#{@api_base_url}/#{resource_type}/#{id}"
 
-    case Req.get(url, headers: [{"Authorization", "Bearer #{token}"}]) do
+    opts =
+      [headers: [{"Authorization", "Bearer #{token}"}]]
+      |> Keyword.merge(req_test_options())
+
+    case Req.get(url, opts) do
       {:ok, %Req.Response{status: 200} = response} ->
         {:ok, response}
 
@@ -114,7 +127,11 @@ defmodule SoundForge.Spotify.HTTPClient do
       {"Content-Type", "application/x-www-form-urlencoded"}
     ]
 
-    case Req.post(@token_url, form: body, headers: headers) do
+    opts =
+      [form: body, headers: headers]
+      |> Keyword.merge(req_test_options())
+
+    case Req.post(@token_url, opts) do
       {:ok, %Req.Response{status: 200, body: %{"access_token" => token}}} ->
         {:ok, token}
 
@@ -150,5 +167,11 @@ defmodule SoundForge.Spotify.HTTPClient do
       true ->
         {:ok, %{client_id: client_id, client_secret: client_secret}}
     end
+  end
+
+  # Returns Req options for test isolation. In test mode, routes all HTTP
+  # requests through Req.Test plug to prevent real Spotify API calls.
+  defp req_test_options do
+    Application.get_env(:sound_forge, :spotify_req_options, [])
   end
 end

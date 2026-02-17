@@ -43,13 +43,17 @@ config :phoenix_live_view,
 config :phoenix,
   sort_verified_routes_query_params: true
 
-# Configure mock Spotify client for testing
+# Configure mock Spotify client for testing (behaviour-level mock via Mox)
 config :sound_forge, :spotify_client, SoundForge.Spotify.MockClient
 
 # Configure Spotify credentials for testing (will not be used with mock)
 config :sound_forge, :spotify,
   client_id: "test_client_id",
   client_secret: "test_client_secret"
+
+# Route all Req HTTP calls through Req.Test plug to prevent real Spotify API
+# requests during tests. Stubs/expects are set per-test in http_client_test.exs.
+config :sound_forge, :spotify_req_options, plug: {Req.Test, SoundForge.Spotify.HTTPClient}
 
 # Use mock spotify_dl.py script for testing
 config :sound_forge,
