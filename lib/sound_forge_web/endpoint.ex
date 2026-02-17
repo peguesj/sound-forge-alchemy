@@ -57,5 +57,19 @@ defmodule SoundForgeWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
+
+  # Silently handle /.well-known requests (e.g. Chrome DevTools MCP probes)
+  # to prevent noisy Phoenix.Router.NoRouteError in logs.
+  plug :well_known_handler
+
   plug SoundForgeWeb.Router
+
+  defp well_known_handler(%{request_path: "/.well-known/" <> _} = conn, _opts) do
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> Plug.Conn.send_resp(204, "")
+    |> Plug.Conn.halt()
+  end
+
+  defp well_known_handler(conn, _opts), do: conn
 end

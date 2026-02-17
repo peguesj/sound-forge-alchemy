@@ -7,6 +7,8 @@ defmodule SoundForge.Application do
 
   @impl true
   def start(_type, _args) do
+    check_port_available!()
+
     # Initialize Spotify HTTP client ETS table for token caching
     SoundForge.Spotify.HTTPClient.init()
 
@@ -44,5 +46,33 @@ defmodule SoundForge.Application do
   def config_change(changed, _new, removed) do
     SoundForgeWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  # Checks if the configured HTTP port is available before starting the
+  # supervision tree. Only runs in dev/test where Mix is available.
+  defp check_port_available! do
+    endpoint_config = Application.get_env(:sound_forge, SoundForgeWeb.Endpoint, [])
+    http_config = Keyword.get(endpoint_config, :http, [])
+    port = Keyword.get(http_config, :port, 4000)
+    server_enabled = Keyword.get(endpoint_config, :server, true)
+
+    if server_enabled and Code.ensure_loaded?(Mix) do
+      case :gen_tcp.connect(~c"localhost", port, [], 1_000) do
+        {:ok, socket} ->
+          :gen_tcp.close(socket)
+
+          Mix.raise("""
+          Port #{port} is already in use.
+
+          Kill the existing process:  kill $(lsof -ti:#{port})
+          Or use a different port:    PORT=#{port + 1} mix phx.server
+          """)
+
+        {:error, _} ->
+          :ok
+      end
+    else
+      :ok
+    end
   end
 end
