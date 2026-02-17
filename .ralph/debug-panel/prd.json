@@ -110,8 +110,8 @@
         "Verify in browser: trigger a download, see logs stream in real-time with colors"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "LogBroadcaster as :gen_event Logger backend, registered in dev.exs. Logs tab with level/namespace/text filters, color-coded rendering, 500-line buffer, DebugLogScroll JS hook for auto-scroll."
     },
     {
       "id": "US-007",

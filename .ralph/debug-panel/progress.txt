@@ -56,3 +56,17 @@ Started: Tue Feb 17 09:44:42 EST 2026
 - Files changed: lib/sound_forge_web/live/dashboard_live.ex, lib/sound_forge_web/live/dashboard_live.html.heex
 - Learnings: Placing the debug panel as a flex sibling of <main> (not a modal/overlay) keeps it in the natural document flow. Using :if conditionals for visibility instead of CSS display prevents unnecessary DOM. String.to_existing_atom/1 for tab validation prevents atom table pollution.
 ---
+
+## US-006 - Implement real-time log streaming tab with color coding and filtering
+- Created lib/sound_forge/debug/log_broadcaster.ex: custom :gen_event Logger backend
+- Broadcasts to PubSub topic "debug:logs" with level, message, timestamp, metadata, namespace
+- Namespace extracted via regex from [bracket.prefix] pattern in log messages
+- Registered as additional Logger backend in config/dev.exs
+- DashboardLive subscribes to "debug:logs" on mount when debug_mode enabled
+- handle_info({:debug_log, event}) buffers logs (max 500) and tracks seen namespaces
+- Logs tab UI: filter bar with level dropdown, namespace dropdown (auto-populated), text search with debounce
+- Color coding: debug=gray, info=blue, warning=amber, error=red; error lines get red left border
+- DebugLogScroll JS hook for auto-scroll (disables when user scrolls up)
+- Files changed: lib/sound_forge/debug/log_broadcaster.ex, config/dev.exs, lib/sound_forge_web/live/dashboard_live.ex, lib/sound_forge_web/live/dashboard_live.html.heex, assets/js/hooks/debug_log_scroll.js, assets/js/app.js
+- Learnings: Custom Logger backend in Elixir uses :gen_event behaviour, not GenServer. PubSub broadcast from a Logger backend works well for real-time log streaming. Buffer newest-first (prepend) and reverse for display gives O(1) insert.
+---
