@@ -1,0 +1,15 @@
+# Ralph Progress Log
+Started: Tue Feb 17 09:44:42 EST 2026
+---
+
+## US-001 - Add structured Oban telemetry logging with namespace scoping
+- Implementation already existed in lib/sound_forge/telemetry/oban_handler.ex (GenServer with telemetry attach)
+- Handler attached to [:oban, :job, :start], [:oban, :job, :stop], [:oban, :job, :exception]
+- Logs with [oban.WorkerName] namespace, job_id, queue, attempt, duration_ms, result/status
+- Logger.metadata set for structured fields: oban_job_id, oban_queue, oban_worker, oban_attempt
+- config/config.exs already had metadata keys configured on line 110
+- Fixed test file: capture_log tests were failing because test env Logger level is :warning, suppressing :info logs
+- Added setup block to temporarily set Logger level to :debug, changed async to false
+- Files changed: test/sound_forge/telemetry/oban_handler_test.exs
+- Learnings: Test env sets `config :logger, level: :warning` -- capture_log level option filters captured output but does NOT override the global Logger level. Must use Logger.configure(level: :debug) in setup.
+---

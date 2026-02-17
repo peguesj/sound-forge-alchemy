@@ -18,8 +18,8 @@
         "mix test passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Tests fixed: capture_log needed Logger level set to :debug in setup (test env defaults to :warning)"
     },
     {
       "id": "US-002",
