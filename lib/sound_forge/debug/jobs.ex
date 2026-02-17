@@ -27,7 +27,7 @@ defmodule SoundForge.Debug.Jobs do
   @doc "Returns history jobs (completed, cancelled, discarded) from the last 24 hours, paginated."
   def history_jobs(opts \\ []) do
     limit = Keyword.get(opts, :limit, 25)
-    cursor = Keyword.get(opts, :cursor, nil)
+    cursor = Keyword.get(opts, :before_id, Keyword.get(opts, :cursor, nil))
     twenty_four_hours_ago = DateTime.utc_now() |> DateTime.add(-86400, :second)
 
     query =

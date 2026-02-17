@@ -897,6 +897,8 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply,
      socket
      |> assign(:debug_tab, :logs)
+     |> assign(:debug_log_filter_level, "all")
+     |> assign(:debug_log_filter_ns, "all")
      |> assign(:debug_log_search, job_id_str)}
   end
 
@@ -1388,8 +1390,8 @@ defmodule SoundForgeWeb.DashboardLive do
   # -- Private helpers --
 
   defp load_queue_history(socket) do
-    %{jobs: jobs, next_cursor: next_cursor} = SoundForge.Debug.Jobs.history_jobs()
-    socket |> assign(:queue_history_jobs, jobs) |> assign(:queue_history_has_more, next_cursor != nil)
+    {jobs, has_more} = SoundForge.Debug.Jobs.history_jobs()
+    socket |> assign(:queue_history_jobs, jobs) |> assign(:queue_history_has_more, has_more)
   end
   defp start_single_pipeline(track_meta, original_url, uid, auto_download) do
     # spotdl uses "song_id" for the Spotify track ID

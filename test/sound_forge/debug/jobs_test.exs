@@ -47,6 +47,88 @@ defmodule SoundForge.Debug.JobsTest do
     job
   end
 
+  describe "active_jobs/0" do
+    test "returns jobs with active states" do
+      active = insert_oban_job(%{state: "executing", completed_at: nil})
+      queued = insert_oban_job(%{state: "available", attempted_at: nil, completed_at: nil})
+      _completed = insert_oban_job(%{state: "completed"})
+
+      jobs = Jobs.active_jobs()
+      job_ids = Enum.map(jobs, & &1.id)
+
+      assert active.id in job_ids
+      assert queued.id in job_ids
+      refute Enum.any?(jobs, &(&1.state == "completed"))
+    end
+
+    test "returns newest first" do
+      j1 = insert_oban_job(%{state: "executing", completed_at: nil})
+      j2 = insert_oban_job(%{state: "available", attempted_at: nil, completed_at: nil})
+
+      jobs = Jobs.active_jobs()
+      job_ids = Enum.map(jobs, & &1.id)
+
+      assert Enum.find_index(job_ids, &(&1 == j2.id)) < Enum.find_index(job_ids, &(&1 == j1.id))
+    end
+
+    test "returns empty list when no active jobs" do
+      insert_oban_job(%{state: "completed"})
+      assert Jobs.active_jobs() == []
+    end
+  end
+
+  describe "history_jobs/1" do
+    test "returns completed/cancelled/discarded jobs from last 24 hours" do
+      completed = insert_oban_job(%{state: "completed"})
+      cancelled = insert_oban_job(%{state: "cancelled"})
+      _executing = insert_oban_job(%{state: "executing", completed_at: nil})
+
+      {jobs, _has_more} = Jobs.history_jobs()
+      job_ids = Enum.map(jobs, & &1.id)
+
+      assert completed.id in job_ids
+      assert cancelled.id in job_ids
+      refute Enum.any?(jobs, &(&1.state == "executing"))
+    end
+
+    test "paginates with cursor" do
+      jobs = for _ <- 1..5, do: insert_oban_job(%{state: "completed"})
+      sorted_ids = jobs |> Enum.sort_by(& &1.id, :desc) |> Enum.map(& &1.id)
+
+      {first_page, has_more} = Jobs.history_jobs(limit: 3)
+      assert length(first_page) == 3
+      assert has_more
+
+      cursor = List.last(first_page).id
+
+      {second_page, has_more2} = Jobs.history_jobs(limit: 3, cursor: cursor)
+      assert length(second_page) == 2
+      refute has_more2
+
+      all_ids = Enum.map(first_page ++ second_page, & &1.id)
+      assert all_ids == sorted_ids
+    end
+
+    test "supports before_id as alias for cursor" do
+      for _ <- 1..5, do: insert_oban_job(%{state: "completed"})
+
+      {first_page, _} = Jobs.history_jobs(limit: 3)
+      cursor = List.last(first_page).id
+
+      {page_cursor, _} = Jobs.history_jobs(limit: 3, cursor: cursor)
+      {page_before, _} = Jobs.history_jobs(limit: 3, before_id: cursor)
+
+      assert Enum.map(page_cursor, & &1.id) == Enum.map(page_before, & &1.id)
+    end
+
+    test "returns empty when no history jobs" do
+      insert_oban_job(%{state: "executing", completed_at: nil})
+      {jobs, has_more} = Jobs.history_jobs()
+      assert jobs == []
+      refute has_more
+    end
+  end
+
   describe "recent_jobs/1" do
     test "returns recent jobs ordered newest first" do
       job1 = insert_oban_job(%{worker: "SoundForge.Jobs.DownloadWorker"})
@@ -279,6 +361,92 @@ defmodule SoundForge.Debug.JobsTest do
       %{links: links} = Jobs.build_graph(jobs)
       # Download -> Processing, Processing -> Analysis, Analysis -> Stems
       assert length(links) == 3
+    end
+  end
+
+  describe "worker_stats/0" do
+    test "returns stats for all three worker types" do
+      stats = Jobs.worker_stats()
+      assert length(stats) == 3
+      workers = Enum.map(stats, & &1.worker)
+      assert "DownloadWorker" in workers
+      assert "ProcessingWorker" in workers
+      assert "AnalysisWorker" in workers
+    end
+
+    test "returns zeroed counts when no jobs exist" do
+      stats = Jobs.worker_stats()
+
+      Enum.each(stats, fn ws ->
+        assert ws.running == 0
+        assert ws.queued == 0
+        assert ws.failed == 0
+        assert ws.status == :idle
+      end)
+    end
+
+    test "counts executing jobs as running" do
+      insert_oban_job(%{
+        worker: "SoundForge.Jobs.DownloadWorker",
+        state: "executing",
+        completed_at: nil
+      })
+
+      stats = Jobs.worker_stats()
+      download = Enum.find(stats, &(&1.worker == "DownloadWorker"))
+      assert download.running == 1
+      assert download.status == :active
+    end
+
+    test "counts available and scheduled jobs as queued" do
+      insert_oban_job(%{
+        worker: "SoundForge.Jobs.ProcessingWorker",
+        state: "available",
+        attempted_at: nil,
+        completed_at: nil
+      })
+
+      insert_oban_job(%{
+        worker: "SoundForge.Jobs.ProcessingWorker",
+        state: "scheduled",
+        attempted_at: nil,
+        completed_at: nil
+      })
+
+      stats = Jobs.worker_stats()
+      processing = Enum.find(stats, &(&1.worker == "ProcessingWorker"))
+      assert processing.queued == 2
+    end
+
+    test "counts discarded jobs from last hour as failed" do
+      insert_oban_job(%{
+        worker: "SoundForge.Jobs.AnalysisWorker",
+        state: "discarded",
+        attempted_at: DateTime.utc_now()
+      })
+
+      stats = Jobs.worker_stats()
+      analysis = Enum.find(stats, &(&1.worker == "AnalysisWorker"))
+      assert analysis.failed == 1
+      assert analysis.status == :errored
+    end
+
+    test "errored status takes priority over active" do
+      insert_oban_job(%{
+        worker: "SoundForge.Jobs.DownloadWorker",
+        state: "executing",
+        completed_at: nil
+      })
+
+      insert_oban_job(%{
+        worker: "SoundForge.Jobs.DownloadWorker",
+        state: "discarded",
+        attempted_at: DateTime.utc_now()
+      })
+
+      stats = Jobs.worker_stats()
+      download = Enum.find(stats, &(&1.worker == "DownloadWorker"))
+      assert download.status == :errored
     end
   end
 end

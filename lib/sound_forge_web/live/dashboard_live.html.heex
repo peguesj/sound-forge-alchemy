@@ -1875,6 +1875,7 @@
                   {job.state}
                 </span>
                 <span class="text-gray-500 text-[10px]">{job.attempt}/{job.max_attempts}</span>
+                <span class="text-gray-600 text-[10px] font-mono">{format_job_time(job.inserted_at)}</span>                <span class="text-gray-600 text-[10px]">{format_job_time(job.inserted_at)}</span>
                 <button
                   phx-click="anchor_job_logs"
                   phx-value-job-id={job.id}
@@ -1915,8 +1916,9 @@
                     {job.state}
                   </span>
                   <span class="text-gray-500 text-[10px]">{job.attempt}/{job.max_attempts}</span>
+                  <span class="text-gray-600 text-[10px]">{format_job_time(job.inserted_at)}</span>
                   <span class="text-gray-600 text-[10px]">{job_duration(job)}</span>
-                  <button
+                  <span class="text-gray-600 text-[10px] font-mono">{format_job_time(job.inserted_at)}</span>                  <button
                     phx-click="anchor_job_logs"
                     phx-value-job-id={job.id}
                     class="text-gray-500 hover:text-purple-400 transition-colors"
