@@ -79,6 +79,7 @@ defmodule SoundForge.Debug.Jobs do
     Enum.flat_map(jobs, fn job ->
       worker_short = job.worker |> String.split(".") |> List.last()
       stage = worker_to_stage(job.worker)
+      error_snippet = extract_last_error(job.errors)
 
       events = [
         %{
@@ -86,7 +87,8 @@ defmodule SoundForge.Debug.Jobs do
           worker: worker_short,
           event: "queued",
           timestamp: job.inserted_at,
-          state: job.state
+          state: job.state,
+          error: nil
         }
       ]
 
@@ -99,7 +101,8 @@ defmodule SoundForge.Debug.Jobs do
                 worker: worker_short,
                 event: "started",
                 timestamp: job.attempted_at,
-                state: job.state
+                state: job.state,
+                error: nil
               }
             ]
         else
@@ -108,14 +111,17 @@ defmodule SoundForge.Debug.Jobs do
 
       events =
         if job.completed_at do
+          final_event = if(job.state == "completed", do: "completed", else: "failed")
+
           events ++
             [
               %{
                 stage: stage,
                 worker: worker_short,
-                event: if(job.state == "completed", do: "completed", else: "failed"),
+                event: final_event,
                 timestamp: job.completed_at,
-                state: job.state
+                state: job.state,
+                error: if(final_event == "failed", do: error_snippet)
               }
             ]
         else
@@ -129,7 +135,7 @@ defmodule SoundForge.Debug.Jobs do
 
   @doc "Builds the dependency graph data for D3 visualization."
   def build_graph(jobs) do
-    nodes =
+    worker_nodes =
       Enum.map(jobs, fn job ->
         worker_short = job.worker |> String.split(".") |> List.last()
 
@@ -142,16 +148,28 @@ defmodule SoundForge.Debug.Jobs do
       end)
       |> Enum.uniq_by(& &1.id)
 
-    links = [
+    # Add a "Stems" output node: green if analysis completed, gray otherwise
+    analysis_job = Enum.find(jobs, fn j -> String.ends_with?(j.worker, "AnalysisWorker") end)
+
+    stems_status =
+      case analysis_job do
+        %{state: "completed"} -> "completed"
+        _ -> "pending"
+      end
+
+    nodes = worker_nodes ++ [%{id: "Stems", label: "Stems", status: stems_status, error: nil}]
+
+    all_links = [
       %{source: "DownloadWorker", target: "ProcessingWorker"},
-      %{source: "ProcessingWorker", target: "AnalysisWorker"}
+      %{source: "ProcessingWorker", target: "AnalysisWorker"},
+      %{source: "AnalysisWorker", target: "Stems"}
     ]
 
     # Only include links where both source and target exist in nodes
     node_ids = MapSet.new(nodes, & &1.id)
 
     links =
-      Enum.filter(links, fn link ->
+      Enum.filter(all_links, fn link ->
         MapSet.member?(node_ids, link.source) and MapSet.member?(node_ids, link.target)
       end)
 

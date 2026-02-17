@@ -6,7 +6,6 @@ defmodule SoundForgeWeb.DashboardLive do
 
   alias SoundForge.Music
   alias SoundForge.Settings
-  alias SoundForge.Debug.Jobs, as: DebugJobs
 
   @max_debug_logs 500
 
