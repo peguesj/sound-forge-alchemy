@@ -1530,8 +1530,136 @@
         <div class="pb-20"></div>
       <% end %>
     </main>
+
+    <!-- Debug Panel (slide-in from right) -->
+    <div
+      :if={@debug_mode && @debug_panel_open}
+      id="debug-panel"
+      class="w-96 shrink-0 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
+    >
+      <!-- Panel Header -->
+      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-900">
+        <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Debug Inspector</h2>
+        <button
+          phx-click="close_debug_panel"
+          class="p-1 text-gray-500 hover:text-white rounded transition-colors"
+          aria-label="Close debug panel"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Tab Bar -->
+      <div class="flex border-b border-gray-700">
+        <button
+          phx-click="debug_tab"
+          phx-value-tab="logs"
+          class={[
+            "flex-1 px-4 py-2 text-sm font-medium transition-colors border-b-2",
+            if(@debug_tab == :logs,
+              do: "text-purple-400 border-purple-400",
+              else: "text-gray-500 border-transparent hover:text-gray-300"
+            )
+          ]}
+        >
+          Logs
+        </button>
+        <button
+          phx-click="debug_tab"
+          phx-value-tab="tracing"
+          class={[
+            "flex-1 px-4 py-2 text-sm font-medium transition-colors border-b-2",
+            if(@debug_tab == :tracing,
+              do: "text-purple-400 border-purple-400",
+              else: "text-gray-500 border-transparent hover:text-gray-300"
+            )
+          ]}
+        >
+          Tracing
+        </button>
+      </div>
+
+      <!-- Tab Content -->
+      <div class="flex-1 overflow-y-auto">
+        <!-- Logs Tab -->
+        <div :if={@debug_tab == :logs} class="p-4">
+          <p class="text-sm text-gray-500">Log streaming will be implemented in US-006.</p>
+        </div>
+
+        <!-- Tracing Tab -->
+        <div :if={@debug_tab == :tracing} class="p-4">
+          <p class="text-sm text-gray-500">Event tracing will be implemented in US-007.</p>
+        </div>
+      </div>
+
+      <!-- Collapsible Sections -->
+      <div class="border-t border-gray-700">
+        <!-- Workers Section -->
+        <div class="border-b border-gray-800">
+          <button
+            phx-click="toggle_debug_workers"
+            class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors"
+          >
+            <span>Workers</span>
+            <svg
+              class={["w-4 h-4 transition-transform", if(@debug_workers_open, do: "rotate-180")]}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div :if={@debug_workers_open} class="px-4 pb-3">
+            <p class="text-xs text-gray-500">Worker status will be implemented in US-008.</p>
+          </div>
+        </div>
+
+        <!-- Queue Section -->
+        <div>
+          <button
+            phx-click="toggle_debug_queue"
+            class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors"
+          >
+            <span>Queue</span>
+            <svg
+              class={["w-4 h-4 transition-transform", if(@debug_queue_open, do: "rotate-180")]}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div :if={@debug_queue_open} class="px-4 pb-3">
+            <p class="text-xs text-gray-500">Queue panel will be implemented in US-009.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-  
+
+  <!-- Debug Panel Toggle Button (floating) -->
+  <button
+    :if={@debug_mode}
+    phx-click="toggle_debug_panel"
+    class={[
+      "fixed bottom-20 right-6 z-40 p-3 rounded-full shadow-lg transition-all",
+      if(@debug_panel_open,
+        do: "bg-purple-600 text-white",
+        else: "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"
+      )
+    ]}
+    aria-label={if(@debug_panel_open, do: "Close debug panel", else: "Open debug panel")}
+    title="Debug Inspector"
+  >
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.046.83-1.867 1.866-2.013A24.204 24.204 0 0112 12.75zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 01-1.152-6.135c-.22-2.058-1.907-3.555-3.978-3.555H8.923c-2.071 0-3.758 1.497-3.978 3.555a23.867 23.867 0 01-1.152 6.135A24.307 24.307 0 0112 12.75zM2.25 13.5h1.5m18 0h1.5M6.75 6.75h.008v.008H6.75V6.75zm10.5 0h.008v.008h-.008V6.75z" />
+    </svg>
+  </button>
+
 <!-- Metadata Edit Modal -->
   <div
     :if={@editing_track}

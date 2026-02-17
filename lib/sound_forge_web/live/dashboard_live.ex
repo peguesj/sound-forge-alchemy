@@ -44,6 +44,11 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:albums, list_albums(scope))
       |> assign(:page, 1)
       |> assign(:per_page, per_page(current_user_id))
+      |> assign(:debug_mode, Settings.get(current_user_id, :debug_mode) || false)
+      |> assign(:debug_panel_open, false)
+      |> assign(:debug_tab, :logs)
+      |> assign(:debug_workers_open, false)
+      |> assign(:debug_queue_open, false)
       |> allow_upload(:audio,
         accept: ~w(.mp3 .wav .flac .ogg .m4a .aac .wma),
         max_entries: 5,
@@ -712,6 +717,43 @@ defmodule SoundForgeWeb.DashboardLive do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not create playlist")}
     end
+  end
+
+  # -- Debug Panel --
+
+  @impl true
+  def handle_event("toggle_debug_panel", _params, socket) do
+    {:noreply, update(socket, :debug_panel_open, &(!&1))}
+  end
+
+  @impl true
+  def handle_event("close_debug_panel", _params, socket) do
+    {:noreply, assign(socket, :debug_panel_open, false)}
+  end
+
+  @valid_debug_tabs ~w(logs tracing)a
+
+  @impl true
+  def handle_event("debug_tab", %{"tab" => tab}, socket) do
+    tab_atom =
+      try do
+        atom = String.to_existing_atom(tab)
+        if atom in @valid_debug_tabs, do: atom, else: :logs
+      rescue
+        ArgumentError -> :logs
+      end
+
+    {:noreply, assign(socket, :debug_tab, tab_atom)}
+  end
+
+  @impl true
+  def handle_event("toggle_debug_workers", _params, socket) do
+    {:noreply, update(socket, :debug_workers_open, &(!&1))}
+  end
+
+  @impl true
+  def handle_event("toggle_debug_queue", _params, socket) do
+    {:noreply, update(socket, :debug_queue_open, &(!&1))}
   end
 
   @impl true
