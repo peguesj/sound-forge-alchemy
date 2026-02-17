@@ -44,3 +44,15 @@ Started: Tue Feb 17 09:44:42 EST 2026
 - Files changed: lib/sound_forge/accounts/user_settings.ex, lib/sound_forge/settings.ex, priv/repo/migrations/20260217145802_add_debug_mode_to_user_settings.exs
 - Learnings: Simple data-layer stories are fast. The existing Settings pattern (nullable fields with global defaults) makes boolean flags easy to add.
 ---
+
+## US-005 - Build debug inspector slide-in panel shell with tab navigation
+- Added debug panel assigns to DashboardLive mount: debug_mode, debug_panel_open, debug_tab, debug_workers_open, debug_queue_open
+- Added event handlers: toggle_debug_panel, close_debug_panel, debug_tab (with atom validation), toggle_debug_workers, toggle_debug_queue
+- Panel HTML: w-96 right panel as flex sibling of <main> inside body flex container
+- Bug icon toggle button floated bottom-right, visible only when debug_mode=true
+- Tab bar with Logs/Tracing tabs, active state highlighted with purple border
+- Collapsible Workers/Queue sections with chevron rotation on expand
+- Placeholder content for future US-006 through US-009
+- Files changed: lib/sound_forge_web/live/dashboard_live.ex, lib/sound_forge_web/live/dashboard_live.html.heex
+- Learnings: Placing the debug panel as a flex sibling of <main> (not a modal/overlay) keeps it in the natural document flow. Using :if conditionals for visibility instead of CSS display prevents unnecessary DOM. String.to_existing_atom/1 for tab validation prevents atom table pollution.
+---

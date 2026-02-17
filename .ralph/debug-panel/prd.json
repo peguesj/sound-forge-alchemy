@@ -90,8 +90,8 @@
         "Verify in browser: panel opens, tabs switch, collapsibles expand/collapse"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Panel implemented as flex sibling of <main> within the body flex container. Toggle button (bug icon) floats bottom-right, visible only when debug_mode=true. Panel uses Tailwind transition classes for slide animation. Tab bar switches between Logs and Tracing. Workers and Queue collapsible sections with chevron rotation. All state persisted in socket assigns."
     },
     {
       "id": "US-006",
