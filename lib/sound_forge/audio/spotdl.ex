@@ -36,7 +36,6 @@ defmodule SoundForge.Audio.SpotDL do
   """
   @spec fetch_metadata(String.t()) :: {:ok, list(map())} | {:error, String.t()}
   def fetch_metadata(url) when is_binary(url) do
-    Logger.metadata(spotdl_cmd: "metadata")
     Logger.info("Fetching metadata for #{url}")
 
     unless credentials_configured?() do
@@ -102,7 +101,6 @@ defmodule SoundForge.Audio.SpotDL do
       bitrate
     ]
 
-    Logger.metadata(spotdl_cmd: "download")
     Logger.info("Starting download for #{url}")
 
     case run_helper(args, @download_timeout) do
@@ -164,7 +162,6 @@ defmodule SoundForge.Audio.SpotDL do
         ] ++
           if(duration, do: ["--duration", to_string(duration)], else: [])
 
-      Logger.metadata(spotdl_cmd: "download-direct")
       Logger.info("Starting direct download (no Spotify API): \"#{title}\" by #{artist}")
 
       case run_helper(args, @download_timeout) do
