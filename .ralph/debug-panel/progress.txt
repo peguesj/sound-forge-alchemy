@@ -35,3 +35,12 @@ Started: Tue Feb 17 09:44:42 EST 2026
 - Files changed: lib/sound_forge/jobs/download_worker.ex
 - Learnings: Pattern-match Oban.Job struct fields (attempt, max_attempts) directly in perform/1 function head for cleaner access.
 ---
+
+## US-004 - Add debug_mode user setting and migration
+- Created migration: add debug_mode boolean to user_settings, default false, null false
+- Added :debug_mode field to UserSettings schema (boolean, default: false)
+- Added :debug_mode to @cast_fields for changeset
+- Added debug_mode to Settings @defaults_map with fallback false
+- Files changed: lib/sound_forge/accounts/user_settings.ex, lib/sound_forge/settings.ex, priv/repo/migrations/20260217145802_add_debug_mode_to_user_settings.exs
+- Learnings: Simple data-layer stories are fast. The existing Settings pattern (nullable fields with global defaults) makes boolean flags easy to add.
+---

@@ -71,8 +71,8 @@
         "mix test passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migration, schema, changeset, and Settings defaults all updated."
     },
     {
       "id": "US-005",
