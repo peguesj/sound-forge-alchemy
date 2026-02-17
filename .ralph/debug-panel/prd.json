@@ -36,8 +36,8 @@
         "mix test passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "Root cause: :stderr_to_stdout on line 228 of spotdl.ex merges all output. status_line? only catches {status:}, {error:}, and [download] prefixed lines."
+      "passes": true,
+      "notes": "Implemented parse_download_result/1 with line-by-line JSON scanning, noise_line?/1 for comprehensive yt-dlp/ffmpeg filtering, spotdl_cmd metadata on all entry points, and debug/warning logging at every stage."
     },
     {
       "id": "US-003",

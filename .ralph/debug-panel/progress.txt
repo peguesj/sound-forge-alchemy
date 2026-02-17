@@ -13,3 +13,13 @@ Started: Tue Feb 17 09:44:42 EST 2026
 - Files changed: test/sound_forge/telemetry/oban_handler_test.exs
 - Learnings: Test env sets `config :logger, level: :warning` -- capture_log level option filters captured output but does NOT override the global Logger level. Must use Logger.configure(level: :debug) in setup.
 ---
+
+## US-002 - Add verbose SpotDL output capture and parse-failure diagnostics
+- Added Logger.metadata(spotdl_cmd:) to fetch_metadata/1, download/2, download_direct/2 entry points
+- Added :debug logging in collect_output/3 for each port data chunk (byte count) and raw output before stdout/stderr split (truncated to 2000 chars)
+- Extracted parse_download_result/1 from inline Jason.decode calls in download/2 and download_direct/2
+- parse_download_result scans lines in reverse for valid JSON result, logs :warning with raw output (2000 chars) on failure, includes first 200 chars in error tuple
+- Expanded status_line?/1 to delegate to noise_line?/1 which filters: [download], [ExtractAudio], [ffmpeg], [youtube], [yt-dlp], [info], [generic], [debug], WARNING:, ERROR:, empty lines, and percentage progress patterns
+- Files changed: lib/sound_forge/audio/spotdl.ex
+- Learnings: yt-dlp emits many more bracketed prefixes than just [download]. The noise_prefixes module attribute + regex pattern for percentage lines provides comprehensive filtering.
+---
