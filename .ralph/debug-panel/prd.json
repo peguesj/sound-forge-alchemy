@@ -1,0 +1,190 @@
+{
+  "project": "SoundForgeAlchemy",
+  "branchName": "ralph/debug-panel-and-oban-logging",
+  "description": "Enhanced Oban job observability with structured logging, SpotDL raw output capture, and a full debug inspector panel in the dashboard UI with log streaming, worker status, queue management, and error tracing",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add structured Oban telemetry logging with namespace scoping",
+      "description": "As a developer, I need maximum-verbosity structured logging for all Oban jobs so that every stage of a worker's lifecycle is traceable. Currently the DownloadWorker logs are sparse and lose context. Attach Oban.Telemetry handler in application.ex that logs job:start, job:stop, job:exception with full metadata. All Oban-related log lines must include [oban.worker_name] namespace prefix, job_id, queue, attempt, args subset, and wall-clock duration_ms.",
+      "acceptanceCriteria": [
+        "lib/sound_forge/telemetry/oban_handler.ex attaches to [:oban, :job, :start], [:oban, :job, :stop], [:oban, :job, :exception]",
+        "job:start logs at :info with [oban.DownloadWorker] namespace, job_id, queue, attempt, args keys (track_id, spotify_url)",
+        "job:stop logs at :info with duration_ms, result (:ok or :error with reason), final status",
+        "job:exception logs at :error with exception module, message, stacktrace (first 5 frames), duration_ms",
+        "All Oban log lines use Logger.metadata for structured fields: oban_job_id, oban_queue, oban_worker, oban_attempt",
+        "config/config.exs sets logger metadata: [:request_id, :oban_job_id, :oban_queue, :oban_worker, :oban_attempt]",
+        "mix compile --warnings-as-errors passes",
+        "mix test passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add verbose SpotDL output capture and parse-failure diagnostics",
+      "description": "As a developer debugging download failures, I need the raw Python subprocess output logged when JSON parsing fails so I can see exactly what yt-dlp/spotdl printed. Currently SpotDL.download/2 returns {:error, 'Failed to parse download result'} with zero context about what the output actually contained. The root cause is :stderr_to_stdout merging yt-dlp progress bars into the JSON stream, and status_line?/1 not filtering them all.",
+      "acceptanceCriteria": [
+        "SpotDL.run_helper/2 logs the raw accumulated output at :debug level before splitting stdout/stderr",
+        "SpotDL.download/2 and download_direct/2 log the raw output string at :warning when Jason.decode fails, truncated to 2000 chars",
+        "SpotDL.collect_output/3 logs each port data chunk at :debug with byte count",
+        "SpotDL.status_line?/1 also filters lines starting with [yt-dlp], WARNING:, ERROR:, and any line matching ~r/^\\[download\\]|^\\d+\\.?\\d*%/",
+        "When Jason.decode fails, the error tuple includes the first 200 chars of raw output: {:error, \"Failed to parse download result: <raw_snippet>\"}",
+        "Logger.metadata includes spotdl_cmd (the subcommand: download, download-direct, metadata) for all SpotDL log lines",
+        "mix compile --warnings-as-errors passes",
+        "mix test passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Root cause: :stderr_to_stdout on line 228 of spotdl.ex merges all output. status_line? only catches {status:}, {error:}, and [download] prefixed lines."
+    },
+    {
+      "id": "US-003",
+      "title": "Add DownloadWorker verbose lifecycle logging at every stage",
+      "description": "As a developer, I need the DownloadWorker to log at every decision point with full context so the server log tells a complete story. Each log line must include the namespace [oban.DownloadWorker], track_id, job_id, and the current stage.",
+      "acceptanceCriteria": [
+        "perform/1 logs at :info on entry: track_id, spotify_url, quality, attempt number (from Oban.Job.attempt)",
+        "After SpotDL.download returns: log the result status (:ok or :error) with raw reason at :debug",
+        "attempt_direct_fallback: log at :info with track metadata (title, artist, duration) used for YouTube search",
+        "handle_download_success: log output_path, file_size, and validation result at :debug",
+        "enqueue_processing: log the processing_job_id and model at :info on success",
+        "All Logger calls use structured metadata: Logger.metadata(worker: \"DownloadWorker\", track_id: track_id, job_id: job_id, stage: \"download|fallback|validate|enqueue\")",
+        "broadcast_progress and broadcast_track_progress log the PubSub message at :debug",
+        "mix compile --warnings-as-errors passes",
+        "mix test passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add debug_mode user setting and migration",
+      "description": "As a user, I need a debug_mode boolean in my user settings so the dashboard can conditionally show the debug inspector panel. This is the data layer foundation for the UI work.",
+      "acceptanceCriteria": [
+        "Ecto migration adds debug_mode boolean column to user_settings table, default false",
+        "UserSettings schema and changeset updated to include :debug_mode field",
+        "Settings.get/2 returns debug_mode in the settings map",
+        "mix ecto.migrate runs cleanly",
+        "mix compile --warnings-as-errors passes",
+        "mix test passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Build debug inspector slide-in panel shell with tab navigation",
+      "description": "As a user with debug_mode enabled, I need a slide-in panel on the right side of the dashboard that is full main-row height, with tab navigation for Logs, Tracing, and closeable via a toggle button. The panel should use daisyUI components and animate in/out.",
+      "acceptanceCriteria": [
+        "DashboardLive includes a debug panel toggle button (bug icon) visible only when user_settings.debug_mode is true",
+        "Clicking the toggle slides in a right-side panel that is full height of the main content row",
+        "Panel has tab bar at top with tabs: Logs, Tracing",
+        "Panel has collapsible sections below tabs: Workers, Queue",
+        "Panel can be closed via X button or the toggle",
+        "Panel state (open/closed, active tab) persists in socket assigns across LiveView patches",
+        "Panel uses daisyUI drawer or custom CSS with transition-transform for slide animation",
+        "Panel does not interfere with existing dashboard layout when closed",
+        "Verify in browser: panel opens, tabs switch, collapsibles expand/collapse"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Implement real-time log streaming tab with color coding and filtering",
+      "description": "As a user viewing the debug panel, I need the Logs tab to show a real-time stream of server log lines, color-coded by level, with filtering by level, namespace, and free-text search. Logs should stream via PubSub from a LogBroadcaster that captures Logger output.",
+      "acceptanceCriteria": [
+        "lib/sound_forge/debug/log_broadcaster.ex implements a custom Logger backend that broadcasts log events to PubSub topic 'debug:logs'",
+        "Each broadcast includes: level, message, timestamp, metadata (request_id, oban_job_id, etc.), namespace (extracted from [bracket.prefix] pattern)",
+        "LogBroadcaster registered in config/dev.exs as additional Logger backend",
+        "Logs tab LiveView component subscribes to 'debug:logs' on mount",
+        "Log lines rendered with color coding: debug=gray, info=blue, warning=amber, error=red",
+        "Filter bar with: level dropdown (debug/info/warning/error), namespace dropdown (populated from seen namespaces), text search input",
+        "Log buffer capped at 500 lines with auto-scroll to bottom (JS hook)",
+        "Each log line shows: timestamp, level badge, namespace badge, message",
+        "Error lines are highlighted with red left border and show error code if present",
+        "Verify in browser: trigger a download, see logs stream in real-time with colors"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Implement error and event tracing tab with dependency graph",
+      "description": "As a user debugging a failed download, I need the Tracing tab to show a timeline of events for a selected job, with a dependency graph showing the relationship between workers (DownloadWorker -> ProcessingWorker -> AnalysisWorker) and which stage failed. Uses D3.js for the graph.",
+      "acceptanceCriteria": [
+        "Tracing tab shows a job selector dropdown populated from recent Oban jobs (last 50)",
+        "Selecting a job renders a vertical timeline of events: queued, started, downloading, fallback_attempted, fallback_started, completed/failed",
+        "Each timeline event shows timestamp, duration since previous event, and associated log snippet",
+        "Below the timeline, a D3.js dependency graph shows the worker pipeline: Download -> Processing -> Analysis -> Stems",
+        "Graph nodes are colored by status: green=completed, red=failed, gray=pending, blue=in_progress",
+        "Failed nodes show the error message on hover (tooltip)",
+        "Graph links show data flow direction with arrows",
+        "D3.js graph implemented as a LiveView JS hook in assets/js/hooks/job_trace_graph.js",
+        "LiveView pushes job trace data to the hook via push_event",
+        "Verify in browser: select a failed job, see timeline and graph with red failed node"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Implement worker status collapsible with async PubSub updates",
+      "description": "As a user, I need a collapsible Workers section in the debug panel that shows the current status of all Oban workers (DownloadWorker, ProcessingWorker, AnalysisWorker) with real-time updates when jobs start/stop/fail.",
+      "acceptanceCriteria": [
+        "Workers collapsible section in debug panel shows one card per worker type",
+        "Each card shows: worker name, current running count, queued count, failed count (last hour)",
+        "Cards update in real-time via PubSub subscription to oban telemetry events",
+        "Worker card shows a status indicator: idle (gray dot), active (green pulse), errored (red dot)",
+        "Clicking a worker card filters the Logs tab to that worker's namespace",
+        "Data fetched via Oban.Job queries on mount, then kept current via PubSub",
+        "Collapsible remembers expanded/collapsed state in socket assigns",
+        "Verify in browser: trigger a download, see DownloadWorker card go active then back to idle"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Implement queue panel with active/history tabs and log anchoring",
+      "description": "As a user, I need a collapsible Queue section in the debug panel with pill tabs for Active and History. Active shows currently running/queued jobs. History shows completed/failed jobs. Each job entry links to its anchored logs in the Logs tab.",
+      "acceptanceCriteria": [
+        "Queue collapsible section has pill-style tab bar: Active | History",
+        "Active tab shows jobs with state in [:executing, :available, :scheduled, :retryable] from Oban",
+        "History tab shows jobs with state in [:completed, :cancelled, :discarded] from last 24 hours, paginated",
+        "Each job row shows: worker name (short), args summary (track title if available), state badge, attempt count, inserted_at, duration",
+        "State badges color-coded: executing=blue, available=gray, completed=green, failed/discarded=red, retryable=amber",
+        "Each job row has an 'anchor' icon button that switches to the Logs tab and scrolls to that job's log entries (filters by oban_job_id)",
+        "Active tab auto-refreshes via PubSub (new jobs appear, completed jobs move to history)",
+        "History tab has manual refresh button and cursor-based pagination (25 per page)",
+        "Verify in browser: trigger download, see job appear in Active, move to History on completion, click anchor to see logs"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add debug mode toggle to settings UI",
+      "description": "As a user, I need a toggle in the Settings page to enable/disable debug mode, which controls visibility of the debug inspector panel on the dashboard.",
+      "acceptanceCriteria": [
+        "UserSettingsLive includes a Debug Mode toggle switch in an 'Advanced' section",
+        "Toggle persists to user_settings.debug_mode via the existing settings update flow",
+        "Enabling debug mode immediately shows the debug toggle button on the dashboard (via PubSub or assign update)",
+        "Disabling debug mode hides the panel and toggle button",
+        "Toggle styled with daisyUI toggle component",
+        "Verify in browser: toggle on in settings, navigate to dashboard, see debug button"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
