@@ -36,6 +36,7 @@ defmodule SoundForge.Audio.SpotDL do
   """
   @spec fetch_metadata(String.t()) :: {:ok, list(map())} | {:error, String.t()}
   def fetch_metadata(url) when is_binary(url) do
+    Logger.metadata(spotdl_cmd: "metadata")
     Logger.info("Fetching metadata for #{url}")
 
     unless credentials_configured?() do
@@ -101,20 +102,12 @@ defmodule SoundForge.Audio.SpotDL do
       bitrate
     ]
 
+    Logger.metadata(spotdl_cmd: "download")
     Logger.info("Starting download for #{url}")
 
     case run_helper(args, @download_timeout) do
       {:ok, output, _stderr} ->
-        case Jason.decode(output) do
-          {:ok, %{"path" => path, "size" => size}} ->
-            {:ok, %{path: path, size: size}}
-
-          {:ok, _} ->
-            {:error, "Unexpected response format"}
-
-          {:error, _} ->
-            {:error, "Failed to parse download result"}
-        end
+        parse_download_result(output)
 
       {:error, :timeout} ->
         Logger.error("Download timed out after #{div(@download_timeout, 1000)}s")
@@ -171,20 +164,12 @@ defmodule SoundForge.Audio.SpotDL do
         ] ++
           if(duration, do: ["--duration", to_string(duration)], else: [])
 
+      Logger.metadata(spotdl_cmd: "download-direct")
       Logger.info("Starting direct download (no Spotify API): \"#{title}\" by #{artist}")
 
       case run_helper(args, @download_timeout) do
         {:ok, output, _stderr} ->
-          case Jason.decode(output) do
-            {:ok, %{"path" => path, "size" => size}} ->
-              {:ok, %{path: path, size: size}}
-
-            {:ok, _} ->
-              {:error, "Unexpected response format"}
-
-            {:error, _} ->
-              {:error, "Failed to parse download result"}
-          end
+          parse_download_result(output)
 
         {:error, :timeout} ->
           Logger.error("Direct download timed out after #{div(@download_timeout, 1000)}s")
@@ -208,6 +193,38 @@ defmodule SoundForge.Audio.SpotDL do
   end
 
   # -- Private --
+
+  # Parse the download result from the helper's stdout.
+  # The result JSON ({"path": ..., "size": ...}) is emitted as the last line,
+  # but yt-dlp/ffmpeg noise may leak through despite filtering. We scan all
+  # lines for a valid result object rather than parsing the blob wholesale.
+  defp parse_download_result(output) do
+    result =
+      output
+      |> String.split("\n")
+      |> Enum.reverse()
+      |> Enum.find_value(fn line ->
+        case Jason.decode(String.trim(line)) do
+          {:ok, %{"path" => path, "size" => size}} -> {:ok, %{path: path, size: size}}
+          _ -> nil
+        end
+      end)
+
+    case result do
+      {:ok, _} = success ->
+        success
+
+      nil ->
+        raw_snippet = String.slice(output, 0, 200)
+        raw_truncated = String.slice(output, 0, 2000)
+
+        Logger.warning(
+          "Failed to parse download result. Raw output (#{byte_size(output)} bytes):\n#{raw_truncated}"
+        )
+
+        {:error, "Failed to parse download result: #{raw_snippet}"}
+    end
+  end
 
   defp run_helper(args, timeout) do
     python = System.find_executable(python_cmd())
@@ -236,9 +253,11 @@ defmodule SoundForge.Audio.SpotDL do
   defp collect_output(port, acc, timeout) do
     receive do
       {^port, {:data, data}} ->
+        Logger.debug("SpotDL port data chunk: #{byte_size(data)} bytes")
         collect_output(port, acc <> data, timeout)
 
       {^port, {:exit_status, 0}} ->
+        Logger.debug("SpotDL raw output before split (#{byte_size(acc)} bytes):\n#{String.slice(acc, 0, 2000)}")
         # Split stdout JSON (last line) from stderr status messages
         lines = String.split(String.trim(acc), "\n")
         {stderr_lines, stdout_lines} = Enum.split_with(lines, &status_line?/1)
@@ -261,8 +280,22 @@ defmodule SoundForge.Audio.SpotDL do
     case Jason.decode(line) do
       {:ok, %{"status" => _}} -> true
       {:ok, %{"error" => _}} -> true
-      _ -> String.starts_with?(line, "[download]")
+      _ -> noise_line?(line)
     end
+  end
+
+  # yt-dlp and ffmpeg emit various bracketed prefixes beyond just [download]
+  @noise_prefixes ~w([download] [ExtractAudio] [ffmpeg] [youtube] [yt-dlp] [info] [generic] [debug] WARNING: ERROR:)
+
+  # Matches percentage progress lines like "  5.2%" or "100%"
+  @progress_re ~r/^\d+\.?\d*%/
+
+  defp noise_line?(line) do
+    trimmed = String.trim(line)
+
+    trimmed == "" or
+      Enum.any?(@noise_prefixes, &String.starts_with?(trimmed, &1)) or
+      Regex.match?(@progress_re, trimmed)
   end
 
   defp extract_error(output) do
