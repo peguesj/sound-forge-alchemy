@@ -130,8 +130,8 @@
         "Verify in browser: select a failed job, see timeline and graph with red failed node"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Debug.Jobs context queries oban_jobs table directly. build_timeline/1 extracts lifecycle events. build_graph/1 produces D3-ready nodes/links. JobTraceGraph JS hook renders with D3 v7. duration_since/2 helper formats inter-event timing."
     },
     {
       "id": "US-008",

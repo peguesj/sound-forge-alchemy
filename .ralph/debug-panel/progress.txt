@@ -70,3 +70,16 @@ Started: Tue Feb 17 09:44:42 EST 2026
 - Files changed: lib/sound_forge/debug/log_broadcaster.ex, config/dev.exs, lib/sound_forge_web/live/dashboard_live.ex, lib/sound_forge_web/live/dashboard_live.html.heex, assets/js/hooks/debug_log_scroll.js, assets/js/app.js
 - Learnings: Custom Logger backend in Elixir uses :gen_event behaviour, not GenServer. PubSub broadcast from a Logger backend works well for real-time log streaming. Buffer newest-first (prepend) and reverse for display gives O(1) insert.
 ---
+
+## US-007 - Implement error and event tracing tab with dependency graph
+- Created lib/sound_forge/debug/jobs.ex with recent_jobs/1, get_job/1, jobs_for_track/1 queries against oban_jobs table
+- build_timeline/1 extracts lifecycle events (queued, started, completed/failed) from job timestamps
+- build_graph/1 produces D3-ready {nodes, links} for the pipeline DAG (Download -> Processing -> Analysis)
+- Added D3.js v7 dependency to assets/package.json
+- Created assets/js/hooks/job_trace_graph.js: D3 SVG rendering with scalePoint layout, status-colored nodes, arrow markers, hover tooltips for errors
+- Tracing tab UI: job selector dropdown populated on tab switch, refresh button, vertical timeline with color-coded events, pipeline graph container
+- Added duration_since/2 helper with DateTime/NaiveDateTime support, format_duration_ms for ms/s/m display
+- DashboardLive events: trace_select_job (fetches track jobs, builds timeline/graph, push_event to hook), trace_refresh
+- Files changed: lib/sound_forge/debug/jobs.ex, assets/js/hooks/job_trace_graph.js, assets/js/app.js, assets/package.json, assets/package-lock.json, lib/sound_forge_web/live/dashboard_live.ex, lib/sound_forge_web/live/dashboard_live.html.heex
+- Learnings: Querying oban_jobs with raw table name (string) instead of Oban.Job schema avoids coupling to Oban internals. D3 scalePoint with padding works well for small fixed-position node layouts. push_event from LiveView to JS hook is the right pattern for D3 data.
+---
