@@ -148,8 +148,8 @@
         "Verify in browser: trigger a download, see DownloadWorker card go active then back to idle"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Worker stats queried from oban_jobs table (running/queued/failed counts). ObanHandler broadcasts worker status changes via PubSub. Worker cards with status indicators, click-to-filter-logs interaction."
     },
     {
       "id": "US-009",

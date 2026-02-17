@@ -83,3 +83,13 @@ Started: Tue Feb 17 09:44:42 EST 2026
 - Files changed: lib/sound_forge/debug/jobs.ex, assets/js/hooks/job_trace_graph.js, assets/js/app.js, assets/package.json, assets/package-lock.json, lib/sound_forge_web/live/dashboard_live.ex, lib/sound_forge_web/live/dashboard_live.html.heex
 - Learnings: Querying oban_jobs with raw table name (string) instead of Oban.Job schema avoids coupling to Oban internals. D3 scalePoint with padding works well for small fixed-position node layouts. push_event from LiveView to JS hook is the right pattern for D3 data.
 ---
+
+## US-008 - Implement worker status collapsible with async PubSub updates
+- Added worker_stats/0 to Debug.Jobs: queries oban_jobs for running (executing), queued (available/scheduled/retryable), and failed (discarded/cancelled in last hour) counts per worker
+- Added PubSub broadcast from ObanHandler on job start/stop/exception events via "debug:worker_status" topic
+- DashboardLive subscribes to worker status topic and refreshes stats on each change
+- Worker cards show: short name, status dot (idle=gray, active=green pulse, errored=red), running/queued/failed counts
+- Clicking a worker card sets debug_tab to :logs and filters by oban.WorkerName namespace
+- Files changed: lib/sound_forge/debug/jobs.ex, lib/sound_forge/telemetry/oban_handler.ex, lib/sound_forge_web/live/dashboard_live.ex, lib/sound_forge_web/live/dashboard_live.html.heex
+- Learnings: PubSub from telemetry handler for UI reactivity is clean - the LiveView just re-queries on each event instead of trying to maintain derived state.
+---
