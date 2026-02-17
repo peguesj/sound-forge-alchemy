@@ -29,9 +29,10 @@ import AutoDismiss from "./hooks/auto_dismiss"
 import ShiftSelect from "./hooks/shift_select"
 import SpotifyPlayer from "./hooks/spotify_player"
 import DebugLogScroll from "./hooks/debug_log_scroll"
+import JobTraceGraph from "./hooks/job_trace_graph"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-const Hooks = { AudioPlayer, AutoDismiss, ShiftSelect, SpotifyPlayer, DebugLogScroll, ...colocatedHooks }
+const Hooks = { AudioPlayer, AutoDismiss, ShiftSelect, SpotifyPlayer, DebugLogScroll, JobTraceGraph, ...colocatedHooks }
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},

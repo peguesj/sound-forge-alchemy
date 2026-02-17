@@ -6,6 +6,7 @@ defmodule SoundForgeWeb.DashboardLive do
 
   alias SoundForge.Music
   alias SoundForge.Settings
+  alias SoundForge.Debug.Jobs, as: DebugJobs
 
   @max_debug_logs 500
 
@@ -56,6 +57,10 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:debug_log_filter_ns, "all")
       |> assign(:debug_log_search, "")
       |> assign(:debug_log_namespaces, MapSet.new())
+      |> assign(:trace_jobs, [])
+      |> assign(:trace_selected_job, nil)
+      |> assign(:trace_timeline, [])
+      |> assign(:trace_graph, %{nodes: [], links: []})
       |> allow_upload(:audio,
         accept: ~w(.mp3 .wav .flac .ogg .m4a .aac .wma),
         max_entries: 5,
@@ -755,7 +760,48 @@ defmodule SoundForgeWeb.DashboardLive do
         ArgumentError -> :logs
       end
 
+    socket =
+      if tab_atom == :tracing do
+        jobs = SoundForge.Debug.Jobs.recent_jobs(50)
+        assign(socket, :trace_jobs, jobs)
+      else
+        socket
+      end
+
     {:noreply, assign(socket, :debug_tab, tab_atom)}
+  end
+
+  @impl true
+  def handle_event("trace_select_job", %{"job-id" => job_id_str}, socket) do
+    case Integer.parse(job_id_str) do
+      {job_id, _} ->
+        job = SoundForge.Debug.Jobs.get_job(job_id)
+
+        if job do
+          track_id = job.args["track_id"]
+          pipeline_jobs = if track_id, do: SoundForge.Debug.Jobs.jobs_for_track(track_id), else: [job]
+          timeline = SoundForge.Debug.Jobs.build_timeline(pipeline_jobs)
+          graph = SoundForge.Debug.Jobs.build_graph(pipeline_jobs)
+
+          {:noreply,
+           socket
+           |> assign(:trace_selected_job, job)
+           |> assign(:trace_timeline, timeline)
+           |> assign(:trace_graph, graph)
+           |> push_event("job_trace_graph", graph)}
+        else
+          {:noreply, socket}
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("trace_refresh", _params, socket) do
+    jobs = SoundForge.Debug.Jobs.recent_jobs(50)
+    {:noreply, assign(socket, :trace_jobs, jobs)}
   end
 
   @impl true
@@ -1170,6 +1216,25 @@ defmodule SoundForgeWeb.DashboardLive do
 
   def log_line_border(:error), do: "border-l-2 border-red-500"
   def log_line_border(_), do: ""
+
+  def duration_since(nil, _), do: "?"
+  def duration_since(_, nil), do: "?"
+
+  def duration_since(%DateTime{} = from, %DateTime{} = to) do
+    diff_ms = DateTime.diff(to, from, :millisecond)
+    format_duration_ms(diff_ms)
+  end
+
+  def duration_since(%NaiveDateTime{} = from, %NaiveDateTime{} = to) do
+    diff_ms = NaiveDateTime.diff(to, from, :millisecond)
+    format_duration_ms(diff_ms)
+  end
+
+  def duration_since(_, _), do: "?"
+
+  defp format_duration_ms(ms) when ms < 1_000, do: "#{ms}ms"
+  defp format_duration_ms(ms) when ms < 60_000, do: "#{Float.round(ms / 1_000, 1)}s"
+  defp format_duration_ms(ms), do: "#{Float.round(ms / 60_000, 1)}m"
 
   def pipeline_track_title(_streams, _track_id), do: "Track"
 

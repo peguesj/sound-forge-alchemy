@@ -1659,8 +1659,85 @@
         </div>
 
         <!-- Tracing Tab -->
-        <div :if={@debug_tab == :tracing} class="p-4">
-          <p class="text-sm text-gray-500">Event tracing will be implemented in US-007.</p>
+        <div :if={@debug_tab == :tracing} class="flex flex-col flex-1 overflow-y-auto">
+          <!-- Job Selector -->
+          <div class="px-3 py-2 border-b border-gray-800 flex items-center gap-2">
+            <select
+              phx-change="trace_select_job"
+              name="job-id"
+              class="flex-1 bg-gray-800 text-xs text-gray-300 border border-gray-700 rounded px-2 py-1"
+            >
+              <option value="">Select a job...</option>
+              <option
+                :for={job <- @trace_jobs}
+                value={job.id}
+                selected={@trace_selected_job && @trace_selected_job.id == job.id}
+              >
+                #{job.id} {job.worker |> String.split(".") |> List.last()} ({job.state})
+              </option>
+            </select>
+            <button
+              phx-click="trace_refresh"
+              class="text-xs text-gray-500 hover:text-gray-300"
+              title="Refresh jobs"
+            >
+              Refresh
+            </button>
+          </div>
+
+          <%= if @trace_selected_job do %>
+            <!-- Timeline -->
+            <div class="px-3 py-2 border-b border-gray-800">
+              <h3 class="text-xs font-semibold text-gray-400 uppercase mb-2">Timeline</h3>
+              <div class="space-y-1">
+                <div
+                  :for={{event, idx} <- Enum.with_index(@trace_timeline)}
+                  class="flex items-center gap-2 text-xs"
+                >
+                  <div class={[
+                    "w-2 h-2 rounded-full shrink-0",
+                    case event.event do
+                      "completed" -> "bg-green-500"
+                      "failed" -> "bg-red-500"
+                      "started" -> "bg-blue-500"
+                      _ -> "bg-gray-500"
+                    end
+                  ]}>
+                  </div>
+                  <span class="text-gray-600 w-16 shrink-0">{event.worker |> String.replace("Worker", "")}</span>
+                  <span class={[
+                    "font-medium",
+                    case event.event do
+                      "completed" -> "text-green-400"
+                      "failed" -> "text-red-400"
+                      "started" -> "text-blue-400"
+                      _ -> "text-gray-400"
+                    end
+                  ]}>
+                    {event.event}
+                  </span>
+                  <span :if={idx > 0} class="text-gray-600 text-[10px]">
+                    +{duration_since(Enum.at(@trace_timeline, idx - 1).timestamp, event.timestamp)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dependency Graph -->
+            <div class="px-3 py-2">
+              <h3 class="text-xs font-semibold text-gray-400 uppercase mb-2">Pipeline Graph</h3>
+              <div
+                id="job-trace-graph"
+                phx-hook="JobTraceGraph"
+                class="w-full h-40 bg-gray-800/50 rounded"
+              >
+              </div>
+            </div>
+          <% else %>
+            <div class="p-4 text-center text-gray-600 text-sm">
+              Select a job to view its pipeline trace.
+            </div>
+          <% end %>
         </div>
       </div>
 

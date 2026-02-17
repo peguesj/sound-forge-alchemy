@@ -198,7 +198,7 @@ defmodule SoundForge.Audio.SpotDL do
   defp parse_download_result(output) do
     result =
       output
-      |> String.split("\n")
+      |> String.split(~r/[\r\n]+/)
       |> Enum.reverse()
       |> Enum.find_value(fn line ->
         case Jason.decode(String.trim(line)) do
@@ -253,13 +253,12 @@ defmodule SoundForge.Audio.SpotDL do
   defp collect_output(port, acc, timeout) do
     receive do
       {^port, {:data, data}} ->
-        Logger.debug("SpotDL port data chunk: #{byte_size(data)} bytes")
         collect_output(port, acc <> data, timeout)
 
       {^port, {:exit_status, 0}} ->
-        Logger.debug("SpotDL raw output before split (#{byte_size(acc)} bytes):\n#{String.slice(acc, 0, 2000)}")
-        # Split stdout JSON (last line) from stderr status messages
-        lines = String.split(String.trim(acc), "\n")
+        # Split stdout JSON (last line) from stderr status messages.
+        # Use \r and \n because yt-dlp progress bars use \r carriage returns.
+        lines = String.split(String.trim(acc), ~r/[\r\n]+/)
         {stderr_lines, stdout_lines} = Enum.split_with(lines, &status_line?/1)
         stdout = Enum.join(stdout_lines, "\n")
         stderr = Enum.join(stderr_lines, "\n")
