@@ -73,6 +73,9 @@ config :sound_forge, dev_routes: true
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
+# Register debug LogBroadcaster backend to stream logs to the debug panel
+config :logger, backends: [:console, SoundForge.Debug.LogBroadcaster]
+
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
 config :phoenix, :stacktrace_depth, 20

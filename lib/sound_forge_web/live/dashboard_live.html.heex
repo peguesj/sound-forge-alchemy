@@ -1582,10 +1582,80 @@
       </div>
 
       <!-- Tab Content -->
-      <div class="flex-1 overflow-y-auto">
+      <div class="flex-1 overflow-hidden flex flex-col">
         <!-- Logs Tab -->
-        <div :if={@debug_tab == :logs} class="p-4">
-          <p class="text-sm text-gray-500">Log streaming will be implemented in US-006.</p>
+        <div :if={@debug_tab == :logs} class="flex flex-col flex-1 overflow-hidden">
+          <!-- Filter Bar -->
+          <div class="flex items-center gap-2 px-3 py-2 border-b border-gray-800 bg-gray-900/50">
+            <select
+              phx-change="debug_log_filter"
+              name="level"
+              class="bg-gray-800 text-xs text-gray-300 border border-gray-700 rounded px-2 py-1"
+            >
+              <option value="all" selected={@debug_log_filter_level == "all"}>All levels</option>
+              <option value="debug" selected={@debug_log_filter_level == "debug"}>Debug</option>
+              <option value="info" selected={@debug_log_filter_level == "info"}>Info</option>
+              <option value="warning" selected={@debug_log_filter_level == "warning"}>Warning</option>
+              <option value="error" selected={@debug_log_filter_level == "error"}>Error</option>
+            </select>
+            <select
+              phx-change="debug_log_filter_ns"
+              name="namespace"
+              class="bg-gray-800 text-xs text-gray-300 border border-gray-700 rounded px-2 py-1 max-w-[120px]"
+            >
+              <option value="all" selected={@debug_log_filter_ns == "all"}>All namespaces</option>
+              <option
+                :for={ns <- Enum.sort(MapSet.to_list(@debug_log_namespaces))}
+                value={ns}
+                selected={@debug_log_filter_ns == ns}
+              >
+                {ns}
+              </option>
+            </select>
+            <form phx-change="debug_log_search" class="flex-1">
+              <input
+                type="text"
+                placeholder="Search..."
+                value={@debug_log_search}
+                phx-debounce="300"
+                name="search"
+                class="w-full bg-gray-800 text-xs text-gray-300 border border-gray-700 rounded px-2 py-1"
+              />
+            </form>
+            <button
+              phx-click="clear_debug_logs"
+              class="text-xs text-gray-500 hover:text-gray-300 px-1"
+              title="Clear logs"
+            >
+              Clear
+            </button>
+          </div>
+
+          <!-- Log Stream -->
+          <div
+            id="debug-log-stream"
+            phx-hook="DebugLogScroll"
+            class="flex-1 overflow-y-auto font-mono text-xs leading-relaxed"
+          >
+            <div
+              :for={log <- filtered_debug_logs(@debug_logs, @debug_log_filter_level, @debug_log_filter_ns, @debug_log_search)}
+              class={["flex items-start gap-2 px-3 py-0.5 hover:bg-gray-800/50", log_line_border(log.level)]}
+            >
+              <span class="text-gray-600 shrink-0 w-20 truncate">{log.timestamp |> String.slice(-12..-1//1)}</span>
+              <span class={["shrink-0 px-1.5 rounded text-[10px] uppercase font-semibold", log_level_badge_class(log.level)]}>
+                {log.level}
+              </span>
+              <span :if={log.namespace} class="shrink-0 px-1 rounded bg-gray-800 text-purple-400 text-[10px]">
+                {log.namespace}
+              </span>
+              <span class={["flex-1 break-all", log_level_color(log.level)]}>
+                {log.message}
+              </span>
+            </div>
+            <div :if={@debug_logs == []} class="p-4 text-center text-gray-600 text-sm">
+              No logs yet. Logs will appear here as events occur.
+            </div>
+          </div>
         </div>
 
         <!-- Tracing Tab -->

@@ -7,6 +7,8 @@ defmodule SoundForgeWeb.DashboardLive do
   alias SoundForge.Music
   alias SoundForge.Settings
 
+  @max_debug_logs 500
+
   @impl true
   def mount(_params, session, socket) do
     scope = socket.assigns[:current_scope]
@@ -49,6 +51,11 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:debug_tab, :logs)
       |> assign(:debug_workers_open, false)
       |> assign(:debug_queue_open, false)
+      |> assign(:debug_logs, [])
+      |> assign(:debug_log_filter_level, "all")
+      |> assign(:debug_log_filter_ns, "all")
+      |> assign(:debug_log_search, "")
+      |> assign(:debug_log_namespaces, MapSet.new())
       |> allow_upload(:audio,
         accept: ~w(.mp3 .wav .flac .ogg .m4a .aac .wma),
         max_entries: 5,
@@ -59,6 +66,11 @@ defmodule SoundForgeWeb.DashboardLive do
     socket =
       if connected?(socket) and current_user_id do
         SoundForge.Notifications.subscribe(current_user_id)
+
+        # Subscribe to debug log stream if debug mode is enabled
+        if Settings.get(current_user_id, :debug_mode) do
+          Phoenix.PubSub.subscribe(SoundForge.PubSub, SoundForge.Debug.LogBroadcaster.topic())
+        end
 
         # Send Spotify token once on mount so the SDK player can initialize
         case SoundForge.Spotify.OAuth.get_valid_access_token(current_user_id) do
@@ -747,6 +759,26 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   @impl true
+  def handle_event("debug_log_filter", %{"level" => level}, socket) do
+    {:noreply, assign(socket, :debug_log_filter_level, level)}
+  end
+
+  @impl true
+  def handle_event("debug_log_filter_ns", %{"namespace" => ns}, socket) do
+    {:noreply, assign(socket, :debug_log_filter_ns, ns)}
+  end
+
+  @impl true
+  def handle_event("debug_log_search", %{"search" => search}, socket) do
+    {:noreply, assign(socket, :debug_log_search, search)}
+  end
+
+  @impl true
+  def handle_event("clear_debug_logs", _params, socket) do
+    {:noreply, assign(socket, :debug_logs, [])}
+  end
+
+  @impl true
   def handle_event("toggle_debug_workers", _params, socket) do
     {:noreply, update(socket, :debug_workers_open, &(!&1))}
   end
@@ -1093,7 +1125,51 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, push_event(socket, "spotify_seek", %{position_ms: position_ms})}
   end
 
+  @impl true
+  def handle_info({:debug_log, event}, socket) do
+    logs = [event | socket.assigns.debug_logs] |> Enum.take(@max_debug_logs)
+
+    namespaces =
+      if event.namespace do
+        MapSet.put(socket.assigns.debug_log_namespaces, event.namespace)
+      else
+        socket.assigns.debug_log_namespaces
+      end
+
+    {:noreply,
+     socket
+     |> assign(:debug_logs, logs)
+     |> assign(:debug_log_namespaces, namespaces)}
+  end
+
   # -- Template helpers --
+
+  def filtered_debug_logs(logs, level_filter, ns_filter, search) do
+    logs
+    |> Enum.filter(fn log ->
+      (level_filter == "all" or to_string(log.level) == level_filter) and
+        (ns_filter == "all" or log.namespace == ns_filter) and
+        (search == "" or String.contains?(String.downcase(log.message), String.downcase(search)))
+    end)
+    |> Enum.reverse()
+  end
+
+  def log_level_color(:debug), do: "text-gray-500"
+  def log_level_color(:info), do: "text-blue-400"
+  def log_level_color(:warning), do: "text-amber-400"
+  def log_level_color(:warn), do: "text-amber-400"
+  def log_level_color(:error), do: "text-red-400"
+  def log_level_color(_), do: "text-gray-400"
+
+  def log_level_badge_class(:debug), do: "bg-gray-700 text-gray-300"
+  def log_level_badge_class(:info), do: "bg-blue-900/50 text-blue-300"
+  def log_level_badge_class(:warning), do: "bg-amber-900/50 text-amber-300"
+  def log_level_badge_class(:warn), do: "bg-amber-900/50 text-amber-300"
+  def log_level_badge_class(:error), do: "bg-red-900/50 text-red-300"
+  def log_level_badge_class(_), do: "bg-gray-700 text-gray-300"
+
+  def log_line_border(:error), do: "border-l-2 border-red-500"
+  def log_line_border(_), do: ""
 
   def pipeline_track_title(_streams, _track_id), do: "Track"
 
