@@ -201,7 +201,7 @@ defmodule SoundForge.Jobs.DownloadWorker do
         end
 
       {:error, reason} ->
-        Logger.error("Failed to create processing job for track #{track_id}: #{inspect(reason)}")
+        Logger.error("[oban.DownloadWorker] failed to create processing job for track #{track_id}: #{inspect(reason)}")
         {:error, reason}
     end
   end

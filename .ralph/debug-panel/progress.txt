@@ -23,3 +23,15 @@ Started: Tue Feb 17 09:44:42 EST 2026
 - Files changed: lib/sound_forge/audio/spotdl.ex
 - Learnings: yt-dlp emits many more bracketed prefixes than just [download]. The noise_prefixes module attribute + regex pattern for percentage lines provides comprehensive filtering.
 ---
+
+## US-003 - Add DownloadWorker verbose lifecycle logging at every stage
+- perform/1 now logs at :info on entry with track_id, spotify_url, quality, attempt/max_attempts (pattern-matched from Oban.Job)
+- After SpotDL.download returns: added :debug log with result status and path/size or reason
+- attempt_direct_fallback: logs title, artist, duration at :info level
+- handle_download_success: logs output_path, file_size, and validation result at :debug
+- enqueue_processing: logs processing_job_id and model at :info on successful enqueue
+- All Logger calls use structured metadata with stage field (download|fallback|validate|enqueue)
+- broadcast_progress and broadcast_track_progress now log PubSub messages at :debug
+- Files changed: lib/sound_forge/jobs/download_worker.ex
+- Learnings: Pattern-match Oban.Job struct fields (attempt, max_attempts) directly in perform/1 function head for cleaner access.
+---
