@@ -61,6 +61,10 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:trace_timeline, [])
       |> assign(:trace_graph, %{nodes: [], links: []})
       |> assign(:worker_stats, [])
+      |> assign(:queue_tab, :active)
+      |> assign(:queue_active_jobs, [])
+      |> assign(:queue_history_jobs, [])
+      |> assign(:queue_history_has_more, false)
       |> allow_upload(:audio,
         accept: ~w(.mp3 .wav .flac .ogg .m4a .aac .wma),
         max_entries: 5,
@@ -77,7 +81,10 @@ defmodule SoundForgeWeb.DashboardLive do
           if Settings.get(current_user_id, :debug_mode) do
             Phoenix.PubSub.subscribe(SoundForge.PubSub, SoundForge.Debug.LogBroadcaster.topic())
             Phoenix.PubSub.subscribe(SoundForge.PubSub, SoundForge.Telemetry.ObanHandler.worker_status_topic())
-            assign(socket, :worker_stats, SoundForge.Debug.Jobs.worker_stats())
+            socket
+            |> assign(:worker_stats, SoundForge.Debug.Jobs.worker_stats())
+            |> assign(:queue_active_jobs, SoundForge.Debug.Jobs.active_jobs())
+            |> load_queue_history()
           else
             socket
           end
@@ -859,6 +866,41 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   @impl true
+  def handle_event("queue_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :queue_tab, String.to_existing_atom(tab))}
+  end
+
+  @impl true
+  def handle_event("queue_refresh_history", _params, socket) do
+    {:noreply, load_queue_history(socket)}
+  end
+
+  @impl true
+  def handle_event("queue_load_more", _params, socket) do
+    case List.last(socket.assigns.queue_history_jobs) do
+      nil ->
+        {:noreply, socket}
+
+      last_job ->
+        {more_jobs, has_more} =
+          SoundForge.Debug.Jobs.history_jobs(before_id: last_job.id)
+
+        {:noreply,
+         socket
+         |> assign(:queue_history_jobs, socket.assigns.queue_history_jobs ++ more_jobs)
+         |> assign(:queue_history_has_more, has_more)}
+    end
+  end
+
+  @impl true
+  def handle_event("anchor_job_logs", %{"job-id" => job_id_str}, socket) do
+    {:noreply,
+     socket
+     |> assign(:debug_tab, :logs)
+     |> assign(:debug_log_search, job_id_str)}
+  end
+
+  @impl true
   def handle_event("page", %{"page" => page_str}, socket) do
     page =
       case Integer.parse(page_str) do
@@ -1214,7 +1256,10 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   def handle_info({:worker_status_change, _payload}, socket) do
-    {:noreply, assign(socket, :worker_stats, SoundForge.Debug.Jobs.worker_stats())}
+    {:noreply,
+     socket
+     |> assign(:worker_stats, SoundForge.Debug.Jobs.worker_stats())
+     |> assign(:queue_active_jobs, SoundForge.Debug.Jobs.active_jobs())}
   end
 
   # -- Template helpers --
@@ -1283,6 +1328,37 @@ defmodule SoundForgeWeb.DashboardLive do
   def job_state_badge_class("cancelled"), do: "bg-red-900/50 text-red-300"
   def job_state_badge_class(_), do: "bg-gray-700 text-gray-300"
 
+  def short_worker(full_worker) when is_binary(full_worker) do
+    full_worker |> String.split(".") |> List.last() |> String.replace("Worker", "")
+  end
+
+  def short_worker(_), do: "?"
+
+  def job_args_summary(args) when is_map(args) do
+    cond do
+      args["track_title"] -> String.slice(args["track_title"], 0, 30)
+      args["track_id"] -> "Track #{String.slice(args["track_id"], 0, 8)}.."
+      true -> "-"
+    end
+  end
+
+  def job_args_summary(_), do: "-"
+
+  def job_duration(job) do
+    case {job.attempted_at, job.completed_at} do
+      {%DateTime{} = start, %DateTime{} = finish} ->
+        diff = DateTime.diff(finish, start, :millisecond)
+        format_duration_ms(diff)
+
+      {%NaiveDateTime{} = start, %NaiveDateTime{} = finish} ->
+        diff = NaiveDateTime.diff(finish, start, :millisecond)
+        format_duration_ms(diff)
+
+      _ ->
+        "-"
+    end
+  end
+
   def pipeline_track_title(_streams, _track_id), do: "Track"
 
   def pipeline_complete?(pipeline) do
@@ -1311,6 +1387,10 @@ defmodule SoundForgeWeb.DashboardLive do
 
   # -- Private helpers --
 
+  defp load_queue_history(socket) do
+    %{jobs: jobs, next_cursor: next_cursor} = SoundForge.Debug.Jobs.history_jobs()
+    socket |> assign(:queue_history_jobs, jobs) |> assign(:queue_history_has_more, next_cursor != nil)
+  end
   defp start_single_pipeline(track_meta, original_url, uid, auto_download) do
     # spotdl uses "song_id" for the Spotify track ID
     spotify_id = track_meta["song_id"] || track_meta["id"]

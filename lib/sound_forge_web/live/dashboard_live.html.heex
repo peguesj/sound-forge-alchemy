@@ -1835,8 +1835,110 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          <div :if={@debug_queue_open} class="px-4 pb-3">
-            <p class="text-xs text-gray-500">Queue panel will be implemented in US-009.</p>
+          <div :if={@debug_queue_open} class="pb-3">
+            <!-- Queue Pill Tabs -->
+            <div class="flex gap-1 px-4 mb-2">
+              <button
+                phx-click="queue_tab"
+                phx-value-tab="active"
+                class={[
+                  "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+                  if(@queue_tab == :active, do: "bg-purple-600 text-white", else: "bg-gray-700 text-gray-400 hover:text-gray-200")
+                ]}
+              >
+                Active
+                <span :if={@queue_active_jobs != []} class="ml-1 text-[10px] opacity-75">
+                  ({length(@queue_active_jobs)})
+                </span>
+              </button>
+              <button
+                phx-click="queue_tab"
+                phx-value-tab="history"
+                class={[
+                  "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+                  if(@queue_tab == :history, do: "bg-purple-600 text-white", else: "bg-gray-700 text-gray-400 hover:text-gray-200")
+                ]}
+              >
+                History
+              </button>
+            </div>
+
+            <!-- Active Jobs -->
+            <div :if={@queue_tab == :active} class="px-3 space-y-1 max-h-60 overflow-y-auto">
+              <div
+                :for={job <- @queue_active_jobs}
+                class="flex items-center gap-2 bg-gray-800/60 rounded px-2.5 py-1.5 text-xs"
+              >
+                <span class="font-medium text-gray-200 w-20 truncate">{short_worker(job.worker)}</span>
+                <span class="text-gray-500 flex-1 truncate">{job_args_summary(job.args)}</span>
+                <span class={["px-1.5 py-0.5 rounded text-[10px] font-medium", job_state_badge_class(job.state)]}>
+                  {job.state}
+                </span>
+                <span class="text-gray-500 text-[10px]">{job.attempt}/{job.max_attempts}</span>
+                <button
+                  phx-click="anchor_job_logs"
+                  phx-value-job-id={job.id}
+                  class="text-gray-500 hover:text-purple-400 transition-colors"
+                  title="View logs for this job"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                </button>
+              </div>
+              <p :if={@queue_active_jobs == []} class="text-xs text-gray-500 text-center py-3">
+                No active jobs.
+              </p>
+            </div>
+
+            <!-- History Jobs -->
+            <div :if={@queue_tab == :history} class="px-3">
+              <div class="flex justify-end mb-1.5">
+                <button
+                  phx-click="queue_refresh_history"
+                  class="text-[10px] text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+              <div class="space-y-1 max-h-60 overflow-y-auto">
+                <div
+                  :for={job <- @queue_history_jobs}
+                  class="flex items-center gap-2 bg-gray-800/60 rounded px-2.5 py-1.5 text-xs"
+                >
+                  <span class="font-medium text-gray-200 w-20 truncate">{short_worker(job.worker)}</span>
+                  <span class="text-gray-500 flex-1 truncate">{job_args_summary(job.args)}</span>
+                  <span class={["px-1.5 py-0.5 rounded text-[10px] font-medium", job_state_badge_class(job.state)]}>
+                    {job.state}
+                  </span>
+                  <span class="text-gray-500 text-[10px]">{job.attempt}/{job.max_attempts}</span>
+                  <span class="text-gray-600 text-[10px]">{job_duration(job)}</span>
+                  <button
+                    phx-click="anchor_job_logs"
+                    phx-value-job-id={job.id}
+                    class="text-gray-500 hover:text-purple-400 transition-colors"
+                    title="View logs for this job"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                  </button>
+                </div>
+                <p :if={@queue_history_jobs == []} class="text-xs text-gray-500 text-center py-3">
+                  No history in the last 24 hours.
+                </p>
+              </div>
+              <button
+                :if={@queue_history_has_more}
+                phx-click="queue_load_more"
+                class="w-full mt-2 py-1.5 text-xs text-gray-400 hover:text-gray-200 bg-gray-800/40 rounded transition-colors"
+              >
+                Load more...
+              </button>
+            </div>
           </div>
         </div>
       </div>

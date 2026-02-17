@@ -6,6 +6,56 @@ defmodule SoundForge.Debug.Jobs do
   import Ecto.Query
   alias SoundForge.Repo
 
+  @active_states ["executing", "available", "scheduled", "retryable"]
+  @history_states ["completed", "cancelled", "discarded"]
+
+  @doc "Returns active jobs (executing, available, scheduled, retryable), newest first."
+  def active_jobs do
+    from(j in "oban_jobs",
+      where: j.state in ^@active_states,
+      select: %{
+        id: j.id, worker: j.worker, queue: j.queue, state: j.state,
+        attempt: j.attempt, max_attempts: j.max_attempts, args: j.args,
+        errors: j.errors, inserted_at: j.inserted_at, attempted_at: j.attempted_at,
+        completed_at: j.completed_at, scheduled_at: j.scheduled_at
+      },
+      order_by: [desc: j.id]
+    )
+    |> Repo.all()
+  end
+
+  @doc "Returns history jobs (completed, cancelled, discarded) from the last 24 hours, paginated."
+  def history_jobs(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 25)
+    cursor = Keyword.get(opts, :cursor, nil)
+    twenty_four_hours_ago = DateTime.utc_now() |> DateTime.add(-86400, :second)
+
+    query =
+      from(j in "oban_jobs",
+        where: j.state in ^@history_states and j.inserted_at >= ^twenty_four_hours_ago,
+        select: %{
+          id: j.id, worker: j.worker, queue: j.queue, state: j.state,
+          attempt: j.attempt, max_attempts: j.max_attempts, args: j.args,
+          errors: j.errors, inserted_at: j.inserted_at, attempted_at: j.attempted_at,
+          completed_at: j.completed_at, scheduled_at: j.scheduled_at
+        },
+        order_by: [desc: j.id],
+        limit: ^(limit + 1)
+      )
+
+    query =
+      if cursor do
+        from(j in query, where: j.id < ^cursor)
+      else
+        query
+      end
+
+    results = Repo.all(query)
+    has_more = length(results) > limit
+    jobs = Enum.take(results, limit)
+    {jobs, has_more}
+  end
+
   @doc "Returns the last N Oban jobs, newest first."
   def recent_jobs(limit \\ 50) do
     from(j in "oban_jobs",
