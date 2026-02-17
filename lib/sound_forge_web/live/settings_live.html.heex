@@ -78,7 +78,7 @@
     <!-- Sidebar -->
     <nav class="w-full md:w-48 md:shrink-0" aria-label="Settings sections">
       <ul class="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0">
-        <li :for={section <- ~w(spotify downloads youtube demucs analysis storage general)a}>
+        <li :for={section <- ~w(spotify downloads youtube demucs analysis storage general advanced)a}>
           <button
             phx-click="switch_section"
             phx-value-section={section}
@@ -606,6 +606,45 @@
           />
         </div>
         
+<!-- Advanced Section -->
+        <div :if={@section == :advanced} class="space-y-6">
+          <div class="flex items-center justify-between">
+            <h2
+              id="section-heading-advanced"
+              tabindex="-1"
+              class="text-lg font-semibold text-white"
+            >
+              Advanced Settings
+            </h2>
+          </div>
+
+          <div class="bg-gray-900/50 rounded-lg p-5 border border-gray-800/50 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <label for="user_settings_debug_mode" class="text-sm font-medium text-gray-300">
+                  Debug Mode
+                </label>
+                <p class="text-xs text-gray-500 mt-0.5">
+                  Enable the debug inspector panel on the dashboard for real-time logs, job tracing, worker status, and queue monitoring.
+                </p>
+              </div>
+              <input
+                type="hidden"
+                name="user_settings[debug_mode]"
+                value="false"
+              />
+              <input
+                type="checkbox"
+                id="user_settings_debug_mode"
+                name="user_settings[debug_mode]"
+                value="true"
+                checked={@form[:debug_mode].value == true || @form[:debug_mode].value == "true"}
+                class="toggle toggle-primary"
+              />
+            </div>
+          </div>
+        </div>
+
 <!-- Save Button -->
         <div :if={@section != :spotify} class="pt-4 border-t border-gray-800">
           <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
