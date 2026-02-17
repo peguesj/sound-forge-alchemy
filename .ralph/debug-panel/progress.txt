@@ -105,3 +105,17 @@ Started: Tue Feb 17 09:44:42 EST 2026
 - Files changed: lib/sound_forge/debug/jobs.ex, lib/sound_forge_web/live/dashboard_live.ex, lib/sound_forge_web/live/dashboard_live.html.heex
 - Learnings: Cursor-based pagination with "fetch N+1, take N" pattern is simple and efficient. Anchor-to-logs via text search filter is pragmatic - no need for complex log ID indexing.
 ---
+
+## US-010 - Add debug mode toggle to settings UI
+- Added :advanced to @sections list in SettingsLive and sidebar navigation
+- Added section_label(:advanced) -> "Advanced"
+- Advanced section contains Debug Mode toggle with description text
+- Toggle uses hidden input (value="false") + checkbox (value="true") pattern for proper boolean form submission
+- Styled with daisyUI toggle-primary class
+- Persists via existing Settings.save_user_settings/2 flow
+- Files changed: lib/sound_forge_web/live/settings_live.ex, lib/sound_forge_web/live/settings_live.html.heex
+- Learnings: HTML checkboxes don't submit "false" when unchecked. The hidden input with same name pattern ensures the form always sends a value.
+---
+
+## ALL STORIES COMPLETE
+All 10 user stories (US-001 through US-010) pass. Branch ralph/debug-panel-and-oban-logging is ready for review.

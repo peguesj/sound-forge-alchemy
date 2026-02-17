@@ -183,8 +183,8 @@
         "Verify in browser: toggle on in settings, navigate to dashboard, see debug button"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Advanced section added to SettingsLive sidebar. Debug Mode toggle using checkbox with hidden false input for proper form submission. Styled with daisyUI toggle class."
     }
   ]
 }
