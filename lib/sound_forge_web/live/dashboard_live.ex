@@ -504,6 +504,24 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, assign(socket, :editing_track, nil)}
   end
 
+  # -- Playback Routing --
+
+  @impl true
+  def handle_event("play_track", %{"id" => id}, socket) do
+    with {:ok, track} <- fetch_owned_track(socket, id) do
+      if track.download_status == "completed" and Music.count_stems(track.id) > 0 do
+        # Local playback -- navigate to track detail where AudioPlayerLive lives
+        {:noreply, push_navigate(socket, to: ~p"/tracks/#{track.id}")}
+      else
+        # Fall back to Spotify
+        uri = "spotify:track:#{track.spotify_id}"
+        handle_event("play_spotify", %{"uri" => uri}, socket)
+      end
+    else
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Track not found")}
+    end
+  end
+
   # -- Spotify Playback --
 
   @impl true
@@ -1158,10 +1176,13 @@ defmodule SoundForgeWeb.DashboardLive do
     pipeline = Map.get(pipelines, track_id, %{})
 
     updated_pipeline =
-      pipeline
-      |> Map.put(:download, %{status: :completed, progress: 100})
-      |> Map.put(:processing, %{status: :completed, progress: 100})
-      |> Map.put(:analysis, %{status: :completed, progress: 100})
+      Enum.reduce([:download, :processing, :analysis], pipeline, fn stage, acc ->
+        if Map.has_key?(acc, stage) do
+          Map.put(acc, stage, %{status: :completed, progress: 100})
+        else
+          acc
+        end
+      end)
 
     pipelines = Map.put(pipelines, track_id, updated_pipeline)
 
@@ -1363,8 +1384,38 @@ defmodule SoundForgeWeb.DashboardLive do
 
   def pipeline_track_title(_streams, _track_id), do: "Track"
 
+  @pipeline_stages [:download, :processing, :analysis]
+
   def pipeline_complete?(pipeline) do
-    match?(%{status: :completed}, Map.get(pipeline, :analysis))
+    triggered = Enum.filter(@pipeline_stages, &Map.has_key?(pipeline, &1))
+
+    triggered != [] and
+      Enum.all?(triggered, fn stage ->
+        match?(%{status: :completed}, Map.get(pipeline, stage))
+      end)
+  end
+
+  def radar_features(analysis) do
+    features = analysis.features || %{}
+
+    %{
+      tempo: analysis.tempo,
+      energy: analysis.energy,
+      spectral_centroid: analysis.spectral_centroid,
+      spectral_rolloff: analysis.spectral_rolloff,
+      zero_crossing_rate: analysis.zero_crossing_rate,
+      spectral_bandwidth: get_in(features, ["spectral", "bandwidth_mean"]),
+      spectral_flatness: get_in(features, ["spectral", "flatness_mean"])
+    }
+  end
+
+  def beats_with_tempo(analysis) do
+    features = analysis.features || %{}
+    beats = features["beats"] || %{}
+
+    if is_map(beats),
+      do: Map.put(beats, "tempo", analysis.tempo),
+      else: %{"tempo" => analysis.tempo}
   end
 
   def normalize_spectral(value, max_expected) when is_number(value) and max_expected > 0 do

@@ -360,6 +360,12 @@ defmodule SoundForge.Music do
       else: Path.join(SoundForge.Storage.base_path(), path)
   end
 
+  @doc "Returns the number of stems for a given track."
+  @spec count_stems(binary()) :: non_neg_integer()
+  def count_stems(track_id) do
+    Repo.aggregate(from(s in Stem, where: s.track_id == ^track_id), :count)
+  end
+
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking track changes.
 

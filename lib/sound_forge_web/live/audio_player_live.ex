@@ -210,12 +210,33 @@ defmodule SoundForgeWeb.AudioPlayerLive do
 
   defp stem_data(stems) do
     Enum.map(stems, fn stem ->
+      relative = make_relative_path(stem.file_path)
+
       %{
         type: to_string(stem.stem_type),
-        url: "/files/#{stem.file_path}",
+        url: "/files/#{relative}",
         file_size: stem.file_size
       }
     end)
+  end
+
+  defp make_relative_path(nil), do: ""
+
+  defp make_relative_path(path) do
+    base = SoundForge.Storage.base_path() |> Path.expand()
+    cwd_base = Path.join(File.cwd!(), SoundForge.Storage.base_path()) |> Path.expand()
+    expanded = Path.expand(path)
+
+    cond do
+      String.starts_with?(expanded, cwd_base <> "/") ->
+        String.replace_prefix(expanded, cwd_base <> "/", "")
+
+      String.starts_with?(expanded, base <> "/") ->
+        String.replace_prefix(expanded, base <> "/", "")
+
+      true ->
+        path
+    end
   end
 
   defp format_time(seconds) when is_number(seconds) do

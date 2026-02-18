@@ -47,10 +47,19 @@ defmodule SoundForgeWeb.DashboardHelpersTest do
       assert DashboardLive.pipeline_complete?(pipeline)
     end
 
-    test "returns false when analysis is not completed" do
+    test "returns true when all triggered stages are completed (no analysis)" do
       pipeline = %{
         download: %{status: :completed, progress: 100},
         processing: %{status: :completed, progress: 100}
+      }
+
+      assert DashboardLive.pipeline_complete?(pipeline)
+    end
+
+    test "returns false when a triggered stage is still in progress" do
+      pipeline = %{
+        download: %{status: :completed, progress: 100},
+        processing: %{status: :downloading, progress: 50}
       }
 
       refute DashboardLive.pipeline_complete?(pipeline)

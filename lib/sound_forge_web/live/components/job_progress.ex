@@ -99,15 +99,19 @@ defmodule SoundForgeWeb.Components.JobProgress do
   end
 
   defp overall_status(pipeline) do
+    triggered = Enum.filter(@stages, &Map.has_key?(pipeline, &1))
+    statuses = Enum.map(triggered, &Map.get(pipeline, &1))
+
     cond do
-      Enum.any?(@stages, fn s -> match?(%{status: :failed}, Map.get(pipeline, s)) end) ->
+      Enum.any?(statuses, &match?(%{status: :failed}, &1)) ->
         "Failed"
 
-      match?(%{status: :completed}, Map.get(pipeline, :analysis)) ->
+      triggered != [] and Enum.all?(statuses, &match?(%{status: :completed}, &1)) ->
         "Complete"
 
-      Enum.any?(@stages, fn s ->
-        match?(%{status: s} when s in [:downloading, :processing], Map.get(pipeline, s))
+      Enum.any?(statuses, fn
+        %{status: s} when s in [:downloading, :processing] -> true
+        _ -> false
       end) ->
         "Processing"
 
@@ -117,11 +121,14 @@ defmodule SoundForgeWeb.Components.JobProgress do
   end
 
   defp overall_badge_class(pipeline) do
+    triggered = Enum.filter(@stages, &Map.has_key?(pipeline, &1))
+    statuses = Enum.map(triggered, &Map.get(pipeline, &1))
+
     cond do
-      Enum.any?(@stages, fn s -> match?(%{status: :failed}, Map.get(pipeline, s)) end) ->
+      Enum.any?(statuses, &match?(%{status: :failed}, &1)) ->
         "bg-red-900 text-red-300"
 
-      match?(%{status: :completed}, Map.get(pipeline, :analysis)) ->
+      triggered != [] and Enum.all?(statuses, &match?(%{status: :completed}, &1)) ->
         "bg-green-900 text-green-300"
 
       true ->

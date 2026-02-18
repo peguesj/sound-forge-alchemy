@@ -95,6 +95,10 @@ const AudioPlayer = {
     const loadPromises = stemData.map(async (stem) => {
       try {
         const response = await fetch(stem.url)
+        if (!response.ok) {
+          console.warn(`Failed to fetch stem ${stem.type}: HTTP ${response.status} for ${stem.url}`)
+          return
+        }
         const arrayBuffer = await response.arrayBuffer()
         const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer)
 
@@ -145,24 +149,21 @@ const AudioPlayer = {
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
-      responsive: true,
       interact: true,
-      // Use MediaElement backend so WaveSurfer doesn't play audio itself
-      // (we handle playback via Web Audio API for multi-stem)
-      backend: "WebAudio",
-      media: document.createElement("audio")
+      url: waveformUrl,
+      normalize: true
     })
 
-    this.wavesurfer.load(waveformUrl)
-
     // Mute wavesurfer's own audio - we use our Web Audio API stems
-    this.wavesurfer.setVolume(0)
+    this.wavesurfer.on("ready", () => {
+      this.wavesurfer.setMuted(true)
+    })
 
     // Handle click-to-seek on the waveform
+    // v7: interaction event passes time in seconds
     this.wavesurfer.on("interaction", (newTime) => {
-      const seekTime = newTime * this.duration
-      this.seek(seekTime)
-      this.pushEvent("time_update", { time: seekTime })
+      this.seek(newTime)
+      this.pushEvent("time_update", { time: newTime })
     })
   },
 

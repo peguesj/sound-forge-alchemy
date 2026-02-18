@@ -231,7 +231,18 @@
                   </div>
                 </div>
                 <button
-                  :if={@track.spotify_url && @spotify_linked}
+                  :if={@track.download_status == "completed" && length(@stems) > 0}
+                  phx-click="play_track"
+                  phx-value-id={@track.id}
+                  class="w-full flex items-center gap-2 bg-purple-900/30 hover:bg-purple-900/60 text-purple-400 hover:text-purple-300 border border-purple-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  Play
+                </button>
+                <button
+                  :if={@track.spotify_url && @spotify_linked && !(@track.download_status == "completed" && length(@stems) > 0)}
                   phx-click="play_spotify"
                   phx-value-uri={"spotify:track:#{@track.spotify_id}"}
                   class="w-full flex items-center gap-2 bg-green-900/30 hover:bg-green-900/60 text-green-400 hover:text-green-300 border border-green-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
@@ -361,7 +372,63 @@
                     </div>
                   </div>
                 </div>
-                
+
+<!-- Analysis Visualizations -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <!-- Radar Chart -->
+                  <div
+                    id={"radar-#{@track.id}"}
+                    phx-hook="AnalysisRadar"
+                    data-features={Jason.encode!(radar_features(@analysis))}
+                    class="bg-gray-800 rounded-lg p-4"
+                  >
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Audio Profile</h3>
+                  </div>
+                  <!-- Chroma Wheel -->
+                  <div
+                    :if={is_map((@analysis.features || %{})["chroma"])}
+                    id={"chroma-#{@track.id}"}
+                    phx-hook="AnalysisChroma"
+                    data-chroma={Jason.encode!((@analysis.features || %{})["chroma"])}
+                    data-detected-key={@analysis.key || ""}
+                    class="bg-gray-800 rounded-lg p-4"
+                  >
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Pitch Distribution</h3>
+                  </div>
+                </div>
+                <!-- Beat Timeline (full width) -->
+                <div
+                  :if={is_map((@analysis.features || %{})["beats"])}
+                  id={"beats-#{@track.id}"}
+                  phx-hook="AnalysisBeats"
+                  data-beats={Jason.encode!(beats_with_tempo(@analysis))}
+                  class="bg-gray-800 rounded-lg p-4 mb-6"
+                >
+                  <h3 class="text-sm font-medium text-gray-400 mb-2">Beat Timeline</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <!-- MFCC Bars -->
+                  <div
+                    :if={is_map((@analysis.features || %{})["mfcc"])}
+                    id={"mfcc-#{@track.id}"}
+                    phx-hook="AnalysisMFCC"
+                    data-mfcc={Jason.encode!((@analysis.features || %{})["mfcc"])}
+                    class="bg-gray-800 rounded-lg p-4"
+                  >
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">MFCC Coefficients</h3>
+                  </div>
+                  <!-- Spectral Heatmap -->
+                  <div
+                    :if={is_map((@analysis.features || %{})["spectral_contrast"])}
+                    id={"spectral-#{@track.id}"}
+                    phx-hook="AnalysisSpectral"
+                    data-spectral={Jason.encode!((@analysis.features || %{})["spectral_contrast"])}
+                    class="bg-gray-800 rounded-lg p-4"
+                  >
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Spectral Contrast</h3>
+                  </div>
+                </div>
+
 <!-- Raw Features (expandable) -->
                 <details
                   :if={@analysis.features && map_size(@analysis.features) > 0}
@@ -582,10 +649,12 @@
                 track_title={pipeline_track_title(@streams.tracks, track_id)}
               />
               <button
-                :if={pipeline_complete?(pipeline)}
                 phx-click="dismiss_pipeline"
                 phx-value-track-id={track_id}
-                class="absolute top-2 right-2 text-gray-500 hover:text-white text-xs"
+                class={"absolute top-2 right-2 text-xs " <>
+                  if(pipeline_complete?(pipeline),
+                    do: "text-green-400 hover:text-green-300",
+                    else: "text-gray-500 hover:text-white")}
                 aria-label="Dismiss pipeline notification"
               >
                 &times;
@@ -1028,10 +1097,21 @@
                   </.link>
                   <div class="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      :if={track.spotify_url && @spotify_linked}
+                      :if={track.download_status == "completed"}
+                      phx-click="play_track"
+                      phx-value-id={track.id}
+                      aria-label={"Play #{track.title}"}
+                      class="p-1 text-gray-400 hover:text-purple-400 rounded hover:bg-gray-700 transition-colors"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </button>
+                    <button
+                      :if={track.spotify_url && @spotify_linked && track.download_status != "completed"}
                       phx-click="play_spotify"
                       phx-value-uri={"spotify:track:#{track.spotify_id}"}
-                      aria-label={"Play #{track.title}"}
+                      aria-label={"Play #{track.title} on Spotify"}
                       class="p-1 text-gray-400 hover:text-green-400 rounded hover:bg-gray-700 transition-colors"
                     >
                       <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
@@ -1218,10 +1298,21 @@
                     </button>
                     <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        :if={track.spotify_url && @spotify_linked}
+                        :if={track.download_status == "completed"}
+                        phx-click="play_track"
+                        phx-value-id={track.id}
+                        aria-label={"Play #{track.title}"}
+                        class="p-1 text-gray-400 hover:text-purple-400 rounded hover:bg-gray-700 transition-colors"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </button>
+                      <button
+                        :if={track.spotify_url && @spotify_linked && track.download_status != "completed"}
                         phx-click="play_spotify"
                         phx-value-uri={"spotify:track:#{track.spotify_id}"}
-                        aria-label={"Play #{track.title}"}
+                        aria-label={"Play #{track.title} on Spotify"}
                         class="p-1 text-gray-400 hover:text-green-400 rounded hover:bg-gray-700 transition-colors"
                       >
                         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
@@ -1408,7 +1499,18 @@
                       </svg>
                     </button>
                     <button
-                      :if={track.spotify_url && @spotify_linked}
+                      :if={track.download_status == "completed"}
+                      phx-click="play_track"
+                      phx-value-id={track.id}
+                      aria-label={"Play #{track.title}"}
+                      class="p-1.5 text-gray-400 hover:text-purple-400 rounded-md hover:bg-gray-700 transition-colors"
+                    >
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </button>
+                    <button
+                      :if={track.spotify_url && @spotify_linked && track.download_status != "completed"}
                       phx-click="play_spotify"
                       phx-value-uri={"spotify:track:#{track.spotify_id}"}
                       aria-label={"Play #{track.title} on Spotify"}

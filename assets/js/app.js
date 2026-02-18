@@ -30,9 +30,20 @@ import ShiftSelect from "./hooks/shift_select"
 import SpotifyPlayer from "./hooks/spotify_player"
 import DebugLogScroll from "./hooks/debug_log_scroll"
 import JobTraceGraph from "./hooks/job_trace_graph"
+import AnalysisRadar from "./hooks/analysis_radar"
+import AnalysisChroma from "./hooks/analysis_chroma"
+import AnalysisBeats from "./hooks/analysis_beats"
+import AnalysisMFCC from "./hooks/analysis_mfcc"
+import AnalysisSpectral from "./hooks/analysis_spectral"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-const Hooks = { AudioPlayer, AutoDismiss, ShiftSelect, SpotifyPlayer, DebugLogScroll, JobTraceGraph, ...colocatedHooks }
+const Hooks = {
+  AudioPlayer, AutoDismiss, ShiftSelect, SpotifyPlayer,
+  DebugLogScroll, JobTraceGraph,
+  AnalysisRadar, AnalysisChroma, AnalysisBeats,
+  AnalysisMFCC, AnalysisSpectral,
+  ...colocatedHooks
+}
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
