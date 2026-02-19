@@ -18,15 +18,19 @@ defmodule SoundForge.Accounts.Scope do
 
   alias SoundForge.Accounts.User
 
-  defstruct user: nil
+  defstruct user: nil, admin?: false
 
   @doc """
   Creates a scope for the given user.
 
   Returns nil if no user is given.
   """
+  def for_user(%User{role: :admin} = user) do
+    %__MODULE__{user: user, admin?: true}
+  end
+
   def for_user(%User{} = user) do
-    %__MODULE__{user: user}
+    %__MODULE__{user: user, admin?: false}
   end
 
   def for_user(nil), do: nil

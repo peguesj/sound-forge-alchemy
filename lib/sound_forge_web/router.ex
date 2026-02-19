@@ -31,6 +31,12 @@ defmodule SoundForgeWeb.Router do
     plug SoundForgeWeb.Plugs.APIAuth
   end
 
+  scope "/admin", SoundForgeWeb do
+    pipe_through [:browser, :require_authenticated_user, :require_admin_user]
+
+    live "/", AdminLive, :index
+  end
+
   scope "/", SoundForgeWeb do
     pipe_through [:browser, :require_authenticated_user]
 
