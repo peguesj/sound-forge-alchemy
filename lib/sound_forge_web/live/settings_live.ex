@@ -9,7 +9,7 @@ defmodule SoundForgeWeb.SettingsLive do
   alias SoundForge.Accounts.UserSettings
   alias SoundForge.Audio.SpotDL
 
-  @sections ~w(spotify downloads youtube demucs analysis storage general advanced)a
+  @sections ~w(spotify downloads youtube demucs analysis storage control_surfaces general advanced)a
 
   @impl true
   def mount(_params, session, socket) do

@@ -50,6 +50,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:selected_engine, "demucs")
       |> assign(:preview_mode, false)
       |> assign(:debug_mode, Settings.get(current_user_id, :debug_mode) || false)
+      |> assign(:drawer_open, false)
       |> assign(:debug_panel_open, false)
       |> assign(:debug_tab, :logs)
       |> assign(:debug_workers_open, false)
@@ -643,6 +644,17 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, assign(socket, :nav_tab, nav_tab)}
   rescue
     ArgumentError -> {:noreply, socket}
+  end
+
+
+  @impl true
+  def handle_event("open_drawer", _params, socket) do
+    {:noreply, assign(socket, :drawer_open, true)}
+  end
+
+  @impl true
+  def handle_event("close_drawer", _params, socket) do
+    {:noreply, assign(socket, :drawer_open, false)}
   end
 
   @impl true
