@@ -1978,20 +1978,20 @@ defmodule SoundForgeWeb.DashboardLive do
 
   defp safe_list_midi_devices do
     SoundForge.MIDI.DeviceManager.list_devices()
-  rescue
-    _ -> []
+  catch
+    :exit, _ -> []
   end
 
   defp safe_get_midi_bpm do
     SoundForge.MIDI.Clock.get_bpm()
-  rescue
-    _ -> nil
+  catch
+    :exit, _ -> nil
   end
 
   defp safe_get_midi_transport do
     SoundForge.MIDI.Clock.get_transport_state()
-  rescue
-    _ -> :stopped
+  catch
+    :exit, _ -> :stopped
   end
 
   defp midi_log_entry(message) do
