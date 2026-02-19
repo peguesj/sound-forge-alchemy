@@ -30,6 +30,8 @@ defmodule SoundForge.Music.ProcessingJob do
     field :output_path, :string
     field :options, :map
     field :error, :string
+    field :engine, :string, default: "demucs"
+    field :preview, :boolean, default: false
 
     belongs_to :track, SoundForge.Music.Track
     has_many :stems, SoundForge.Music.Stem
@@ -40,7 +42,7 @@ defmodule SoundForge.Music.ProcessingJob do
   @doc false
   def changeset(processing_job, attrs) do
     processing_job
-    |> cast(attrs, [:track_id, :model, :status, :progress, :output_path, :options, :error])
+    |> cast(attrs, [:track_id, :model, :status, :progress, :output_path, :options, :error, :engine, :preview])
     |> validate_required([:track_id])
     |> validate_inclusion(:status, @status_values)
     |> validate_number(:progress, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)

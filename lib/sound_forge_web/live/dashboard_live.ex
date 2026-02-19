@@ -46,6 +46,8 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:albums, list_albums(scope))
       |> assign(:page, 1)
       |> assign(:per_page, per_page(current_user_id))
+      |> assign(:selected_engine, "demucs")
+      |> assign(:preview_mode, false)
       |> assign(:debug_mode, Settings.get(current_user_id, :debug_mode) || false)
       |> assign(:debug_panel_open, false)
       |> assign(:debug_tab, :logs)
@@ -353,8 +355,11 @@ defmodule SoundForgeWeb.DashboardLive do
   def handle_event("process_track", %{"id" => id}, socket) do
     user_id = socket.assigns[:current_user_id]
 
+    engine = socket.assigns.selected_engine
+    preview = socket.assigns.preview_mode
+
     with {:ok, track} <- fetch_owned_track(socket, id),
-         {:ok, _} <- retry_pipeline_stage(track.id, :processing, user_id) do
+         {:ok, _} <- start_processing(track.id, user_id, engine: engine, preview: preview) do
       maybe_subscribe(socket, track.id)
 
       pipelines = socket.assigns.pipelines
@@ -376,6 +381,17 @@ defmodule SoundForgeWeb.DashboardLive do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not start processing")}
     end
+  end
+
+  @impl true
+  def handle_event("select_engine", %{"engine" => engine}, socket)
+      when engine in ["demucs", "lalalai"] do
+    {:noreply, assign(socket, :selected_engine, engine)}
+  end
+
+  @impl true
+  def handle_event("toggle_preview", _params, socket) do
+    {:noreply, assign(socket, :preview_mode, !socket.assigns.preview_mode)}
   end
 
   @impl true
@@ -1755,23 +1771,7 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   defp retry_pipeline_stage(track_id, :processing, user_id) do
-    model = Settings.get(user_id, :demucs_model)
-
-    with {:ok, file_path} <- Music.get_download_path(track_id),
-         {:ok, job} <-
-           Music.create_processing_job(%{track_id: track_id, model: model, status: :queued}) do
-      %{
-        "track_id" => track_id,
-        "job_id" => job.id,
-        "file_path" => file_path,
-        "model" => model
-      }
-      |> SoundForge.Jobs.ProcessingWorker.new()
-      |> Oban.insert()
-    else
-      {:error, :no_completed_download} -> {:error, :no_completed_download}
-      error -> error
-    end
+    start_processing(track_id, user_id, [])
   end
 
   defp retry_pipeline_stage(track_id, :analysis, user_id) do
@@ -1784,6 +1784,30 @@ defmodule SoundForgeWeb.DashboardLive do
         "features" => Settings.get(user_id, :analysis_features)
       }
       |> SoundForge.Jobs.AnalysisWorker.new()
+      |> Oban.insert()
+    else
+      {:error, :no_completed_download} -> {:error, :no_completed_download}
+      error -> error
+    end
+  end
+
+  defp start_processing(track_id, user_id, opts) do
+    engine = Keyword.get(opts, :engine, "demucs")
+    preview = Keyword.get(opts, :preview, false)
+    model = Settings.get(user_id, :demucs_model)
+
+    with {:ok, file_path} <- Music.get_download_path(track_id),
+         {:ok, job} <-
+           Music.create_processing_job(%{track_id: track_id, model: model, status: :queued, engine: engine, preview: preview}) do
+      %{
+        "track_id" => track_id,
+        "job_id" => job.id,
+        "file_path" => file_path,
+        "model" => model,
+        "engine" => engine,
+        "preview" => preview
+      }
+      |> SoundForge.Jobs.ProcessingWorker.new()
       |> Oban.insert()
     else
       {:error, :no_completed_download} -> {:error, :no_completed_download}

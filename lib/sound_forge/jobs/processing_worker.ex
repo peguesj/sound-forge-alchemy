@@ -15,9 +15,19 @@ defmodule SoundForge.Jobs.ProcessingWorker do
 
   require Logger
 
-  @known_stem_types ~w(vocals drums bass other guitar piano)a
+  @known_stem_types ~w(vocals drums bass other guitar piano electric_guitar acoustic_guitar synth strings wind)a
 
   @impl Oban.Worker
+  def perform(%Oban.Job{args: %{"engine" => "lalalai"} = args}) do
+    Logger.info("ProcessingWorker delegating to LalalAIWorker for track #{args["track_id"]}")
+
+    args
+    |> SoundForge.Jobs.LalalAIWorker.new()
+    |> Oban.insert()
+
+    {:discard, :delegated_to_lalalai}
+  end
+
   def perform(%Oban.Job{
         args: %{
           "track_id" => track_id,
