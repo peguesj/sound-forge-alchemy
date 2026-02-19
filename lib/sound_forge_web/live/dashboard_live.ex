@@ -8,6 +8,7 @@ defmodule SoundForgeWeb.DashboardLive do
   alias SoundForge.Settings
 
   @max_debug_logs 500
+  @max_midi_log 50
 
   @impl true
   def mount(_params, session, socket) do
@@ -58,6 +59,10 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:debug_log_filter_ns, "all")
       |> assign(:debug_log_search, "")
       |> assign(:debug_log_namespaces, MapSet.new())
+      |> assign(:midi_devices, [])
+      |> assign(:midi_bpm, nil)
+      |> assign(:midi_transport, :stopped)
+      |> assign(:midi_log, [])
       |> assign(:trace_jobs, [])
       |> assign(:trace_selected_job, nil)
       |> assign(:trace_timeline, [])
@@ -90,6 +95,18 @@ defmodule SoundForgeWeb.DashboardLive do
           else
             socket
           end
+
+        # Subscribe to MIDI PubSub topics
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:devices")
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:clock")
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:actions")
+
+        # Initialize MIDI state from current device/clock state
+        socket =
+          socket
+          |> assign(:midi_devices, safe_list_midi_devices())
+          |> assign(:midi_bpm, safe_get_midi_bpm())
+          |> assign(:midi_transport, safe_get_midi_transport())
 
         # Send Spotify token once on mount so the SDK player can initialize
         case SoundForge.Spotify.OAuth.get_valid_access_token(current_user_id) do
@@ -794,7 +811,7 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, assign(socket, :debug_panel_open, false)}
   end
 
-  @valid_debug_tabs ~w(logs tracing)a
+  @valid_debug_tabs ~w(logs tracing midi)a
 
   @impl true
   def handle_event("debug_tab", %{"tab" => tab}, socket) do
@@ -868,6 +885,11 @@ defmodule SoundForgeWeb.DashboardLive do
   @impl true
   def handle_event("clear_debug_logs", _params, socket) do
     {:noreply, assign(socket, :debug_logs, [])}
+  end
+
+  @impl true
+  def handle_event("clear_midi_log", _params, socket) do
+    {:noreply, assign(socket, :midi_log, [])}
   end
 
   @impl true
@@ -1299,6 +1321,63 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:worker_stats, SoundForge.Debug.Jobs.worker_stats())
      |> assign(:queue_active_jobs, SoundForge.Debug.Jobs.active_jobs())}
+  end
+
+  # -- MIDI handle_info callbacks --
+
+  @impl true
+  def handle_info({:midi_device_connected, device}, socket) do
+    devices = safe_list_midi_devices()
+    log_entry = midi_log_entry("Device connected: #{device.name}")
+
+    {:noreply,
+     socket
+     |> assign(:midi_devices, devices)
+     |> append_midi_log(log_entry)}
+  end
+
+  @impl true
+  def handle_info({:midi_device_disconnected, device}, socket) do
+    devices = safe_list_midi_devices()
+    log_entry = midi_log_entry("Device disconnected: #{device.name}")
+
+    {:noreply,
+     socket
+     |> assign(:midi_devices, devices)
+     |> append_midi_log(log_entry)}
+  end
+
+  @impl true
+  def handle_info({:bpm_update, bpm}, socket) do
+    {:noreply, assign(socket, :midi_bpm, bpm)}
+  end
+
+  @impl true
+  def handle_info({:transport, state}, socket) do
+    log_entry = midi_log_entry("Transport: #{state}")
+
+    {:noreply,
+     socket
+     |> assign(:midi_transport, state)
+     |> append_midi_log(log_entry)}
+  end
+
+  @impl true
+  def handle_info({:midi_action, :stem_volume, %{volume: volume, target: target} = params}, socket) do
+    log_entry = midi_log_entry("CC -> stem_volume target=#{target} vol=#{Float.round(volume, 2)}")
+
+    socket =
+      socket
+      |> push_event("midi_fader_update", %{target: target, volume: volume, track_id: Map.get(params, :track_id)})
+      |> append_midi_log(log_entry)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:midi_action, action, params}, socket) do
+    log_entry = midi_log_entry("#{action}: #{inspect(params, limit: 3)}")
+    {:noreply, append_midi_log(socket, log_entry)}
   end
 
   # -- Template helpers --
@@ -1893,5 +1972,38 @@ defmodule SoundForgeWeb.DashboardLive do
     SoundForge.Spotify.OAuth.linked?(user_id)
   rescue
     _ -> false
+  end
+
+  # -- MIDI helpers --
+
+  defp safe_list_midi_devices do
+    SoundForge.MIDI.DeviceManager.list_devices()
+  rescue
+    _ -> []
+  end
+
+  defp safe_get_midi_bpm do
+    SoundForge.MIDI.Clock.get_bpm()
+  rescue
+    _ -> nil
+  end
+
+  defp safe_get_midi_transport do
+    SoundForge.MIDI.Clock.get_transport_state()
+  rescue
+    _ -> :stopped
+  end
+
+  defp midi_log_entry(message) do
+    %{
+      id: System.unique_integer([:positive]),
+      message: message,
+      timestamp: DateTime.utc_now()
+    }
+  end
+
+  defp append_midi_log(socket, entry) do
+    logs = [entry | socket.assigns.midi_log] |> Enum.take(@max_midi_log)
+    assign(socket, :midi_log, logs)
   end
 end

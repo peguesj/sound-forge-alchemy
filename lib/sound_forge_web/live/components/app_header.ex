@@ -9,6 +9,9 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
   attr :current_user_id, :any, default: nil
   attr :nav_tab, :atom, default: :library
   attr :nav_context, :atom, default: :all_tracks
+  attr :midi_devices, :list, default: []
+  attr :midi_bpm, :any, default: nil
+  attr :midi_transport, :atom, default: :stopped
 
   def app_header(assigns) do
     ~H"""
@@ -40,6 +43,30 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
           </nav>
         </div>
         <div class="flex items-center gap-3">
+          <!-- MIDI Status Indicator -->
+          <div class="flex items-center gap-2 text-sm">
+            <div class={[
+              "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium",
+              if(length(@midi_devices) > 0,
+                do: "bg-green-900/40 text-green-400 border border-green-800/50",
+                else: "bg-gray-800/50 text-gray-500 border border-gray-700/50"
+              )
+            ]}>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+              </svg>
+              <span>MIDI</span>
+              <span :if={length(@midi_devices) > 0} class="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-green-500 text-black rounded-full">
+                {length(@midi_devices)}
+              </span>
+            </div>
+            <span
+              :if={@midi_bpm}
+              class="px-2 py-1 rounded-md text-xs font-mono bg-purple-900/40 text-purple-300 border border-purple-800/50"
+            >
+              {Float.round(@midi_bpm * 1.0, 1)} BPM
+            </span>
+          </div>
           <.live_component
             module={SoundForgeWeb.Live.Components.NotificationBell}
             id="notification-bell"

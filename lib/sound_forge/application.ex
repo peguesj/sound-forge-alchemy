@@ -30,6 +30,8 @@ defmodule SoundForge.Application do
       {Oban, Application.fetch_env!(:sound_forge, Oban)},
       # Oban telemetry handler for job lifecycle tracking
       SoundForge.Telemetry.ObanHandler,
+      # MIDI device discovery and hotplug monitoring
+      SoundForge.MIDI.DeviceManager,
       # Start to serve requests, typically the last entry
       SoundForgeWeb.Endpoint
     ]

@@ -74,6 +74,9 @@ defmodule SoundForge.MixProject do
       # Testing
       {:mox, "~> 1.0", only: :test},
 
+      # MIDI
+      {:midiex, "~> 0.6"},
+
       # Static analysis
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
