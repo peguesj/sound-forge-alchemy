@@ -14,12 +14,12 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   def mount(_params, session, socket) do
-    scope = socket.assigns[:current_scope]
+    scope = socket.assigns[:current_scope] || load_scope_from_session(session)
     current_user_id = resolve_user_id(scope, session)
 
     socket =
       socket
-      |> assign_new(:current_scope, fn -> nil end)
+      |> assign(:current_scope, scope)
       |> assign(:page_title, "Sound Forge Alchemy")
       |> assign(:current_user_id, current_user_id)
       |> assign(:search_query, "")
@@ -1885,6 +1885,15 @@ defmodule SoundForgeWeb.DashboardLive do
 
   defp socket_user_id(socket) do
     socket.assigns[:current_user_id]
+  end
+
+  defp load_scope_from_session(session) do
+    with token when is_binary(token) <- session["user_token"],
+         {user, _inserted_at} <- SoundForge.Accounts.get_user_by_session_token(token) do
+      SoundForge.Accounts.Scope.for_user(user)
+    else
+      _ -> nil
+    end
   end
 
   defp resolve_user_id(%{user: %{id: id}}, _session), do: id
