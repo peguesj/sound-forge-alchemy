@@ -20,11 +20,20 @@ defmodule SoundForgeWeb.AudioPlayerLive do
   @impl true
   def update(assigns, socket) do
     stems = Map.get(assigns, :stems, [])
+    track = Map.get(assigns, :track)
+
+    # Build audio sources for the player
+    # Priority: stems (if available) > downloaded file (if exists)
+    audio_data = build_audio_data(stems, track)
 
     # Initialize per-stem volumes if not already set
     stem_volumes =
       if map_size(socket.assigns.stem_volumes) == 0 do
-        Map.new(stems, fn stem -> {to_string(stem.stem_type), 100} end)
+        if stems != [] do
+          Map.new(stems, fn stem -> {to_string(stem.stem_type), 100} end)
+        else
+          %{}
+        end
       else
         socket.assigns.stem_volumes
       end
@@ -32,6 +41,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
     {:ok,
      socket
      |> assign(assigns)
+     |> assign(:audio_data, audio_data)
      |> assign(:stem_volumes, stem_volumes)}
   end
 
@@ -41,7 +51,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
     <div
       id={"audio-player-#{@id}"}
       phx-hook="AudioPlayer"
-      data-stems={Jason.encode!(stem_data(@stems))}
+      data-stems={Jason.encode!(Map.get(assigns, :audio_data, []))}
       class="bg-gray-800 rounded-lg p-6"
     >
       <!-- Waveform -->
@@ -162,18 +172,30 @@ defmodule SoundForgeWeb.AudioPlayerLive do
 
   @impl true
   def handle_event("toggle_play", _params, socket) do
-    {:noreply, assign(socket, :playing, !socket.assigns.playing)}
+    new_state = !socket.assigns.playing
+    {:noreply,
+     socket
+     |> assign(:playing, new_state)
+     |> push_event("toggle_play", %{})}
   end
 
   @impl true
   def handle_event("master_volume", %{"level" => level}, socket) do
-    {:noreply, assign(socket, :master_volume, String.to_integer(level))}
+    level_int = String.to_integer(level)
+    {:noreply,
+     socket
+     |> assign(:master_volume, level_int)
+     |> push_event("set_volume", %{level: level_int})}
   end
 
   @impl true
   def handle_event("stem_volume", %{"level" => level, "stem" => stem}, socket) do
-    volumes = Map.put(socket.assigns.stem_volumes, stem, String.to_integer(level))
-    {:noreply, assign(socket, :stem_volumes, volumes)}
+    level_int = String.to_integer(level)
+    volumes = Map.put(socket.assigns.stem_volumes, stem, level_int)
+    {:noreply,
+     socket
+     |> assign(:stem_volumes, volumes)
+     |> push_event("set_stem_volume", %{stem: stem, level: level_int})}
   end
 
   @impl true
@@ -185,7 +207,12 @@ defmodule SoundForgeWeb.AudioPlayerLive do
         do: MapSet.delete(muted, stem),
         else: MapSet.put(muted, stem)
 
-    {:noreply, assign(socket, :muted_stems, muted)}
+    is_muted = MapSet.member?(muted, stem)
+
+    {:noreply,
+     socket
+     |> assign(:muted_stems, muted)
+     |> push_event("mute_stem", %{stem: stem, muted: is_muted})}
   end
 
   @impl true
@@ -195,7 +222,10 @@ defmodule SoundForgeWeb.AudioPlayerLive do
         do: nil,
         else: stem
 
-    {:noreply, assign(socket, :solo_stem, solo)}
+    {:noreply,
+     socket
+     |> assign(:solo_stem, solo)
+     |> push_event("solo_stem", %{stem: solo})}
   end
 
   @impl true
@@ -208,7 +238,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
     {:noreply, assign(socket, :current_time, time)}
   end
 
-  defp stem_data(stems) do
+  defp stem_data(stems) when stems != [] do
     Enum.map(stems, fn stem ->
       relative = make_relative_path(stem.file_path)
 
@@ -218,6 +248,11 @@ defmodule SoundForgeWeb.AudioPlayerLive do
         file_size: stem.file_size
       }
     end)
+  end
+
+  defp stem_data([]) do
+    # If no stems, return empty array - AudioPlayer hook will handle this gracefully
+    []
   end
 
   defp make_relative_path(nil), do: ""
@@ -265,6 +300,63 @@ defmodule SoundForgeWeb.AudioPlayerLive do
       "bass" -> "accent-green-500"
       "other" -> "accent-amber-500"
       _ -> "accent-gray-500"
+    end
+  end
+
+  defp build_audio_data(stems, _track) when stems != [] do
+    # If we have stems, use them (existing behavior)
+    stem_data(stems)
+  end
+
+  defp build_audio_data([], track) when not is_nil(track) do
+    # No stems available, check if we have a downloaded file
+    case get_completed_download_path(track) do
+      {:ok, path} when not is_nil(path) ->
+        # Build a single "full_track" audio source
+        relative = make_relative_path(path)
+        [
+          %{
+            type: "full_track",
+            url: "/files/#{relative}",
+            file_size: get_file_size(path)
+          }
+        ]
+
+      _ ->
+        # No download available, return empty
+        []
+    end
+  end
+
+  defp build_audio_data([], nil), do: []
+
+  defp get_completed_download_path(track) do
+    # Check if track has preloaded download_jobs
+    case Map.get(track, :download_jobs) do
+      jobs when is_list(jobs) ->
+        # Find the most recent completed download
+        completed =
+          jobs
+          |> Enum.filter(&(&1.status == :completed and not is_nil(&1.output_path)))
+          |> Enum.sort_by(& &1.updated_at, {:desc, DateTime})
+          |> List.first()
+
+        case completed do
+          %{output_path: path} -> {:ok, path}
+          _ -> {:error, :no_completed_download}
+        end
+
+      _ ->
+        # download_jobs not preloaded, fetch it
+        alias SoundForge.Music
+        Music.get_download_path(track.id)
+    end
+  end
+
+  defp get_file_size(path) do
+    case File.stat(path) do
+      {:ok, %{size: size}} -> size
+      _ -> nil
     end
   end
 end

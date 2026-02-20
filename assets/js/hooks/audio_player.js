@@ -9,6 +9,7 @@ import WaveSurfer from "wavesurfer.js"
 
 const AudioPlayer = {
   mounted() {
+    console.log("[AudioPlayer] Hook mounted")
     this.audioContext = null
     this.stems = {}
     this.wavesurfer = null
@@ -18,18 +19,24 @@ const AudioPlayer = {
 
     // Parse stem data from data attribute
     const stemData = JSON.parse(this.el.dataset.stems || "[]")
+    console.log("[AudioPlayer] Parsed stem data:", stemData)
 
     if (stemData.length > 0) {
       this.initAudioContext(stemData)
+    } else {
+      console.warn("[AudioPlayer] No stems available")
     }
 
-    // Handle LiveView events
+    // Handle LiveView events from server
     this.handleEvent("toggle_play", () => this.togglePlay())
     this.handleEvent("seek", ({ time }) => this.seek(time))
     this.handleEvent("set_volume", ({ level }) => this.setMasterVolume(level / 100))
     this.handleEvent("set_stem_volume", ({ stem, level }) => this.setStemVolume(stem, level / 100))
     this.handleEvent("mute_stem", ({ stem, muted }) => this.muteStem(stem, muted))
     this.handleEvent("solo_stem", ({ stem }) => this.soloStem(stem))
+
+    // Handle DOM events and forward to LiveView
+    this.handleDOMEvents()
 
     // Keyboard shortcuts (only when not typing in an input)
     this._keyHandler = (e) => {
@@ -85,45 +92,61 @@ const AudioPlayer = {
     document.addEventListener("keydown", this._keyHandler)
   },
 
+  handleDOMEvents() {
+    // This method is called from mounted() to set up event listeners
+    // No DOM event forwarding needed since LiveComponent handles phx-click events
+  },
+
   async initAudioContext(stemData) {
-    this.audioContext = new (window.AudioContext || window.webkitAudioContext)()
-    this.masterGain = this.audioContext.createGain()
-    this.masterGain.connect(this.audioContext.destination)
-    this.masterGain.gain.value = 0.8
+    console.log("[AudioPlayer] Initializing audio context with stems:", stemData)
 
-    // Load all stems in parallel
-    const loadPromises = stemData.map(async (stem) => {
-      try {
-        const response = await fetch(stem.url)
-        if (!response.ok) {
-          console.warn(`Failed to fetch stem ${stem.type}: HTTP ${response.status} for ${stem.url}`)
-          return
+    try {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)()
+      this.masterGain = this.audioContext.createGain()
+      this.masterGain.connect(this.audioContext.destination)
+      this.masterGain.gain.value = 0.8
+
+      // Load all stems in parallel
+      const loadPromises = stemData.map(async (stem) => {
+        try {
+          console.log(`[AudioPlayer] Fetching stem ${stem.type} from ${stem.url}`)
+          const response = await fetch(stem.url)
+          if (!response.ok) {
+            console.error(`[AudioPlayer] Failed to fetch stem ${stem.type}: HTTP ${response.status} for ${stem.url}`)
+            return
+          }
+          const arrayBuffer = await response.arrayBuffer()
+          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer)
+
+          const gainNode = this.audioContext.createGain()
+          gainNode.connect(this.masterGain)
+
+          this.stems[stem.type] = {
+            buffer: audioBuffer,
+            gainNode: gainNode,
+            source: null,
+            volume: 1.0,
+            muted: false,
+            url: stem.url
+          }
+          console.log(`[AudioPlayer] Successfully loaded stem ${stem.type}`)
+        } catch (err) {
+          console.error(`[AudioPlayer] Failed to load stem ${stem.type}:`, err)
         }
-        const arrayBuffer = await response.arrayBuffer()
-        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer)
+      })
 
-        const gainNode = this.audioContext.createGain()
-        gainNode.connect(this.masterGain)
-
-        this.stems[stem.type] = {
-          buffer: audioBuffer,
-          gainNode: gainNode,
-          source: null,
-          volume: 1.0,
-          muted: false,
-          url: stem.url
-        }
-      } catch (err) {
-        console.warn(`Failed to load stem ${stem.type}:`, err)
-      }
-    })
-
-    await Promise.all(loadPromises)
+      await Promise.all(loadPromises)
+      console.log("[AudioPlayer] All stems loaded:", Object.keys(this.stems))
+    } catch (err) {
+      console.error("[AudioPlayer] Failed to initialize audio context:", err)
+      return
+    }
 
     // Report duration from the longest stem
     const durations = Object.values(this.stems).map(s => s.buffer.duration)
     const maxDuration = Math.max(...durations, 0)
     this.duration = maxDuration
+    console.log("[AudioPlayer] Duration:", maxDuration)
     this.pushEvent("player_ready", { duration: maxDuration })
 
     // Initialize WaveSurfer waveform using the first stem (vocals preferred)
@@ -131,15 +154,25 @@ const AudioPlayer = {
   },
 
   initWaveform(stemData) {
+    console.log("[AudioPlayer] Initializing waveform")
     const waveformEl = this.el.querySelector("[id^='waveform-']")
-    if (!waveformEl) return
+    if (!waveformEl) {
+      console.error("[AudioPlayer] Waveform element not found")
+      return
+    }
+    console.log("[AudioPlayer] Found waveform element:", waveformEl.id)
 
     // Prefer vocals stem for waveform, fallback to first available
     const vocalsUrl = stemData.find(s => s.type === "vocals")?.url
     const firstUrl = stemData[0]?.url
     const waveformUrl = vocalsUrl || firstUrl
-    if (!waveformUrl) return
+    console.log("[AudioPlayer] Waveform URL:", waveformUrl)
+    if (!waveformUrl) {
+      console.error("[AudioPlayer] No waveform URL available")
+      return
+    }
 
+    console.log("[AudioPlayer] Creating WaveSurfer instance")
     this.wavesurfer = WaveSurfer.create({
       container: waveformEl,
       waveColor: "#6b7280",
@@ -156,12 +189,19 @@ const AudioPlayer = {
 
     // Mute wavesurfer's own audio - we use our Web Audio API stems
     this.wavesurfer.on("ready", () => {
+      console.log("[AudioPlayer] WaveSurfer ready")
       this.wavesurfer.setMuted(true)
+    })
+
+    // Error handling
+    this.wavesurfer.on("error", (error) => {
+      console.error("[AudioPlayer] WaveSurfer error:", error)
     })
 
     // Handle click-to-seek on the waveform
     // v7: interaction event passes time in seconds
     this.wavesurfer.on("interaction", (newTime) => {
+      console.log("[AudioPlayer] Waveform seek to:", newTime)
       this.seek(newTime)
       this.pushEvent("time_update", { time: newTime })
     })

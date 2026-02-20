@@ -34,6 +34,7 @@ defmodule SoundForge.Jobs.LalalAIWorker do
     priority: 2
 
   alias SoundForge.Audio.LalalAI
+  alias SoundForge.Jobs.PipelineBroadcaster
   alias SoundForge.Music
 
   require Logger
@@ -74,8 +75,7 @@ defmodule SoundForge.Jobs.LalalAIWorker do
       Logger.error(error_msg)
       fresh_job = Music.get_processing_job!(job_id)
       Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
-      broadcast_progress(job_id, :failed, 0)
-      broadcast_track_progress(track_id, :processing, :failed, 0)
+      PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
       raise error_msg
     end
 
@@ -100,8 +100,7 @@ defmodule SoundForge.Jobs.LalalAIWorker do
         Logger.error("lalal.ai separation failed: #{error_msg}")
         fresh_job = Music.get_processing_job!(job_id)
         Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
-        broadcast_progress(job_id, :failed, 0)
-        broadcast_track_progress(track_id, :processing, :failed, 0)
+        PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
         {:error, error_msg}
     end
   end
@@ -117,8 +116,7 @@ defmodule SoundForge.Jobs.LalalAIWorker do
     Logger.error("lalal.ai polling timed out after #{attempt} attempts")
     fresh_job = Music.get_processing_job!(job_id)
     Music.update_processing_job(fresh_job, %{status: :failed, error: "Polling timeout"})
-    broadcast_progress(job_id, :failed, 0)
-    broadcast_track_progress(track_id, :processing, :failed, 0)
+    PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
     {:error, :polling_timeout}
   end
 
@@ -210,8 +208,7 @@ defmodule SoundForge.Jobs.LalalAIWorker do
     })
 
     Logger.info("lalal.ai separation complete, stems=#{length(stem_records)}")
-    broadcast_progress(job_id, :completed, 100)
-    broadcast_track_progress(track_id, :processing, :completed, 100)
+    PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :processing)
 
     # Chain: enqueue analysis job
     enqueue_analysis(track_id, file_path)
@@ -298,19 +295,10 @@ defmodule SoundForge.Jobs.LalalAIWorker do
   end
 
   defp broadcast_progress(job_id, status, progress) do
-    Phoenix.PubSub.broadcast(
-      SoundForge.PubSub,
-      "jobs:#{job_id}",
-      {:job_progress, %{job_id: job_id, status: status, progress: progress}}
-    )
+    PipelineBroadcaster.broadcast_progress(job_id, status, progress)
   end
 
   defp broadcast_track_progress(track_id, stage, status, progress) do
-    Phoenix.PubSub.broadcast(
-      SoundForge.PubSub,
-      "track_pipeline:#{track_id}",
-      {:pipeline_progress,
-       %{track_id: track_id, stage: stage, status: status, progress: progress}}
-    )
+    PipelineBroadcaster.broadcast_track_progress(track_id, stage, status, progress)
   end
 end

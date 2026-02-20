@@ -12,6 +12,7 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
   attr :midi_devices, :list, default: []
   attr :midi_bpm, :any, default: nil
   attr :midi_transport, :atom, default: :stopped
+  attr :pipelines, :map, default: %{}
 
   def app_header(assigns) do
     ~H"""
@@ -24,7 +25,7 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
           >
             Sound Forge Alchemy
           </a>
-          <span class="hidden sm:inline text-xs text-gray-600">v3.0.0</span>
+          <span class="hidden sm:inline text-xs text-gray-600">v4.1.0</span>
           <nav class="hidden md:flex items-center gap-1" aria-label="Main navigation">
             <button
               phx-click="nav_tab"
@@ -53,22 +54,103 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
           </nav>
         </div>
         <div class="flex items-center gap-3">
-          <!-- MIDI Status Indicator -->
+          <!-- MIDI Status Indicator with Dropdown -->
           <div class="flex items-center gap-2 text-sm">
-            <div class={[
-              "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium",
-              if(length(@midi_devices) > 0,
-                do: "bg-green-900/40 text-green-400 border border-green-800/50",
-                else: "bg-gray-800/50 text-gray-500 border border-gray-700/50"
-              )
-            ]}>
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
-              </svg>
-              <span>MIDI</span>
-              <span :if={length(@midi_devices) > 0} class="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-green-500 text-black rounded-full">
-                {length(@midi_devices)}
-              </span>
+            <div class="dropdown dropdown-end">
+              <label
+                tabindex="0"
+                role="button"
+                class={[
+                  "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors",
+                  if(length(@midi_devices) > 0,
+                    do: "bg-green-900/40 text-green-400 border border-green-800/50 hover:bg-green-900/60",
+                    else: "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-gray-800/80 hover:text-gray-400"
+                  )
+                ]}
+                title={midi_tooltip_text(@midi_devices)}
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+                </svg>
+                <span>MIDI</span>
+                <span :if={length(@midi_devices) > 0} class="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-green-500 text-black rounded-full">
+                  {length(@midi_devices)}
+                </span>
+              </label>
+              <div
+                tabindex="0"
+                class="dropdown-content z-[60] shadow-xl bg-gray-800 border border-gray-700 rounded-lg w-72 mt-2"
+              >
+                <!-- Dropdown Header -->
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+                  <h3 class="text-sm font-semibold text-white">MIDI Status</h3>
+                  <span class={[
+                    "text-[10px] font-medium px-1.5 py-0.5 rounded",
+                    if(length(@midi_devices) > 0,
+                      do: "bg-green-900/50 text-green-400",
+                      else: "bg-gray-700 text-gray-500"
+                    )
+                  ]}>
+                    {if length(@midi_devices) > 0, do: "Connected", else: "No devices"}
+                  </span>
+                </div>
+                <!-- Device List -->
+                <div class="px-4 py-3 space-y-2">
+                  <div :if={length(@midi_devices) == 0} class="text-center py-2">
+                    <p class="text-xs text-gray-500">No MIDI devices connected.</p>
+                    <p class="text-[11px] text-gray-600 mt-1">
+                      Connect a MIDI controller to enable hardware control.
+                    </p>
+                  </div>
+                  <div :if={length(@midi_devices) > 0}>
+                    <p class="text-[10px] text-gray-500 uppercase tracking-wide font-medium mb-1.5">
+                      Devices ({length(@midi_devices)})
+                    </p>
+                    <div class="space-y-1.5">
+                      <div
+                        :for={device <- @midi_devices}
+                        class="flex items-center gap-2.5 px-2.5 py-1.5 bg-gray-900/60 rounded-md"
+                      >
+                        <div class={[
+                          "w-2 h-2 rounded-full shrink-0",
+                          if(device.status == :connected, do: "bg-green-500", else: "bg-red-500")
+                        ]}></div>
+                        <div class="min-w-0 flex-1">
+                          <p class="text-xs text-gray-300 truncate">{device.name}</p>
+                          <p class="text-[10px] text-gray-600">{device.direction} / {device.type}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Transport & BPM -->
+                <div class="px-4 py-2.5 border-t border-gray-700/50 flex items-center gap-3">
+                  <div class="flex items-center gap-1.5">
+                    <div class={[
+                      "w-2 h-2 rounded-full",
+                      if(@midi_transport == :playing, do: "bg-green-500 animate-pulse", else: "bg-gray-600")
+                    ]}></div>
+                    <span class="text-[11px] text-gray-400">
+                      {if @midi_transport == :playing, do: "Playing", else: "Stopped"}
+                    </span>
+                  </div>
+                  <span
+                    :if={@midi_bpm}
+                    class="text-[11px] font-mono text-purple-300"
+                  >
+                    {Float.round(@midi_bpm * 1.0, 1)} BPM
+                  </span>
+                </div>
+                <!-- Footer Link -->
+                <div class="border-t border-gray-700 px-4 py-2.5">
+                  <a
+                    href="/settings"
+                    class="block w-full text-center text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium"
+                  >
+                    MIDI Settings
+                  </a>
+                </div>
+              </div>
             </div>
             <span
               :if={@midi_bpm}
@@ -78,24 +160,30 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
             </span>
           </div>
           <.live_component
+            module={SoundForgeWeb.Live.Components.PipelineTracker}
+            id="pipeline-tracker"
+            pipelines={@pipelines}
+          />
+          <.live_component
             module={SoundForgeWeb.Live.Components.NotificationBell}
             id="notification-bell"
             user_id={@current_user_id}
           />
           <%= if @current_scope do %>
             <div class="dropdown dropdown-end">
-              <button
+              <label
                 tabindex="0"
-                class="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+                role="button"
+                class="btn btn-ghost btn-sm flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
               >
                 <span class="hero-user-circle w-5 h-5"></span>
                 <span class="hidden sm:inline truncate max-w-[120px]">
                   {@current_scope.user.email}
                 </span>
-              </button>
+              </label>
               <ul
                 tabindex="0"
-                class="dropdown-content z-[1] menu p-2 shadow-lg bg-gray-800 border border-gray-700 rounded-lg w-48 mt-2"
+                class="dropdown-content z-[60] menu p-2 shadow-lg bg-gray-800 border border-gray-700 rounded-lg w-48 mt-2"
               >
                 <li><a href="/settings" class="text-gray-300 hover:text-white">Settings</a></li>
                 <li :if={@current_scope && @current_scope.admin?}>
@@ -162,5 +250,16 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
 
   defp sub_nav_class(false) do
     "px-3 py-1 text-xs font-medium text-gray-500 hover:text-white hover:bg-gray-800 rounded-full whitespace-nowrap transition-colors"
+  end
+
+  defp midi_tooltip_text(devices) when is_list(devices) and length(devices) > 0 do
+    count = length(devices)
+    suffix = if count == 1, do: "device connected", else: "devices connected"
+    names = Enum.map_join(devices, ", ", & &1.name)
+    "#{count} MIDI #{suffix}: #{names}"
+  end
+
+  defp midi_tooltip_text(_devices) do
+    "No MIDI devices connected. Connect a MIDI controller to enable hardware control."
   end
 end

@@ -176,6 +176,84 @@ defmodule SoundForge.Audio.LalalAI do
   end
 
   @doc """
+  Returns true if lalal.ai is configured for the given user.
+  Checks user-level API key first, then falls back to Application env.
+  """
+  @spec configured_for_user?(integer() | nil) :: boolean()
+  def configured_for_user?(user_id) do
+    not is_nil(api_key_for_user(user_id))
+  end
+
+  @doc """
+  Resolves the API key for a given user.
+  Priority: user's stored key -> Application env key.
+  """
+  @spec api_key_for_user(integer() | nil) :: String.t() | nil
+  def api_key_for_user(nil), do: api_key()
+
+  def api_key_for_user(user_id) when is_integer(user_id) do
+    case SoundForge.Settings.get_user_settings(user_id) do
+      %{lalalai_api_key: key} when is_binary(key) and byte_size(key) > 0 -> key
+      _ -> api_key()
+    end
+  end
+
+  @doc """
+  Tests whether a lalal.ai API key is valid by making a lightweight
+  API call (a check request with a dummy task ID). Returns {:ok, :valid}
+  if the key authenticates successfully, or {:error, reason} otherwise.
+
+  A 200 response with an error about an unknown task ID means the key
+  itself is valid. A 401/403 or auth-related error means invalid.
+  """
+  @spec test_api_key(String.t()) :: {:ok, :valid} | {:error, term()}
+  def test_api_key(key) when is_binary(key) and byte_size(key) > 0 do
+    url = "#{@base_url}/check/"
+
+    result =
+      Req.get(url,
+        headers: [{"authorization", "license #{key}"}],
+        params: [id: "test-key-validation"],
+        receive_timeout: @default_timeout
+      )
+
+    case result do
+      {:ok, %{status: 200, body: body}} ->
+        # A 200 response means the key authenticated. The body may
+        # contain an error about the non-existent task ID, but that
+        # proves the key itself is valid.
+        case body do
+          %{"status" => "error", "error" => msg} ->
+            # Auth succeeded but task not found -- key is valid
+            if String.contains?(String.downcase(to_string(msg)), "auth") do
+              {:error, :invalid_api_key}
+            else
+              {:ok, :valid}
+            end
+
+          _ ->
+            {:ok, :valid}
+        end
+
+      {:ok, %{status: 401}} ->
+        {:error, :invalid_api_key}
+
+      {:ok, %{status: 403}} ->
+        {:error, :invalid_api_key}
+
+      {:ok, %{status: status_code}} ->
+        Logger.warning("lalal.ai key test returned HTTP #{status_code}")
+        {:error, {:http_error, status_code}}
+
+      {:error, reason} ->
+        Logger.error("lalal.ai key test failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def test_api_key(_), do: {:error, :empty_api_key}
+
+  @doc """
   Returns the list of supported stem filter names for lalal.ai.
   """
   @spec stem_filters() :: [String.t()]

@@ -8,6 +8,7 @@
     midi_devices={@midi_devices}
     midi_bpm={@midi_bpm}
     midi_transport={@midi_transport}
+    pipelines={@pipelines}
   />
   
 <!-- Toast Notifications -->
@@ -659,36 +660,7 @@
           </div>
         </div>
         
-<!-- Active Pipelines -->
-        <div
-          :if={map_size(@pipelines) > 0}
-          class="px-6 pt-4"
-          aria-live="polite"
-          aria-label="Processing pipelines"
-        >
-          <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Active Pipelines
-          </h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
-            <div :for={{track_id, pipeline} <- @pipelines} class="relative">
-              <SoundForgeWeb.Components.JobProgress.pipeline_progress
-                pipeline={pipeline}
-                track_title={pipeline_track_title(@streams.tracks, track_id)}
-              />
-              <button
-                phx-click="dismiss_pipeline"
-                phx-value-track-id={track_id}
-                class={"absolute top-2 right-2 text-xs " <>
-                  if(pipeline_complete?(pipeline),
-                    do: "text-green-400 hover:text-green-300",
-                    else: "text-gray-500 hover:text-white")}
-                aria-label="Dismiss pipeline notification"
-              >
-                &times;
-              </button>
-            </div>
-          </div>
-        </div>
+<!-- Active Pipelines are displayed in the header PipelineTracker dropdown -->
         
 <!-- Browse Context Breadcrumb -->
         <div :if={@browse_filter} class="flex items-center gap-2 mb-4 px-6 pt-4">
@@ -780,7 +752,7 @@
 
         <%= if !(@nav_context in [:artist, :album] && is_nil(@browse_filter)) do %>
           <!-- Sticky Search & Sort & Filter & Actions Toolbar -->
-          <div class="sticky top-0 z-30 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800/50">
+          <div class="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 py-2">
             <!-- Search & Sort & View Toggle -->
             <div class="flex gap-3 px-6 pt-4 mb-4">
               <form phx-change="search" class="flex-1">
@@ -1612,7 +1584,7 @@
 <!-- Sticky Pagination -->
           <div
             :if={@track_count > @per_page && @search_query == ""}
-            class="sticky bottom-0 bg-gray-950/90 backdrop-blur border-t border-gray-800 py-3 px-6"
+            class="sticky bottom-0 z-10 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 py-2 px-6"
           >
             <div class="flex items-center justify-center gap-2">
               <button
@@ -2230,4 +2202,167 @@
     active_tab={@nav_tab}
     midi_device_count={length(@midi_devices)}
   />
+
+<!-- lalal.ai API Key Required Modal -->
+  <div
+    :if={@show_lalalai_modal}
+    id="lalalai-modal-backdrop"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    phx-click="close_lalalai_modal"
+  >
+    <div
+      class="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+      phx-window-keydown="close_lalalai_modal"
+      phx-key="Escape"
+      phx-click=""
+    >
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between px-6 pt-5 pb-0">
+        <div class="flex items-center gap-3">
+          <!-- Animated Warning Icon -->
+          <div class="relative flex items-center justify-center w-10 h-10">
+            <div class="absolute inset-0 rounded-full bg-amber-500/20 animate-ping" style="animation-duration: 2s;"></div>
+            <div class="relative flex items-center justify-center w-10 h-10 rounded-full bg-amber-900/50 border border-amber-600/50">
+              <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
+              </svg>
+            </div>
+          </div>
+          <h3 class="text-lg font-semibold text-white">lalal.ai API Key Required</h3>
+        </div>
+        <button
+          type="button"
+          phx-click="close_lalalai_modal"
+          class="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800"
+          aria-label="Close"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="px-6 py-4 space-y-4" phx-click="" >
+        <div class="bg-amber-900/20 border border-amber-700/30 rounded-lg px-4 py-3">
+          <p class="text-sm text-amber-200">
+            Cloud stem separation requires a lalal.ai API key.
+            This service provides high-quality stem separation using cloud processing,
+            supporting more stem types than local Demucs.
+          </p>
+        </div>
+
+        <!-- Expandable Key Input Section -->
+        <div :if={!@lalalai_modal_expanded}>
+          <button
+            type="button"
+            phx-click="expand_lalalai_key_form"
+            class="w-full flex items-center justify-between px-4 py-3 bg-gray-800 hover:bg-gray-750 border border-gray-700 rounded-lg text-sm text-gray-300 hover:text-white transition-colors group"
+          >
+            <span class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              I have my own lalal.ai keys
+            </span>
+            <svg class="w-4 h-4 text-gray-500 group-hover:text-purple-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Expanded Key Form -->
+        <div :if={@lalalai_modal_expanded} class="space-y-3">
+          <div class="border-t border-gray-800 pt-3">
+            <label for="lalalai-modal-key" class="block text-sm font-medium text-gray-300 mb-2">
+              API Key
+            </label>
+            <form phx-change="lalalai_modal_key_input" phx-submit="test_save_lalalai_key">
+              <input
+                type="password"
+                id="lalalai-modal-key"
+                name="key"
+                value={@lalalai_modal_key_input}
+                placeholder="Paste your lalal.ai API key here"
+                autocomplete="off"
+                class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+              />
+            </form>
+          </div>
+
+          <!-- Test Result in Modal -->
+          <div
+            :if={@lalalai_modal_test_result}
+            class={[
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
+              case @lalalai_modal_test_result do
+                {:ok, _} -> "bg-green-900/30 border border-green-700/50 text-green-300"
+                {:error, _} -> "bg-red-900/30 border border-red-700/50 text-red-300"
+              end
+            ]}
+          >
+            <%= case @lalalai_modal_test_result do %>
+              <% {:ok, msg} -> %>
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>{msg}</span>
+              <% {:error, msg} -> %>
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span>{msg}</span>
+            <% end %>
+          </div>
+
+          <button
+            type="button"
+            phx-click="test_save_lalalai_key"
+            disabled={@lalalai_modal_testing || @lalalai_modal_key_input == ""}
+            class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg :if={!@lalalai_modal_testing} class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <svg :if={@lalalai_modal_testing} class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            {if @lalalai_modal_testing, do: "Verifying...", else: "Test & Save Key"}
+          </button>
+
+          <p class="text-xs text-gray-500 text-center">
+            Need a key?
+            <a
+              href="https://www.lalal.ai/developer/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-purple-400 hover:text-purple-300 underline"
+            >
+              Sign up at lalal.ai
+            </a>
+          </p>
+        </div>
+
+        <!-- Settings Link -->
+        <div class="border-t border-gray-800 pt-3">
+          <.link
+            navigate={~p"/settings"}
+            class="flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-purple-300 transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Or configure in Settings
+          </.link>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

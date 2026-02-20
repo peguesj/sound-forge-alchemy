@@ -8,8 +8,9 @@ defmodule SoundForgeWeb.SettingsLive do
   alias SoundForge.Spotify.OAuth
   alias SoundForge.Accounts.UserSettings
   alias SoundForge.Audio.SpotDL
+  alias SoundForge.Audio.LalalAI
 
-  @sections ~w(spotify downloads youtube demucs analysis storage control_surfaces general advanced)a
+  @sections ~w(spotify downloads youtube demucs cloud_separation analysis storage control_surfaces general advanced)a
 
   @impl true
   def mount(_params, session, socket) do
@@ -30,6 +31,10 @@ defmodule SoundForgeWeb.SettingsLive do
       |> assign(:spotify_linked, spotify_linked)
       |> assign(:spotdl_available, SpotDL.available?())
       |> assign(:ffmpeg_available, ffmpeg_available?())
+      |> assign(:lalalai_configured, lalalai_configured?(user_id))
+      |> assign(:lalalai_api_key_input, "")
+      |> assign(:lalalai_testing, false)
+      |> assign(:lalalai_test_result, nil)
       |> assign(:form_dirty, false)
       |> assign_form(changeset)
 
@@ -119,6 +124,120 @@ defmodule SoundForgeWeb.SettingsLive do
     end
   end
 
+  def handle_event("lalalai_key_input", %{"key" => key}, socket) do
+    {:noreply, assign(socket, :lalalai_api_key_input, key)}
+  end
+
+  def handle_event("test_lalalai_key", _params, socket) do
+    key = socket.assigns.lalalai_api_key_input
+
+    if key == "" do
+      {:noreply, assign(socket, :lalalai_test_result, {:error, "Please enter an API key"})}
+    else
+      socket = assign(socket, :lalalai_testing, true)
+      lv_pid = self()
+
+      Task.Supervisor.async_nolink(SoundForge.TaskSupervisor, fn ->
+        result = LalalAI.test_api_key(key)
+        send(lv_pid, {:lalalai_test_result, result, key})
+      end)
+
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("save_lalalai_key", _params, socket) do
+    user_id = socket.assigns.current_user_id
+    key = socket.assigns.lalalai_api_key_input
+
+    if user_id && key != "" do
+      case Settings.save_lalalai_api_key(user_id, key) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(:lalalai_configured, true)
+           |> assign(:lalalai_test_result, nil)
+           |> put_flash(:info, "lalal.ai API key saved.")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to save API key.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Please enter an API key.")}
+    end
+  end
+
+  def handle_event("remove_lalalai_key", _params, socket) do
+    user_id = socket.assigns.current_user_id
+
+    if user_id do
+      case Settings.save_lalalai_api_key(user_id, nil) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(:lalalai_configured, false)
+           |> assign(:lalalai_api_key_input, "")
+           |> assign(:lalalai_test_result, nil)
+           |> put_flash(:info, "lalal.ai API key removed.")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to remove API key.")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:lalalai_test_result, result, key}, socket) do
+    case result do
+      {:ok, :valid} ->
+        user_id = socket.assigns.current_user_id
+
+        # Auto-save on successful test
+        if user_id do
+          Settings.save_lalalai_api_key(user_id, key)
+        end
+
+        {:noreply,
+         socket
+         |> assign(:lalalai_testing, false)
+         |> assign(:lalalai_configured, true)
+         |> assign(:lalalai_test_result, {:ok, "API key is valid and has been saved."})
+         |> put_flash(:info, "lalal.ai API key verified and saved.")}
+
+      {:error, :invalid_api_key} ->
+        {:noreply,
+         socket
+         |> assign(:lalalai_testing, false)
+         |> assign(:lalalai_test_result, {:error, "Invalid API key. Please check and try again."})}
+
+      {:error, :empty_api_key} ->
+        {:noreply,
+         socket
+         |> assign(:lalalai_testing, false)
+         |> assign(:lalalai_test_result, {:error, "API key cannot be empty."})}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:lalalai_testing, false)
+         |> assign(:lalalai_test_result, {:error, "Connection failed: #{inspect(reason)}"})}
+    end
+  end
+
+  # Handle Task.Supervisor async task results
+  @impl true
+  def handle_info({ref, _result}, socket) when is_reference(ref) do
+    Process.demonitor(ref, [:flush])
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, socket) do
+    {:noreply, assign(socket, :lalalai_testing, false)}
+  end
+
   # -- Private --
 
   defp resolve_user_id(socket, session) do
@@ -142,6 +261,12 @@ defmodule SoundForgeWeb.SettingsLive do
 
   defp ffmpeg_available? do
     is_binary(System.find_executable("ffmpeg"))
+  end
+
+  defp lalalai_configured?(nil), do: LalalAI.configured?()
+
+  defp lalalai_configured?(user_id) do
+    LalalAI.configured_for_user?(user_id)
   end
 
   defp params_differ_from_saved?(params, nil), do: params != %{}
@@ -180,6 +305,7 @@ defmodule SoundForgeWeb.SettingsLive do
   defp section_label(:downloads), do: "Downloads"
   defp section_label(:youtube), do: "YouTube / yt-dlp"
   defp section_label(:demucs), do: "Demucs"
+  defp section_label(:cloud_separation), do: "Cloud Separation"
   defp section_label(:analysis), do: "Analysis"
   defp section_label(:storage), do: "Storage"
   defp section_label(:general), do: "General"

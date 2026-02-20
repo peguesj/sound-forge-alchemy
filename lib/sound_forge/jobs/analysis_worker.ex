@@ -11,6 +11,7 @@ defmodule SoundForge.Jobs.AnalysisWorker do
     priority: 2
 
   alias SoundForge.Audio.AnalyzerPort
+  alias SoundForge.Jobs.PipelineBroadcaster
   alias SoundForge.Music
 
   require Logger
@@ -42,8 +43,7 @@ defmodule SoundForge.Jobs.AnalysisWorker do
       error_msg = "Audio file not found: #{resolved_path}"
       Logger.error(error_msg)
       Music.update_analysis_job(job, %{status: :failed, error: error_msg})
-      broadcast_progress(job_id, :failed, 0)
-      broadcast_track_progress(track_id, :analysis, :failed, 0)
+      PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :analysis)
       {:error, error_msg}
     end
   end
@@ -86,15 +86,10 @@ defmodule SoundForge.Jobs.AnalysisWorker do
         })
 
         Logger.info("Analysis complete")
-        broadcast_progress(job_id, :completed, 100)
-        broadcast_track_progress(track_id, :analysis, :completed, 100)
+        PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :analysis)
 
         # Broadcast that the track is fully processed
-        Phoenix.PubSub.broadcast(
-          SoundForge.PubSub,
-          "track_pipeline:#{track_id}",
-          {:pipeline_complete, %{track_id: track_id}}
-        )
+        PipelineBroadcaster.broadcast_pipeline_complete(track_id)
 
         :ok
 
@@ -102,26 +97,16 @@ defmodule SoundForge.Jobs.AnalysisWorker do
         error_msg = inspect(reason)
         Logger.error("Analysis failed: #{error_msg}")
         Music.update_analysis_job(job, %{status: :failed, error: error_msg})
-        broadcast_progress(job_id, :failed, 0)
-        broadcast_track_progress(track_id, :analysis, :failed, 0)
+        PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :analysis)
         {:error, error_msg}
     end
   end
 
   defp broadcast_progress(job_id, status, progress) do
-    Phoenix.PubSub.broadcast(
-      SoundForge.PubSub,
-      "jobs:#{job_id}",
-      {:job_progress, %{job_id: job_id, status: status, progress: progress}}
-    )
+    PipelineBroadcaster.broadcast_progress(job_id, status, progress)
   end
 
   defp broadcast_track_progress(track_id, stage, status, progress) do
-    Phoenix.PubSub.broadcast(
-      SoundForge.PubSub,
-      "track_pipeline:#{track_id}",
-      {:pipeline_progress,
-       %{track_id: track_id, stage: stage, status: status, progress: progress}}
-    )
+    PipelineBroadcaster.broadcast_track_progress(track_id, stage, status, progress)
   end
 end

@@ -112,3 +112,11 @@
   background: rgba(107, 114, 128, 0.3);
   border-radius: 2px;
 }
+
+/* Slow spin animation for pipeline tracker gear icon */
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}

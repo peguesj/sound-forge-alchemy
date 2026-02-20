@@ -78,7 +78,7 @@
     <!-- Sidebar -->
     <nav class="w-full md:w-48 md:shrink-0" aria-label="Settings sections">
       <ul class="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0">
-        <li :for={section <- ~w(spotify downloads youtube demucs analysis storage general advanced)a}>
+        <li :for={section <- ~w(spotify downloads youtube demucs cloud_separation analysis storage general advanced)a}>
           <button
             phx-click="switch_section"
             phx-value-section={section}
@@ -471,6 +471,166 @@
           </div>
         </div>
         
+<!-- Cloud Separation Section -->
+        <div :if={@section == :cloud_separation}>
+          <div
+            id="section-content-cloud-separation"
+            style="display:none;"
+            class="space-y-6"
+            phx-mounted={
+              JS.show(
+                transition:
+                  {"transition-all duration-200 ease-out", "opacity-0 translate-y-1",
+                   "opacity-100 translate-y-0"}
+              )
+            }
+          >
+            <div>
+              <h2
+                id="section-heading-cloud-separation"
+                tabindex="-1"
+                class="text-lg font-semibold text-white"
+              >
+                Cloud Stem Separation (lalal.ai)
+              </h2>
+              <p class="text-sm text-gray-500 mt-1">
+                Configure your lalal.ai API key for cloud-based stem separation.
+                Cloud processing supports more stem types and does not require local GPU resources.
+              </p>
+            </div>
+
+            <!-- API Key Status -->
+            <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+              <h3 class="text-sm font-medium text-gray-300 mb-3">API Key Status</h3>
+              <div class="flex flex-wrap items-center gap-3">
+                <div
+                  aria-hidden="true"
+                  class={[
+                    "w-2 h-2 rounded-full",
+                    if(@lalalai_configured, do: "bg-green-500", else: "bg-gray-600")
+                  ]}
+                >
+                </div>
+                <span class="text-sm text-gray-400">
+                  {if @lalalai_configured, do: "API key configured", else: "Not configured"}
+                </span>
+                <button
+                  :if={@lalalai_configured}
+                  type="button"
+                  phx-click="remove_lalalai_key"
+                  class="sm:ml-auto px-3 py-1.5 text-xs bg-red-900/30 text-red-400 rounded-lg hover:bg-red-900/50 border border-red-800/50"
+                >
+                  Remove Key
+                </button>
+              </div>
+              <p class="text-xs text-gray-500 mt-2">
+                Your API key is stored encrypted. It is used only for lalal.ai API requests.
+              </p>
+            </div>
+
+            <!-- API Key Input -->
+            <div class="bg-gray-900/50 rounded-lg p-5 border border-gray-800/50 space-y-4">
+              <div>
+                <label for="lalalai-api-key" class="block text-sm font-medium text-gray-300 mb-2">
+                  {if @lalalai_configured, do: "Update API Key", else: "Enter API Key"}
+                </label>
+                <form phx-change="lalalai_key_input" phx-submit="test_lalalai_key">
+                  <input
+                    type="password"
+                    id="lalalai-api-key"
+                    name="key"
+                    value={@lalalai_api_key_input}
+                    placeholder="Enter your lalal.ai API key"
+                    autocomplete="off"
+                    class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+                    aria-describedby="lalalai-key-help"
+                  />
+                </form>
+                <p id="lalalai-key-help" class="mt-1 text-xs text-gray-500">
+                  Get your API key from
+                  <a
+                    href="https://www.lalal.ai/developer/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-purple-400 hover:text-purple-300 underline"
+                  >
+                    lalal.ai Developer Portal
+                  </a>
+                </p>
+              </div>
+
+              <!-- Test Result -->
+              <div
+                :if={@lalalai_test_result}
+                class={[
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
+                  case @lalalai_test_result do
+                    {:ok, _} -> "bg-green-900/30 border border-green-700/50 text-green-300"
+                    {:error, _} -> "bg-red-900/30 border border-red-700/50 text-red-300"
+                  end
+                ]}
+              >
+                <%= case @lalalai_test_result do %>
+                  <% {:ok, msg} -> %>
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>{msg}</span>
+                  <% {:error, msg} -> %>
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>{msg}</span>
+                <% end %>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  phx-click="test_lalalai_key"
+                  disabled={@lalalai_testing || @lalalai_api_key_input == ""}
+                  class="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-200 rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg :if={!@lalalai_testing} class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <svg :if={@lalalai_testing} class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  {if @lalalai_testing, do: "Testing...", else: "Test & Save"}
+                </button>
+                <button
+                  type="button"
+                  phx-click="save_lalalai_key"
+                  disabled={@lalalai_api_key_input == ""}
+                  class="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save Without Testing
+                </button>
+              </div>
+            </div>
+
+            <!-- Supported Stem Types -->
+            <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+              <h3 class="text-sm font-medium text-gray-300 mb-3">Supported Stem Types</h3>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  :for={filter <- ~w(vocals drum bass piano electricguitar acousticguitar synthesizer strings winds)}
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-900/30 text-purple-300 border border-purple-700/50"
+                >
+                  {filter}
+                </span>
+              </div>
+              <p class="text-xs text-gray-500 mt-3">
+                Cloud separation via lalal.ai supports more stem types than local Demucs,
+                including individual instruments like piano, electric guitar, and synthesizer.
+              </p>
+            </div>
+          </div>
+        </div>
+
 <!-- Analysis Section -->
         <div :if={@section == :analysis} class="space-y-6">
           <div class="flex items-center justify-between">

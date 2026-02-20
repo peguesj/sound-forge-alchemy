@@ -7,6 +7,7 @@ defmodule SoundForge.Settings do
 
   alias SoundForge.Repo
   alias SoundForge.Accounts.UserSettings
+  import Ecto.Changeset
 
   @defaults_map %{
     download_quality: {:sound_forge, :download_quality, "320k"},
@@ -26,6 +27,7 @@ defmodule SoundForge.Settings do
     retention_days: {:sound_forge, :retention_days, 90},
     tracks_per_page: {:sound_forge, :tracks_per_page, 24},
     max_upload_size: {:sound_forge, :max_upload_size, 100_000_000},
+    lalalai_api_key: {:sound_forge, :lalalai_api_key, nil},
     debug_mode: {:sound_forge, :debug_mode, false}
   }
 
@@ -99,6 +101,21 @@ defmodule SoundForge.Settings do
       nil ->
         %UserSettings{user_id: user_id}
         |> UserSettings.changeset(attrs)
+        |> Repo.insert()
+    end
+  end
+
+  @doc "Saves the lalal.ai API key for a user."
+  def save_lalalai_api_key(user_id, api_key) when is_integer(user_id) do
+    case get_user_settings(user_id) do
+      %UserSettings{} = existing ->
+        existing
+        |> cast(%{lalalai_api_key: api_key}, [:lalalai_api_key])
+        |> Repo.update()
+
+      nil ->
+        %UserSettings{user_id: user_id}
+        |> cast(%{lalalai_api_key: api_key}, [:lalalai_api_key])
         |> Repo.insert()
     end
   end

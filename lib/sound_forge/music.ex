@@ -257,7 +257,7 @@ defmodule SoundForge.Music do
   def get_track_by_spotify_id(_), do: nil
 
   @doc """
-  Gets a track with preloaded stems and latest analysis result.
+  Gets a track with preloaded stems, download_jobs, and latest analysis result.
   """
   @spec get_track_with_details!(String.t()) :: Track.t()
   def get_track_with_details!(id) do
@@ -265,7 +265,7 @@ defmodule SoundForge.Music do
     |> where([t], t.id == ^id)
     |> with_download_status()
     |> Repo.one!()
-    |> Repo.preload([:stems, :analysis_results])
+    |> Repo.preload([:stems, :analysis_results, :download_jobs])
   end
 
   @doc """

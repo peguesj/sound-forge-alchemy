@@ -5,7 +5,9 @@ defmodule SoundForgeWeb.DashboardLive do
   use SoundForgeWeb, :live_view
 
   alias SoundForge.Music
+  alias SoundForge.Notifications
   alias SoundForge.Settings
+  alias SoundForge.Audio.LalalAI
 
   @max_debug_logs 500
   @max_midi_log 50
@@ -49,6 +51,11 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:per_page, per_page(current_user_id))
       |> assign(:selected_engine, "demucs")
       |> assign(:preview_mode, false)
+      |> assign(:show_lalalai_modal, false)
+      |> assign(:lalalai_modal_expanded, false)
+      |> assign(:lalalai_modal_key_input, "")
+      |> assign(:lalalai_modal_testing, false)
+      |> assign(:lalalai_modal_test_result, nil)
       |> assign(:debug_mode, Settings.get(current_user_id, :debug_mode) || false)
       |> assign(:drawer_open, false)
       |> assign(:debug_panel_open, false)
@@ -353,6 +360,7 @@ defmodule SoundForgeWeb.DashboardLive do
 
       {:noreply,
        socket
+       |> push_notification(:info, "Download Started", "Downloading \"#{track.title}\"...", %{track_id: track.id})
        |> assign(:pipelines, pipelines)
        |> put_flash(:info, "Download started for #{track.title}")}
     else
@@ -402,9 +410,54 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   @impl true
-  def handle_event("select_engine", %{"engine" => engine}, socket)
-      when engine in ["demucs", "lalalai"] do
-    {:noreply, assign(socket, :selected_engine, engine)}
+  def handle_event("select_engine", %{"engine" => "lalalai"}, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    if LalalAI.configured_for_user?(user_id) do
+      {:noreply, assign(socket, :selected_engine, "lalalai")}
+    else
+      {:noreply,
+       socket
+       |> assign(:show_lalalai_modal, true)
+       |> assign(:lalalai_modal_expanded, false)
+       |> assign(:lalalai_modal_key_input, "")
+       |> assign(:lalalai_modal_testing, false)
+       |> assign(:lalalai_modal_test_result, nil)}
+    end
+  end
+
+  def handle_event("select_engine", %{"engine" => "demucs"}, socket) do
+    {:noreply, assign(socket, :selected_engine, "demucs")}
+  end
+
+  def handle_event("close_lalalai_modal", _params, socket) do
+    {:noreply, assign(socket, :show_lalalai_modal, false)}
+  end
+
+  def handle_event("expand_lalalai_key_form", _params, socket) do
+    {:noreply, assign(socket, :lalalai_modal_expanded, true)}
+  end
+
+  def handle_event("lalalai_modal_key_input", %{"key" => key}, socket) do
+    {:noreply, assign(socket, :lalalai_modal_key_input, key)}
+  end
+
+  def handle_event("test_save_lalalai_key", _params, socket) do
+    key = socket.assigns.lalalai_modal_key_input
+
+    if key == "" do
+      {:noreply, assign(socket, :lalalai_modal_test_result, {:error, "Please enter an API key"})}
+    else
+      socket = assign(socket, :lalalai_modal_testing, true)
+      lv_pid = self()
+
+      Task.Supervisor.async_nolink(SoundForge.TaskSupervisor, fn ->
+        result = LalalAI.test_api_key(key)
+        send(lv_pid, {:lalalai_modal_test_result, result, key})
+      end)
+
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -543,13 +596,42 @@ defmodule SoundForgeWeb.DashboardLive do
   @impl true
   def handle_event("play_track", %{"id" => id}, socket) do
     with {:ok, track} <- fetch_owned_track(socket, id) do
-      if track.download_status == "completed" and Music.count_stems(track.id) > 0 do
-        # Local playback -- navigate to track detail where AudioPlayerLive lives
-        {:noreply, push_navigate(socket, to: ~p"/tracks/#{track.id}")}
-      else
-        # Fall back to Spotify
-        uri = "spotify:track:#{track.spotify_id}"
-        handle_event("play_spotify", %{"uri" => uri}, socket)
+      # Priority order:
+      # 1. Local downloaded file (if exists)
+      # 2. Local stems (if exists)
+      # 3. Spotify Web Playback (fallback)
+
+      cond do
+        # Check if we have a completed download with local file
+        track.download_status == "completed" ->
+          case Music.get_download_path(track.id) do
+            {:ok, local_path} when not is_nil(local_path) ->
+              # Verify file exists before navigating
+              if File.exists?(local_path) do
+                {:noreply, push_navigate(socket, to: ~p"/tracks/#{track.id}")}
+              else
+                # File missing, fall back to Spotify
+                uri = "spotify:track:#{track.spotify_id}"
+                handle_event("play_spotify", %{"uri" => uri}, socket)
+              end
+            _ ->
+              # No download path, try stems or Spotify
+              if Music.count_stems(track.id) > 0 do
+                {:noreply, push_navigate(socket, to: ~p"/tracks/#{track.id}")}
+              else
+                uri = "spotify:track:#{track.spotify_id}"
+                handle_event("play_spotify", %{"uri" => uri}, socket)
+              end
+          end
+
+        # Check if we have stems (stem separation completed)
+        Music.count_stems(track.id) > 0 ->
+          {:noreply, push_navigate(socket, to: ~p"/tracks/#{track.id}")}
+
+        # Fall back to Spotify Web Playback
+        true ->
+          uri = "spotify:track:#{track.spotify_id}"
+          handle_event("play_spotify", %{"uri" => uri}, socket)
       end
     else
       {:error, _} -> {:noreply, put_flash(socket, :error, "Track not found")}
@@ -609,7 +691,7 @@ defmodule SoundForgeWeb.DashboardLive do
       toast: %{type: toast_type, title: "Spotify", message: message}
     )
 
-    {:noreply, socket}
+    {:noreply, push_notification(socket, toast_type, "Spotify", message)}
   end
 
   def handle_event("spotify_error", %{"message" => message}, socket) do
@@ -618,7 +700,7 @@ defmodule SoundForgeWeb.DashboardLive do
       toast: %{type: :error, title: "Spotify", message: message}
     )
 
-    {:noreply, socket}
+    {:noreply, push_notification(socket, :error, "Spotify", message)}
   end
 
   @valid_sort_fields ~w(newest oldest title artist duration)a
@@ -639,11 +721,32 @@ defmodule SoundForgeWeb.DashboardLive do
   # -- Navigation --
 
   @impl true
-  def handle_event("nav_tab", %{"tab" => tab}, socket) do
-    nav_tab = String.to_existing_atom(tab)
-    {:noreply, assign(socket, :nav_tab, nav_tab)}
-  rescue
-    ArgumentError -> {:noreply, socket}
+  def handle_event("nav_tab", %{"tab" => "library"}, socket) do
+    socket =
+      socket
+      |> assign(:nav_tab, :library)
+      |> assign(:nav_context, :all_tracks)
+      |> assign(:browse_filter, nil)
+      |> assign(:page, 1)
+      |> assign(:filters, %{status: "all", artist: "all"})
+      |> assign(:selected_ids, MapSet.new())
+      |> assign(:select_all, false)
+
+    reload_tracks(socket, page: 1, filters: %{status: "all", artist: "all"})
+  end
+
+  def handle_event("nav_tab", %{"tab" => "browse"}, socket) do
+    {:noreply,
+     socket
+     |> assign(:nav_tab, :browse)
+     |> assign(:nav_context, :artist)
+     |> assign(:browse_filter, nil)
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:select_all, false)}
+  end
+
+  def handle_event("nav_tab", %{"tab" => _unknown}, socket) do
+    {:noreply, socket}
   end
 
 
@@ -1144,6 +1247,7 @@ defmodule SoundForgeWeb.DashboardLive do
 
     {:noreply,
      socket
+     |> push_notification(:success, "Playlist Imported", msg)
      |> assign(:fetching_spotify, false)
      |> assign(:playlists, playlists)
      |> put_flash(:info, msg)}
@@ -1160,13 +1264,54 @@ defmodule SoundForgeWeb.DashboardLive do
       end)
 
     msg = fetch_success_message(tracks_data)
-    {:noreply, socket |> assign(:fetching_spotify, false) |> put_flash(:info, msg)}
+
+    {:noreply,
+     socket
+     |> push_notification(:info, "Spotify Import", msg)
+     |> assign(:fetching_spotify, false)
+     |> put_flash(:info, msg)}
   end
 
   @impl true
   def handle_info({:spotify_metadata, _url, {:error, reason}}, socket) do
     {:noreply,
-     socket |> assign(:fetching_spotify, false) |> put_flash(:error, "Failed: #{reason}")}
+     socket
+     |> push_notification(:error, "Import Failed", "Spotify import failed: #{reason}")
+     |> assign(:fetching_spotify, false)
+     |> put_flash(:error, "Failed: #{reason}")}
+  end
+
+  # Handle lalal.ai modal key test result
+  @impl true
+  def handle_info({:lalalai_modal_test_result, result, key}, socket) do
+    case result do
+      {:ok, :valid} ->
+        user_id = socket.assigns[:current_user_id]
+
+        if user_id do
+          Settings.save_lalalai_api_key(user_id, key)
+        end
+
+        {:noreply,
+         socket
+         |> assign(:lalalai_modal_testing, false)
+         |> assign(:lalalai_modal_test_result, {:ok, "API key verified and saved."})
+         |> assign(:selected_engine, "lalalai")
+         |> assign(:show_lalalai_modal, false)
+         |> put_flash(:info, "lalal.ai API key saved. Cloud separation is now available.")}
+
+      {:error, :invalid_api_key} ->
+        {:noreply,
+         socket
+         |> assign(:lalalai_modal_testing, false)
+         |> assign(:lalalai_modal_test_result, {:error, "Invalid API key. Please check and try again."})}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:lalalai_modal_testing, false)
+         |> assign(:lalalai_modal_test_result, {:error, "Test failed: #{inspect(reason)}"})}
+    end
   end
 
   # Handle Task.Supervisor task failures (e.g., if spotdl process crashes)
@@ -1195,7 +1340,10 @@ defmodule SoundForgeWeb.DashboardLive do
     socket =
       if payload.status == :failed do
         stage_name = stage |> to_string() |> String.capitalize()
-        put_flash(socket, :error, "#{stage_name} failed. Check server logs for details.")
+
+        socket
+        |> push_notification(:error, "#{stage_name} Failed", "#{stage_name} failed for track. Check server logs.", %{track_id: track_id})
+        |> put_flash(:error, "#{stage_name} failed. Check server logs for details.")
       else
         socket
       end
@@ -1260,8 +1408,16 @@ defmodule SoundForgeWeb.DashboardLive do
         socket
       end
 
+    # Resolve track title for the notification if possible
+    track_title =
+      case Music.get_track(track_id) do
+        {:ok, t} when not is_nil(t) -> t.title
+        _ -> "Track"
+      end
+
     {:noreply,
      socket
+     |> push_notification(:success, "Pipeline Complete", "\"#{track_title}\" is ready.", %{track_id: track_id})
      |> assign(:pipelines, pipelines)
      |> put_flash(:info, "Pipeline complete! Track is ready.")}
   end
@@ -1281,6 +1437,13 @@ defmodule SoundForgeWeb.DashboardLive do
     )
 
     {:noreply, socket}
+  end
+
+  # Pipeline tracker "clear completed" forwarding
+  @impl true
+  def handle_info({:dismiss_pipeline_from_tracker, track_id}, socket) do
+    pipelines = Map.delete(socket.assigns.pipelines, track_id)
+    {:noreply, assign(socket, :pipelines, pipelines)}
   end
 
   # Toast auto-dismiss forwarding
@@ -2026,5 +2189,26 @@ defmodule SoundForgeWeb.DashboardLive do
   defp append_midi_log(socket, entry) do
     logs = [entry | socket.assigns.midi_log] |> Enum.take(@max_midi_log)
     assign(socket, :midi_log, logs)
+  end
+
+  # -- Notification persistence helpers --
+
+  # Persists a notification to the ETS-backed store so it appears in the
+  # NotificationBell dropdown. This should be called for significant user-facing
+  # events (pipeline completion, failures, imports, deletions) but NOT for
+  # transient validation errors like "Track not found".
+  defp push_notification(socket, type, title, message, metadata \\ %{}) do
+    user_id = socket.assigns[:current_user_id]
+
+    if user_id do
+      Notifications.push(user_id, %{
+        type: type,
+        title: title,
+        message: message,
+        metadata: metadata
+      })
+    end
+
+    socket
   end
 end

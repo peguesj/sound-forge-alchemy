@@ -45,6 +45,9 @@ defmodule SoundForge.Accounts.UserSettings do
     field :tracks_per_page, :integer
     field :max_upload_size, :integer
 
+    # Cloud Separation
+    field :lalalai_api_key, :binary
+
     # Debug
     field :debug_mode, :boolean, default: false
 
@@ -69,6 +72,7 @@ defmodule SoundForge.Accounts.UserSettings do
     :retention_days,
     :tracks_per_page,
     :max_upload_size,
+    :lalalai_api_key,
     :debug_mode
   ]
 
@@ -97,6 +101,7 @@ defmodule SoundForge.Accounts.UserSettings do
     demucs: [:demucs_model, :demucs_output_format, :demucs_device, :demucs_timeout],
     analysis: [:analysis_features, :analyzer_timeout],
     storage: [:storage_path, :max_file_age_days, :retention_days],
+    cloud_separation: [:lalalai_api_key],
     general: [:tracks_per_page, :max_upload_size]
   }
 

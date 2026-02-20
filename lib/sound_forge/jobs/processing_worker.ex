@@ -11,6 +11,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
     priority: 2
 
   alias SoundForge.Audio.DemucsPort
+  alias SoundForge.Jobs.PipelineBroadcaster
   alias SoundForge.Music
 
   require Logger
@@ -105,8 +106,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         })
 
         Logger.info("Stem separation complete, stems=#{length(stem_records)}")
-        broadcast_progress(job_id, :completed, 100)
-        broadcast_track_progress(track_id, :processing, :completed, 100)
+        PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :processing)
 
         # Chain: enqueue analysis job
         enqueue_analysis(track_id, file_path)
@@ -119,8 +119,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         # Reload to avoid stale struct
         fresh_job = Music.get_processing_job!(job_id)
         Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
-        broadcast_progress(job_id, :failed, 0)
-        broadcast_track_progress(track_id, :processing, :failed, 0)
+        PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
 
         # Clean up any partial output files
         cleanup_output(fresh_job)
@@ -215,11 +214,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
   end
 
   defp broadcast_progress(job_id, status, progress) do
-    Phoenix.PubSub.broadcast(
-      SoundForge.PubSub,
-      "jobs:#{job_id}",
-      {:job_progress, %{job_id: job_id, status: status, progress: progress}}
-    )
+    PipelineBroadcaster.broadcast_progress(job_id, status, progress)
   end
 
   defp cleanup_output(job) do
@@ -230,11 +225,6 @@ defmodule SoundForge.Jobs.ProcessingWorker do
   end
 
   defp broadcast_track_progress(track_id, stage, status, progress) do
-    Phoenix.PubSub.broadcast(
-      SoundForge.PubSub,
-      "track_pipeline:#{track_id}",
-      {:pipeline_progress,
-       %{track_id: track_id, stage: stage, status: status, progress: progress}}
-    )
+    PipelineBroadcaster.broadcast_track_progress(track_id, stage, status, progress)
   end
 end
