@@ -3,6 +3,7 @@ defmodule SoundForge.OSC.Parser do
 
   @type osc_message :: %{address: String.t(), args: [term()]}
 
+  @doc "Decode a binary OSC packet (message or bundle) into a list of message maps."
   @spec decode(binary()) :: {:ok, [osc_message()]} | {:error, term()}
   def decode(<<"#bundle\0", _timetag::binary-size(8), rest::binary>>) do
     case decode_bundle_elements(rest, []) do
@@ -18,6 +19,7 @@ defmodule SoundForge.OSC.Parser do
     end
   end
 
+  @doc "Encode an OSC address and argument list into a binary packet."
   @spec encode(String.t(), [term()]) :: binary()
   def encode(address, args \\ []) do
     addr_padded = pad_string(address)

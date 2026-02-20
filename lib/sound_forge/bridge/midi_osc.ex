@@ -21,6 +21,7 @@ defmodule SoundForge.Bridge.MidiOsc do
 
   # -- Public API --
 
+  @doc "Start the MIDI-OSC bridge. Options: `:touchosc_host`, `:touchosc_port`, `:name`."
   def start_link(opts \\ []) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)

@@ -24,6 +24,7 @@ defmodule SoundForge.Admin.AuditLog do
   @required_fields ~w(action resource_type)a
   @optional_fields ~w(resource_id changes ip_address actor_id)a
 
+  @doc "Casts and validates attributes for an audit log entry."
   def changeset(audit_log, attrs) do
     audit_log
     |> cast(attrs, @required_fields ++ @optional_fields)

@@ -16,6 +16,12 @@ defmodule SoundForge.Admin do
   # User Management
   # ============================================================
 
+  @doc """
+  Returns a paginated list of users with optional search, role, and status filters.
+
+  Accepts keyword options: `:sort`, `:dir`, `:page`, `:per_page`, `:search`, `:role`, `:status`.
+  Returns `%{users: list, total: integer, page: integer, per_page: integer}`.
+  """
   def list_users(opts \\ []) do
     sort = Keyword.get(opts, :sort, :inserted_at)
     dir = Keyword.get(opts, :dir, :desc)
@@ -70,6 +76,7 @@ defmodule SoundForge.Admin do
   defp maybe_filter_status(query, nil), do: query
   defp maybe_filter_status(query, status), do: from(u in query, where: u.status == ^status)
 
+  @doc "Updates a user's role and logs the change to the audit trail."
   def update_user_role(user_id, role, actor_id \\ nil) when role in @valid_roles do
     user = Repo.get!(User, user_id)
     old_role = user.role
@@ -93,14 +100,17 @@ defmodule SoundForge.Admin do
     end
   end
 
+  @doc "Sets a user's status to `:suspended`. Audit-logged."
   def suspend_user(user_id, actor_id \\ nil) do
     update_user_status(user_id, :suspended, "suspend", actor_id)
   end
 
+  @doc "Sets a user's status to `:banned`. Audit-logged."
   def ban_user(user_id, actor_id \\ nil) do
     update_user_status(user_id, :banned, "ban", actor_id)
   end
 
+  @doc "Restores a suspended or banned user to `:active` status. Audit-logged."
   def reactivate_user(user_id, actor_id \\ nil) do
     update_user_status(user_id, :active, "reactivate", actor_id)
   end
@@ -128,6 +138,7 @@ defmodule SoundForge.Admin do
     end
   end
 
+  @doc "Updates the role for multiple users in a single query. Audit-logged with the full list of affected user IDs."
   def bulk_update_role(user_ids, role, actor_id \\ nil) when role in @valid_roles do
     {count, _} =
       from(u in User, where: u.id in ^user_ids)
@@ -146,6 +157,7 @@ defmodule SoundForge.Admin do
   # System Stats & Jobs
   # ============================================================
 
+  @doc "Returns aggregate system statistics: user/track counts, Oban job states, and breakdowns by role and status."
   def system_stats do
     user_count = Repo.aggregate(User, :count)
     track_count = Repo.aggregate(Track, :count)
@@ -170,6 +182,7 @@ defmodule SoundForge.Admin do
     }
   end
 
+  @doc "Returns a paginated list of Oban jobs, optionally filtered by state."
   def all_jobs(opts \\ []) do
     state = Keyword.get(opts, :state, "all")
     page = Keyword.get(opts, :page, 1)
@@ -203,6 +216,7 @@ defmodule SoundForge.Admin do
     Repo.all(query)
   end
 
+  @doc "Returns disk usage statistics for the configured storage directory."
   def storage_stats do
     storage_dir = Application.get_env(:sound_forge, :storage_dir, "priv/storage")
 
@@ -230,6 +244,7 @@ defmodule SoundForge.Admin do
   # Analytics
   # ============================================================
 
+  @doc "Returns daily user registration counts for the last `days` days (default 30)."
   def user_registrations_by_day(days \\ 30) do
     cutoff = DateTime.utc_now() |> DateTime.add(-days * 86400, :second)
 
@@ -245,6 +260,7 @@ defmodule SoundForge.Admin do
     |> Repo.all()
   end
 
+  @doc "Returns daily track import counts for the last `days` days (default 30)."
   def tracks_by_day(days \\ 30) do
     cutoff = DateTime.utc_now() |> DateTime.add(-days * 86400, :second)
 
@@ -260,6 +276,7 @@ defmodule SoundForge.Admin do
     |> Repo.all()
   end
 
+  @doc "Returns Oban job counts grouped by queue (download/processing/analysis) and state."
   def pipeline_throughput do
     query =
       from(j in "oban_jobs",
@@ -277,6 +294,7 @@ defmodule SoundForge.Admin do
   # Audit Logging
   # ============================================================
 
+  @doc "Inserts an audit log entry recording an admin action against a resource."
   def log_action(actor_id, action, resource_type, resource_id, changes \\ %{}, ip \\ nil) do
     %AuditLog{}
     |> AuditLog.changeset(%{
@@ -290,6 +308,7 @@ defmodule SoundForge.Admin do
     |> Repo.insert()
   end
 
+  @doc "Returns a paginated list of audit log entries with optional action, resource type, and search filters."
   def list_audit_logs(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 50)

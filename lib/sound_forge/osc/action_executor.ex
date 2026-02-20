@@ -8,6 +8,7 @@ defmodule SoundForge.OSC.ActionExecutor do
   @touchosc_host "192.168.1.255"
   @touchosc_port 9000
 
+  @doc "Start the action executor. Options: `:touchosc_host`, `:touchosc_port`, `:name`."
   def start_link(opts \\ []) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)

@@ -5,11 +5,13 @@ defmodule SoundForge.OSC.Server do
 
   @default_port 8000
 
+  @doc "Start the OSC UDP server. Options: `:port` (default 8000), `:name`."
   def start_link(opts \\ []) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
+  @doc "Return the UDP port the server is listening on."
   def get_port(server \\ __MODULE__), do: GenServer.call(server, :get_port)
 
   @impl true

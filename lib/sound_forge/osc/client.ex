@@ -4,6 +4,7 @@ defmodule SoundForge.OSC.Client do
 
   @type osc_arg :: float() | integer() | String.t() | binary()
 
+  @doc "Send an OSC message to the given host and port via an ephemeral UDP socket."
   @spec send(String.t(), integer(), String.t(), [osc_arg()]) :: :ok | {:error, term()}
   def send(host, port, address, args \\ []) do
     data = SoundForge.OSC.Parser.encode(address, args)

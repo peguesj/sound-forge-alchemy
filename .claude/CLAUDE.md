@@ -207,6 +207,11 @@ Follow this sequence:
 | `lib/sound_forge/storage.ex` | Local filesystem storage management |
 | `lib/sound_forge_web/router.ex` | All routes (browser + API) |
 | `lib/sound_forge_web/live/dashboard_live.ex` | Main LiveView dashboard |
+| `lib/sound_forge/admin.ex` | Admin context: user mgmt, system stats, analytics, audit logging |
+| `lib/sound_forge/admin/audit_log.ex` | AuditLog Ecto schema (binary_id PK, actor FK, action/resource/changes) |
+| `lib/sound_forge/accounts/scope.ex` | Scope struct with role hierarchy, permission checks, feature gating |
+| `lib/sound_forge_web/live/admin_live.ex` | Admin dashboard LiveView (6 tabs: overview/users/jobs/system/analytics/audit) |
+| `lib/sound_forge_web/user_auth.ex` | Auth plugs incl. require_admin_user, require_role, require_active_user, require_feature |
 | `config/config.exs` | Oban queue config, Ecto settings |
 | `config/test.exs` | Mock client config, Oban testing mode |
 | `test/test_helper.exs` | Mox mock definitions |
@@ -300,6 +305,115 @@ Follow this sequence:
 - `midi:bridge` — MIDI messages originating from OSC translation: `{:midi_from_osc, msg}`
 - `track_playback` — Unified playback actions: `{:action, :play/:stop}`, `{:stem_volume, n, float}`, `{:stem_mute, n, bool}`, `{:stem_solo, n, bool}`
 
+## Feature: Admin Dashboard with SaaS Role Hierarchy (feature/admin-dashboard)
+
+### New Modules
+
+#### Admin Context (`lib/sound_forge/admin.ex`)
+| Function | Purpose |
+|----------|---------|
+| `list_users/1` | Paginated user listing with search, role filter, status filter. Returns `%{users, total, page, per_page}`. |
+| `update_user_role/3` | Change a single user's role. Audit-logged with old/new values. |
+| `suspend_user/2` | Set user status to `:suspended`. Audit-logged. |
+| `ban_user/2` | Set user status to `:banned`. Audit-logged. |
+| `reactivate_user/2` | Set user status to `:active`. Audit-logged. |
+| `bulk_update_role/3` | Batch role change via `Repo.update_all`. Audit-logged with user ID list. |
+| `system_stats/0` | Aggregate counts: users, tracks, Oban job states, users by role, users by status. |
+| `all_jobs/1` | Paginated Oban job listing with state filter. |
+| `storage_stats/0` | Disk usage via `du -sh` on the storage directory. |
+| `user_registrations_by_day/1` | 30-day user signup trend (DATE grouping). |
+| `tracks_by_day/1` | 30-day track import trend (DATE grouping). |
+| `pipeline_throughput/0` | Oban queue stats grouped by queue and state (download/processing/analysis). |
+| `log_action/6` | Insert an `AuditLog` record. Called automatically by mutation functions. |
+| `list_audit_logs/1` | Paginated audit log listing with action filter and search. |
+
+#### AuditLog Schema (`lib/sound_forge/admin/audit_log.ex`)
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | `:binary_id` | Auto-generated UUID PK |
+| `actor_id` | `:id` (FK to users) | Who performed the action (nilable -- system actions have no actor) |
+| `action` | `:string` | One of: `create`, `update`, `delete`, `suspend`, `ban`, `reactivate`, `role_change`, `bulk_role_change`, `config_update`, `feature_flag_toggle`, `login`, `logout` |
+| `resource_type` | `:string` | e.g. `"user"` |
+| `resource_id` | `:string` | ID of the affected resource |
+| `changes` | `:map` | JSON payload with before/after values (e.g. `%{from: "user", to: "admin"}`) |
+| `ip_address` | `:string` | Optional client IP for audit trail |
+
+#### Scope Changes (`lib/sound_forge/accounts/scope.ex`)
+| Addition | Purpose |
+|----------|---------|
+| `@role_hierarchy` | Ordered list: `[:user, :pro, :enterprise, :admin, :super_admin]` |
+| `admin?` field | Boolean on Scope struct, true when role is `:admin` or `:super_admin` |
+| `role_level/1` | Numeric index for role comparison |
+| `has_role?/2` | Checks if scope meets minimum required role level |
+| `can_manage_users?/1` | Requires `:admin` or above |
+| `can_view_analytics?/1` | Requires `:admin` or above |
+| `can_configure_system?/1` | Requires `:super_admin` only |
+| `can_use_feature?/2` | Feature gating map: `:admin_dashboard` requires `:admin+`, `:feature_flags` and `:billing` require `:super_admin` |
+
+#### AdminLive (`lib/sound_forge_web/live/admin_live.ex`)
+| Tab | Data Source | Features |
+|-----|-------------|----------|
+| Overview | `Admin.system_stats/0` | Stat cards (users, tracks, active jobs, failed jobs), users by role/status breakdowns |
+| Users | `Admin.list_users/1` | Search, role/status filters, inline role dropdown, suspend/ban/reactivate buttons, checkbox bulk selection, bulk role change, pagination |
+| Jobs | `Admin.all_jobs/1` | State filter tabs (all/executing/available/retryable/discarded/completed), retry button |
+| System | `Admin.storage_stats/0`, `Admin.system_stats/0` | Storage path and size, Oban queue breakdown, role distribution grid |
+| Analytics | `Admin.user_registrations_by_day/1`, `Admin.tracks_by_day/1`, `Admin.pipeline_throughput/0` | 30-day bar charts for registrations and track imports, pipeline throughput by queue |
+| Audit | `Admin.list_audit_logs/1` | Search, action filter dropdown, timestamped log table with actor email, action badge, resource reference, change payload |
+
+#### UserAuth Additions (`lib/sound_forge_web/user_auth.ex`)
+| Plug | Purpose |
+|------|---------|
+| `require_admin_user/2` | Checks `current_scope.admin?` -- redirects non-admins to `/` with flash error |
+| `require_role/2` | Parameterized minimum role check via `Scope.has_role?/2`. Usage: `plug :require_role, :admin` |
+| `require_active_user/2` | Checks `user.status == :active` -- logs out suspended/banned users |
+| `require_feature/2` | Feature gate via `Scope.can_use_feature?/2`. Usage: `plug :require_feature, :stem_separation` |
+
+### Role Hierarchy
+
+The SaaS role system uses a linear hierarchy enforced by `Scope.role_level/1`:
+
+```
+super_admin (4) > admin (3) > enterprise (2) > pro (1) > user (0)
+```
+
+- **user**: Free tier. Basic track import and playback.
+- **pro**: Stem separation, MIDI control, Melodics integration, full analysis.
+- **enterprise**: All pro features plus OSC/TouchOSC and LaLaLai cloud separation.
+- **admin**: All features plus admin dashboard, user management, analytics.
+- **super_admin**: All features plus system configuration, feature flags, billing.
+
+### Database Changes
+
+| Migration | Table | Changes |
+|-----------|-------|---------|
+| `20260220040000_expand_roles_add_status.exs` | `users` | Expanded role constraint to `user/pro/enterprise/admin/super_admin`. Added `status` column (`active/suspended/banned`, default `active`). Added composite index on `[:role, :status]`. |
+| `20260220040001_create_audit_logs.exs` | `audit_logs` | New table with `binary_id` PK, FK to users (`actor_id`, on_delete: nilify_all), `action`, `resource_type`, `resource_id`, `changes` (map), `ip_address`. Indexes on `actor_id`, `action`, `[resource_type, resource_id]`, `inserted_at`. |
+
+### Key Routes
+
+| Route | Scope | Pipeline | Module |
+|-------|-------|----------|--------|
+| `/admin` | `/admin` | `browser + require_authenticated_user + require_admin_user` | `AdminLive` (`:index`) |
+| `/admin?tab=users` | (same) | (same) | AdminLive users tab |
+| `/admin?tab=jobs` | (same) | (same) | AdminLive jobs tab |
+| `/admin?tab=system` | (same) | (same) | AdminLive system tab |
+| `/admin?tab=analytics` | (same) | (same) | AdminLive analytics tab |
+| `/admin?tab=audit` | (same) | (same) | AdminLive audit tab |
+
+Tab switching uses `push_patch` to update the `?tab=` query param, handled by `handle_params/3`.
+
+### Audit Logging Architecture
+
+All admin mutations are automatically audit-logged by the `Admin` context. The pattern:
+
+1. Context function receives `actor_id` (the admin performing the action).
+2. Mutation executes (e.g. `Repo.update`).
+3. On success, `Admin.log_action/6` inserts an `AuditLog` record with the actor, action name, resource reference, and a changes map containing before/after values.
+4. The audit tab in AdminLive queries `Admin.list_audit_logs/1` with optional action and search filters.
+5. Logs join on `users` to display actor email. System-initiated actions show "system" as the actor.
+
+Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivate`, `config_update`, `feature_flag_toggle`, `login`, `logout`, `create`, `update`, `delete`.
+
 ## Implementation Checkpoints
 
 ### Feature: Melodics/MPC App/TouchOSC/Responsive (feat/melodics-mpc-touchosc-responsive)
@@ -331,6 +445,11 @@ Follow this sequence:
 - [x] **CP-14**: Dashboard MIDI/OSC status bar with activity indicators (US-014)
 - [x] **CP-15**: End-to-end integration: TouchOSC fader -> stem volume -> UI update (US-015)
 - After CP-15: Full pipeline verified, `mix test` passes (653 tests, 0 failures)
+
+### Feature: Admin Dashboard with SaaS Role Hierarchy (feature/admin-dashboard)
+
+- [x] **CP-01**: Admin dashboard with role hierarchy, user management, audit logging, analytics, job monitoring, and auth plugs (PR #6)
+- After CP-01: `mix compile --warnings-as-errors` passes, admin routes protected by `require_admin_user` plug, audit log records created on all admin mutations
 
 ## Agentic Complexity Tree View Requirement
 
