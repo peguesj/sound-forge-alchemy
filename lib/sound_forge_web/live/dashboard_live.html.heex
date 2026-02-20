@@ -90,13 +90,13 @@
             <div class="w-64 shrink-0">
               <div class="aspect-square bg-gray-800 rounded-lg overflow-hidden mb-4">
                 <img
-                  :if={@track.album_art_url}
+                  :if={valid_album_art?(@track.album_art_url)}
                   src={@track.album_art_url}
                   class="w-full h-full object-cover"
                   alt={@track.title}
                 />
                 <div
-                  :if={!@track.album_art_url}
+                  :if={!valid_album_art?(@track.album_art_url)}
                   class="w-full h-full flex items-center justify-center"
                 >
                   <svg class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
@@ -1003,7 +1003,7 @@
                   <.link navigate={~p"/tracks/#{track.id}"} class="block">
                     <div class="aspect-square bg-gray-700 rounded-md mb-3 overflow-hidden relative">
                       <img
-                        :if={track.album_art_url}
+                        :if={valid_album_art?(track.album_art_url)}
                         src={track.album_art_url}
                         class="w-full h-full object-cover"
                         alt={track.title}
@@ -1210,13 +1210,13 @@
                   >
                     <div class="w-9 h-9 min-w-[2.25rem] bg-gray-700 rounded overflow-hidden shrink-0">
                       <img
-                        :if={track.album_art_url}
+                        :if={valid_album_art?(track.album_art_url)}
                         src={track.album_art_url}
                         class="w-9 h-9 object-cover"
                         alt=""
                       />
                       <div
-                        :if={!track.album_art_url}
+                        :if={!valid_album_art?(track.album_art_url)}
                         class="w-full h-full flex items-center justify-center"
                       >
                         <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
@@ -1409,13 +1409,13 @@
                   <.link navigate={~p"/tracks/#{track.id}"} class="shrink-0">
                     <div class="w-14 h-14 min-w-[3.5rem] bg-gray-700 rounded-md overflow-hidden">
                       <img
-                        :if={track.album_art_url}
+                        :if={valid_album_art?(track.album_art_url)}
                         src={track.album_art_url}
                         class="w-14 h-14 object-cover"
                         alt={track.title}
                       />
                       <div
-                        :if={!track.album_art_url}
+                        :if={!valid_album_art?(track.album_art_url)}
                         class="w-full h-full flex items-center justify-center"
                       >
                         <svg class="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">

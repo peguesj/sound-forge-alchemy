@@ -157,6 +157,7 @@ def fetch_playlist_metadata(sp, playlist_id):
         try:
             t = sp.track(tid)
             if t and t.get("album"):
+                album_images = t["album"].get("images", [])
                 album_map[tid] = {
                     "album_name": t["album"]["name"],
                     "album_artist": (
@@ -164,20 +165,23 @@ def fetch_playlist_metadata(sp, playlist_id):
                         if t["album"].get("artists") else ""
                     ),
                     "isrc": t.get("external_ids", {}).get("isrc", ""),
+                    "cover_url": album_images[0]["url"] if album_images else "",
                 }
             time.sleep(0.05)  # Rate limit courtesy
-        except Exception:
-            # API may be rate-limited; continue with embed data only
-            pass
+        except Exception as e:
+            emit_error({"warning": "enrichment_failed", "track_id": tid, "error": str(e)})
 
     tracks = []
     for i, item, tid in embed_tracks:
         artists_str = item.get("subtitle", "")
 
-        # Extract per-track cover art, fall back to playlist cover
-        track_cover = playlist_cover
+        # Extract per-track cover art; never default to playlist cover
+        track_cover = ""
         if item.get("coverArt", {}).get("sources"):
-            track_cover = item["coverArt"]["sources"][0].get("url", playlist_cover)
+            embed_cover = item["coverArt"]["sources"][0].get("url", "")
+            # Only use embed cover if it differs from the playlist mosaic
+            if embed_cover and embed_cover != playlist_cover:
+                track_cover = embed_cover
 
         # Use enriched data from API if available, else fall back to embed data
         enriched = album_map.get(tid, {})
@@ -190,7 +194,7 @@ def fetch_playlist_metadata(sp, playlist_id):
                 or (artists_str.split(",")[0].strip() if artists_str else ""),
             "duration": item.get("duration", 0) / 1000,
             "song_id": tid,
-            "cover_url": track_cover,
+            "cover_url": enriched.get("cover_url") or track_cover or "",
             "url": f"https://open.spotify.com/track/{tid}",
             "track_number": i + 1,
             "disc_number": 1,

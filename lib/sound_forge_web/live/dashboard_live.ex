@@ -1776,6 +1776,15 @@ defmodule SoundForgeWeb.DashboardLive do
     Regex.match?(~r{spotify\.com/(track|album|playlist)/[a-zA-Z0-9]+}, url)
   end
 
+  defp valid_album_art?(nil), do: false
+  defp valid_album_art?(""), do: false
+
+  defp valid_album_art?(url) when is_binary(url) do
+    not String.starts_with?(url, "https://mosaic.scdn.co/")
+  end
+
+  defp valid_album_art?(_), do: false
+
   defp list_tracks(scope, opts \\ [])
 
   defp list_tracks(scope, opts) when is_map(scope) and not is_nil(scope) do

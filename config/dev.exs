@@ -95,4 +95,7 @@ config :phoenix_live_view,
 config :swoosh, :api_client, false
 
 # Spotify OAuth requires loopback IP (not "localhost") for insecure redirect URIs
-config :sound_forge, :spotify_redirect_uri, "http://127.0.0.1:4000/auth/spotify/callback"
+# Use PORT env var to support running on non-default ports
+config :sound_forge,
+  :spotify_redirect_uri,
+  "http://127.0.0.1:#{System.get_env("PORT", "4000")}/auth/spotify/callback"

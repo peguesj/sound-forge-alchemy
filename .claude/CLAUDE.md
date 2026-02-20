@@ -223,3 +223,117 @@ Follow this sequence:
 - **Cooldown**: 30 seconds between checks to avoid excessive overhead.
 - **Skill**: `/dev-server-mgmt` -- manages server lifecycle (status, start, stop, restart, pid, logs, ensure).
 - **Authority**: Project-level hook. User-level disk space hook at `~/.claude/hooks/disk_space_check.sh` (referenced in root CLAUDE.md) takes precedence for disk concerns.
+
+## Feature: Melodics/MPC App/TouchOSC/Responsive (feat/melodics-mpc-touchosc-responsive)
+
+### New Modules
+
+#### OSC Layer (`lib/sound_forge/osc/`)
+| Module | Purpose |
+|--------|---------|
+| `SoundForge.OSC.Server` | GenServer UDP listener (default port 8000). Broadcasts `{:osc_message, msg, sender}` on `"osc:messages"` PubSub. |
+| `SoundForge.OSC.Client` | Sends OSC messages to TouchOSC via ephemeral UDP socket. `send/4: (host, port, address, args)` |
+| `SoundForge.OSC.Parser` | Minimal OSC 1.0 encode/decode. Supports `f`, `i`, `s`, `b` type tags and bundle parsing. |
+| `SoundForge.OSC.TouchOSCLayout` | Generates TouchOSC `.tosc` ZIP layout XML (8 stem faders, mute/solo, transport, BPM, title). |
+| `SoundForge.OSC.ActionExecutor` | Routes OSC addresses to SFA PubSub actions (`/stem/{n}/volume`, `/transport/*`). Sends feedback OSC back to TouchOSC. |
+| `SoundForge.OSC.Pipeline` | E2E simulation: `simulate_osc/3`, `test_pipeline/3`, `benchmark/2`. Used for latency testing. |
+
+#### Bridge (`lib/sound_forge/bridge/`)
+| Module | Purpose |
+|--------|---------|
+| `SoundForge.Bridge.MidiOsc` | Bidirectional MIDI<->OSC translation. CC 7-14 ↔ `/stem/{n}/volume`. Configurable via `set_mapping/1`. |
+
+#### Integrations (`lib/sound_forge/integrations/`)
+| Module | Purpose |
+|--------|---------|
+| `SoundForge.Integrations.Melodics` | Imports practice sessions from Melodics local data dir. `import_sessions/1`, `list_sessions/2`, `get_stats/1`. |
+| `SoundForge.Integrations.Melodics.MelodicsSession` | Ecto schema for melodics_sessions table. FK to users (integer, not binary_id). |
+| `SoundForge.Integrations.Melodics.PracticeAdapter` | Maps Melodics accuracy → stem difficulty (simple/<60%, matched/60-85%, complex/>85%). `suggest_stems/2`. |
+
+#### MIDI Profiles (`lib/sound_forge/midi/profiles/`)
+| Module | Purpose |
+|--------|---------|
+| `SoundForge.MIDI.Profiles.MPCApp` | Detects MPC Beats/MPC 2.0/iMPC Pro 2 by port name pattern. Multi mode aware (Port A-D). |
+
+#### Mix Tasks (`lib/mix/tasks/`)
+| Task | Purpose |
+|------|---------|
+| `mix sfa.touchosc.generate` | Generates `priv/touchosc/sfa_mixer.tosc` (ZIP with index.xml). Requires no deps. |
+
+### New LiveView Components (`lib/sound_forge_web/live/components/`)
+| Component | Purpose |
+|-----------|---------|
+| `MobileNav` | Bottom nav bar (`md:hidden`) with Library/Player/MIDI/Settings tabs. 44px touch targets. |
+| `MobileDrawer` | Slide-out drawer with overlay backdrop for mobile sidebar replacement. |
+| `StemMixer` | Touch-optimized vertical faders with mute/solo buttons. Works with `StemMixerHook`. |
+| `TrackDetailResponsive` | Tab navigation with swipe support (`SwipeHook`). Accordion stem list on mobile. |
+| `PadAssignment` | 4x4 MPC pad grid with drag-and-drop stem assignment via `PadAssignHook`. |
+| `ControlSurfacesSettings` | OSC/MIDI/MPC settings tabs added to SettingsLive. Bridge toggle. |
+| `MidiOscStatusBar` | Header status bar: MIDI device count, OSC dot, TouchOSC target, activity bars. |
+
+### New Routes
+| Route | Module | Notes |
+|-------|--------|-------|
+| `/practice` | `PracticeLive` | Melodics session history, accuracy trends, stem recommendations, import button |
+
+### New JS Hooks (`assets/js/hooks/`)
+| Hook | Purpose |
+|------|---------|
+| `StemMixerHook` | Touch + mouse fader control, 60fps throttle, orientation detection, `stem_volume_update` event |
+| `SwipeHook` | Horizontal swipe detection → pushes `swipe` event with direction |
+| `ResizeObserverHook` | Container dimension tracking → pushes `chart_resized` event for D3 redraws |
+| `PadAssignHook` | Drag-and-drop + touch for pad assignment → pushes `assign_pad` event |
+
+### New Static Assets
+| File | Purpose |
+|------|---------|
+| `priv/static/manifest.json` | PWA manifest (standalone display, purple theme, 192/512px icons) |
+| `priv/static/sw.js` | Service worker: network-first for navigation, cache-first for assets |
+
+### Database Changes
+| Migration | Table | Notes |
+|-----------|-------|-------|
+| `20260219220000_create_melodics_sessions.exs` | `melodics_sessions` | FK to users (integer PK), binary_id own PK |
+
+### PubSub Topics Added
+- `osc:messages` — OSC messages from UDP server: `{:osc_message, %{address, args}, {ip, port}}`
+- `midi:bridge` — MIDI messages originating from OSC translation: `{:midi_from_osc, msg}`
+- `track_playback` — Unified playback actions: `{:action, :play/:stop}`, `{:stem_volume, n, float}`, `{:stem_mute, n, bool}`, `{:stem_solo, n, bool}`
+
+## Implementation Checkpoints
+
+### Feature: Melodics/MPC App/TouchOSC/Responsive (feat/melodics-mpc-touchosc-responsive)
+
+#### Wave 1 - Foundation
+- [x] **CP-01**: OSC server and client for TouchOSC communication (US-001)
+- [x] **CP-04**: Akai MPC app MIDI profile and controller mode detection (US-004)
+- [x] **CP-05**: Melodics practice session data import (US-005)
+- [x] **CP-07**: Responsive layout: mobile-first dashboard redesign (US-007)
+- After CP-07: `mix compile --warnings-as-errors` passes, all Wave 1 modules compile
+
+#### Wave 2 - Integration Layer
+- [x] **CP-02**: MIDI-OSC bridge for bidirectional protocol translation (US-002)
+- [x] **CP-03**: TouchOSC layout generator for SFA stem mixer (US-003)
+- [x] **CP-06**: Melodics-SFA practice mode with stem difficulty adaptation (US-006)
+- [x] **CP-08**: Responsive layout: stem mixer touch interface (US-008)
+- [x] **CP-09**: Responsive layout: track detail and analysis views (US-009)
+- After CP-09: `mix compile --warnings-as-errors` passes, bridge and responsive views functional
+
+#### Wave 3 - Feature Completion
+- [x] **CP-10**: OSC action executor connecting TouchOSC to SFA playback (US-010)
+- [x] **CP-11**: MPC pad-stem assignment UI with drag-and-drop (US-011)
+- [x] **CP-12**: Melodics practice dashboard LiveView page (US-012)
+- [x] **CP-13**: Control surface settings page with OSC/MIDI/MPC config (US-013)
+- [x] **CP-16**: PWA manifest and service worker for mobile install (US-016)
+- After CP-16: `mix compile --warnings-as-errors` passes, all features wired
+
+#### Wave 4 - Polish & E2E
+- [x] **CP-14**: Dashboard MIDI/OSC status bar with activity indicators (US-014)
+- [x] **CP-15**: End-to-end integration: TouchOSC fader -> stem volume -> UI update (US-015)
+- After CP-15: Full pipeline verified, `mix test` passes (653 tests, 0 failures)
+
+## Plane Project
+- **Project**: Sound Forge Alchemy (SFA)
+- **Project ID**: `6f35c181-4a86-476d-bb2a-fba869f68918`
+- **Workspace**: lgtm
+- **URL**: https://plane.lgtm.build/lgtm/projects/6f35c181-4a86-476d-bb2a-fba869f68918/
