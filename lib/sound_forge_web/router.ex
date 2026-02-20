@@ -43,6 +43,7 @@ defmodule SoundForgeWeb.Router do
     live "/", DashboardLive, :index
     live "/tracks/:id", DashboardLive, :show
     live "/settings", SettingsLive, :index
+    live "/midi", MidiLive, :index
     get "/files/*path", FileController, :serve
 
     # Export routes
