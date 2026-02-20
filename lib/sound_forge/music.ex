@@ -391,6 +391,15 @@ defmodule SoundForge.Music do
     |> Repo.all()
   end
 
+  @doc "Lists playlists grouped by source field for smart folder rendering."
+  @spec list_playlists_grouped_by_source(scope()) :: %{String.t() => [Playlist.t()]}
+  def list_playlists_grouped_by_source(scope) do
+    list_playlists(scope)
+    |> Enum.group_by(& &1.source)
+    |> Map.put_new("spotify", [])
+    |> Map.put_new("manual", [])
+  end
+
   @doc "Gets a single playlist with preloaded tracks."
   @spec get_playlist!(String.t()) :: Playlist.t()
   def get_playlist!(id) do
