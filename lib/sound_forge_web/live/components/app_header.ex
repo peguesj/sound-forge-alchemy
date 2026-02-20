@@ -40,6 +40,16 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
             >
               <span class="hero-magnifying-glass w-4 h-4"></span> Browse
             </button>
+            <a
+              :if={@current_scope && @current_scope.admin?}
+              href="/admin"
+              class={[
+                "flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors",
+                "text-amber-400 border-b-2 border-transparent hover:text-amber-300 hover:border-amber-600"
+              ]}
+            >
+              <span class="hero-shield-check w-4 h-4"></span> Admin
+            </a>
           </nav>
         </div>
         <div class="flex items-center gap-3">
@@ -88,6 +98,9 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                 class="dropdown-content z-[1] menu p-2 shadow-lg bg-gray-800 border border-gray-700 rounded-lg w-48 mt-2"
               >
                 <li><a href="/settings" class="text-gray-300 hover:text-white">Settings</a></li>
+                <li :if={@current_scope && @current_scope.admin?}>
+                  <a href="/admin" class="text-amber-400 hover:text-amber-300">Admin Dashboard</a>
+                </li>
                 <li>
                   <a href="/users/log-out" data-method="delete" class="text-gray-300 hover:text-white">
                     Log out

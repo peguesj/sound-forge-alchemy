@@ -9,7 +9,8 @@ defmodule SoundForge.Accounts.User do
     field :email, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
-    field :role, Ecto.Enum, values: [:user, :admin], default: :user
+    field :role, Ecto.Enum, values: [:user, :pro, :enterprise, :admin, :super_admin], default: :user
+    field :status, Ecto.Enum, values: [:active, :suspended, :banned], default: :active
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
 

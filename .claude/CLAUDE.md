@@ -332,6 +332,12 @@ Follow this sequence:
 - [x] **CP-15**: End-to-end integration: TouchOSC fader -> stem volume -> UI update (US-015)
 - After CP-15: Full pipeline verified, `mix test` passes (653 tests, 0 failures)
 
+## Agentic Complexity Tree View Requirement
+
+When any request involves agentic complexity (UPM, Formation, agent deployment), ALWAYS display a `tree`-style hierarchical view of the planned structure BEFORE execution. This applies to /upm build, /formation deploy, /deploy:agents-v2, /ralph story mapping, /plane-pm issue creation, and any todo/task list with concurrent work. No exceptions.
+
+Referenced systems: UPM, Plane PM, Plan mode, Ralph PRD, Formation, Todo/TaskList.
+
 ## Plane Project
 - **Project**: Sound Forge Alchemy (SFA)
 - **Project ID**: `6f35c181-4a86-476d-bb2a-fba869f68918`
