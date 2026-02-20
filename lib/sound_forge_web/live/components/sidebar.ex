@@ -14,7 +14,7 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
 
   def sidebar(assigns) do
     ~H"""
-    <aside class="w-56 shrink-0 bg-gray-900 border-r border-gray-800 overflow-y-auto hidden lg:block sidebar-scroll">
+    <aside class="w-56 shrink-0 bg-gray-900 border-r border-gray-800 overflow-y-auto hidden md:block sidebar-scroll">
       <nav class="py-4 space-y-6" aria-label="Library navigation">
         <!-- Library section -->
         <div class="px-4">

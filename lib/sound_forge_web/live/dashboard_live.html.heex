@@ -75,7 +75,7 @@
     />
     
 <!-- Main Content (scrollable) -->
-    <main class="flex-1 overflow-y-auto flex flex-col" id="main-scroll">
+    <main class="flex-1 overflow-y-auto flex flex-col pb-16 md:pb-0" id="main-scroll">
       <%= if @live_action == :show && @track do %>
         <!-- Track Detail View -->
         <div class="px-6 py-4">
@@ -2225,5 +2225,9 @@
     spotify_playback={@spotify_playback}
     spotify_linked={@spotify_linked}
     spotify_premium={@spotify_premium}
+  />
+  <SoundForgeWeb.Live.Components.MobileNav.mobile_nav
+    active_tab={@nav_tab}
+    midi_device_count={length(@midi_devices)}
   />
 </div>

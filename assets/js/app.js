@@ -35,6 +35,10 @@ import AnalysisChroma from "./hooks/analysis_chroma"
 import AnalysisBeats from "./hooks/analysis_beats"
 import AnalysisMFCC from "./hooks/analysis_mfcc"
 import AnalysisSpectral from "./hooks/analysis_spectral"
+import ResizeObserverHook from "./hooks/resize_observer_hook"
+import SwipeHook from "./hooks/swipe_hook"
+import StemMixerHook from "./hooks/stem_mixer_hook"
+import PadAssignHook from "./hooks/pad_assign_hook"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const Hooks = {
@@ -42,6 +46,7 @@ const Hooks = {
   DebugLogScroll, JobTraceGraph,
   AnalysisRadar, AnalysisChroma, AnalysisBeats,
   AnalysisMFCC, AnalysisSpectral,
+  ResizeObserverHook, SwipeHook, StemMixerHook, PadAssignHook,
   ...colocatedHooks
 }
 const liveSocket = new LiveSocket("/live", Socket, {
