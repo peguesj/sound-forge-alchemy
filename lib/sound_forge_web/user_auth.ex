@@ -229,6 +229,56 @@ defmodule SoundForgeWeb.UserAuth do
     end
   end
 
+  @doc """
+  Plug for routes that require a minimum role level.
+
+  Usage in router:
+      plug :require_role, :admin
+      plug :require_role, :enterprise
+  """
+  def require_role(conn, minimum_role) do
+    if conn.assigns.current_scope && Scope.has_role?(conn.assigns.current_scope, minimum_role) do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You don't have permission to access this page.")
+      |> redirect(to: ~p"/")
+      |> halt()
+    end
+  end
+
+  @doc """
+  Plug for routes that require the user account to be active (not suspended/banned).
+  """
+  def require_active_user(conn, _opts) do
+    user = conn.assigns.current_scope && conn.assigns.current_scope.user
+
+    if user && user.status == :active do
+      conn
+    else
+      conn
+      |> put_flash(:error, "Your account has been suspended.")
+      |> log_out_user()
+    end
+  end
+
+  @doc """
+  Plug for routes that require access to a specific feature.
+
+  Usage in router:
+      plug :require_feature, :stem_separation
+  """
+  def require_feature(conn, feature) do
+    if Scope.can_use_feature?(conn.assigns.current_scope, feature) do
+      conn
+    else
+      conn
+      |> put_flash(:error, "Upgrade your plan to access this feature.")
+      |> redirect(to: ~p"/")
+      |> halt()
+    end
+  end
+
   defp maybe_store_return_to(%{method: "GET"} = conn) do
     put_session(conn, :user_return_to, current_path(conn))
   end
