@@ -25,6 +25,8 @@ defmodule SoundForgeWeb.AudioPlayerLive do
     # Build audio sources for the player
     # Priority: stems (if available) > downloaded file (if exists)
     audio_data = build_audio_data(stems, track)
+    require Logger
+    Logger.debug("AudioPlayerLive: stems=#{length(stems)}, audio_data=#{length(audio_data)}, urls=#{inspect(Enum.map(audio_data, & &1.url))}")
 
     # Initialize per-stem volumes if not already set
     stem_volumes =
@@ -55,7 +57,13 @@ defmodule SoundForgeWeb.AudioPlayerLive do
       class="bg-gray-800 rounded-lg p-6"
     >
       <!-- Waveform -->
-      <div id={"waveform-#{@id}"} class="h-20 mb-4 rounded bg-gray-900"></div>
+      <div class="relative">
+        <div id={"waveform-#{@id}"} class="h-20 mb-4 rounded bg-gray-900"></div>
+        <div id={"waveform-loading-#{@id}"} class="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">
+          <span :if={@audio_data != []}>Loading waveform...</span>
+          <span :if={@audio_data == []}>No audio sources available</span>
+        </div>
+      </div>
       
     <!-- Transport Controls -->
       <div class="flex items-center gap-4 mb-6">
@@ -260,6 +268,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
   defp make_relative_path(path) do
     base = SoundForge.Storage.base_path() |> Path.expand()
     cwd_base = Path.join(File.cwd!(), SoundForge.Storage.base_path()) |> Path.expand()
+    demucs_base = Application.get_env(:sound_forge, :demucs_output_dir, "/tmp/demucs") |> Path.expand()
     expanded = Path.expand(path)
 
     cond do
@@ -268,6 +277,9 @@ defmodule SoundForgeWeb.AudioPlayerLive do
 
       String.starts_with?(expanded, base <> "/") ->
         String.replace_prefix(expanded, base <> "/", "")
+
+      String.starts_with?(expanded, demucs_base <> "/") ->
+        String.replace_prefix(expanded, demucs_base <> "/", "")
 
       true ->
         path

@@ -1,0 +1,50 @@
+# Build artifacts
+_build/
+deps/
+doc/
+.fetch
+
+# Node
+assets/node_modules/
+
+# Generated on crash
+erl_crash.dump
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.elixir_ls/
+.vscode/
+
+# Test artifacts
+test/
+cover/
+e2e-screenshots/
+test-screenshots/
+playwright-report/
+test-results/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Claude Code
+.claude/
+.ralph/
+CLAUDE.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data
+priv/uploads/*
+tmp/

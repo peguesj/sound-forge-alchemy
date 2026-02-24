@@ -39,6 +39,10 @@ import ResizeObserverHook from "./hooks/resize_observer_hook"
 import SwipeHook from "./hooks/swipe_hook"
 import StemMixerHook from "./hooks/stem_mixer_hook"
 import PadAssignHook from "./hooks/pad_assign_hook"
+import DawEditor from "./hooks/daw_editor"
+import DawPreview from "./hooks/daw_preview"
+import DjDeck from "./hooks/dj_deck"
+import JogWheel from "./hooks/jog_wheel"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const Hooks = {
@@ -46,7 +50,7 @@ const Hooks = {
   DebugLogScroll, JobTraceGraph,
   AnalysisRadar, AnalysisChroma, AnalysisBeats,
   AnalysisMFCC, AnalysisSpectral,
-  ResizeObserverHook, SwipeHook, StemMixerHook, PadAssignHook,
+  ResizeObserverHook, SwipeHook, StemMixerHook, PadAssignHook, DawEditor, DawPreview, DjDeck, JogWheel,
   ...colocatedHooks
 }
 const liveSocket = new LiveSocket("/live", Socket, {

@@ -34,7 +34,13 @@ defmodule SoundForge.MIDI.Mapping do
     :stem_mute,
     :stem_volume,
     :seek,
-    :bpm_tap
+    :bpm_tap,
+    :dj_play,
+    :dj_cue,
+    :dj_crossfader,
+    :dj_loop_toggle,
+    :dj_loop_size,
+    :dj_pitch
   ]
 
   schema "midi_mappings" do

@@ -189,6 +189,34 @@ defmodule SoundForge.MIDI.ActionExecutor do
         broadcast_action(:bpm_tap, params)
         state
 
+      :dj_play ->
+        deck = Map.get(params, "deck", "1") |> String.to_integer()
+        Phoenix.PubSub.broadcast(@pubsub, "dj:midi", {:dj_play, deck})
+        state
+
+      :dj_cue ->
+        deck = Map.get(params, "deck", "1") |> String.to_integer()
+        cue_slot = Map.get(params, "slot", "1") |> String.to_integer()
+        Phoenix.PubSub.broadcast(@pubsub, "dj:midi", {:dj_cue, deck, cue_slot})
+        state
+
+      :dj_crossfader ->
+        handle_dj_crossfader(message, state)
+
+      :dj_loop_toggle ->
+        deck = Map.get(params, "deck", "1") |> String.to_integer()
+        Phoenix.PubSub.broadcast(@pubsub, "dj:midi", {:dj_loop_toggle, deck})
+        state
+
+      :dj_loop_size ->
+        deck = Map.get(params, "deck", "1") |> String.to_integer()
+        beats = Map.get(params, "beats", "4") |> String.to_float()
+        Phoenix.PubSub.broadcast(@pubsub, "dj:midi", {:dj_loop_size, deck, beats})
+        state
+
+      :dj_pitch ->
+        handle_dj_pitch(message, params, state)
+
       _ ->
         state
     end
@@ -258,6 +286,23 @@ defmodule SoundForge.MIDI.ActionExecutor do
     end
 
     %{state | mute_states: mute_states}
+  end
+
+  defp handle_dj_crossfader(message, state) do
+    value = extract_cc_value(message)
+    # Map 0-127 CC to -100..+100 crossfader range
+    crossfader = trunc(value / 127.0 * 200 - 100)
+    Phoenix.PubSub.broadcast(@pubsub, "dj:midi", {:dj_crossfader, crossfader})
+    state
+  end
+
+  defp handle_dj_pitch(message, params, state) do
+    deck = Map.get(params, "deck", "1") |> String.to_integer()
+    value = extract_cc_value(message)
+    # Map 0-127 CC to -8.0..+8.0 pitch range
+    pitch = Float.round(value / 127.0 * 16.0 - 8.0, 1)
+    Phoenix.PubSub.broadcast(@pubsub, "dj:midi", {:dj_pitch, deck, pitch})
+    state
   end
 
   defp extract_cc_value(%{data: %{value: value}}), do: value

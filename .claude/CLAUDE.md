@@ -451,6 +451,75 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - [x] **CP-01**: Admin dashboard with role hierarchy, user management, audit logging, analytics, job monitoring, and auth plugs (PR #6)
 - After CP-01: `mix compile --warnings-as-errors` passes, admin routes protected by `require_admin_user` plug, audit log records created on all admin mutations
 
+### Feature: DAW Stem Editor + DJ Loop Deck (feature/daw-dj)
+
+#### Wave 1 - Schemas
+- [x] **CP-02**: Add DAW edit_operations schema and migration (US-001)
+- [x] **CP-03**: Add DJ cue_points and deck_sessions schemas (US-002)
+- After CP-03: `mix compile --warnings-as-errors` PASS
+
+#### Wave 2 - Contexts
+- [x] **CP-04**: Create DAW context module with edit operation CRUD (US-003)
+- [x] **CP-05**: Create DJ context module with deck and cue management (US-004)
+- After CP-05: `mix compile --warnings-as-errors` PASS
+
+#### Wave 3 - Core LiveViews
+- [x] **CP-06**: Create DAW LiveView with WaveSurfer regions plugin (US-005)
+- [x] **CP-07**: Create DJ LiveView with dual deck layout (US-006)
+- After CP-07: `mix compile --warnings-as-errors` PASS
+
+#### Wave 4 - Feature Implementation
+- [x] **CP-08**: Implement DAW crop and trim operations (US-007)
+- [x] **CP-09**: Implement DAW fade in/out and gain operations (US-008)
+- [x] **CP-10**: Implement DAW split operation (US-009)
+- [x] **CP-11**: Implement DJ loop playback engine with beat quantization (US-010)
+- [x] **CP-12**: Implement DJ crossfader and per-deck volume (US-011)
+- [x] **CP-13**: Implement DJ cue point placement and hotcue triggers (US-012)
+- [x] **CP-14**: Implement DJ pitch/tempo control with pitch slider (US-013)
+- After CP-14: `mix compile --warnings-as-errors` PASS
+
+#### Wave 5 - Advanced Features
+- [x] **CP-15**: Add SMPTE timecode generation and MIDI clock sync for DJ (US-014)
+- [x] **CP-16**: Add MIDI mapping for DJ controls (US-015)
+- [x] **CP-17**: Build DJ virtual controller UI (US-016)
+- [x] **CP-19**: DAW playback preview with operations applied (US-018)
+- [x] **CP-21**: DJ WaveSurfer overview with beat grid and zoom (US-020)
+- After CP-21: `mix compile --warnings-as-errors` PASS
+
+#### Wave 6 - Integration & Export
+- [x] **CP-18**: DAW export: render edited stem to file (US-017)
+- [x] **CP-20**: Add DAW and DJ to navigation and integrate with track detail (US-019)
+- After CP-20: `mix compile --warnings-as-errors` PASS (all 20 stories complete)
+
+### Feature: Full lalal.ai API v1.1.0 Integration (feature/lalalai-full-integration)
+
+#### Wave 1 - Foundation (HTTP Client + Schemas + Settings)
+- [x] **CP-22**: Expand LalalAI HTTP client with all 15 v1.1 endpoints (US-001)
+- [x] **CP-23**: Add UserSettings fields for splitter, dereverb, extraction_level, output_format (US-002)
+- [x] **CP-24**: Add batch_jobs and voice_packs schema tables (US-003)
+- After CP-24: `mix compile --warnings-as-errors` PASS
+
+#### Wave 2 - Workers + API Routes
+- [x] **CP-25**: MultiStem worker for multi-stem extraction (US-004)
+- [x] **CP-26**: Demuser worker for voice+music separation (US-005)
+- [x] **CP-27**: VoiceClean worker for noise removal (US-006)
+- [x] **CP-28**: VoiceChange worker with voice packs (US-007)
+- [x] **CP-29**: Batch processing orchestrator (US-008)
+- [x] **CP-31**: Quota checking and task cancellation API routes (US-010)
+- [x] **CP-32**: Voice packs listing API route (US-011)
+- [x] **CP-37**: Lead/backing vocal separation multivocal support (US-016)
+- [x] **CP-39**: Idempotency key support for all split operations (US-018)
+- After CP-39: `mix compile --warnings-as-errors` PASS
+
+#### Wave 3 - Integration + UI
+- [x] **CP-30**: ProcessingWorker delegation for new modes (US-009)
+- [x] **CP-33**: SettingsLive advanced lalal.ai options UI (US-012)
+- [x] **CP-34**: DashboardLive multistem and mode selection UI (US-013)
+- [x] **CP-35**: Batch processing UI with track selection (US-014)
+- [x] **CP-36**: Task cancellation UI for processing jobs (US-015)
+- [x] **CP-38**: Fix Stem.source tracking bug and source_id persistence (US-017)
+- After CP-38: `mix compile --warnings-as-errors` PASS (all 18 stories complete)
+
 ## Agentic Complexity Tree View Requirement
 
 When any request involves agentic complexity (UPM, Formation, agent deployment), ALWAYS display a `tree`-style hierarchical view of the planned structure BEFORE execution. This applies to /upm build, /formation deploy, /deploy:agents-v2, /ralph story mapping, /plane-pm issue creation, and any todo/task list with concurrent work. No exceptions.

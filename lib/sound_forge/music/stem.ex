@@ -21,6 +21,7 @@ defmodule SoundForge.Music.Stem do
             | :wind,
           file_path: String.t() | nil,
           file_size: integer() | nil,
+          options: map() | nil,
           processing_job_id: binary() | nil,
           track_id: binary() | nil,
           inserted_at: DateTime.t() | nil,
@@ -49,6 +50,7 @@ defmodule SoundForge.Music.Stem do
     field :stem_type, Ecto.Enum, values: @stem_type_values
     field :file_path, :string
     field :file_size, :integer
+    field :options, :map, default: %{}
     field :source, :string, default: "local"
 
     belongs_to :processing_job, SoundForge.Music.ProcessingJob
@@ -60,10 +62,30 @@ defmodule SoundForge.Music.Stem do
   @doc false
   def changeset(stem, attrs) do
     stem
-    |> cast(attrs, [:processing_job_id, :track_id, :stem_type, :file_path, :file_size, :source])
+    |> cast(attrs, [
+      :processing_job_id,
+      :track_id,
+      :stem_type,
+      :file_path,
+      :file_size,
+      :options,
+      :source
+    ])
     |> validate_required([:processing_job_id, :track_id, :stem_type])
     |> validate_inclusion(:stem_type, @stem_type_values)
     |> foreign_key_constraint(:processing_job_id)
+    |> foreign_key_constraint(:track_id)
+  end
+
+  @doc """
+  Changeset for DAW-exported stems. Does not require `processing_job_id`
+  since edited stems are created directly by the user, not by a processing job.
+  """
+  def export_changeset(stem, attrs) do
+    stem
+    |> cast(attrs, [:track_id, :stem_type, :file_path, :file_size, :options, :source])
+    |> validate_required([:track_id, :stem_type])
+    |> validate_inclusion(:stem_type, @stem_type_values)
     |> foreign_key_constraint(:track_id)
   end
 end

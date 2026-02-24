@@ -42,6 +42,25 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
               <span class="hero-magnifying-glass w-4 h-4"></span> Browse
             </button>
             <a
+              href="/daw"
+              class={tab_class(@nav_tab == :daw)}
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10" />
+              </svg>
+              DAW
+            </a>
+            <a
+              href="/dj"
+              class={tab_class(@nav_tab == :dj)}
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+              </svg>
+              DJ
+            </a>
+            <a
               :if={@current_scope && @current_scope.admin?}
               href="/admin"
               class={[

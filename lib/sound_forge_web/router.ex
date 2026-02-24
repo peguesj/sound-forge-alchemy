@@ -31,10 +31,20 @@ defmodule SoundForgeWeb.Router do
     plug SoundForgeWeb.Plugs.APIAuth
   end
 
+  # Browser-session authenticated JSON API (for JS fetch from LiveView pages).
+  # Uses session cookie auth + CSRF instead of Bearer token.
+  pipeline :browser_api do
+    plug :accepts, ["json"]
+    plug :fetch_session
+    plug :protect_from_forgery
+    plug :fetch_current_scope_for_user
+  end
+
   scope "/admin", SoundForgeWeb do
     pipe_through [:browser, :require_authenticated_user, :require_admin_user]
 
     live "/", AdminLive, :index
+    live "/dev-tools", DevToolsLive, :index
   end
 
   scope "/", SoundForgeWeb do
@@ -45,6 +55,8 @@ defmodule SoundForgeWeb.Router do
     live "/settings", SettingsLive, :index
     live "/midi", MidiLive, :index
     live "/practice", PracticeLive, :index
+    live "/daw/:track_id", DawLive, :index
+    live "/dj", DjLive, :index
     get "/files/*path", FileController, :serve
 
     # Export routes
@@ -92,6 +104,22 @@ defmodule SoundForgeWeb.Router do
     post "/download/track", DownloadController, :create
     post "/processing/separate", ProcessingController, :create
     post "/analysis/analyze", AnalysisController, :create
+  end
+
+  # DAW export API (browser-session auth, file upload from LiveView JS)
+  scope "/api/daw", SoundForgeWeb.API do
+    pipe_through [:browser_api, :require_authenticated_user]
+
+    post "/export", DawController, :export
+  end
+
+  # lalal.ai management API (quota, task cancellation)
+  scope "/api/lalalai", SoundForgeWeb.API do
+    pipe_through [:browser_api, :require_authenticated_user]
+
+    get "/quota", LalalaiController, :quota
+    post "/cancel", LalalaiController, :cancel
+    post "/cancel-all", LalalaiController, :cancel_all
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

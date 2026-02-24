@@ -101,6 +101,37 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
             </li>
           </ul>
         </div>
+
+    <!-- Studio section -->
+        <div class="px-4">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Studio</h3>
+          <ul class="space-y-0.5">
+            <li>
+              <.link
+                navigate="/daw"
+                class={sidebar_item_class(@nav_context == :daw)}
+              >
+                <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10" />
+                </svg>
+                <span class="truncate">DAW</span>
+              </.link>
+            </li>
+            <li>
+              <.link
+                navigate="/dj"
+                class={sidebar_item_class(@nav_context == :dj)}
+              >
+                <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 12h.01" />
+                </svg>
+                <span class="truncate">DJ</span>
+              </.link>
+            </li>
+          </ul>
+        </div>
       </nav>
     </aside>
     """

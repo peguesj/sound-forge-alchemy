@@ -180,6 +180,133 @@
                   <input type="checkbox" checked={@preview_mode} phx-click="toggle_preview" class="checkbox checkbox-xs checkbox-primary" />
                   Preview first 60s only
                 </label>
+                <!-- lalal.ai mode tabs -->
+                <div :if={@selected_engine == "lalalai"} class="tabs tabs-boxed bg-gray-800/60 mb-1 flex-wrap">
+                  <a
+                    class={"tab tab-sm #{if @lalalai_mode == "stem_separator", do: "tab-active !bg-purple-700 !text-white", else: "text-gray-400"}"}
+                    phx-click="select_lalalai_mode"
+                    phx-value-mode="stem_separator"
+                  >
+                    Stem Separator
+                  </a>
+                  <a
+                    class={"tab tab-sm #{if @lalalai_mode == "multistem", do: "tab-active !bg-purple-700 !text-white", else: "text-gray-400"}"}
+                    phx-click="select_lalalai_mode"
+                    phx-value-mode="multistem"
+                  >
+                    Multistem
+                  </a>
+                  <a
+                    class={"tab tab-sm #{if @lalalai_mode == "demuser", do: "tab-active !bg-purple-700 !text-white", else: "text-gray-400"}"}
+                    phx-click="select_lalalai_mode"
+                    phx-value-mode="demuser"
+                  >
+                    Demuser
+                  </a>
+                  <a
+                    class={"tab tab-sm #{if @lalalai_mode == "voice_clean", do: "tab-active !bg-purple-700 !text-white", else: "text-gray-400"}"}
+                    phx-click="select_lalalai_mode"
+                    phx-value-mode="voice_clean"
+                  >
+                    Voice Clean
+                  </a>
+                  <a
+                    class={"tab tab-sm #{if @lalalai_mode == "voice_change", do: "tab-active !bg-purple-700 !text-white", else: "text-gray-400"}"}
+                    phx-click="select_lalalai_mode"
+                    phx-value-mode="voice_change"
+                  >
+                    Voice Change
+                  </a>
+                </div>
+                <!-- lalal.ai mode-specific controls -->
+                <div :if={@selected_engine == "lalalai"} class="space-y-2">
+                  <%!-- stem_separator: default, no extra UI needed --%>
+                  <%!-- multistem: checkbox grid for stem selection --%>
+                  <div :if={@lalalai_mode == "multistem"} class="space-y-1">
+                    <p class="text-xs text-gray-400 mb-1">Select stems to extract:</p>
+                    <div class="grid grid-cols-2 gap-1">
+                      <%= for stem <- ["vocals", "drum", "piano", "bass", "electric_guitar", "acoustic_guitar"] do %>
+                        <label class="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={MapSet.member?(@multistem_selection, stem)}
+                            phx-click="toggle_multistem"
+                            phx-value-stem={stem}
+                            class="checkbox checkbox-xs checkbox-primary"
+                          />
+                          {String.replace(stem, "_", " ") |> String.capitalize()}
+                        </label>
+                      <% end %>
+                    </div>
+                  </div>
+                  <%!-- demuser: dereverb toggle --%>
+                  <div :if={@lalalai_mode == "demuser"} class="space-y-1">
+                    <label class="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={@dereverb}
+                        phx-click="toggle_dereverb"
+                        class="checkbox checkbox-xs checkbox-primary"
+                      />
+                      Remove reverb (dereverb)
+                    </label>
+                  </div>
+                  <%!-- voice_clean: noise level slider --%>
+                  <div :if={@lalalai_mode == "voice_clean"} class="space-y-1">
+                    <p class="text-xs text-gray-400">Noise reduction level:</p>
+                    <div class="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="1"
+                        value={@noise_level}
+                        phx-change="set_noise_level"
+                        name="level"
+                        class="range range-xs range-primary flex-1"
+                      />
+                      <span class="text-xs text-gray-300 w-16">
+                        {case @noise_level do
+                          0 -> "None"
+                          1 -> "Medium"
+                          _ -> "Aggressive"
+                        end}
+                      </span>
+                    </div>
+                  </div>
+                  <%!-- voice_change: voice pack select + accent --%>
+                  <div :if={@lalalai_mode == "voice_change"} class="space-y-2">
+                    <div>
+                      <label class="text-xs text-gray-400 block mb-1">Voice pack:</label>
+                      <select
+                        phx-change="select_voice_pack"
+                        name="pack_id"
+                        class="select select-xs select-bordered w-full bg-gray-800 text-gray-200 border-gray-600"
+                      >
+                        <option value="">-- select a pack --</option>
+                        <option value="male_1">Male 1</option>
+                        <option value="male_2">Male 2</option>
+                        <option value="female_1">Female 1</option>
+                        <option value="female_2">Female 2</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="text-xs text-gray-400 block mb-1">
+                        Accent strength: {Float.round(@accent * 100) |> trunc()}%
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={@accent}
+                        phx-change="set_accent"
+                        name="value"
+                        class="range range-xs range-primary w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
                 <button
                   phx-click="process_track"
                   phx-value-id={@track.id}
@@ -278,6 +405,26 @@
                   </svg>
                   Play on Spotify
                 </button>
+                <.link
+                  :if={length(@stems) > 0}
+                  navigate={~p"/daw/#{@track.id}"}
+                  class="w-full flex items-center gap-2 bg-cyan-900/30 hover:bg-cyan-900/60 text-cyan-400 hover:text-cyan-300 border border-cyan-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10" />
+                  </svg>
+                  Edit in DAW
+                </.link>
+                <.link
+                  navigate={~p"/dj?load_track=#{@track.id}"}
+                  class="w-full flex items-center gap-2 bg-orange-900/30 hover:bg-orange-900/60 text-orange-400 hover:text-orange-300 border border-orange-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+                  </svg>
+                  Load in DJ
+                </.link>
                 <button
                   phx-click="delete_track"
                   phx-value-id={@track.id}
@@ -850,6 +997,25 @@
                   </svg>
                 </button>
               </div>
+              <!-- Batch Select Toggle -->
+              <button
+                type="button"
+                phx-click="toggle_batch_mode"
+                class={[
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                  if(@batch_mode,
+                    do: "bg-amber-600 text-white border-amber-500",
+                    else: "bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-white"
+                  )
+                ]}
+                aria-pressed={to_string(@batch_mode)}
+                aria-label="Toggle batch select mode"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                Batch Select
+              </button>
             </div>
             
 <!-- Filter Bar -->
@@ -964,10 +1130,11 @@
                   class="bg-gray-800 rounded-lg p-4 hover:bg-gray-750 transition-colors border border-gray-700 hover:border-purple-500/50 relative group"
                 >
                   <input
+                    :if={@batch_mode}
                     type="checkbox"
                     checked={MapSet.member?(@selected_ids, track.id)}
-                    phx-click="toggle_select"
-                    phx-value-id={track.id}
+                    phx-click="toggle_track_select"
+                    phx-value-track_id={track.id}
                     data-select-id={track.id}
                     class="checkbox checkbox-sm checkbox-primary absolute top-2 left-2 z-10"
                     aria-label={"Select #{track.title}"}
@@ -2365,4 +2532,107 @@
       </div>
     </div>
   </div>
+<!-- Batch Mode: Sticky Footer Bar -->
+<div
+  :if={@batch_mode and MapSet.size(@selected_ids) > 0}
+  class="fixed bottom-0 left-0 right-0 bg-base-200 border-t border-gray-700 p-4 flex items-center justify-between z-50"
+>
+  <span class="badge badge-primary text-sm"><%= MapSet.size(@selected_ids) %> selected</span>
+  <div class="flex items-center gap-3">
+    <button
+      class="btn btn-ghost btn-sm"
+      phx-click="toggle_batch_mode"
+    >
+      Cancel
+    </button>
+    <button
+      class="btn btn-primary btn-sm"
+      phx-click="start_batch_process"
+    >
+      Process Selected
+    </button>
+  </div>
+</div>
+
+<!-- Batch Processing Modal -->
+<div
+  :if={Map.get(assigns, :show_batch_modal, false)}
+  class="modal modal-open"
+  id="batch-process-modal"
+>
+  <div class="modal-box bg-gray-800 border border-gray-700">
+    <h3 class="font-bold text-lg text-white mb-4">Batch Stem Separation</h3>
+    <p class="text-sm text-gray-400 mb-4">
+      Process <%= MapSet.size(@selected_ids) %> tracks with lalal.ai cloud separation.
+    </p>
+    <form phx-submit="confirm_batch_process" class="space-y-4">
+      <div class="form-control">
+        <label class="label" for="batch-engine">
+          <span class="label-text text-gray-300">Model (splitter)</span>
+        </label>
+        <select
+          id="batch-engine"
+          name="engine"
+          class="select select-bordered bg-gray-700 border-gray-600 text-white w-full"
+        >
+          <option value="phoenix" selected>Phoenix (recommended)</option>
+          <option value="orion">Orion</option>
+          <option value="cassiopeia">Cassiopeia</option>
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label" for="batch-stem-filter">
+          <span class="label-text text-gray-300">Stem</span>
+        </label>
+        <select
+          id="batch-stem-filter"
+          name="stem_filter"
+          class="select select-bordered bg-gray-700 border-gray-600 text-white w-full"
+        >
+          <option value="vocals" selected>Vocals</option>
+          <option value="drums">Drums</option>
+          <option value="bass">Bass</option>
+          <option value="electric_guitar">Electric Guitar</option>
+          <option value="acoustic_guitar">Acoustic Guitar</option>
+          <option value="piano">Piano</option>
+          <option value="synthesizer">Synthesizer</option>
+          <option value="strings">Strings</option>
+          <option value="wind">Wind</option>
+        </select>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" phx-click="cancel_batch_modal">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+          Start Processing
+        </button>
+      </div>
+    </form>
+  </div>
+  <div class="modal-backdrop" phx-click="cancel_batch_modal"></div>
+</div>
+
+<!-- Batch Progress Indicator -->
+<div
+  :if={@batch_processing and @batch_status}
+  class="fixed top-20 right-6 z-50 bg-gray-800 border border-amber-500/50 rounded-lg p-4 shadow-xl w-72"
+>
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-sm font-medium text-white">Batch Processing</span>
+    <span class="text-xs text-gray-400">
+      <%= Map.get(@batch_status, :completed_count, 0) %>/<%= Map.get(@batch_status, :total_count, 0) %>
+    </span>
+  </div>
+  <progress
+    class="progress progress-primary w-full"
+    value={Map.get(@batch_status, :completed_count, 0)}
+    max={Map.get(@batch_status, :total_count, 1)}
+  >
+  </progress>
+  <p class="text-xs text-gray-500 mt-1 capitalize">
+    <%= Map.get(@batch_status, :status, :pending) %>
+  </p>
+</div>
+
 </div>

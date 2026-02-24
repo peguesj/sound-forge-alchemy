@@ -37,6 +37,10 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:artists, list_artists(scope))
       |> assign(:selected_ids, MapSet.new())
       |> assign(:select_all, false)
+      |> assign(:batch_mode, false)
+      |> assign(:batch_processing, false)
+      |> assign(:batch_status, nil)
+      |> assign(:show_batch_modal, false)
       |> assign(:auto_download, true)
       |> assign(:editing_track, nil)
       |> assign(:spotify_playback, nil)
@@ -56,6 +60,12 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:lalalai_modal_key_input, "")
       |> assign(:lalalai_modal_testing, false)
       |> assign(:lalalai_modal_test_result, nil)
+      |> assign(:lalalai_mode, "stem_separator")
+      |> assign(:multistem_selection, MapSet.new())
+      |> assign(:noise_level, 0)
+      |> assign(:voice_pack_id, nil)
+      |> assign(:accent, 0.5)
+      |> assign(:dereverb, false)
       |> assign(:debug_mode, Settings.get(current_user_id, :debug_mode) || false)
       |> assign(:drawer_open, false)
       |> assign(:debug_panel_open, false)
@@ -332,6 +342,80 @@ defmodule SoundForgeWeb.DashboardLive do
      |> put_flash(:info, "Deleted #{count} tracks")}
   end
 
+
+  # -- Batch Mode (BatchProcessor integration) --
+
+  @impl true
+  def handle_event("toggle_batch_mode", _params, socket) do
+    new_mode = !socket.assigns.batch_mode
+
+    socket =
+      socket
+      |> assign(:batch_mode, new_mode)
+      |> assign(:selected_ids, MapSet.new())
+      |> assign(:select_all, false)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("toggle_track_select", %{"track_id" => track_id}, socket) do
+    selected = socket.assigns.selected_ids
+
+    selected =
+      if MapSet.member?(selected, track_id) do
+        MapSet.delete(selected, track_id)
+      else
+        MapSet.put(selected, track_id)
+      end
+
+    {:noreply, assign(socket, :selected_ids, selected)}
+  end
+
+  @impl true
+  def handle_event("start_batch_process", _params, socket) do
+    {:noreply, assign(socket, :show_batch_modal, true)}
+  end
+
+  @impl true
+  def handle_event("cancel_batch_modal", _params, socket) do
+    {:noreply, assign(socket, :show_batch_modal, false)}
+  end
+
+  @impl true
+  def handle_event("confirm_batch_process", %{"engine" => engine, "stem_filter" => stem_filter}, socket) do
+    user_id = socket.assigns[:current_user_id]
+    track_ids = MapSet.to_list(socket.assigns.selected_ids)
+
+    case SoundForge.Audio.BatchProcessor.start_batch(
+           track_ids: track_ids,
+           user_id: user_id,
+           stem_filter: stem_filter,
+           engine_opts: [splitter: engine]
+         ) do
+      {:ok, %{batch_job: batch_job}} ->
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, "batch:\#{batch_job.id}")
+
+        {:noreply,
+         socket
+         |> assign(:batch_processing, true)
+         |> assign(:batch_status, batch_job)
+         |> assign(:show_batch_modal, false)
+         |> assign(:selected_ids, MapSet.new())
+         |> assign(:select_all, false)
+         |> put_flash(:info, "Batch processing started for \#{length(track_ids)} tracks")}
+
+      {:error, :empty_batch} ->
+        {:noreply, put_flash(socket, :error, "No tracks selected for batch processing")}
+
+      {:error, {:batch_too_large, msg}} ->
+        {:noreply, put_flash(socket, :error, msg)}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Batch processing failed: #{inspect(reason)}")}
+    end
+  end
+
   # -- Download Actions --
 
   @impl true
@@ -384,13 +468,44 @@ defmodule SoundForgeWeb.DashboardLive do
     engine = socket.assigns.selected_engine
     preview = socket.assigns.preview_mode
 
+    lalalai_opts =
+      if engine == "lalalai" do
+        mode = socket.assigns.lalalai_mode
+
+        base = [lalalai_mode: mode]
+
+        case mode do
+          "multistem" ->
+            stems = socket.assigns.multistem_selection |> MapSet.to_list()
+            base ++ [multistem_stems: stems]
+
+          "voice_clean" ->
+            base ++ [noise_level: socket.assigns.noise_level]
+
+          "voice_change" ->
+            base ++
+              [
+                voice_pack_id: socket.assigns.voice_pack_id,
+                accent: socket.assigns.accent
+              ]
+
+          "demuser" ->
+            base ++ [dereverb: socket.assigns.dereverb]
+
+          _ ->
+            base
+        end
+      else
+        []
+      end
+
     with {:ok, track} <- fetch_owned_track(socket, id),
-         {:ok, _} <- start_processing(track.id, user_id, engine: engine, preview: preview) do
+         {:ok, job} <- start_processing(track.id, user_id, [engine: engine, preview: preview] ++ lalalai_opts) do
       maybe_subscribe(socket, track.id)
 
       pipelines = socket.assigns.pipelines
       pipeline = Map.get(pipelines, track.id, %{})
-      updated_pipeline = Map.put(pipeline, :processing, %{status: :queued, progress: 0})
+      updated_pipeline = Map.put(pipeline, :processing, %{status: :queued, progress: 0, job_id: job.id, engine: job.engine})
       pipelines = Map.put(pipelines, track.id, updated_pipeline)
 
       {:noreply,
@@ -430,6 +545,41 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, assign(socket, :selected_engine, "demucs")}
   end
 
+  def handle_event("select_lalalai_mode", %{"mode" => mode}, socket) do
+    {:noreply, assign(socket, :lalalai_mode, mode)}
+  end
+
+  def handle_event("toggle_multistem", %{"stem" => stem}, socket) do
+    selection = socket.assigns.multistem_selection
+
+    updated =
+      if MapSet.member?(selection, stem) do
+        MapSet.delete(selection, stem)
+      else
+        MapSet.put(selection, stem)
+      end
+
+    {:noreply, assign(socket, :multistem_selection, updated)}
+  end
+
+  def handle_event("set_noise_level", %{"level" => level}, socket) do
+    parsed = String.to_integer(level)
+    {:noreply, assign(socket, :noise_level, parsed)}
+  end
+
+  def handle_event("select_voice_pack", %{"pack_id" => pack_id}, socket) do
+    {:noreply, assign(socket, :voice_pack_id, pack_id)}
+  end
+
+  def handle_event("set_accent", %{"value" => value}, socket) do
+    parsed = String.to_float(value)
+    {:noreply, assign(socket, :accent, parsed)}
+  end
+
+  def handle_event("toggle_dereverb", _params, socket) do
+    {:noreply, update(socket, :dereverb, &(!&1))}
+  end
+
   def handle_event("close_lalalai_modal", _params, socket) do
     {:noreply, assign(socket, :show_lalalai_modal, false)}
   end
@@ -457,6 +607,58 @@ defmodule SoundForgeWeb.DashboardLive do
       end)
 
       {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("cancel_lalalai_task", %{"job-id" => job_id}, socket) do
+    job = Music.get_processing_job!(job_id)
+    task_id = get_in(job.options || %{}, ["lalalai_task_id"])
+
+    if task_id do
+      case LalalAI.cancel_task([task_id]) do
+        {:ok, _} ->
+          Music.update_processing_job(job, %{status: :cancelled})
+          SoundForge.Jobs.PipelineBroadcaster.broadcast_stage_failed(job.track_id, job_id, :processing)
+
+          # Optimistically update the pipeline UI to show :cancelled immediately
+          socket =
+            update_pipeline_stage(socket, job.track_id, :processing, fn stage_data ->
+              Map.merge(stage_data, %{status: :cancelled, progress: stage_data[:progress] || 0})
+            end)
+
+          {:noreply, put_flash(socket, :info, "Task cancelled")}
+
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to cancel: #{inspect(reason)}")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "No task ID found")}
+    end
+  end
+
+  @impl true
+  def handle_event("cancel_all_lalalai_tasks", _params, socket) do
+    case LalalAI.cancel_all_tasks() do
+      {:ok, _} ->
+        # Optimistically mark all in-progress lalalai processing stages as cancelled
+        socket =
+          Enum.reduce(socket.assigns.pipelines, socket, fn {track_id, pipeline}, acc ->
+            case Map.get(pipeline, :processing) do
+              %{status: s, engine: "lalalai"} when s in [:processing, :queued] ->
+                update_pipeline_stage(acc, track_id, :processing, fn stage_data ->
+                  Map.merge(stage_data, %{status: :cancelled, progress: stage_data[:progress] || 0})
+                end)
+
+              _ ->
+                acc
+            end
+          end)
+
+        {:noreply, put_flash(socket, :info, "All lalal.ai tasks cancelled")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to cancel all: #{inspect(reason)}")}
     end
   end
 
@@ -1186,10 +1388,18 @@ defmodule SoundForgeWeb.DashboardLive do
       user_id = socket.assigns[:current_user_id]
 
       with {:ok, track} <- fetch_owned_track(socket, track_id),
-           {:ok, _} <- retry_pipeline_stage(track.id, stage_atom, user_id) do
+           {:ok, result} <- retry_pipeline_stage(track.id, stage_atom, user_id) do
         pipelines = socket.assigns.pipelines
         pipeline = Map.get(pipelines, track_id, %{})
-        updated_pipeline = Map.put(pipeline, stage_atom, %{status: :queued, progress: 0})
+
+        stage_data =
+          if stage_atom == :processing and is_struct(result, SoundForge.Music.ProcessingJob) do
+            %{status: :queued, progress: 0, job_id: result.id, engine: result.engine}
+          else
+            %{status: :queued, progress: 0}
+          end
+
+        updated_pipeline = Map.put(pipeline, stage_atom, stage_data)
         pipelines = Map.put(pipelines, track_id, updated_pipeline)
 
         {:noreply,
@@ -1226,6 +1436,7 @@ defmodule SoundForgeWeb.DashboardLive do
               spotify_id: playlist_meta["spotify_id"],
               cover_art_url: playlist_meta["cover"],
               spotify_url: url,
+              source: "spotify",
               user_id: user_id
             })
 
@@ -1332,8 +1543,16 @@ defmodule SoundForgeWeb.DashboardLive do
     pipelines = socket.assigns.pipelines
     pipeline = Map.get(pipelines, track_id, %{})
 
-    updated_pipeline =
-      Map.put(pipeline, stage, %{status: payload.status, progress: payload.progress})
+    # Preserve job_id and engine from existing stage data (set when job was enqueued)
+    # so the cancel button remains functional during live progress updates.
+    existing_stage = Map.get(pipeline, stage, %{})
+
+    stage_data =
+      %{status: payload.status, progress: payload.progress}
+      |> maybe_put(:job_id, Map.get(existing_stage, :job_id))
+      |> maybe_put(:engine, Map.get(existing_stage, :engine))
+
+    updated_pipeline = Map.put(pipeline, stage, stage_data)
 
     pipelines = Map.put(pipelines, track_id, updated_pipeline)
 
@@ -1553,6 +1772,37 @@ defmodule SoundForgeWeb.DashboardLive do
   def handle_info({:midi_action, action, params}, socket) do
     log_entry = midi_log_entry("#{action}: #{inspect(params, limit: 3)}")
     {:noreply, append_midi_log(socket, log_entry)}
+  end
+
+
+  @impl true
+  def handle_info({:batch_progress, %{batch_job_id: _id, status: status, completed_count: completed, total_count: total}}, socket) do
+    batch_status = socket.assigns.batch_status
+
+    updated_status =
+      if batch_status do
+        %{batch_status | status: status, completed_count: completed, total_count: total}
+      else
+        batch_status
+      end
+
+    {:noreply, assign(socket, :batch_status, updated_status)}
+  end
+
+  @impl true
+  def handle_info({:batch_complete, %{batch_job_id: _id, completed_count: completed, failed_count: failed, total_count: total}}, socket) do
+    msg =
+      if failed > 0 do
+        "Batch complete: #{completed}/#{total} succeeded, #{failed} failed"
+      else
+        "Batch complete: #{completed} tracks processed successfully"
+      end
+
+    {:noreply,
+     socket
+     |> assign(:batch_processing, false)
+     |> assign(:batch_mode, false)
+     |> put_flash(:info, msg)}
   end
 
   # -- Template helpers --
@@ -1776,6 +2026,19 @@ defmodule SoundForgeWeb.DashboardLive do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track_id}")
     end
+  end
+
+  # Puts a key/value into a map only when value is not nil.
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  # Updates a single stage within the pipelines assigns using the given function.
+  defp update_pipeline_stage(socket, track_id, stage, fun) do
+    pipelines = socket.assigns.pipelines
+    pipeline = Map.get(pipelines, track_id, %{})
+    stage_data = Map.get(pipeline, stage, %{})
+    updated_pipeline = Map.put(pipeline, stage, fun.(stage_data))
+    assign(socket, :pipelines, Map.put(pipelines, track_id, updated_pipeline))
   end
 
   defp fetch_success_message([_single | []] = [track_meta]) do
@@ -2068,19 +2331,35 @@ defmodule SoundForgeWeb.DashboardLive do
     preview = Keyword.get(opts, :preview, false)
     model = Settings.get(user_id, :demucs_model)
 
+    # lalal.ai mode-specific opts
+    lalalai_mode = Keyword.get(opts, :lalalai_mode, "stem_separator")
+    multistem_stems = Keyword.get(opts, :multistem_stems, [])
+    noise_level = Keyword.get(opts, :noise_level, 0)
+    voice_pack_id = Keyword.get(opts, :voice_pack_id, nil)
+    accent = Keyword.get(opts, :accent, 0.5)
+    dereverb = Keyword.get(opts, :dereverb, false)
+
     with {:ok, file_path} <- Music.get_download_path(track_id),
          {:ok, job} <-
-           Music.create_processing_job(%{track_id: track_id, model: model, status: :queued, engine: engine, preview: preview}) do
-      %{
-        "track_id" => track_id,
-        "job_id" => job.id,
-        "file_path" => file_path,
-        "model" => model,
-        "engine" => engine,
-        "preview" => preview
-      }
-      |> SoundForge.Jobs.ProcessingWorker.new()
-      |> Oban.insert()
+           Music.create_processing_job(%{track_id: track_id, model: model, status: :queued, engine: engine, preview: preview}),
+         {:ok, _oban_job} <-
+           (%{
+              "track_id" => track_id,
+              "job_id" => job.id,
+              "file_path" => file_path,
+              "model" => model,
+              "engine" => engine,
+              "preview" => preview,
+              "lalalai_mode" => lalalai_mode,
+              "multistem_stems" => multistem_stems,
+              "noise_level" => noise_level,
+              "voice_pack_id" => voice_pack_id,
+              "accent" => accent,
+              "dereverb" => dereverb
+            }
+            |> SoundForge.Jobs.ProcessingWorker.new()
+            |> Oban.insert()) do
+      {:ok, job}
     else
       {:error, :no_completed_download} -> {:error, :no_completed_download}
       error -> error

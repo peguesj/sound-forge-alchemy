@@ -12,6 +12,9 @@ defmodule SoundForge.Accounts.UserSettings do
   @valid_demucs_output ~w(wav flac mp3)
   @valid_demucs_devices ~w(cpu cuda)
   @valid_analysis_features ~w(tempo key energy spectral)
+  @valid_lalalai_splitters ~w(andromeda perseus orion phoenix lyra)
+  @valid_lalalai_extraction_levels ~w(mild normal clear_cut deep_extraction)
+  @valid_lalalai_output_formats ~w(mp3 wav flac aac ogg)
 
   schema "user_settings" do
     belongs_to :user, SoundForge.Accounts.User
@@ -47,6 +50,10 @@ defmodule SoundForge.Accounts.UserSettings do
 
     # Cloud Separation
     field :lalalai_api_key, :binary
+    field :lalalai_splitter, :string
+    field :lalalai_dereverb, :boolean
+    field :lalalai_extraction_level, :string
+    field :lalalai_output_format, :string
 
     # Debug
     field :debug_mode, :boolean, default: false
@@ -73,6 +80,10 @@ defmodule SoundForge.Accounts.UserSettings do
     :tracks_per_page,
     :max_upload_size,
     :lalalai_api_key,
+    :lalalai_splitter,
+    :lalalai_dereverb,
+    :lalalai_extraction_level,
+    :lalalai_output_format,
     :debug_mode
   ]
 
@@ -92,6 +103,9 @@ defmodule SoundForge.Accounts.UserSettings do
     |> validate_number(:tracks_per_page, greater_than: 0, less_than_or_equal_to: 100)
     |> validate_number(:max_upload_size, greater_than: 0)
     |> validate_subset(:analysis_features, @valid_analysis_features)
+    |> validate_inclusion(:lalalai_splitter, @valid_lalalai_splitters)
+    |> validate_inclusion(:lalalai_extraction_level, @valid_lalalai_extraction_levels)
+    |> validate_inclusion(:lalalai_output_format, @valid_lalalai_output_formats)
   end
 
   @section_fields %{
@@ -101,7 +115,7 @@ defmodule SoundForge.Accounts.UserSettings do
     demucs: [:demucs_model, :demucs_output_format, :demucs_device, :demucs_timeout],
     analysis: [:analysis_features, :analyzer_timeout],
     storage: [:storage_path, :max_file_age_days, :retention_days],
-    cloud_separation: [:lalalai_api_key],
+    cloud_separation: [:lalalai_api_key, :lalalai_splitter, :lalalai_dereverb, :lalalai_extraction_level, :lalalai_output_format],
     general: [:tracks_per_page, :max_upload_size]
   }
 

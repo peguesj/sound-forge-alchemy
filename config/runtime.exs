@@ -45,6 +45,7 @@ config :sound_forge, :spotify,
 
 # Configure lalal.ai API key for cloud stem separation
 config :sound_forge, :lalalai_api_key, System.get_env("LALALAI_API_KEY")
+config :sound_forge, :system_lalalai_key, System.get_env("SYSTEM_LALALAI_ACTIVATION_KEY")
 
 if config_env() == :prod do
   database_url =
