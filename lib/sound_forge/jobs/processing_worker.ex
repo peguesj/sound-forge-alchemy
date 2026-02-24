@@ -19,6 +19,54 @@ defmodule SoundForge.Jobs.ProcessingWorker do
   @known_stem_types ~w(vocals drums bass other guitar piano electric_guitar acoustic_guitar synth strings wind)a
 
   @impl Oban.Worker
+  def perform(%Oban.Job{args: %{"engine" => "lalalai", "mode" => "voice_clean"} = args}) do
+    Logger.info(
+      "ProcessingWorker delegating to VoiceCleanWorker for track #{args["track_id"]}"
+    )
+
+    args
+    |> SoundForge.Jobs.VoiceCleanWorker.new()
+    |> Oban.insert()
+
+    {:discard, :delegated_to_voice_clean}
+  end
+
+  def perform(%Oban.Job{args: %{"engine" => "lalalai", "mode" => "demuser"} = args}) do
+    Logger.info(
+      "ProcessingWorker delegating to DemuserWorker for track #{args["track_id"]}"
+    )
+
+    args
+    |> SoundForge.Jobs.DemuserWorker.new()
+    |> Oban.insert()
+
+    {:discard, :delegated_to_demuser}
+  end
+
+  def perform(%Oban.Job{args: %{"engine" => "lalalai", "mode" => "multistem"} = args}) do
+    Logger.info(
+      "ProcessingWorker delegating to MultiStemWorker for track #{args["track_id"]}"
+    )
+
+    args
+    |> SoundForge.Jobs.MultiStemWorker.new()
+    |> Oban.insert()
+
+    {:discard, :delegated_to_multistem}
+  end
+
+  def perform(%Oban.Job{args: %{"engine" => "lalalai", "mode" => "voice_change"} = args}) do
+    Logger.info(
+      "ProcessingWorker delegating to VoiceChangeWorker for track #{args["track_id"]}"
+    )
+
+    args
+    |> SoundForge.Jobs.VoiceChangeWorker.new()
+    |> Oban.insert()
+
+    {:discard, :delegated_to_voice_change}
+  end
+
   def perform(%Oban.Job{args: %{"engine" => "lalalai"} = args}) do
     Logger.info("ProcessingWorker delegating to LalalAIWorker for track #{args["track_id"]}")
 

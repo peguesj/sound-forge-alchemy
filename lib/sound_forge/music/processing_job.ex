@@ -14,6 +14,7 @@ defmodule SoundForge.Music.ProcessingJob do
           options: map() | nil,
           error: String.t() | nil,
           track_id: binary() | nil,
+          batch_job_id: binary() | nil,
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
         }
@@ -34,6 +35,7 @@ defmodule SoundForge.Music.ProcessingJob do
     field :preview, :boolean, default: false
 
     belongs_to :track, SoundForge.Music.Track
+    belongs_to :batch_job, SoundForge.Music.BatchJob
     has_many :stems, SoundForge.Music.Stem
 
     timestamps(type: :utc_datetime)
@@ -42,7 +44,7 @@ defmodule SoundForge.Music.ProcessingJob do
   @doc false
   def changeset(processing_job, attrs) do
     processing_job
-    |> cast(attrs, [:track_id, :model, :status, :progress, :output_path, :options, :error, :engine, :preview])
+    |> cast(attrs, [:track_id, :batch_job_id, :model, :status, :progress, :output_path, :options, :error, :engine, :preview])
     |> validate_required([:track_id])
     |> validate_inclusion(:status, @status_values)
     |> validate_number(:progress, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)

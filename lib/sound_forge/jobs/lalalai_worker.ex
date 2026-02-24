@@ -18,6 +18,10 @@ defmodule SoundForge.Jobs.LalalAIWorker do
       NOTE: Preview mode behavior is API-dependent; full separation is performed
       and results are stored with `preview: true` in the job options.
     - `"splitter"` - lalal.ai model name (default: "phoenix")
+    - `"multivocal"` - Multivocal mode (default: nil). When set to "lead_back"
+      and stem_filter is "vocals", the API returns 4 tracks: lead vocals,
+      backing vocals, and their accompaniment tracks. Two Stem records are
+      created with `options` containing `"label" => "lead"` or `"label" => "backing"`.
 
   ## Pipeline
 
@@ -47,20 +51,23 @@ defmodule SoundForge.Jobs.LalalAIWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{
-        args: %{
-          "track_id" => track_id,
-          "job_id" => job_id,
-          "file_path" => file_path
-        } = args
+        args:
+          %{
+            "track_id" => track_id,
+            "job_id" => job_id,
+            "file_path" => file_path
+          } = args
       }) do
     Logger.metadata(track_id: track_id, job_id: job_id, worker: "LalalAIWorker")
 
     stem_filter = Map.get(args, "stem_filter", "vocals")
     preview = Map.get(args, "preview", false)
     splitter = Map.get(args, "splitter", "phoenix")
+    multivocal = Map.get(args, "multivocal", nil)
 
     Logger.info(
-      "Starting lalal.ai separation: filter=#{stem_filter}, preview=#{preview}, splitter=#{splitter}"
+      "Starting lalal.ai separation: filter=#{stem_filter}, preview=#{preview}, splitter=#{splitter}" <>
+        if(multivocal, do: ", multivocal=#{multivocal}", else: "")
     )
 
     job = Music.get_processing_job!(job_id)
@@ -79,12 +86,17 @@ defmodule SoundForge.Jobs.LalalAIWorker do
       raise error_msg
     end
 
-    with {:ok, task_id} <-
-           LalalAI.upload_track(resolved_path,
-             stem_filter: stem_filter,
-             splitter: splitter
-           ),
+    upload_opts =
+      [stem_filter: stem_filter, splitter: splitter]
+      |> maybe_add_multivocal(multivocal)
+
+    with {:ok, task_id} <- LalalAI.upload_track(resolved_path, upload_opts),
          _ <- Logger.info("lalal.ai task created: #{task_id}"),
+         _ <-
+           (fresh_upload_job = Music.get_processing_job!(job_id);
+            Music.update_processing_job(fresh_upload_job, %{
+              options: Map.put(fresh_upload_job.options || %{}, "lalalai_task_id", task_id)
+            })),
          {:ok, stem_urls} <- poll_until_complete(task_id, job_id, track_id) do
       process_completed_stems(
         track_id,
@@ -92,7 +104,8 @@ defmodule SoundForge.Jobs.LalalAIWorker do
         file_path,
         stem_urls,
         stem_filter,
-        preview
+        preview,
+        multivocal
       )
     else
       {:error, reason} ->
@@ -106,6 +119,9 @@ defmodule SoundForge.Jobs.LalalAIWorker do
   end
 
   # -- Private --
+
+  defp maybe_add_multivocal(opts, nil), do: opts
+  defp maybe_add_multivocal(opts, multivocal), do: Keyword.put(opts, :multivocal, multivocal)
 
   defp poll_until_complete(task_id, job_id, track_id) do
     poll_until_complete(task_id, job_id, track_id, 0, @initial_poll_interval_ms)
@@ -124,9 +140,15 @@ defmodule SoundForge.Jobs.LalalAIWorker do
     :timer.sleep(interval)
 
     case LalalAI.get_status(task_id) do
-      {:ok, %{status: "success", stem: stem, accompaniment: _accompaniment}} ->
+      {:ok,
+       %{
+         status: "success",
+         stem: stem,
+         accompaniment: _accompaniment,
+         extra_stems: extra_stems
+       }} ->
         Logger.info("lalal.ai task #{task_id} completed successfully")
-        {:ok, %{task_id: task_id, stem: stem}}
+        {:ok, %{task_id: task_id, stem: stem, extra_stems: extra_stems}}
 
       {:ok, %{status: "progress", queue_progress: queue_progress}} ->
         # Map queue_progress (0-100) to 10-90% of our progress bar
@@ -163,32 +185,35 @@ defmodule SoundForge.Jobs.LalalAIWorker do
     end
   end
 
-  defp process_completed_stems(track_id, job_id, file_path, stem_urls, stem_filter, preview) do
+  defp process_completed_stems(
+         track_id,
+         job_id,
+         file_path,
+         stem_urls,
+         stem_filter,
+         preview,
+         multivocal
+       ) do
     stem_dir = build_stem_dir(track_id)
     File.mkdir_p!(stem_dir)
 
     stem_type_atom = LalalAI.filter_to_stem_type(stem_filter) || :other
+    extra_stems = Map.get(stem_urls, :extra_stems, %{})
 
-    # Download the primary stem (the separated stem)
+    # Check for multivocal response: when multivocal is "lead_back" and
+    # extra_stems contains "vocals@0"/"vocals@1", create separate lead/backing stems.
     stem_records =
-      case Map.get(stem_urls, :stem) do
-        %{"link" => download_url} when is_binary(download_url) ->
-          stem_filename = "#{stem_filter}.wav"
-          stem_path = Path.join(stem_dir, stem_filename)
-
-          case LalalAI.download_stem(download_url, stem_path) do
-            {:ok, saved_path} ->
-              relative_path = make_relative(saved_path)
-              persist_stem(track_id, job_id, stem_type_atom, saved_path, relative_path)
-
-            {:error, reason} ->
-              Logger.error("Failed to download stem #{stem_filter}: #{inspect(reason)}")
-              []
-          end
-
-        _ ->
-          Logger.warning("No download link in lalal.ai stem result")
-          []
+      if multivocal == "lead_back" and map_size(extra_stems) > 0 do
+        process_multivocal_stems(
+          track_id,
+          job_id,
+          stem_dir,
+          stem_type_atom,
+          extra_stems
+        )
+      else
+        # Standard single-stem path
+        download_primary_stem(track_id, job_id, stem_dir, stem_type_atom, stem_filter, stem_urls)
       end
 
     fresh_job = Music.get_processing_job!(job_id)
@@ -197,7 +222,8 @@ defmodule SoundForge.Jobs.LalalAIWorker do
       Map.merge(fresh_job.options || %{}, %{
         "engine" => "lalalai",
         "stem_filter" => stem_filter,
-        "preview" => preview
+        "preview" => preview,
+        "multivocal" => multivocal
       })
 
     Music.update_processing_job(fresh_job, %{
@@ -216,27 +242,87 @@ defmodule SoundForge.Jobs.LalalAIWorker do
     {:ok, %{stems: length(stem_records)}}
   end
 
-  defp persist_stem(track_id, job_id, stem_type_atom, _absolute_path, relative_path) do
+  # Downloads and persists the primary stem (standard non-multivocal path).
+  defp download_primary_stem(track_id, job_id, stem_dir, stem_type_atom, stem_filter, stem_urls) do
+    case Map.get(stem_urls, :stem) do
+      %{"link" => download_url} when is_binary(download_url) ->
+        stem_filename = "#{stem_filter}.wav"
+        stem_path = Path.join(stem_dir, stem_filename)
+
+        case LalalAI.download_stem(download_url, stem_path) do
+          {:ok, saved_path} ->
+            relative_path = make_relative(saved_path)
+            persist_stem(track_id, job_id, stem_type_atom, relative_path, %{})
+
+          {:error, reason} ->
+            Logger.error("Failed to download stem #{stem_filter}: #{inspect(reason)}")
+            []
+        end
+
+      _ ->
+        Logger.warning("No download link in lalal.ai stem result")
+        []
+    end
+  end
+
+  # Processes multivocal stems from the extra_stems map.
+  # Expects keys like "vocals@0" (lead) and "vocals@1" (backing).
+  defp process_multivocal_stems(track_id, job_id, stem_dir, stem_type_atom, extra_stems) do
+    # Map multivocal track indices to labels
+    label_map = %{
+      "vocals@0" => "lead",
+      "vocals@1" => "backing"
+    }
+
+    Enum.flat_map(label_map, fn {track_key, label} ->
+      case Map.get(extra_stems, track_key) do
+        %{"link" => download_url} when is_binary(download_url) ->
+          stem_filename = "vocals_#{label}.wav"
+          stem_path = Path.join(stem_dir, stem_filename)
+
+          case LalalAI.download_stem(download_url, stem_path) do
+            {:ok, saved_path} ->
+              relative_path = make_relative(saved_path)
+              stem_options = %{"label" => label}
+
+              Logger.info("Downloaded multivocal stem: #{label} -> #{relative_path}")
+              persist_stem(track_id, job_id, stem_type_atom, relative_path, stem_options)
+
+            {:error, reason} ->
+              Logger.error("Failed to download #{label} vocal stem: #{inspect(reason)}")
+              []
+          end
+
+        _ ->
+          Logger.warning("No download link for multivocal track #{track_key}")
+          []
+      end
+    end)
+  end
+
+  defp persist_stem(track_id, job_id, stem_type_atom, relative_path, options) do
     file_size =
       case File.stat(relative_path) do
         {:ok, %{size: size}} -> size
         _ -> 0
       end
 
-    case Music.create_stem(%{
-           track_id: track_id,
-           processing_job_id: job_id,
-           stem_type: stem_type_atom,
-           file_path: relative_path,
-           file_size: file_size
-         }) do
+    attrs = %{
+      track_id: track_id,
+      processing_job_id: job_id,
+      stem_type: stem_type_atom,
+      file_path: relative_path,
+      file_size: file_size,
+      options: options,
+      source: "lalalai"
+    }
+
+    case Music.create_stem(attrs) do
       {:ok, stem} ->
         [stem]
 
       {:error, reason} ->
-        Logger.warning(
-          "Failed to create stem record for #{stem_type_atom}: #{inspect(reason)}"
-        )
+        Logger.warning("Failed to create stem record for #{stem_type_atom}: #{inspect(reason)}")
 
         []
     end

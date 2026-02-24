@@ -320,6 +320,17 @@ defmodule SoundForge.Music do
   """
   @spec delete_track(Track.t()) :: {:ok, Track.t()} | {:error, Ecto.Changeset.t()}
   def delete_track(%Track{} = track) do
+    # Clean up any lalal.ai source files before deleting the track record
+    track
+    |> Repo.preload(:processing_jobs)
+    |> Map.get(:processing_jobs, [])
+    |> Enum.each(fn job ->
+      case get_in(job.options, ["lalalai_source_id"]) do
+        nil -> :ok
+        source_id -> SoundForge.Audio.LalalAI.delete_source(source_id)
+      end
+    end)
+
     Repo.delete(track)
   end
 
@@ -548,9 +559,28 @@ defmodule SoundForge.Music do
   """
   @spec create_processing_job(map()) :: {:ok, ProcessingJob.t()} | {:error, Ecto.Changeset.t()}
   def create_processing_job(attrs \\ %{}) do
+    attrs = ensure_idempotency_key(attrs)
+
     %ProcessingJob{}
     |> ProcessingJob.changeset(attrs)
     |> Repo.insert()
+  end
+
+  # Generates a UUID4 idempotency_key and stores it in the options map
+  # if one is not already present. This key survives Oban retries since
+  # it is persisted on the ProcessingJob record at creation time.
+  defp ensure_idempotency_key(attrs) do
+    options = Map.get(attrs, :options) || Map.get(attrs, "options") || %{}
+
+    if Map.has_key?(options, "idempotency_key") or Map.has_key?(options, :idempotency_key) do
+      attrs
+    else
+      options = Map.put(options, "idempotency_key", Ecto.UUID.generate())
+
+      attrs
+      |> Map.put(:options, options)
+      |> Map.delete("options")
+    end
   end
 
   @doc """
@@ -620,6 +650,17 @@ defmodule SoundForge.Music do
   def create_stem(attrs \\ %{}) do
     %Stem{}
     |> Stem.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Creates a stem from a DAW export. Uses `export_changeset/2` which does not
+  require a `processing_job_id` since edited stems are user-generated.
+  """
+  @spec create_exported_stem(map()) :: {:ok, Stem.t()} | {:error, Ecto.Changeset.t()}
+  def create_exported_stem(attrs) do
+    %Stem{}
+    |> Stem.export_changeset(attrs)
     |> Repo.insert()
   end
 

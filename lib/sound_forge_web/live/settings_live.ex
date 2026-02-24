@@ -35,8 +35,11 @@ defmodule SoundForgeWeb.SettingsLive do
       |> assign(:lalalai_api_key_input, "")
       |> assign(:lalalai_testing, false)
       |> assign(:lalalai_test_result, nil)
+      |> assign(:lalalai_quota, nil)
       |> assign(:form_dirty, false)
       |> assign_form(changeset)
+
+    if connected?(socket), do: :timer.send_interval(60_000, self(), :refresh_quota)
 
     {:ok, socket}
   end
@@ -157,6 +160,7 @@ defmodule SoundForgeWeb.SettingsLive do
            socket
            |> assign(:lalalai_configured, true)
            |> assign(:lalalai_test_result, nil)
+      |> assign(:lalalai_quota, nil)
            |> put_flash(:info, "lalal.ai API key saved.")}
 
         {:error, _} ->
@@ -178,6 +182,7 @@ defmodule SoundForgeWeb.SettingsLive do
            |> assign(:lalalai_configured, false)
            |> assign(:lalalai_api_key_input, "")
            |> assign(:lalalai_test_result, nil)
+      |> assign(:lalalai_quota, nil)
            |> put_flash(:info, "lalal.ai API key removed.")}
 
         {:error, _} ->
@@ -185,6 +190,28 @@ defmodule SoundForgeWeb.SettingsLive do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(:refresh_quota, socket) do
+    lv_pid = self()
+
+    Task.Supervisor.async_nolink(SoundForge.TaskSupervisor, fn ->
+      result = LalalAI.get_quota()
+      send(lv_pid, {:lalalai_quota_result, result})
+    end)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:lalalai_quota_result, result}, socket) do
+    case result do
+      {:ok, minutes} ->
+        {:noreply, assign(socket, :lalalai_quota, minutes)}
+
+      {:error, _reason} ->
+        {:noreply, socket}
     end
   end
 

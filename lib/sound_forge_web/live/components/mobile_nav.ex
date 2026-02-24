@@ -32,19 +32,26 @@ defmodule SoundForgeWeb.Live.Components.MobileNav do
           <span class="text-[10px] mt-0.5">Player</span>
         </button>
 
-        <button
-          phx-click="nav_tab"
-          phx-value-tab="midi"
-          class={"flex flex-col items-center justify-center w-full h-full min-w-[44px] min-h-[44px] relative " <> if(@active_tab == :midi, do: "text-purple-400", else: "text-gray-500")}
+        <.link
+          navigate="/daw"
+          class={"flex flex-col items-center justify-center w-full h-full min-w-[44px] min-h-[44px] " <> if(@active_tab == :daw, do: "text-purple-400", else: "text-gray-500")}
         >
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10" />
           </svg>
-          <span :if={@midi_device_count > 0} class="absolute top-1 right-1/4 w-4 h-4 bg-green-500 rounded-full text-[9px] flex items-center justify-center text-white font-bold">
-            {@midi_device_count}
-          </span>
-          <span class="text-[10px] mt-0.5">MIDI</span>
-        </button>
+          <span class="text-[10px] mt-0.5">DAW</span>
+        </.link>
+
+        <.link
+          navigate="/dj"
+          class={"flex flex-col items-center justify-center w-full h-full min-w-[44px] min-h-[44px] " <> if(@active_tab == :dj, do: "text-purple-400", else: "text-gray-500")}
+        >
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+          </svg>
+          <span class="text-[10px] mt-0.5">DJ</span>
+        </.link>
 
         <button
           phx-click="nav_tab"

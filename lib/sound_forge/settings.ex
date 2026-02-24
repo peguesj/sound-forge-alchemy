@@ -28,6 +28,10 @@ defmodule SoundForge.Settings do
     tracks_per_page: {:sound_forge, :tracks_per_page, 24},
     max_upload_size: {:sound_forge, :max_upload_size, 100_000_000},
     lalalai_api_key: {:sound_forge, :lalalai_api_key, nil},
+    lalalai_splitter: {:sound_forge, :lalalai_splitter, "phoenix"},
+    lalalai_dereverb: {:sound_forge, :lalalai_dereverb, false},
+    lalalai_extraction_level: {:sound_forge, :lalalai_extraction_level, "clear_cut"},
+    lalalai_output_format: {:sound_forge, :lalalai_output_format, nil},
     debug_mode: {:sound_forge, :debug_mode, false}
   }
 

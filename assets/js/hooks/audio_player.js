@@ -16,16 +16,36 @@ const AudioPlayer = {
     this.isPlaying = false
     this.startTime = 0
     this.pauseOffset = 0
+    this._initialized = false
 
+    this._loadStems()
+  },
+
+  updated() {
+    // Re-initialize if data-stems changed (LiveView re-render)
+    const newData = this.el.dataset.stems || "[]"
+    if (newData !== this._lastStemData) {
+      console.log("[AudioPlayer] data-stems changed, reinitializing")
+      this._cleanup()
+      this._loadStems()
+    }
+  },
+
+  _loadStems() {
     // Parse stem data from data attribute
     const stemData = JSON.parse(this.el.dataset.stems || "[]")
+    this._lastStemData = this.el.dataset.stems || "[]"
     console.log("[AudioPlayer] Parsed stem data:", stemData)
 
     if (stemData.length > 0) {
+      this._setLoadingText(`Loading ${stemData.length} stems...`)
       this.initAudioContext(stemData)
     } else {
       console.warn("[AudioPlayer] No stems available")
     }
+
+    if (this._initialized) return
+    this._initialized = true
 
     // Handle LiveView events from server
     this.handleEvent("toggle_play", () => this.togglePlay())
@@ -97,6 +117,36 @@ const AudioPlayer = {
     // No DOM event forwarding needed since LiveComponent handles phx-click events
   },
 
+  _setLoadingText(text) {
+    const loadingEl = this.el.querySelector("[id^='waveform-loading-']")
+    if (loadingEl) {
+      loadingEl.querySelector("span").textContent = text
+    }
+  },
+
+  _hideLoading() {
+    const loadingEl = this.el.querySelector("[id^='waveform-loading-']")
+    if (loadingEl) loadingEl.style.display = "none"
+  },
+
+  _cleanup() {
+    this.stopTimeUpdate()
+    Object.values(this.stems).forEach(stem => {
+      if (stem.source) stem.source.stop()
+    })
+    if (this.wavesurfer) {
+      this.wavesurfer.destroy()
+      this.wavesurfer = null
+    }
+    if (this.audioContext) {
+      this.audioContext.close()
+      this.audioContext = null
+    }
+    this.stems = {}
+    this.isPlaying = false
+    this.pauseOffset = 0
+  },
+
   async initAudioContext(stemData) {
     console.log("[AudioPlayer] Initializing audio context with stems:", stemData)
 
@@ -106,6 +156,9 @@ const AudioPlayer = {
       this.masterGain.connect(this.audioContext.destination)
       this.masterGain.gain.value = 0.8
 
+      let loaded = 0
+      const total = stemData.length
+
       // Load all stems in parallel
       const loadPromises = stemData.map(async (stem) => {
         try {
@@ -113,6 +166,7 @@ const AudioPlayer = {
           const response = await fetch(stem.url)
           if (!response.ok) {
             console.error(`[AudioPlayer] Failed to fetch stem ${stem.type}: HTTP ${response.status} for ${stem.url}`)
+            this._setLoadingText(`Failed to load ${stem.type} (HTTP ${response.status})`)
             return
           }
           const arrayBuffer = await response.arrayBuffer()
@@ -129,9 +183,12 @@ const AudioPlayer = {
             muted: false,
             url: stem.url
           }
-          console.log(`[AudioPlayer] Successfully loaded stem ${stem.type}`)
+          loaded++
+          this._setLoadingText(`Loading stems ${loaded}/${total}...`)
+          console.log(`[AudioPlayer] Successfully loaded stem ${stem.type} (${loaded}/${total})`)
         } catch (err) {
           console.error(`[AudioPlayer] Failed to load stem ${stem.type}:`, err)
+          this._setLoadingText(`Error loading ${stem.type}: ${err.message}`)
         }
       })
 
@@ -142,11 +199,20 @@ const AudioPlayer = {
       return
     }
 
+    // Check if any stems were actually loaded
+    const loadedCount = Object.keys(this.stems).length
+    if (loadedCount === 0) {
+      console.error("[AudioPlayer] No stems could be loaded")
+      this._setLoadingText("Failed to load stems - check file paths")
+      return
+    }
+
     // Report duration from the longest stem
     const durations = Object.values(this.stems).map(s => s.buffer.duration)
     const maxDuration = Math.max(...durations, 0)
     this.duration = maxDuration
     console.log("[AudioPlayer] Duration:", maxDuration)
+    this._setLoadingText("Rendering waveform...")
     this.pushEvent("player_ready", { duration: maxDuration })
 
     // Initialize WaveSurfer waveform using the first stem (vocals preferred)
@@ -155,24 +221,27 @@ const AudioPlayer = {
 
   initWaveform(stemData) {
     console.log("[AudioPlayer] Initializing waveform")
-    const waveformEl = this.el.querySelector("[id^='waveform-']")
+    // Use a more specific selector to avoid matching the loading overlay
+    const waveformEl = this.el.querySelector("[id^='waveform-']:not([id*='loading'])")
     if (!waveformEl) {
       console.error("[AudioPlayer] Waveform element not found")
+      this._setLoadingText("Waveform container not found")
       return
     }
     console.log("[AudioPlayer] Found waveform element:", waveformEl.id)
 
-    // Prefer vocals stem for waveform, fallback to first available
+    // Prefer vocals stem URL for waveform, fallback to first available
     const vocalsUrl = stemData.find(s => s.type === "vocals")?.url
     const firstUrl = stemData[0]?.url
     const waveformUrl = vocalsUrl || firstUrl
-    console.log("[AudioPlayer] Waveform URL:", waveformUrl)
+
     if (!waveformUrl) {
       console.error("[AudioPlayer] No waveform URL available")
+      this._setLoadingText("No audio available for waveform")
       return
     }
 
-    console.log("[AudioPlayer] Creating WaveSurfer instance")
+    console.log("[AudioPlayer] Creating WaveSurfer with URL:", waveformUrl)
     this.wavesurfer = WaveSurfer.create({
       container: waveformEl,
       waveColor: "#6b7280",
@@ -187,15 +256,20 @@ const AudioPlayer = {
       normalize: true
     })
 
-    // Mute wavesurfer's own audio - we use our Web Audio API stems
+    // Mute wavesurfer's own audio - we use our Web Audio API stems instead
     this.wavesurfer.on("ready", () => {
-      console.log("[AudioPlayer] WaveSurfer ready")
+      console.log("[AudioPlayer] WaveSurfer ready - waveform rendered")
       this.wavesurfer.setMuted(true)
+      this._hideLoading()
     })
 
-    // Error handling
+    this.wavesurfer.on("loading", (percent) => {
+      this._setLoadingText(`Rendering waveform ${percent}%...`)
+    })
+
     this.wavesurfer.on("error", (error) => {
       console.error("[AudioPlayer] WaveSurfer error:", error)
+      this._setLoadingText("Waveform failed - stems still playable")
     })
 
     // Handle click-to-seek on the waveform
@@ -336,18 +410,7 @@ const AudioPlayer = {
     if (this._keyHandler) {
       document.removeEventListener("keydown", this._keyHandler)
     }
-    this.stopTimeUpdate()
-    Object.values(this.stems).forEach(stem => {
-      if (stem.source) {
-        stem.source.stop()
-      }
-    })
-    if (this.wavesurfer) {
-      this.wavesurfer.destroy()
-    }
-    if (this.audioContext) {
-      this.audioContext.close()
-    }
+    this._cleanup()
   }
 }
 
