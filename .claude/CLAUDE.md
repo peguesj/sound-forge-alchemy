@@ -215,8 +215,11 @@ Follow this sequence:
 | `config/config.exs` | Oban queue config, Ecto settings |
 | `config/test.exs` | Mock client config, Oban testing mode |
 | `test/test_helper.exs` | Mox mock definitions |
-| `priv/python/analyzer.py` | librosa audio analysis script |
+| `priv/python/analyzer.py` | librosa audio analysis script (tempo, key, energy, spectral, mfcc, chroma, structure, loop_points, arrangement, energy_curve) |
 | `priv/python/demucs_runner.py` | Demucs stem separation wrapper |
+| `lib/sound_forge/audio/analysis_helpers.ex` | Helper functions to extract structure, loops, markers, energy from analysis JSONB |
+| `assets/js/hooks/analysis_structure.js` | D3 hook: song structure timeline with colored section rectangles |
+| `assets/js/hooks/analysis_energy_curve.js` | D3 hook: energy curve area chart with arrangement marker overlays |
 
 ## Hooks (Project-Level)
 
@@ -519,6 +522,32 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - [x] **CP-36**: Task cancellation UI for processing jobs (US-015)
 - [x] **CP-38**: Fix Stem.source tracking bug and source_id persistence (US-017)
 - After CP-38: `mix compile --warnings-as-errors` PASS (all 18 stories complete)
+
+### Feature: Analysis Expansion - Structure, Loops, Arrangement, Energy (feature/analysis-expansion)
+
+#### Wave 1 - Python Analyzer (Sequential - single file)
+- [x] **CP-01**: Add structural segmentation to Python analyzer (US-001)
+- [x] **CP-02**: Add loop point detection to Python analyzer (US-002)
+- [x] **CP-03**: Add arrangement markers to Python analyzer (US-003)
+- [x] **CP-04**: Add energy curve extraction to Python analyzer (US-004)
+- After CP-04: Python analyzer has 4 new feature extractors, dependency resolution via closures
+
+#### Wave 2 - Elixir + JS Hooks (4 concurrent agents)
+- [x] **CP-05**: Update AnalyzerPort and AnalysisController for new features (US-005)
+- [x] **CP-06**: Add analysis helper functions for frontend data extraction (US-006)
+- [x] **CP-07**: AnalysisStructure D3 hook - song structure timeline (US-007)
+- [x] **CP-08**: AnalysisEnergyCurve D3 hook with arrangement markers overlay (US-008)
+- After CP-08: `mix compile --warnings-as-errors` PASS
+
+#### Wave 3 - Integration (3 concurrent agents)
+- [x] **CP-09**: Integrate structure visualizations into dashboard track detail (US-009)
+- [x] **CP-10**: DJ deck integration - structure, bar grid, smart loops (US-010)
+- [x] **CP-11**: DAW editor integration - structure header and bar grid (US-011)
+- After CP-11: `mix compile --warnings-as-errors` PASS
+
+#### Wave 4 - Enhancement
+- [x] **CP-12**: Update AnalysisBeats hook with bar boundaries and section overlays (US-012)
+- After CP-12: `mix compile --warnings-as-errors` PASS (all 12 stories complete)
 
 ## Agentic Complexity Tree View Requirement
 

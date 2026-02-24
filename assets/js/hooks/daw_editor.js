@@ -31,6 +31,8 @@ const DawEditor = {
     this.stemUrl = this.el.dataset.stemUrl
     this.operations = JSON.parse(this.el.dataset.operations || "[]")
     this.operationColors = JSON.parse(this.el.dataset.operationColors || "{}")
+    this.structure = JSON.parse(this.el.dataset.structure || "[]")
+    this.barTimes = JSON.parse(this.el.dataset.barTimes || "[]")
 
     // Map from operation_id -> region instance
     this.regionMap = {}
@@ -75,6 +77,8 @@ const DawEditor = {
       this.wavesurfer.setMuted(true)
       this.duration = this.wavesurfer.getDuration()
       this._renderExistingOperations()
+      this._renderStructureHeader()
+      this._renderBarGrid()
     })
 
     this.wavesurfer.on("error", (error) => {
@@ -161,6 +165,30 @@ const DawEditor = {
       }
       this._removeOverlay(operation_id)
       this._removeSplitMarker(operation_id)
+    })
+
+    // Server pushes a section selection (from structure header click)
+    this.handleEvent("set_selection", ({ start_ms, end_ms }) => {
+      if (!this.duration) return
+      const startSec = start_ms / 1000
+      const endSec = end_ms / 1000
+
+      // Highlight the selected region on this stem's waveform
+      // Remove any previous selection highlight
+      if (this._selectionRegion) {
+        try { this._selectionRegion.remove() } catch (_) { /* already removed */ }
+        this._selectionRegion = null
+      }
+
+      this._selectionRegion = this.regions.addRegion({
+        start: startSec,
+        end: endSec,
+        color: "rgba(168, 85, 247, 0.15)",
+        drag: false,
+        resize: false,
+        id: `selection-${this.stemId}`,
+      })
+      this._selectionRegion._programmatic = true
     })
 
     // Server asks for current cursor position to create a split at that point
@@ -672,6 +700,164 @@ const DawEditor = {
       wind: "#0284c7",
     }
     return colors[this.stemType] || "#4b5563"
+  },
+
+  // -- Structure header and bar grid --
+
+  /**
+   * Color map for structure section types, matching AnalysisStructure visualization.
+   */
+  _structureColorMap: {
+    intro: "#6b7280",
+    outro: "#6b7280",
+    verse: "#3b82f6",
+    pre_chorus: "#eab308",
+    chorus: "#a855f7",
+    bridge: "#22c55e",
+    drop: "#ef4444",
+    breakdown: "#06b6d4",
+    build_up: "#f97316",
+    other: "#9ca3af",
+  },
+
+  /**
+   * Render a colored header band above the stem waveform showing section types.
+   * Each segment is a colored block positioned proportionally to its time range.
+   * Clicking a segment pushes a select_region event with start_ms and end_ms.
+   */
+  _renderStructureHeader() {
+    if (!this.structure || this.structure.length === 0 || !this.duration) return
+
+    const wrapper = this._getWaveformWrapper()
+    if (!wrapper) return
+
+    if (getComputedStyle(wrapper).position === "static") {
+      wrapper.style.position = "relative"
+    }
+
+    // Remove any existing structure header
+    const existing = wrapper.querySelector("[data-structure-header]")
+    if (existing) existing.remove()
+
+    // Create the header container
+    const header = document.createElement("div")
+    header.dataset.structureHeader = "true"
+    header.style.position = "relative"
+    header.style.width = "100%"
+    header.style.height = "22px"
+    header.style.marginBottom = "4px"
+    header.style.borderRadius = "4px"
+    header.style.overflow = "hidden"
+    header.style.display = "flex"
+    header.style.cursor = "pointer"
+
+    this.structure.forEach((segment) => {
+      const startSec = (segment.start_ms || segment.start || 0) / 1000
+      const endSec = (segment.end_ms || segment.end || 0) / 1000
+      const label = segment.label || segment.type || "other"
+      const color = this._structureColorMap[label] || this._structureColorMap.other
+
+      const startPct = this._timeToPercent(startSec)
+      const endPct = this._timeToPercent(endSec)
+      const widthPct = Math.max(0, endPct - startPct)
+
+      if (widthPct <= 0) return
+
+      const block = document.createElement("div")
+      block.style.position = "absolute"
+      block.style.left = `${startPct}%`
+      block.style.width = `${widthPct}%`
+      block.style.height = "100%"
+      block.style.backgroundColor = color
+      block.style.opacity = "0.85"
+      block.style.display = "flex"
+      block.style.alignItems = "center"
+      block.style.justifyContent = "center"
+      block.style.overflow = "hidden"
+      block.style.transition = "opacity 0.15s ease"
+      block.title = `${label} (${startSec.toFixed(1)}s - ${endSec.toFixed(1)}s)`
+
+      // Label text (only show if segment is wide enough)
+      const labelEl = document.createElement("span")
+      labelEl.textContent = label.replace(/_/g, " ")
+      labelEl.style.fontSize = "9px"
+      labelEl.style.fontWeight = "600"
+      labelEl.style.color = "white"
+      labelEl.style.textTransform = "uppercase"
+      labelEl.style.letterSpacing = "0.05em"
+      labelEl.style.whiteSpace = "nowrap"
+      labelEl.style.overflow = "hidden"
+      labelEl.style.textOverflow = "ellipsis"
+      labelEl.style.padding = "0 4px"
+      labelEl.style.textShadow = "0 1px 2px rgba(0,0,0,0.5)"
+      block.appendChild(labelEl)
+
+      // Hover effect
+      block.addEventListener("mouseenter", () => {
+        block.style.opacity = "1"
+        block.style.boxShadow = `0 0 0 1px ${color}, 0 0 8px ${color}40`
+      })
+      block.addEventListener("mouseleave", () => {
+        block.style.opacity = "0.85"
+        block.style.boxShadow = "none"
+      })
+
+      // Click to select the section region
+      block.addEventListener("click", (e) => {
+        e.stopPropagation()
+        const startMs = segment.start_ms || segment.start || 0
+        const endMs = segment.end_ms || segment.end || 0
+        this.pushEvent("select_region", {
+          start_ms: startMs,
+          end_ms: endMs,
+        })
+      })
+
+      header.appendChild(block)
+    })
+
+    // Insert header before the waveform content
+    wrapper.insertBefore(header, wrapper.firstChild)
+  },
+
+  /**
+   * Draw vertical grid lines on the waveform at each bar position.
+   * Lines are thin (#444) and extend the full height of the waveform area.
+   */
+  _renderBarGrid() {
+    if (!this.barTimes || this.barTimes.length === 0 || !this.duration) return
+
+    const wrapper = this._getWaveformWrapper()
+    if (!wrapper) return
+
+    if (getComputedStyle(wrapper).position === "static") {
+      wrapper.style.position = "relative"
+    }
+
+    // Remove any existing bar grid lines
+    wrapper.querySelectorAll("[data-bar-line]").forEach((el) => el.remove())
+
+    this.barTimes.forEach((barTime, index) => {
+      // barTime can be a number (seconds) or an object with a time property
+      const timeSec = typeof barTime === "number" ? barTime : (barTime.time || barTime.time_sec || 0)
+      const pct = this._timeToPercent(timeSec)
+
+      if (pct <= 0 || pct >= 100) return
+
+      const line = document.createElement("div")
+      line.dataset.barLine = "true"
+      line.dataset.barIndex = index
+      line.style.position = "absolute"
+      line.style.top = "0"
+      line.style.left = `${pct}%`
+      line.style.width = "1px"
+      line.style.height = "100%"
+      line.style.backgroundColor = "#444"
+      line.style.pointerEvents = "none"
+      line.style.zIndex = "3"
+
+      wrapper.appendChild(line)
+    })
   },
 
   destroyed() {

@@ -7,6 +7,7 @@ defmodule SoundForgeWeb.DashboardLive do
   alias SoundForge.Music
   alias SoundForge.Notifications
   alias SoundForge.Settings
+  alias SoundForge.Audio.AnalysisHelpers
   alias SoundForge.Audio.LalalAI
 
   @max_debug_logs 500
@@ -90,6 +91,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:queue_active_jobs, [])
       |> assign(:queue_history_jobs, [])
       |> assign(:queue_history_has_more, false)
+      |> assign(:daw_track_id, nil)
       |> allow_upload(:audio,
         accept: ~w(.mp3 .wav .flac .ogg .m4a .aac .wma),
         max_entries: 5,
@@ -165,6 +167,32 @@ defmodule SoundForgeWeb.DashboardLive do
        socket
        |> put_flash(:error, "Track not found")
        |> push_navigate(to: ~p"/")}
+  end
+
+  def handle_params(%{"tab" => "dj"}, _uri, socket) do
+    {:noreply,
+     socket
+     |> assign(:live_action, :index)
+     |> assign(:nav_tab, :dj)
+     |> assign(:nav_context, :dj)}
+  end
+
+  def handle_params(%{"tab" => "daw", "track_id" => track_id}, _uri, socket) do
+    {:noreply,
+     socket
+     |> assign(:live_action, :index)
+     |> assign(:nav_tab, :daw)
+     |> assign(:nav_context, :daw)
+     |> assign(:daw_track_id, track_id)}
+  end
+
+  def handle_params(%{"tab" => "daw"}, _uri, socket) do
+    {:noreply,
+     socket
+     |> assign(:live_action, :index)
+     |> assign(:nav_tab, :daw)
+     |> assign(:nav_context, :daw)
+     |> assign(:daw_track_id, nil)}
   end
 
   def handle_params(_params, _uri, socket) do
@@ -947,10 +975,39 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:select_all, false)}
   end
 
+  def handle_event("nav_tab", %{"tab" => "dj"}, socket) do
+    {:noreply,
+     socket
+     |> assign(:nav_tab, :dj)
+     |> assign(:nav_context, :dj)
+     |> push_patch(to: ~p"/?#{[tab: "dj"]}")}
+  end
+
+  def handle_event("nav_tab", %{"tab" => "daw"}, socket) do
+    {:noreply,
+     socket
+     |> assign(:nav_tab, :daw)
+     |> assign(:nav_context, :daw)
+     |> push_patch(to: ~p"/?#{[tab: "daw"]}")}
+  end
+
   def handle_event("nav_tab", %{"tab" => _unknown}, socket) do
     {:noreply, socket}
   end
 
+  # -- Keyboard delegation to DJ component --
+
+  @impl true
+  def handle_event("keydown", params, %{assigns: %{nav_tab: :dj}} = socket) do
+    send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+      id: "dj-tab",
+      keydown: params
+    )
+
+    {:noreply, socket}
+  end
+
+  def handle_event("keydown", _params, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("open_drawer", _params, socket) do
@@ -1742,18 +1799,41 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   @impl true
-  def handle_info({:bpm_update, bpm}, socket) do
-    {:noreply, assign(socket, :midi_bpm, bpm)}
+  def handle_info({:bpm_update, bpm} = msg, socket) do
+    socket = assign(socket, :midi_bpm, bpm)
+
+    socket =
+      if socket.assigns.nav_tab == :dj do
+        send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+          id: "dj-tab",
+          midi_event: msg
+        )
+
+        socket
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
-  def handle_info({:transport, state}, socket) do
+  def handle_info({:transport, state} = msg, socket) do
     log_entry = midi_log_entry("Transport: #{state}")
 
-    {:noreply,
-     socket
-     |> assign(:midi_transport, state)
-     |> append_midi_log(log_entry)}
+    socket =
+      socket
+      |> assign(:midi_transport, state)
+      |> append_midi_log(log_entry)
+
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab",
+        midi_event: msg
+      )
+    end
+
+    {:noreply, socket}
   end
 
   @impl true

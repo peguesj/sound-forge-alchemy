@@ -3,7 +3,8 @@ defmodule SoundForge.Audio.AnalyzerPort do
   Erlang Port wrapper for librosa-based audio analysis.
 
   Provides supervised Port communication with the Python analyzer script
-  for extracting audio features (tempo, key, energy, spectral, mfcc, chroma).
+  for extracting audio features (tempo, key, energy, spectral, mfcc, chroma,
+  structure, loop_points, arrangement, energy_curve).
 
   ## Usage
 
@@ -18,6 +19,10 @@ defmodule SoundForge.Audio.AnalyzerPort do
   - spectral: Spectral centroid, rolloff, bandwidth, contrast
   - mfcc: Mel-frequency cepstral coefficients
   - chroma: Chromagram features
+  - structure: Song section segmentation (intro, verse, chorus, bridge, outro)
+  - loop_points: Detected loop regions with start/end timestamps and confidence
+  - arrangement: High-level arrangement map combining structure and energy flow
+  - energy_curve: Per-beat energy envelope for waveform visualization
   - all: Extract all available features
 
   ## Port Protocol
@@ -32,7 +37,7 @@ defmodule SoundForge.Audio.AnalyzerPort do
   require Logger
 
   @default_timeout 120_000
-  @valid_features ~w(tempo key energy spectral mfcc chroma all)
+  @valid_features ~w(tempo key energy spectral mfcc chroma structure loop_points arrangement energy_curve all)
 
   # Client API
 
