@@ -9,7 +9,7 @@ defmodule SoundForgeWeb.API.AnalysisController do
 
   action_fallback SoundForgeWeb.API.FallbackController
 
-  @valid_analysis_types ~w(full tempo key spectral energy)
+  @valid_analysis_types ~w(full tempo key spectral energy structure loops arrangement)
 
   def create(conn, %{"file_path" => file_path} = params)
       when is_binary(file_path) and file_path != "" do
@@ -93,10 +93,15 @@ defmodule SoundForgeWeb.API.AnalysisController do
     end
   end
 
-  defp type_to_features("full"), do: ["tempo", "key", "energy", "spectral"]
+  defp type_to_features("full"),
+    do: ["tempo", "key", "energy", "spectral", "mfcc", "chroma", "structure", "loop_points", "arrangement", "energy_curve"]
+
   defp type_to_features("tempo"), do: ["tempo"]
   defp type_to_features("key"), do: ["key"]
   defp type_to_features("spectral"), do: ["spectral"]
+  defp type_to_features("structure"), do: ["tempo", "chroma", "structure"]
+  defp type_to_features("loops"), do: ["tempo", "chroma", "structure", "loop_points"]
+  defp type_to_features("arrangement"), do: ["tempo", "energy", "chroma", "arrangement"]
   defp type_to_features(type), do: [type]
 
   defp create_placeholder_track(file_path) do

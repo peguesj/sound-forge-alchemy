@@ -41,17 +41,19 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
             >
               <span class="hero-magnifying-glass w-4 h-4"></span> Browse
             </button>
-            <a
-              href="/daw"
+            <button
+              phx-click="nav_tab"
+              phx-value-tab="daw"
               class={tab_class(@nav_tab == :daw)}
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10" />
               </svg>
               DAW
-            </a>
-            <a
-              href="/dj"
+            </button>
+            <button
+              phx-click="nav_tab"
+              phx-value-tab="dj"
               class={tab_class(@nav_tab == :dj)}
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -59,7 +61,7 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
               </svg>
               DJ
-            </a>
+            </button>
             <a
               :if={@current_scope && @current_scope.admin?}
               href="/admin"
@@ -223,32 +225,37 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
         class="md:hidden flex items-center gap-1 px-6 pb-2 overflow-x-auto"
         aria-label="Quick navigation"
       >
-        <%= if @nav_tab == :library do %>
-          <button
-            phx-click="nav_all_tracks"
-            class={sub_nav_class(@nav_context == :all_tracks)}
-          >
-            All Tracks
-          </button>
-          <button
-            phx-click="nav_recent"
-            class={sub_nav_class(@nav_context == :recent)}
-          >
-            Recently Added
-          </button>
-        <% else %>
-          <button
-            phx-click="nav_artists"
-            class={sub_nav_class(@nav_context == :artist)}
-          >
-            Artists
-          </button>
-          <button
-            phx-click="nav_albums"
-            class={sub_nav_class(@nav_context == :album)}
-          >
-            Albums
-          </button>
+        <%= cond do %>
+          <% @nav_tab == :library -> %>
+            <button
+              phx-click="nav_all_tracks"
+              class={sub_nav_class(@nav_context == :all_tracks)}
+            >
+              All Tracks
+            </button>
+            <button
+              phx-click="nav_recent"
+              class={sub_nav_class(@nav_context == :recent)}
+            >
+              Recently Added
+            </button>
+          <% @nav_tab == :browse -> %>
+            <button
+              phx-click="nav_artists"
+              class={sub_nav_class(@nav_context == :artist)}
+            >
+              Artists
+            </button>
+            <button
+              phx-click="nav_albums"
+              class={sub_nav_class(@nav_context == :album)}
+            >
+              Albums
+            </button>
+          <% @nav_tab in [:dj, :daw] -> %>
+            <%!-- No sub-nav for DJ/DAW modes --%>
+          <% true -> %>
+            <%!-- Fallback: empty --%>
         <% end %>
       </div>
     </header>

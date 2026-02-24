@@ -17,6 +17,7 @@ defmodule SoundForge.MIDI.Mapping do
           number: integer(),
           action: atom(),
           params: map(),
+          source: String.t() | nil,
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()
         }
@@ -51,12 +52,13 @@ defmodule SoundForge.MIDI.Mapping do
     field :number, :integer
     field :action, Ecto.Enum, values: @actions
     field :params, :map, default: %{}
+    field :source, :string
 
     timestamps(type: :utc_datetime)
   end
 
   @required_fields ~w(user_id device_name midi_type channel number action)a
-  @optional_fields ~w(params)a
+  @optional_fields ~w(params source)a
 
   @doc false
   def changeset(mapping, attrs) do
