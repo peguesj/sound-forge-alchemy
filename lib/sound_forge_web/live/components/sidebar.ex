@@ -5,6 +5,7 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
   """
   use Phoenix.Component
 
+  attr :nav_tab, :atom, default: :library
   attr :nav_context, :atom, default: :all_tracks
   attr :browse_filter, :any, default: nil
   attr :playlists, :list, default: []
@@ -14,7 +15,7 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
 
   def sidebar(assigns) do
     ~H"""
-    <aside class="w-56 shrink-0 bg-gray-900 border-r border-gray-800 overflow-y-auto hidden md:block sidebar-scroll">
+    <aside :if={@nav_tab not in [:dj, :daw]} class="w-56 shrink-0 bg-gray-900 border-r border-gray-800 overflow-y-auto hidden md:block sidebar-scroll">
       <nav class="py-4 space-y-6" aria-label="Library navigation">
         <!-- Library section -->
         <div class="px-4">
@@ -107,20 +108,22 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
           <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Studio</h3>
           <ul class="space-y-0.5">
             <li>
-              <.link
-                navigate="/daw"
-                class={sidebar_item_class(@nav_context == :daw)}
+              <button
+                phx-click="nav_tab"
+                phx-value-tab="daw"
+                class={sidebar_item_class(@nav_tab == :daw)}
               >
                 <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10" />
                 </svg>
                 <span class="truncate">DAW</span>
-              </.link>
+              </button>
             </li>
             <li>
-              <.link
-                navigate="/dj"
-                class={sidebar_item_class(@nav_context == :dj)}
+              <button
+                phx-click="nav_tab"
+                phx-value-tab="dj"
+                class={sidebar_item_class(@nav_tab == :dj)}
               >
                 <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z" />
@@ -128,7 +131,7 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 12h.01" />
                 </svg>
                 <span class="truncate">DJ</span>
-              </.link>
+              </button>
             </li>
           </ul>
         </div>

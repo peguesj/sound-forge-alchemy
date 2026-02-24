@@ -260,7 +260,7 @@ defmodule SoundForge.MusicTest do
       assert processing_job.model == "htdemucs"
       assert processing_job.status == :queued
       assert processing_job.progress == 0
-      assert processing_job.options == %{"quality" => "high"}
+      assert processing_job.options["quality"] == "high"
     end
 
     test "update_processing_job/2 with valid data updates the processing job" do

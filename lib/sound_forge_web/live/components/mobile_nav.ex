@@ -32,18 +32,20 @@ defmodule SoundForgeWeb.Live.Components.MobileNav do
           <span class="text-[10px] mt-0.5">Player</span>
         </button>
 
-        <.link
-          navigate="/daw"
+        <button
+          phx-click="nav_tab"
+          phx-value-tab="daw"
           class={"flex flex-col items-center justify-center w-full h-full min-w-[44px] min-h-[44px] " <> if(@active_tab == :daw, do: "text-purple-400", else: "text-gray-500")}
         >
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10" />
           </svg>
           <span class="text-[10px] mt-0.5">DAW</span>
-        </.link>
+        </button>
 
-        <.link
-          navigate="/dj"
+        <button
+          phx-click="nav_tab"
+          phx-value-tab="dj"
           class={"flex flex-col items-center justify-center w-full h-full min-w-[44px] min-h-[44px] " <> if(@active_tab == :dj, do: "text-purple-400", else: "text-gray-500")}
         >
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -51,7 +53,7 @@ defmodule SoundForgeWeb.Live.Components.MobileNav do
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
           </svg>
           <span class="text-[10px] mt-0.5">DJ</span>
-        </.link>
+        </button>
 
         <button
           phx-click="nav_tab"

@@ -1,4 +1,4 @@
-<div id="main-content" class="flex flex-col h-screen bg-gray-950 text-white">
+<div id="main-content" class="flex flex-col h-screen bg-gray-950 text-white" phx-window-keydown="keydown">
   <!-- Sticky Header -->
   <SoundForgeWeb.Live.Components.AppHeader.app_header
     current_scope={@current_scope}
@@ -67,6 +67,7 @@
   <div class="flex flex-1 overflow-hidden">
     <!-- Sidebar -->
     <SoundForgeWeb.Live.Components.Sidebar.sidebar
+      nav_tab={@nav_tab}
       nav_context={@nav_context}
       browse_filter={@browse_filter}
       playlists={@playlists}
@@ -77,7 +78,24 @@
     
 <!-- Main Content (scrollable) -->
     <main class="flex-1 overflow-y-auto flex flex-col pb-16 md:pb-0" id="main-scroll">
-      <%= if @live_action == :show && @track do %>
+      <%= if @nav_tab == :dj do %>
+        <.live_component
+          module={SoundForgeWeb.Live.Components.DjTabComponent}
+          id="dj-tab"
+          current_scope={@current_scope}
+          current_user_id={@current_user_id}
+        />
+      <% end %>
+      <%= if @nav_tab == :daw do %>
+        <.live_component
+          module={SoundForgeWeb.Live.Components.DawTabComponent}
+          id="daw-tab"
+          current_scope={@current_scope}
+          current_user_id={@current_user_id}
+          track_id={assigns[:daw_track_id]}
+        />
+      <% end %>
+      <%= if @nav_tab not in [:dj, :daw] and @live_action == :show && @track do %>
         <!-- Track Detail View -->
         <div class="px-6 py-4">
           <.link navigate={~p"/"} class="text-sm text-gray-400 hover:text-white transition-colors">
@@ -575,6 +593,8 @@
                   id={"beats-#{@track.id}"}
                   phx-hook="AnalysisBeats"
                   data-beats={Jason.encode!(beats_with_tempo(@analysis))}
+                  data-bar-times={Jason.encode!(AnalysisHelpers.bar_times(@analysis))}
+                  data-segments={Jason.encode!(AnalysisHelpers.structure_segments(@analysis))}
                   class="bg-gray-800 rounded-lg p-4 mb-6"
                 >
                   <h3 class="text-sm font-medium text-gray-400 mb-2">Beat Timeline</h3>
@@ -599,6 +619,37 @@
                     class="bg-gray-800 rounded-lg p-4"
                   >
                     <h3 class="text-sm font-medium text-gray-400 mb-2">Spectral Contrast</h3>
+                  </div>
+                </div>
+
+                <%!-- Song Structure Timeline --%>
+                <div
+                  :if={length(AnalysisHelpers.structure_segments(@analysis)) > 0}
+                  class="mt-4 mb-6"
+                >
+                  <h4 class="text-sm font-medium text-gray-400 mb-2">Song Structure</h4>
+                  <div
+                    id={"structure-#{@track.id}"}
+                    phx-hook="AnalysisStructure"
+                    data-segments={Jason.encode!(AnalysisHelpers.structure_segments(@analysis))}
+                    class="w-full bg-gray-800 rounded-lg p-4"
+                  >
+                  </div>
+                </div>
+
+                <%!-- Energy Profile with Arrangement Markers --%>
+                <div
+                  :if={map_size(AnalysisHelpers.energy_curve(@analysis)) > 0}
+                  class="mt-4 mb-6"
+                >
+                  <h4 class="text-sm font-medium text-gray-400 mb-2">Energy Profile</h4>
+                  <div
+                    id={"energy-curve-#{@track.id}"}
+                    phx-hook="AnalysisEnergyCurve"
+                    data-energy-curve={Jason.encode!(AnalysisHelpers.energy_curve(@analysis))}
+                    data-arrangement-markers={Jason.encode!(AnalysisHelpers.arrangement_markers(@analysis))}
+                    class="w-full bg-gray-800 rounded-lg p-4"
+                  >
                   </div>
                 </div>
 
@@ -692,6 +743,7 @@
         </div>
       <% else %>
         <!-- Library Index View -->
+        <%= if @nav_tab not in [:dj, :daw] do %>
         <!-- Input Section: Spotify URL + File Upload -->
         <div class="px-6 py-4 bg-gray-900/50 space-y-3">
           <form phx-submit="fetch_spotify" class="flex gap-3">
@@ -1796,6 +1848,8 @@
 
         <!-- Bottom spacer for Spotify player -->
         <div class="pb-20"></div>
+        <% end %>
+        <%!-- end nav_tab guard --%>
       <% end %>
     </main>
 

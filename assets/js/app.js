@@ -35,6 +35,8 @@ import AnalysisChroma from "./hooks/analysis_chroma"
 import AnalysisBeats from "./hooks/analysis_beats"
 import AnalysisMFCC from "./hooks/analysis_mfcc"
 import AnalysisSpectral from "./hooks/analysis_spectral"
+import AnalysisStructure from "./hooks/analysis_structure"
+import AnalysisEnergyCurve from "./hooks/analysis_energy_curve"
 import ResizeObserverHook from "./hooks/resize_observer_hook"
 import SwipeHook from "./hooks/swipe_hook"
 import StemMixerHook from "./hooks/stem_mixer_hook"
@@ -49,7 +51,7 @@ const Hooks = {
   AudioPlayer, AutoDismiss, ShiftSelect, SpotifyPlayer,
   DebugLogScroll, JobTraceGraph,
   AnalysisRadar, AnalysisChroma, AnalysisBeats,
-  AnalysisMFCC, AnalysisSpectral,
+  AnalysisMFCC, AnalysisSpectral, AnalysisStructure, AnalysisEnergyCurve,
   ResizeObserverHook, SwipeHook, StemMixerHook, PadAssignHook, DawEditor, DawPreview, DjDeck, JogWheel,
   ...colocatedHooks
 }

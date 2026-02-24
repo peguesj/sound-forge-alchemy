@@ -29,7 +29,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
 
     test "displays version number", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/")
-      assert html =~ "v3.0.0"
+      assert html =~ "v4.1.0"
     end
 
     test "redirects unauthenticated users to login", %{conn: _conn} do
