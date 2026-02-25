@@ -10,20 +10,15 @@ Sound Forge Alchemy integrates with four external systems: the Spotify Web API (
 
 ### Architecture
 
-```
-SoundForge.Spotify (context)
-    |
-    +-- URLParser           (stateless regex parsing)
-    |
-    +-- Client (behaviour)  (defines the interface)
-    |
-    +-- HTTPClient          (Req-based implementation)
-            |
-            +-- ETS token cache (:spotify_tokens)
-            |
-            +-- Spotify OAuth2 token endpoint
-            |
-            +-- Spotify Web API v1
+```mermaid
+flowchart TD
+    CTX["SoundForge.Spotify (context)"]
+    CTX --> UP["URLParser\n(stateless regex parsing)"]
+    CTX --> CB["Client behaviour\n(defines the interface)"]
+    CTX --> HC["HTTPClient\n(Req-based implementation)"]
+    HC --> ETS["ETS token cache\n(:spotify_tokens)"]
+    HC --> OA["Spotify OAuth2 token endpoint"]
+    HC --> API["Spotify Web API v1"]
 ```
 
 ### OAuth2 Client Credentials Flow
@@ -200,19 +195,20 @@ end)
 
 ### Architecture
 
-```
-Elixir (BEAM VM)                    OS Process
-+-------------------+               +-------------------+
-| AnalyzerPort      |  stdin/stdout | Python 3          |
-| (GenServer)       |<=============>| analyzer.py       |
-|                   |  exit_status  | (librosa)         |
-+-------------------+               +-------------------+
+```mermaid
+flowchart TD
+    subgraph BEAM["Elixir (BEAM VM)"]
+        AP["AnalyzerPort\n(GenServer)"]
+        DP["DemucsPort\n(GenServer)"]
+    end
 
-+-------------------+               +-------------------+
-| DemucsPort        |  stdin/stdout | Python 3          |
-| (GenServer)       |<=============>| demucs_runner.py  |
-|                   |  exit_status  | (demucs/torch)    |
-+-------------------+               +-------------------+
+    subgraph OS["OS Processes"]
+        PY1["Python 3\nanalyzer.py\n(librosa)"]
+        PY2["Python 3\ndemucs_runner.py\n(demucs/torch)"]
+    end
+
+    AP <-->|"stdin/stdout\nexit_status"| PY1
+    DP <-->|"stdin/stdout\nexit_status"| PY2
 ```
 
 ### Port Opening
@@ -236,25 +232,17 @@ Port.open({:spawn_executable, python}, [
 
 The AnalyzerPort uses a single-shot protocol. Python runs, produces one JSON object on stdout, and exits:
 
-```
-Elixir                              Python
-  |                                   |
-  |  Port.open(python, args)          |
-  |---------------------------------->|
-  |                                   |
-  |                                   |  # Load audio
-  |                                   |  # Extract features
-  |                                   |  # Print JSON result
-  |                                   |
-  |  {port, {:data, json_chunk_1}}    |
-  |<----------------------------------|
-  |  {port, {:data, json_chunk_2}}    |
-  |<----------------------------------|
-  |  {port, {:exit_status, 0}}        |
-  |<----------------------------------|
-  |                                   |
-  v  buffer = chunk_1 <> chunk_2      v
-     Jason.decode(buffer)
+```mermaid
+sequenceDiagram
+    participant E as Elixir
+    participant P as Python
+
+    E->>P: Port.open(python, args)
+    Note over P: Load audio<br/>Extract features<br/>Print JSON result
+    P-->>E: {port, {:data, json_chunk_1}}
+    P-->>E: {port, {:data, json_chunk_2}}
+    P-->>E: {port, {:exit_status, 0}}
+    Note over E: buffer = chunk_1 <> chunk_2<br/>Jason.decode(buffer)
 ```
 
 Data arrives in chunks (the OS may split stdout into multiple reads). The GenServer accumulates chunks in a buffer and parses the complete JSON only after receiving `exit_status: 0`:
@@ -394,20 +382,14 @@ This works correctly in both development (pointing to the project's `priv/` dire
 
 The `DownloadWorker` shells out to `spotdl` via `System.cmd/3`. Unlike the Erlang Port integration, this is a simple synchronous execution -- the worker blocks until the download completes.
 
-```
-DownloadWorker.perform/1
-    |
-    |  System.cmd("spotdl", args, stderr_to_stdout: true)
-    |
-    v
-spotdl subprocess
-    |
-    |  Downloads from YouTube (found via Spotify metadata match)
-    |  Converts to MP3 at specified bitrate
-    |  Writes to output_file
-    |
-    v
-{output, exit_code}
+```mermaid
+flowchart TD
+    DW["DownloadWorker.perform/1"]
+    SP["spotdl subprocess"]
+    RC["{output, exit_code}"]
+
+    DW -->|"System.cmd(\"spotdl\", args, stderr_to_stdout: true)"| SP
+    SP -->|"Downloads from YouTube (found via Spotify metadata match)\nConverts to MP3 at specified bitrate\nWrites to output_file"| RC
 ```
 
 ### Command Construction
@@ -480,24 +462,30 @@ end
 
 The `Storage` module provides a thin abstraction over the local filesystem, with configurable base path and three fixed subdirectories:
 
-```
-priv/uploads/                    (configurable via :storage_path)
-    |
-    +-- downloads/               # Raw audio files from spotdl
-    |       |
-    |       +-- {track_id}.mp3   # Named by UUID
-    |
-    +-- stems/                   # Separated stem files from Demucs
-    |       |
-    |       +-- {track_id}/      # One directory per track
-    |           +-- vocals.wav
-    |           +-- drums.wav
-    |           +-- bass.wav
-    |           +-- other.wav
-    |
-    +-- analysis/                # Analysis output artifacts
-            |
-            +-- {track_id}.json  # Feature extraction results
+```mermaid
+flowchart TD
+    ROOT["priv/uploads/\n(configurable via :storage_path)"]
+    DL["downloads/\nRaw audio files from spotdl"]
+    MP3["{track_id}.mp3\nNamed by UUID"]
+    ST["stems/\nSeparated stem files from Demucs"]
+    TD["{track_id}/\nOne directory per track"]
+    VOC["vocals.wav"]
+    DR["drums.wav"]
+    BA["bass.wav"]
+    OT["other.wav"]
+    AN["analysis/\nAnalysis output artifacts"]
+    JSON["{track_id}.json\nFeature extraction results"]
+
+    ROOT --> DL
+    DL --> MP3
+    ROOT --> ST
+    ST --> TD
+    TD --> VOC
+    TD --> DR
+    TD --> BA
+    TD --> OT
+    ROOT --> AN
+    AN --> JSON
 ```
 
 ### Path Resolution
@@ -668,18 +656,18 @@ end
 
 ### Circuit States
 
-```
-           success              failure (< threshold)
-  +-------+-------> [CLOSED] <-------+
-  |       |             |             |
-  |       |             | failure (>= threshold)
-  |       |             v
-  |  [HALF-OPEN]    [OPEN]
-  |       ^             |
-  |       |             | recovery_timeout expires
-  |       +-------------+
-  |
-  +-- failure --> [OPEN]
+```mermaid
+stateDiagram-v2
+    [*] --> CLOSED
+
+    CLOSED --> CLOSED : success
+    CLOSED --> CLOSED : failure (< threshold)
+    CLOSED --> OPEN : failure (>= threshold)
+
+    OPEN --> HALF_OPEN : recovery_timeout expires
+
+    HALF_OPEN --> CLOSED : success
+    HALF_OPEN --> OPEN : failure
 ```
 
 ---

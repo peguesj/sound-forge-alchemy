@@ -8,83 +8,79 @@ The core workflow is: a user pastes a Spotify URL, the system fetches track meta
 
 ## High-Level Architecture
 
-```
-                          +---------------------------+
-                          |        Browser Client      |
-                          |  (LiveView WebSocket +     |
-                          |   Phoenix Channel WS)      |
-                          +-------------+-------------+
-                                        |
-                                        | WebSocket (LiveView)
-                                        | WebSocket (JobChannel)
-                                        | HTTP (API endpoints)
-                                        |
-                          +-------------v-------------+
-                          |     SoundForgeWeb Layer    |
-                          |                           |
-                          |  DashboardLive (LiveView)  |
-                          |  API Controllers           |
-                          |  JobChannel (WebSocket)    |
-                          +-------------+-------------+
-                                        |
-                    +-------------------+-------------------+
-                    |                   |                   |
-          +---------v-------+  +--------v--------+  +------v--------+
-          | SoundForge.     |  | SoundForge.     |  | SoundForge.   |
-          | Spotify         |  | Music           |  | Jobs.*        |
-          | (Context)       |  | (Context)       |  | (Contexts)    |
-          |                 |  |                 |  |               |
-          | - URLParser     |  | - Track         |  | - Download    |
-          | - HTTPClient    |  | - DownloadJob   |  | - Processing  |
-          | - Client (bhvr) |  | - ProcessingJob |  | - Analysis    |
-          +--------+--------+  | - AnalysisJob   |  +-------+-------+
-                   |           | - Stem          |          |
-                   |           | - AnalysisResult|          |
-                   |           +--------+--------+          |
-                   |                    |                    |
-                   |           +--------v--------+          |
-                   |           | SoundForge.Repo |          |
-                   |           | (Ecto/Postgres) |          |
-                   |           +-----------------+          |
-                   |                                        |
-          +--------v--------+               +---------------v-----------+
-          | Spotify Web API |               | Oban (Background Jobs)    |
-          | (OAuth2 via Req)|               | Queues:                   |
-          +-----------------+               |   download:3              |
-                                            |   processing:2            |
-                                            |   analysis:2              |
-                                            +-------------+-------------+
-                                                          |
-                                      +-------------------+-------------------+
-                                      |                                       |
-                            +---------v---------+               +-------------v-----------+
-                            | Audio.DemucsPort  |               | Audio.AnalyzerPort      |
-                            | (GenServer)       |               | (GenServer)             |
-                            |                   |               |                         |
-                            | Erlang Port ->    |               | Erlang Port ->          |
-                            | Python (Demucs)   |               | Python (librosa)        |
-                            +---------+---------+               +-------------+-----------+
-                                      |                                       |
-                            +---------v---------+               +-------------v-----------+
-                            | demucs_runner.py  |               | analyzer.py             |
-                            | (htdemucs,        |               | (tempo, key, energy,    |
-                            |  htdemucs_ft,     |               |  spectral, mfcc,        |
-                            |  htdemucs_6s,     |               |  chroma)                |
-                            |  mdx_extra)       |               |                         |
-                            +-------------------+               +-------------------------+
+```mermaid
+flowchart TD
+    Browser["Browser Client\n(LiveView WebSocket +\nPhoenix Channel WS)"]
 
-                          +-------------------------------------------+
-                          | SoundForge.Storage (Local Filesystem)     |
-                          |   priv/uploads/downloads/                 |
-                          |   priv/uploads/stems/                     |
-                          |   priv/uploads/analysis/                  |
-                          +-------------------------------------------+
+    subgraph WebLayer["SoundForgeWeb Layer"]
+        DashboardLive["DashboardLive (LiveView)"]
+        APIControllers["API Controllers"]
+        JobChannel["JobChannel (WebSocket)"]
+    end
 
-                          +-------------------------------------------+
-                          | Phoenix.PubSub (Real-Time Event Bus)      |
-                          |   "tracks"    -> DashboardLive            |
-                          |   "jobs:{id}" -> JobChannel + LiveView    |
-                          +-------------------------------------------+
+    subgraph SpotifyCtx["SoundForge.Spotify (Context)"]
+        URLParser["URLParser"]
+        HTTPClient["HTTPClient"]
+        ClientBhvr["Client (behaviour)"]
+    end
+
+    subgraph MusicCtx["SoundForge.Music (Context)"]
+        Track["Track"]
+        DownloadJob["DownloadJob"]
+        ProcessingJob["ProcessingJob"]
+        AnalysisJob["AnalysisJob"]
+        Stem["Stem"]
+        AnalysisResult["AnalysisResult"]
+    end
+
+    subgraph JobsCtx["SoundForge.Jobs.* (Contexts)"]
+        JobsDownload["Download"]
+        JobsProcessing["Processing"]
+        JobsAnalysis["Analysis"]
+    end
+
+    Repo["SoundForge.Repo\n(Ecto/Postgres)"]
+    SpotifyAPI["Spotify Web API\n(OAuth2 via Req)"]
+
+    subgraph ObanJobs["Oban (Background Jobs)"]
+        QueueDownload["download queue (3)"]
+        QueueProcessing["processing queue (2)"]
+        QueueAnalysis["analysis queue (2)"]
+    end
+
+    subgraph DemucsPort["Audio.DemucsPort (GenServer)"]
+        DemucsErlang["Erlang Port → Python (Demucs)"]
+    end
+    subgraph AnalyzerPort["Audio.AnalyzerPort (GenServer)"]
+        AnalyzerErlang["Erlang Port → Python (librosa)"]
+    end
+
+    demucs_runner["demucs_runner.py\n(htdemucs, htdemucs_ft,\nhtdemucs_6s, mdx_extra)"]
+    analyzer_py["analyzer.py\n(tempo, key, energy,\nspectral, mfcc, chroma)"]
+
+    subgraph Storage["SoundForge.Storage (Local Filesystem)"]
+        StorageDownloads["priv/uploads/downloads/"]
+        StorageStems["priv/uploads/stems/"]
+        StorageAnalysis["priv/uploads/analysis/"]
+    end
+
+    subgraph PubSub["Phoenix.PubSub (Real-Time Event Bus)"]
+        TopicTracks["\"tracks\" → DashboardLive"]
+        TopicJobs["\"jobs:{id}\" → JobChannel + LiveView"]
+    end
+
+    Browser -->|"WebSocket (LiveView)\nWebSocket (JobChannel)\nHTTP (API endpoints)"| WebLayer
+    WebLayer --> SpotifyCtx
+    WebLayer --> MusicCtx
+    WebLayer --> JobsCtx
+    SpotifyCtx --> Repo
+    MusicCtx --> Repo
+    SpotifyCtx --> SpotifyAPI
+    JobsCtx --> ObanJobs
+    ObanJobs --> DemucsPort
+    ObanJobs --> AnalyzerPort
+    DemucsPort --> demucs_runner
+    AnalyzerPort --> analyzer_py
 ```
 
 ## Component Overview
@@ -165,70 +161,33 @@ end
 
 Local filesystem storage organized under a configurable base path (default: `priv/uploads`):
 
-```
-priv/uploads/
-  downloads/    # Raw downloaded audio files
-  stems/        # Separated stem audio files
-  analysis/     # Analysis output artifacts
+```mermaid
+flowchart TD
+    uploads["priv/uploads/"]
+    downloads["downloads/\n(Raw downloaded audio files)"]
+    stems["stems/\n(Separated stem audio files)"]
+    analysis["analysis/\n(Analysis output artifacts)"]
+
+    uploads --> downloads
+    uploads --> stems
+    uploads --> analysis
 ```
 
 ## Data Flow
 
 The complete pipeline for processing a Spotify track:
 
-```
-1. USER INPUT
-   User pastes Spotify URL into SpotifyInput component
-        |
-2. METADATA FETCH
-   DashboardLive handle_event("fetch_spotify") ->
-   SoundForge.Spotify.fetch_metadata(url) ->
-   URLParser.parse(url) -> {type: "track", id: "abc123"} ->
-   HTTPClient.fetch_track("abc123") -> Spotify Web API ->
-   {:ok, %{"name" => "...", "artists" => [...], ...}}
-        |
-3. TRACK CREATION
-   Music.create_track(%{title: ..., artist: ..., spotify_url: ...}) ->
-   Repo.insert() -> PostgreSQL
-        |
-4. DOWNLOAD JOB
-   Jobs.Download.create_job(url) ->
-   Music.create_download_job(%{track_id: track.id, status: :queued}) ->
-   DownloadWorker.new(args) |> Oban.insert() ->
-   Oban picks up job from :download queue ->
-   DownloadWorker.perform() ->
-   System.cmd("spotdl", [...]) ->
-   Music.update_download_job(job, %{status: :completed, output_path: path}) ->
-   PubSub.broadcast("jobs:{id}", {:job_progress, ...})
-        |
-5. STEM SEPARATION
-   Jobs.Processing.create_separation_job(file_path, "htdemucs") ->
-   Music.create_processing_job(%{track_id: ..., model: "htdemucs"}) ->
-   [ProcessingWorker enqueued to :processing queue] ->
-   Audio.DemucsPort.separate(audio_path, model: "htdemucs") ->
-   Erlang Port -> Python demucs_runner.py ->
-   {vocals.wav, drums.wav, bass.wav, other.wav} ->
-   Music.create_stem() for each stem ->
-   PubSub.broadcast("jobs:{id}", {:job_progress, ...})
-        |
-6. AUDIO ANALYSIS
-   Jobs.Analysis.create_job(file_path, "full") ->
-   Music.create_analysis_job(%{track_id: ..., status: :queued}) ->
-   [AnalysisWorker enqueued to :analysis queue] ->
-   Audio.AnalyzerPort.analyze(audio_path, ["tempo", "key", "energy"]) ->
-   Erlang Port -> Python analyzer.py (librosa) ->
-   {tempo: 120.5, key: "C major", energy: 0.75, ...} ->
-   Music.create_analysis_result(%{track_id: ..., tempo: 120.5, ...}) ->
-   PubSub.broadcast("jobs:{id}", {:job_progress, ...})
-        |
-7. REAL-TIME DISPLAY
-   DashboardLive.handle_info({:job_progress, payload}) ->
-   assign(socket, :active_jobs, updated_jobs) ->
-   LiveView re-renders JobProgress component
+```mermaid
+flowchart TD
+    S1["1. USER INPUT\nUser pastes Spotify URL into SpotifyInput component"]
+    S2["2. METADATA FETCH\nDashboardLive handle_event('fetch_spotify')\n→ SoundForge.Spotify.fetch_metadata(url)\n→ URLParser.parse(url) → {type: 'track', id: 'abc123'}\n→ HTTPClient.fetch_track('abc123') → Spotify Web API\n→ {:ok, %{'name' => '...', 'artists' => [...], ...}}"]
+    S3["3. TRACK CREATION\nMusic.create_track(%{title: ..., artist: ..., spotify_url: ...})\n→ Repo.insert() → PostgreSQL"]
+    S4["4. DOWNLOAD JOB\nJobs.Download.create_job(url)\n→ Music.create_download_job(%{track_id: track.id, status: :queued})\n→ DownloadWorker.new(args) |> Oban.insert()\n→ Oban picks up job from :download queue\n→ DownloadWorker.perform() → System.cmd('spotdl', [...])\n→ Music.update_download_job(job, %{status: :completed, output_path: path})\n→ PubSub.broadcast('jobs:{id}', {:job_progress, ...})"]
+    S5["5. STEM SEPARATION\nJobs.Processing.create_separation_job(file_path, 'htdemucs')\n→ Music.create_processing_job(%{track_id: ..., model: 'htdemucs'})\n→ ProcessingWorker enqueued to :processing queue\n→ Audio.DemucsPort.separate(audio_path, model: 'htdemucs')\n→ Erlang Port → Python demucs_runner.py\n→ {vocals.wav, drums.wav, bass.wav, other.wav}\n→ Music.create_stem() for each stem\n→ PubSub.broadcast('jobs:{id}', {:job_progress, ...})"]
+    S6["6. AUDIO ANALYSIS\nJobs.Analysis.create_job(file_path, 'full')\n→ Music.create_analysis_job(%{track_id: ..., status: :queued})\n→ AnalysisWorker enqueued to :analysis queue\n→ Audio.AnalyzerPort.analyze(audio_path, ['tempo', 'key', 'energy'])\n→ Erlang Port → Python analyzer.py (librosa)\n→ {tempo: 120.5, key: 'C major', energy: 0.75, ...}\n→ Music.create_analysis_result(%{track_id: ..., tempo: 120.5, ...})\n→ PubSub.broadcast('jobs:{id}', {:job_progress, ...})"]
+    S7["7. REAL-TIME DISPLAY\nDashboardLive.handle_info({:job_progress, payload})\n→ assign(socket, :active_jobs, updated_jobs)\n→ LiveView re-renders JobProgress component\n\nJobChannel.handle_info({:job_completed, payload})\n→ push(socket, 'job:completed', payload)\n→ Browser JS receives event"]
 
-   JobChannel.handle_info({:job_completed, payload}) ->
-   push(socket, "job:completed", payload) ->
-   Browser JS receives event
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
 ```
 
 ## Technology Justifications
@@ -272,15 +231,22 @@ Sound Forge Alchemy is packaged as a single OTP release, not as microservices:
 
 ## Supervision Tree
 
-```
-SoundForge.Supervisor (one_for_one)
-  |
-  +-- SoundForgeWeb.Telemetry
-  +-- SoundForge.Repo (Ecto/Postgrex pool)
-  +-- DNSCluster
-  +-- Phoenix.PubSub (name: SoundForge.PubSub)
-  +-- Oban (queues: download:3, processing:2, analysis:2)
-  +-- SoundForgeWeb.Endpoint (Bandit HTTP + WebSocket)
+```mermaid
+flowchart TD
+    Supervisor["SoundForge.Supervisor\n(one_for_one)"]
+    Telemetry["SoundForgeWeb.Telemetry"]
+    Repo["SoundForge.Repo\n(Ecto/Postgrex pool)"]
+    DNS["DNSCluster"]
+    PubSub["Phoenix.PubSub\n(name: SoundForge.PubSub)"]
+    Oban["Oban\n(queues: download:3, processing:2, analysis:2)"]
+    Endpoint["SoundForgeWeb.Endpoint\n(Bandit HTTP + WebSocket)"]
+
+    Supervisor --> Telemetry
+    Supervisor --> Repo
+    Supervisor --> DNS
+    Supervisor --> PubSub
+    Supervisor --> Oban
+    Supervisor --> Endpoint
 ```
 
 Note: `Audio.AnalyzerPort` and `Audio.DemucsPort` are not yet added to the supervision tree. They are currently started on-demand. Adding them as supervised children is planned for the next phase, at which point they will appear under `SoundForge.Supervisor`.

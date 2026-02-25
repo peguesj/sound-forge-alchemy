@@ -83,25 +83,29 @@ When multiple tasks compete for attention, prioritize in this order:
 
 ### System Architecture
 
-```
-User Browser
-  |
-  v
-Phoenix LiveView (DashboardLive, AudioPlayerLive)
-  |                           |
-  v                           v
-Music Context (Ecto)    PubSub (job progress)
-  |                           ^
-  v                           |
-Oban Workers ----------------+
-  |         |         |
-  v         v         v
-spotdl   AnalyzerPort  DemucsPort
-(download) (librosa)   (demucs)
-  |         |           |
-  v         v           v
-Storage  Storage      Storage
-(priv/uploads/)
+```mermaid
+flowchart TD
+    Browser["User Browser"]
+    LiveView["Phoenix LiveView\n(DashboardLive, AudioPlayerLive)"]
+    MusicCtx["Music Context (Ecto)"]
+    PubSub["PubSub\n(job progress)"]
+    Oban["Oban Workers"]
+    Spotdl["spotdl\n(download)"]
+    AnalyzerPort["AnalyzerPort\n(librosa)"]
+    DemucsPort["DemucsPort\n(demucs)"]
+    Storage["Storage\n(priv/uploads/)"]
+
+    Browser --> LiveView
+    LiveView --> MusicCtx
+    LiveView --> PubSub
+    MusicCtx --> Oban
+    Oban --> PubSub
+    Oban --> Spotdl
+    Oban --> AnalyzerPort
+    Oban --> DemucsPort
+    Spotdl --> Storage
+    AnalyzerPort --> Storage
+    DemucsPort --> Storage
 ```
 
 ### Key Modules

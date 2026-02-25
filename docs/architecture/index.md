@@ -31,67 +31,74 @@ Sound Forge Alchemy is a single OTP release built on the BEAM virtual machine. T
 
 ## High-Level Diagram
 
-```
-                  Browser (LiveView WebSocket)
-                  PWA (manifest.json + sw.js)
-                             |
-                  +----------+----------+
-                  |   Phoenix Endpoint   |
-                  | (Bandit / Port 4000) |
-                  +----------+----------+
-                             |
-         +-------------------+-------------------+
-         |                   |                   |
-     LiveViews         API Controllers       PubSub
-  (Dashboard, Admin,  (JSON REST +        (Real-time job
-   MIDI, Practice,     rate limiting)      progress, OSC/MIDI)
-   Settings, DAW, DJ)
-         |                   |                   |
-         +-------------------+-------------------+
-                             |
-             +---------------+---------------+
-             |               |               |
-        Contexts          Accounts         Admin
-       (Music,           (Users, Auth,   (User mgmt,
-        Spotify,          Scopes,         audit logs)
-        Jobs, Storage)    Roles)
-             |
-        PostgreSQL (Ecto 3.13)
-             |
-     +-------+-------+
-     |               |
- Oban Workers   Supervised Processes
- (Background)   (GenServers)
-     |               |
-  Download    +------+------+
-  Processing  |      |      |
-  Analysis   MIDI   OSC   Port
-             Device Server Supervisor
-                            |
-                    +-------+-------+
-                    |               |
-             DemucsPort      AnalyzerPort
-           (Erlang Port)   (Erlang Port)
-                 |               |
-          Python/Demucs   Python/librosa
+```mermaid
+flowchart TD
+    Browser["Browser (LiveView WebSocket)\nPWA (manifest.json + sw.js)"]
+    Endpoint["Phoenix Endpoint\n(Bandit / Port 4000)"]
+    LV["LiveViews\n(Dashboard, Admin, MIDI,\nPractice, Settings, DAW, DJ)"]
+    API["API Controllers\n(JSON REST + rate limiting)"]
+    PS["PubSub\n(Real-time job progress, OSC/MIDI)"]
+    Ctx["Contexts\n(Music, Spotify, Jobs, Storage)"]
+    Accts["Accounts\n(Users, Auth, Scopes, Roles)"]
+    Admin["Admin\n(User mgmt, audit logs)"]
+    PG["PostgreSQL (Ecto 3.13)"]
+    Oban["Oban Workers\n(Download, Processing, Analysis)"]
+    GenS["Supervised Processes\n(GenServers)"]
+    MIDI["MIDI Device"]
+    OSC["OSC Server"]
+    PortSup["Port Supervisor"]
+    DemucsPort["DemucsPort\n(Erlang Port)"]
+    AnalyzerPort["AnalyzerPort\n(Erlang Port)"]
+    PyDemucs["Python/Demucs"]
+    PyLibrosa["Python/librosa"]
+
+    Browser --> Endpoint
+    Endpoint --> LV
+    Endpoint --> API
+    Endpoint --> PS
+    LV --> Ctx
+    API --> Ctx
+    PS --> Ctx
+    Ctx --> Accts
+    Ctx --> Admin
+    Ctx --> PG
+    PG --> Oban
+    PG --> GenS
+    GenS --> MIDI
+    GenS --> OSC
+    GenS --> PortSup
+    PortSup --> DemucsPort
+    PortSup --> AnalyzerPort
+    DemucsPort --> PyDemucs
+    AnalyzerPort --> PyLibrosa
 ```
 
 ---
 
 ## OTP Supervision Tree
 
-```
-SoundForge.Supervisor (one_for_one)
-  |
-  +-- SoundForgeWeb.Telemetry
-  +-- SoundForge.Repo (Ecto/Postgrex pool)
-  +-- DNSCluster
-  +-- Phoenix.PubSub (name: SoundForge.PubSub)
-  +-- SoundForge.TaskSupervisor (Task.Supervisor)
-  +-- SoundForge.Audio.PortSupervisor (DynamicSupervisor)
-  +-- Oban (queues: download:3, processing:2, analysis:2)
-  +-- SoundForge.LLM.ModelRegistry (GenServer + ETS)
-  +-- SoundForgeWeb.Endpoint (Bandit HTTP + WebSocket)
+```mermaid
+flowchart TD
+    Root["SoundForge.Supervisor\n(one_for_one)"]
+    Telemetry["SoundForgeWeb.Telemetry"]
+    Repo["SoundForge.Repo\n(Ecto/Postgrex pool)"]
+    DNS["DNSCluster"]
+    PubSub["Phoenix.PubSub\n(SoundForge.PubSub)"]
+    TaskSup["SoundForge.TaskSupervisor\n(Task.Supervisor)"]
+    PortSup["SoundForge.Audio.PortSupervisor\n(DynamicSupervisor)"]
+    Oban["Oban\n(download:3, processing:2, analysis:2)"]
+    ModelReg["SoundForge.LLM.ModelRegistry\n(GenServer + ETS)"]
+    Endpoint["SoundForgeWeb.Endpoint\n(Bandit HTTP + WebSocket)"]
+
+    Root --> Telemetry
+    Root --> Repo
+    Root --> DNS
+    Root --> PubSub
+    Root --> TaskSup
+    Root --> PortSup
+    Root --> Oban
+    Root --> ModelReg
+    Root --> Endpoint
 ```
 
 | Child | Type | Purpose |

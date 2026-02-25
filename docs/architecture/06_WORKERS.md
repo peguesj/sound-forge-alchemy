@@ -436,14 +436,11 @@ This ensures only one download job per Spotify URL exists within a 5-minute wind
 
 A common workflow chains download -> processing -> analysis. The planned pattern uses Oban's `insert/1` at the end of each worker:
 
-```
-DownloadWorker completes
-    |
-    +-- Oban.insert(ProcessingWorker.new(%{track_id: id, file_path: path}))
-            |
-            +-- ProcessingWorker completes
-                    |
-                    +-- Oban.insert(AnalysisWorker.new(%{track_id: id, file_path: path}))
+```mermaid
+flowchart TD
+    A[DownloadWorker completes] --> B["Oban.insert(ProcessingWorker.new(%{track_id: id, file_path: path}))"]
+    B --> C[ProcessingWorker completes]
+    C --> D["Oban.insert(AnalysisWorker.new(%{track_id: id, file_path: path}))"]
 ```
 
 ```elixir

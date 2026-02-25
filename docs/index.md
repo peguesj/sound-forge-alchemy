@@ -13,6 +13,10 @@ nav_order: 1
 
 ---
 
+> **NOT FOR COMMERCIAL USE — USE AT YOUR OWN RISK.** This is a personal creative project with no warranty, no support, and no guarantees. **This is mostly for vibe guys.**
+
+---
+
 Sound Forge Alchemy (SFA) is a production-grade audio toolkit built on Elixir/OTP and Phoenix LiveView. Import tracks from Spotify, separate stems locally via Demucs or in the cloud via lalal.ai, analyze audio features with librosa, query a multi-LLM agent system for music intelligence, and control it all in real time through MIDI/OSC hardware.
 
 ![Sound Forge Alchemy - Main Dashboard](assets/screenshots/dashboard-authenticated.png)
@@ -80,6 +84,12 @@ For setup instructions see the [Quickstart Guide](guides/quickstart.md).
 - [Open Issues](https://github.com/peguesj/sound-forge-alchemy/issues)
 - [Pull Requests](https://github.com/peguesj/sound-forge-alchemy/pulls)
 - [Live Demo](https://sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io)
+
+---
+
+## Built with Claude Code
+
+This project was ported from its original React/Node.js prototype to the current Elixir/Phoenix stack almost entirely using [Claude Code](https://github.com/anthropics/claude-code) (Anthropic). Custom skills `/elixir-architect` and `/ralph` were instrumental — handling architecture documentation, OTP design, PRD-driven story decomposition, and TDD enforcement across all 707 tests.
 
 ---
 

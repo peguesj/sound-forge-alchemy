@@ -4,25 +4,46 @@
 
 Sound Forge Alchemy organizes its domain logic into five context boundaries following the Phoenix convention of bounded contexts. Each context owns its schemas, business logic, and external interface. Cross-context communication happens through explicit function calls and PubSub events -- never through shared database queries or implicit coupling.
 
-```
-+------------------+     +------------------+     +------------------+
-|   Music Context  |     | Spotify Context  |     |  Jobs Context    |
-|                  |     |                  |     |                  |
-|  Track           |<--->|  URLParser       |---->|  Download        |
-|  DownloadJob     |     |  Client (behav.) |     |  Processing      |
-|  ProcessingJob   |     |  HTTPClient      |     |  Analysis        |
-|  AnalysisJob     |     |                  |     |  DownloadWorker  |
-|  Stem            |     +------------------+     +------------------+
-|  AnalysisResult  |            |                        |
-+------------------+            |                        |
-       ^                        v                        v
-       |                 +------------------+     +------------------+
-       |                 |   Audio Context  |     | Storage Context  |
-       |                 |                  |     |                  |
-       +---------------->|  AnalyzerPort    |     |  downloads/      |
-                         |  DemucsPort      |     |  stems/          |
-                         |                  |     |  analysis/       |
-                         +------------------+     +------------------+
+```mermaid
+flowchart TD
+    subgraph Music["Music Context"]
+        Track
+        DownloadJob
+        ProcessingJob
+        AnalysisJob
+        Stem
+        AnalysisResult
+    end
+
+    subgraph Spotify["Spotify Context"]
+        URLParser
+        ClientBehaviour["Client (behav.)"]
+        HTTPClient
+    end
+
+    subgraph Jobs["Jobs Context"]
+        Download
+        Processing
+        Analysis
+        DownloadWorker
+    end
+
+    subgraph Audio["Audio Context"]
+        AnalyzerPort
+        DemucsPort
+    end
+
+    subgraph Storage["Storage Context"]
+        downloads["downloads/"]
+        stems["stems/"]
+        analysis["analysis/"]
+    end
+
+    Music <-->|metadata| Spotify
+    Spotify -->|enqueue| Jobs
+    Jobs -->|persists via| Music
+    Music -->|analyze/separate| Audio
+    Audio -->|files| Storage
 ```
 
 ---
@@ -246,11 +267,12 @@ The Storage context manages the local filesystem layout for all persisted audio 
 
 **Directory layout**:
 
-```
-priv/uploads/
-  downloads/     # Raw audio files from spotdl
-  stems/         # Separated stem files from Demucs
-  analysis/      # Analysis output artifacts
+```mermaid
+flowchart TD
+    root["priv/uploads/"]
+    root --> dl["downloads/\n(Raw audio files from spotdl)"]
+    root --> st["stems/\n(Separated stem files from Demucs)"]
+    root --> an["analysis/\n(Analysis output artifacts)"]
 ```
 
 **Public API**:
@@ -280,38 +302,53 @@ SoundForge.Storage.stats()                               # => %{file_count: 42, 
 
 When a user submits a Spotify URL, the request flows through multiple context boundaries in a well-defined sequence:
 
-```
-User submits URL
-      |
-      v
-[SoundForgeWeb.API.DownloadController]
-      |  POST /api/download/track  {"url": "https://open.spotify.com/track/..."}
-      |
-      v
-[SoundForge.Jobs.Download.create_job/1]       <-- Jobs Context
-      |
-      |-- find_or_create_track(url)            <-- Music Context (Repo lookup/insert)
-      |-- Music.create_download_job(attrs)     <-- Music Context (job record)
-      |-- enqueue_worker(job, track, url)       <-- Oban insertion
-      |
-      v
-[Oban picks up job from :download queue]
-      |
-      v
-[SoundForge.Jobs.DownloadWorker.perform/1]    <-- Jobs Context (worker)
-      |
-      |-- Music.get_download_job!(job_id)      <-- Music Context
-      |-- Music.update_download_job(job, ...)  <-- Music Context
-      |-- broadcast_progress(job_id, ...)      <-- PubSub
-      |-- execute_download(spotify_url, ...)   <-- spotdl CLI (Storage)
-      |-- Music.update_download_job(job, ...)  <-- Music Context (final state)
-      |-- broadcast_progress(job_id, ...)      <-- PubSub
-      |
-      v
-[Phoenix.PubSub "jobs:{job_id}" topic]
-      |
-      +----> [SoundForgeWeb.JobChannel]        <-- pushes to WebSocket client
-      +----> [SoundForgeWeb.DashboardLive]     <-- updates LiveView assigns
+```mermaid
+flowchart TD
+    User(["User submits URL"])
+    Controller["SoundForgeWeb.API.DownloadController\nPOST /api/download/track"]
+    CreateJob["SoundForge.Jobs.Download.create_job/1"]
+    FindTrack["find_or_create_track(url)"]
+    CreateJobRecord["Music.create_download_job(attrs)"]
+    Enqueue["enqueue_worker(job, track, url)"]
+    Oban["Oban picks up job from :download queue"]
+    Worker["SoundForge.Jobs.DownloadWorker.perform/1"]
+    GetJob["Music.get_download_job!(job_id)"]
+    UpdateJob1["Music.update_download_job(job, ...)"]
+    Broadcast1["broadcast_progress(job_id, ...)"]
+    Spotdl["execute_download(spotify_url, ...)\nspotdl CLI + Storage"]
+    UpdateJob2["Music.update_download_job(job, ...)\nfinal state"]
+    Broadcast2["broadcast_progress(job_id, ...)"]
+    PubSub["Phoenix.PubSub\njobs:{job_id} topic"]
+    JobChannel["SoundForgeWeb.JobChannel\npushes to WebSocket client"]
+    DashboardLive["SoundForgeWeb.DashboardLive\nupdates LiveView assigns"]
+
+    User --> Controller
+    Controller --> CreateJob
+    CreateJob --> FindTrack
+    CreateJob --> CreateJobRecord
+    CreateJob --> Enqueue
+    Enqueue --> Oban
+    Oban --> Worker
+    Worker --> GetJob
+    Worker --> UpdateJob1
+    Worker --> Broadcast1
+    Worker --> Spotdl
+    Worker --> UpdateJob2
+    Worker --> Broadcast2
+    Broadcast1 --> PubSub
+    Broadcast2 --> PubSub
+    PubSub --> JobChannel
+    PubSub --> DashboardLive
+
+    style FindTrack fill:#e8f4e8,stroke:#4a7c4a
+    style CreateJobRecord fill:#e8f4e8,stroke:#4a7c4a
+    style GetJob fill:#e8f4e8,stroke:#4a7c4a
+    style UpdateJob1 fill:#e8f4e8,stroke:#4a7c4a
+    style UpdateJob2 fill:#e8f4e8,stroke:#4a7c4a
+    style Broadcast1 fill:#e8eef4,stroke:#4a6a7c
+    style Broadcast2 fill:#e8eef4,stroke:#4a6a7c
+    style CreateJob fill:#f4ede8,stroke:#7c5a4a
+    style Worker fill:#f4ede8,stroke:#7c5a4a
 ```
 
 The key observation is that no context reaches into another's internals. The DownloadWorker calls `Music.update_download_job/2` rather than building its own changeset. It broadcasts to PubSub rather than pushing directly to a channel. The controller calls `Jobs.Download.create_job/1` rather than inserting records and enqueuing workers itself.
@@ -554,16 +591,22 @@ end
 
 ### Event Flow Diagram
 
-```
-DownloadWorker.perform/1
-    |
-    |  Phoenix.PubSub.broadcast("jobs:abc123", {:job_progress, %{...}})
-    |
-    +-------> [PubSub "jobs:abc123" topic]
-                   |
-                   +---> JobChannel.handle_info/2 ---> push("job:progress", payload) ---> JS client
-                   |
-                   +---> DashboardLive.handle_info/2 ---> assign(:active_jobs, ...) ---> re-render
+```mermaid
+flowchart LR
+    Worker["DownloadWorker.perform/1"]
+    Broadcast["Phoenix.PubSub.broadcast\njobs:abc123\n{:job_progress, %{...}}"]
+    PubSub["PubSub\njobs:abc123 topic"]
+    JobChannel["JobChannel.handle_info/2"]
+    DashboardLive["DashboardLive.handle_info/2"]
+    JSClient["JS client"]
+    Rerender["re-render"]
+
+    Worker --> Broadcast
+    Broadcast --> PubSub
+    PubSub --> JobChannel
+    PubSub --> DashboardLive
+    JobChannel -->|"push(job:progress, payload)"| JSClient
+    DashboardLive -->|"assign(:active_jobs, ...)"| Rerender
 ```
 
 ### Planned Events

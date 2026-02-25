@@ -4,23 +4,20 @@
 
 Sound Forge Alchemy's domain model centers on the `Track` entity, which represents a single piece of audio. A track originates from a Spotify URL and progresses through three job pipelines -- download, stem separation, and analysis -- each producing output artifacts stored as child records.
 
-```
-                          +------------------+
-                          |      Track       |
-                          |  (Central Entity)|
-                          +--------+---------+
-                                   |
-              +--------------------+--------------------+
-              |                    |                    |
-    +---------v--------+ +--------v--------+ +---------v--------+
-    |   DownloadJob    | |  ProcessingJob  | |   AnalysisJob    |
-    |  (Audio fetch)   | | (Stem separate) | | (Feature extract)|
-    +------------------+ +--------+--------+ +---------+--------+
-                                  |                    |
-                         +--------v--------+  +--------v---------+
-                         |      Stem       |  |  AnalysisResult  |
-                         | (Audio segment) |  | (Computed feats) |
-                         +-----------------+  +------------------+
+```mermaid
+flowchart TD
+    Track["Track\n(Central Entity)"]
+    DownloadJob["DownloadJob\n(Audio fetch)"]
+    ProcessingJob["ProcessingJob\n(Stem separate)"]
+    AnalysisJob["AnalysisJob\n(Feature extract)"]
+    Stem["Stem\n(Audio segment)"]
+    AnalysisResult["AnalysisResult\n(Computed feats)"]
+
+    Track --> DownloadJob
+    Track --> ProcessingJob
+    Track --> AnalysisJob
+    ProcessingJob --> Stem
+    AnalysisJob --> AnalysisResult
 ```
 
 ## Entity Definitions
@@ -172,15 +169,15 @@ Structured audio analysis output. Stores individual feature values as typed colu
 
 ## Relationships Diagram
 
-```
-tracks
-  |--- 1:N --- download_jobs
-  |--- 1:N --- processing_jobs
-  |                |--- 1:N --- stems
-  |--- 1:N --- analysis_jobs
-  |                |--- 1:1 --- analysis_results
-  |--- 1:N --- stems (direct, for querying all stems of a track)
-  |--- 1:N --- analysis_results (direct, for querying all results of a track)
+```mermaid
+erDiagram
+    tracks ||--o{ download_jobs : "1:N"
+    tracks ||--o{ processing_jobs : "1:N"
+    tracks ||--o{ analysis_jobs : "1:N"
+    tracks ||--o{ stems : "1:N (direct)"
+    tracks ||--o{ analysis_results : "1:N (direct)"
+    processing_jobs ||--o{ stems : "1:N"
+    analysis_jobs ||--o| analysis_results : "1:1"
 ```
 
 A `Track` can have multiple jobs of each type because:
@@ -194,20 +191,20 @@ A `Track` can have multiple jobs of each type because:
 
 All three job types share the same set of status values and follow the same state machine:
 
-```
-                  +----------+
-                  |  queued   |  <-- Initial state on creation
-                  +-----+----+
-                        |
-              +---------v----------+
-              |   downloading /    |  <-- Active processing
-              |   processing       |
-              +---------+----------+
-                       / \
-                      /   \
-           +---------v+   +v---------+
-           | completed|   |  failed  |  <-- Terminal states
-           +----------+   +----------+
+```mermaid
+stateDiagram-v2
+    [*] --> queued : creation
+    queued --> downloading : DownloadWorker picks up job
+    queued --> processing : ProcessingWorker / AnalysisWorker picks up job
+    downloading --> processing : download complete, post-processing starts
+    downloading --> completed : download done (no post-processing needed)
+    downloading --> failed : download error
+    processing --> completed : processing finished successfully
+    processing --> failed : processing error
+
+    note right of queued : Initial state on creation
+    note right of completed : Terminal state
+    note right of failed : Terminal state
 ```
 
 ### Status Definitions

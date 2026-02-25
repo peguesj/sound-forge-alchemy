@@ -281,39 +281,73 @@ mix ecto.gen.migration name  # Generate new migration
 
 ## Schema Summary
 
-```
-Track (binary_id)
-├── spotify_id, spotify_url, title, artist, album, album_art_url, duration
-├── has_many :download_jobs
-├── has_many :processing_jobs
-├── has_many :analysis_jobs
-├── has_many :stems
-└── has_many :analysis_results
+```mermaid
+erDiagram
+    Track {
+        binary_id id
+        string spotify_id
+        string spotify_url
+        string title
+        string artist
+        string album
+        string album_art_url
+        integer duration
+    }
+    DownloadJob {
+        binary_id id
+        binary_id track_id
+        string status
+        integer progress
+        string output_path
+        integer file_size
+        string error
+    }
+    ProcessingJob {
+        binary_id id
+        binary_id track_id
+        string model
+        string status
+        integer progress
+        string output_path
+        map options
+        string error
+    }
+    AnalysisJob {
+        binary_id id
+        binary_id track_id
+        string status
+        integer progress
+        map results
+        string error
+    }
+    Stem {
+        binary_id id
+        binary_id track_id
+        binary_id processing_job_id
+        string stem_type
+        string file_path
+        integer file_size
+    }
+    AnalysisResult {
+        binary_id id
+        binary_id track_id
+        binary_id analysis_job_id
+        float tempo
+        string key
+        float energy
+        float spectral_centroid
+        float spectral_rolloff
+        float zero_crossing_rate
+        map features
+    }
 
-DownloadJob (binary_id)
-├── status (Ecto.Enum: queued|downloading|processing|completed|failed)
-├── progress (0-100), output_path, file_size, error
-└── belongs_to :track
-
-ProcessingJob (binary_id)
-├── model (default: "htdemucs"), status, progress, output_path, options, error
-├── belongs_to :track
-└── has_many :stems
-
-AnalysisJob (binary_id)
-├── status, progress, results (map), error
-├── belongs_to :track
-└── has_one :analysis_result
-
-Stem (binary_id)
-├── stem_type (Ecto.Enum: vocals|drums|bass|other), file_path, file_size
-├── belongs_to :track
-└── belongs_to :processing_job
-
-AnalysisResult (binary_id)
-├── tempo, key, energy, spectral_centroid, spectral_rolloff, zero_crossing_rate, features (map)
-├── belongs_to :track
-└── belongs_to :analysis_job
+    Track ||--o{ DownloadJob : "has_many"
+    Track ||--o{ ProcessingJob : "has_many"
+    Track ||--o{ AnalysisJob : "has_many"
+    Track ||--o{ Stem : "has_many"
+    Track ||--o{ AnalysisResult : "has_many"
+    ProcessingJob ||--o{ Stem : "has_many"
+    AnalysisJob ||--o| AnalysisResult : "has_one"
 ```
 
 ## PubSub Topics

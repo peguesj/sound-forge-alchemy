@@ -8,6 +8,9 @@
 [![Tests](https://img.shields.io/badge/tests-707%20passing-brightgreen.svg)](test/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
+> [!WARNING]
+> **NOT FOR COMMERCIAL USE — USE AT YOUR OWN RISK.** This is a personal creative project provided as-is with no warranty, no support, and no guarantees of any kind. Running this will likely require you to wrangle Python environments, Spotify OAuth credentials, and at minimum one existential crisis about why you're doing this at all. If it breaks, eats your API quota, or separates your stems into unrecognizable noise — that's on you. **This is mostly for vibe guys.**
+
 Sound Forge Alchemy (SFA) transforms Spotify tracks into a professional production toolkit. Import playlists, download audio, separate stems with local Demucs or cloud lalal.ai, analyze harmonic content with D3.js visualizations, and orchestrate AI agents that understand your music — all from a real-time Phoenix LiveView dashboard.
 
 ![Sound Forge Alchemy Dashboard](docs/assets/screenshots/dashboard-authenticated.png)
@@ -363,43 +366,41 @@ mix promote_admin your@email.com
 <details>
 <summary><strong>Stack Overview</strong></summary>
 
-```
-┌─────────────────────────────────────────────────────────┐
-│              Browser / PWA (manifest + sw.js)            │
-│         Phoenix LiveView + D3.js + Web Audio API         │
-└───────────────────────┬─────────────────────────────────┘
-                        │  WebSocket (Phoenix Channels)
-┌───────────────────────▼─────────────────────────────────┐
-│                  Phoenix / Bandit 1.5                     │
-│   LiveViews          JSON API           PubSub            │
-│   DashboardLive      SpotifyController  pipeline:{uid}    │
-│   AdminLive          DownloadController debug:{uid}       │
-│   DjLive / DawLive   ProcessingCtrl     notifications     │
-│   MidiLive           AnalysisCtrl                        │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────────────┐
-│                   Domain Contexts                         │
-│   Music    Accounts    Admin    Agents    LLM            │
-│   DJ       DAW         Sampler  MIDI/OSC  Integrations   │
-└──────┬───────────────────┬────────────────┬─────────────┘
-       │                   │                │
-┌──────▼──────┐   ┌────────▼──────┐  ┌─────▼──────────────┐
-│ Oban Workers│   │ Erlang Ports  │  │ LLM Adapters        │
-│ Download    │   │ AnalyzerPort  │  │ Anthropic / OpenAI  │
-│ Processing  │   │ DemucsPort    │  │ Azure / Gemini      │
-│ Analysis    │   │ SpotDL        │  │ Ollama / LM Studio  │
-│ LalalAI     │   └───────────────┘  │ LiteLLM / Custom    │
-│ AutoCue     │                      └────────────────────-┘
-└──────┬──────┘
-       │
-┌──────▼──────────────────────────────────────────────────┐
-│                     PostgreSQL (Ecto 3.13)                │
-│   tracks  stems  analysis_results  processing_jobs       │
-│   users   user_settings  spotify_oauth_tokens  playlists │
-│   midi_mappings  dj_tables  edit_operations              │
-│   llm_providers  audit_logs  stem_loops  cue_points      │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Browser["Browser / PWA\n(manifest + sw.js)\nPhoenix LiveView · D3.js · Web Audio API"]
+
+    subgraph PhoenixLayer["Phoenix / Bandit 1.5"]
+        LiveViews["LiveViews\nDashboardLive · AdminLive · DjLive · DawLive · MidiLive"]
+        JSONAPI["JSON API\nSpotifyController · DownloadController\nProcessingCtrl · AnalysisCtrl"]
+        PubSubLayer["PubSub\npipeline:{uid} · debug:{uid} · notifications"]
+    end
+
+    subgraph CtxLayer["Domain Contexts"]
+        CoreCtx["Music · Accounts · Admin · Agents · LLM"]
+        ExtCtx["DJ · DAW · Sampler · MIDI/OSC · Integrations"]
+    end
+
+    subgraph ObanLayer["Oban Workers"]
+        Workers["Download · Processing · Analysis · LalalAI · AutoCue"]
+    end
+
+    subgraph PortLayer["Erlang Ports"]
+        Ports["AnalyzerPort · DemucsPort · SpotDL"]
+    end
+
+    subgraph LLMLayer["LLM Adapters"]
+        LLMs["Anthropic · OpenAI · Azure OpenAI · Gemini\nOllama · LM Studio · LiteLLM · Custom"]
+    end
+
+    DB[("PostgreSQL — Ecto 3.13\ntracks · stems · analysis_results · processing_jobs\nusers · user_settings · spotify_oauth_tokens · playlists\nmidi_mappings · dj_tables · edit_operations\nllm_providers · audit_logs · stem_loops · cue_points")]
+
+    Browser -->|"WebSocket (Phoenix Channels)"| PhoenixLayer
+    PhoenixLayer --> CtxLayer
+    CtxLayer --> ObanLayer
+    CtxLayer --> PortLayer
+    CtxLayer --> LLMLayer
+    ObanLayer --> DB
 ```
 
 **Technology choices:**
@@ -440,34 +441,27 @@ mix promote_admin your@email.com
 <details>
 <summary><strong>Agent System</strong></summary>
 
-```
-                    User Request
-                         │
-                    Orchestrator
-                    ┌────┴────┐
-                    │  Route  │
-                    └────┬────┘
-         ┌───────────────┼───────────────┐
-         │               │               │
-  Direct dispatch   Auto-route      Pipeline
-  (task: hint)    (keyword NLP)   (agent list)
-         │               │               │
-    ┌────▼───────────────▼───────────────▼────┐
-    │              Specialist Agents            │
-    │  TrackAnalysis  MixPlanning  StemIntel   │
-    │  CuePoint       Mastering    Library     │
-    └────────────────────┬────────────────────┘
-                         │
-                    LLM.Router
-                    ┌────┴────┐
-                    │  Build  │
-                    │provider │
-                    │ chain   │
-                    └────┬────┘
-           ┌─────────────┼─────────────┐
-           │             │             │
-      Primary       Fallback 1    Fallback 2
-     (LiteLLM)     (Anthropic)    (Ollama)
+```mermaid
+flowchart TD
+    Input["User Request"] --> Orch["Orchestrator"]
+
+    Orch -->|"task: hint"| Direct["Direct dispatch"]
+    Orch -->|"keyword NLP"| AutoR["Auto-route"]
+    Orch -->|"agent list"| Pipeline["Pipeline"]
+
+    subgraph Agents["Specialist Agents"]
+        SA["TrackAnalysis · MixPlanning · StemIntelligence\nCuePoint · Mastering · Library"]
+    end
+
+    Direct --> Agents
+    AutoR --> Agents
+    Pipeline --> Agents
+
+    Agents --> Router["LLM.Router\n(build provider chain)"]
+
+    Router --> Primary["Primary\n(LiteLLM)"]
+    Router --> FB1["Fallback 1\n(Anthropic)"]
+    Router --> FB2["Fallback 2\n(Ollama)"]
 ```
 
 **Context and Result structs:**
@@ -823,6 +817,17 @@ mix precommit    # compile --warnings-as-errors + format + test
 - Dialyzer clean on all new modules
 - Contexts return `{:ok, _} | {:error, _}` tuples
 - External services mocked via behaviours + Mox
+
+---
+
+## Built with Claude Code
+
+This project was ported from its original React/Node.js prototype to the current Elixir/Phoenix production stack almost entirely using [Claude Code](https://github.com/anthropics/claude-code) (Anthropic's CLI for Claude). Two custom Claude Code skills were central to the process:
+
+- **`/elixir-architect`** — OTP supervision tree design, Phoenix context boundaries, domain model definition, and comprehensive architecture documentation generation
+- **`/ralph`** — Autonomous fix loop methodology: PRD-driven user story decomposition, wave-based parallel agent execution, and TDD enforcement across all 707 tests
+
+The vast majority of implementation — schemas, Oban workers, LiveViews, JS hooks, Python audio ports, tests, docs, and deployment configs — was authored through Claude Code sessions. If you're curious how an AI-assisted Elixir port works at this scale, the [git history](https://github.com/peguesj/sound-forge-alchemy/commits/main) tells the story.
 
 ---
 

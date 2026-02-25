@@ -30,22 +30,22 @@ Sound Forge Alchemy uses PostgreSQL 14+ with Ecto 3.13. All primary keys are `bi
 
 ## Entity Relationships
 
-```
-tracks
-  |--- 1:N --- download_jobs
-  |--- 1:N --- processing_jobs
-  |                |--- 1:N --- stems
-  |--- 1:N --- analysis_jobs
-  |                |--- 1:1 --- analysis_results
-  |--- 1:N --- stems          (direct FK for efficient queries)
-  |--- 1:N --- analysis_results (direct FK for efficient queries)
+```mermaid
+erDiagram
+    users ||--o{ tracks : "owns"
+    users ||--o{ download_jobs : "owns"
+    users ||--o{ processing_jobs : "owns"
+    users ||--o{ analysis_jobs : "owns"
+    users ||--o{ llm_providers : "owns"
 
-users
-  |--- 1:N --- llm_providers
-  |--- 1:N --- download_jobs  (via user_id)
-  |--- 1:N --- processing_jobs
-  |--- 1:N --- analysis_jobs
-  |--- 1:N --- tracks
+    tracks ||--o{ download_jobs : "has"
+    tracks ||--o{ processing_jobs : "has"
+    tracks ||--o{ analysis_jobs : "has"
+    tracks ||--o{ stems : "has (direct FK)"
+    tracks ||--o{ analysis_results : "has (direct FK)"
+
+    processing_jobs ||--o{ stems : "produces"
+    analysis_jobs ||--|| analysis_results : "produces"
 ```
 
 ---

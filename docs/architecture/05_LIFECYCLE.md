@@ -8,33 +8,29 @@ Sound Forge Alchemy is a single OTP application (`SoundForge.Application`) that 
 
 ## Supervision Tree
 
-```
-SoundForge.Supervisor (:one_for_one)
-    |
-    +-- SoundForgeWeb.Telemetry (Supervisor)
-    |       |
-    |       +-- :telemetry_poller (periodic VM/app measurements every 10s)
-    |
-    +-- SoundForge.Repo (Ecto/Postgrex connection pool)
-    |
-    +-- DNSCluster (cluster discovery, :ignore in dev)
-    |
-    +-- Phoenix.PubSub (name: SoundForge.PubSub)
-    |       |
-    |       +-- PG adapter for distributed pub/sub
-    |
-    +-- Oban (background job processor)
-    |       |
-    |       +-- Oban.Notifier (PostgreSQL LISTEN/NOTIFY)
-    |       +-- Oban.Peer (leadership election)
-    |       +-- Oban.Queue.Download (concurrency: 3)
-    |       +-- Oban.Queue.Processing (concurrency: 2)
-    |       +-- Oban.Queue.Analysis (concurrency: 2)
-    |
-    +-- SoundForgeWeb.Endpoint (Bandit HTTP server)
-            |
-            +-- WebSocket handler (UserSocket -> JobChannel)
-            +-- LiveView sockets (DashboardLive, AudioPlayerLive)
+```mermaid
+flowchart TD
+    SUP["SoundForge.Supervisor\n(:one_for_one)"]
+
+    SUP --> TEL["SoundForgeWeb.Telemetry\n(Supervisor)"]
+    SUP --> REPO["SoundForge.Repo\n(Ecto/Postgrex connection pool)"]
+    SUP --> DNS["DNSCluster\n(cluster discovery, :ignore in dev)"]
+    SUP --> PS["Phoenix.PubSub\n(name: SoundForge.PubSub)"]
+    SUP --> OBAN["Oban\n(background job processor)"]
+    SUP --> EP["SoundForgeWeb.Endpoint\n(Bandit HTTP server)"]
+
+    TEL --> TP[":telemetry_poller\n(periodic VM/app measurements every 10s)"]
+
+    PS --> PG["PG adapter for distributed pub/sub"]
+
+    OBAN --> ON["Oban.Notifier\n(PostgreSQL LISTEN/NOTIFY)"]
+    OBAN --> OP["Oban.Peer\n(leadership election)"]
+    OBAN --> OQD["Oban.Queue.Download\n(concurrency: 3)"]
+    OBAN --> OQP["Oban.Queue.Processing\n(concurrency: 2)"]
+    OBAN --> OQA["Oban.Queue.Analysis\n(concurrency: 2)"]
+
+    EP --> WS["WebSocket handler\n(UserSocket -> JobChannel)"]
+    EP --> LV["LiveView sockets\n(DashboardLive, AudioPlayerLive)"]
 ```
 
 ### Application Start
@@ -194,86 +190,54 @@ end
 
 ### AnalyzerPort Lifecycle
 
-```
-start_link/1
-    |
-    v
-init/1  -->  State: %{port: nil, caller: nil, buffer: ""}
-    |
-    v
-[Idle -- waiting for analyze/2 call]
-    |
-    v
-handle_call({:analyze, path, features}, from, state)
-    |
-    +-- find_python()          --> {:ok, "/usr/bin/python3"} | {:error, :python_not_found}
-    +-- find_analyzer_script() --> {:ok, "priv/python/analyzer.py"} | {:error, ...}
-    +-- open_port(python, script, path, features)
-    |
-    v
-Port.open({:spawn_executable, python}, [:binary, :exit_status, args: [...]])
-    |
-    |  State: %{port: #Port<0.5>, caller: from, buffer: ""}
-    |
-    v
-[Receiving data from Python stdout]
-    |
-    +-- handle_info({port, {:data, data}}) --> accumulate in buffer
-    +-- handle_info({port, {:data, data}}) --> accumulate in buffer
-    +-- ...
-    |
-    v
-[Python process exits]
-    |
-    +-- handle_info({port, {:exit_status, 0}})
-    |       |
-    |       +-- parse_output(buffer) --> Jason.decode(buffer)
-    |       +-- GenServer.reply(caller, {:ok, results})
-    |       +-- reset_state() --> %{port: nil, caller: nil, buffer: ""}
-    |
-    +-- handle_info({port, {:exit_status, code}})  [non-zero]
-            |
-            +-- parse_error(buffer, code)
-            +-- GenServer.reply(caller, {:error, error})
-            +-- reset_state()
+```mermaid
+stateDiagram-v2
+    [*] --> Initializing : start_link/1
+
+    Initializing --> Idle : init/1\nState: %{port: nil, caller: nil, buffer: ""}
+
+    Idle --> SpawningPort : handle_call({:analyze, path, features}, from, state)\nfind_python() + find_analyzer_script() + open_port()
+
+    SpawningPort --> ReceivingData : Port.open({:spawn_executable, python}, ...)\nState: %{port: #Port, caller: from, buffer: ""}
+
+    ReceivingData --> ReceivingData : handle_info({port, {:data, data}})\naccumulate in buffer
+
+    ReceivingData --> ReplyOk : handle_info({port, {:exit_status, 0}})\nparse_output(buffer) → Jason.decode(buffer)
+    ReceivingData --> ReplyError : handle_info({port, {:exit_status, code}})\nnon-zero exit\nparse_error(buffer, code)
+
+    ReplyOk --> Idle : GenServer.reply(caller, {:ok, results})\nreset_state() → %{port: nil, caller: nil, buffer: ""}
+    ReplyError --> Idle : GenServer.reply(caller, {:error, error})\nreset_state()
 ```
 
 ### Port Communication Protocol
 
 **AnalyzerPort** uses a single-shot protocol:
 
-```
-Elixir                          Python (analyzer.py)
-  |                                  |
-  |-- spawn_executable ------------->|
-  |   args: [script, path,          |
-  |          --features, "tempo,key",|
-  |          --output, "json"]       |
-  |                                  |
-  |<--------- stdout: JSON ---------|  (single JSON object)
-  |<--------- exit_status: 0 -------|
-  |                                  |
-  v                                  v
-parse_output(buffer)            process exits
+```mermaid
+sequenceDiagram
+    participant E as Elixir (BEAM)
+    participant P as Python (analyzer.py)
+
+    E->>P: spawn_executable<br/>args: [script, path, --features, "tempo,key", --output, "json"]
+    P-->>E: stdout: JSON (single JSON object)
+    P-->>E: exit_status: 0
+    Note over E: parse_output(buffer)
+    Note over P: process exits
 ```
 
 **DemucsPort** uses a JSON-lines streaming protocol:
 
-```
-Elixir                          Python (demucs_runner.py)
-  |                                  |
-  |-- spawn_executable ------------->|
-  |   args: [script, path,          |
-  |          --model, "htdemucs",    |
-  |          --output, "/tmp/demucs"]|
-  |                                  |
-  |<-- {"type":"progress","percent":10,"message":"Loading model..."} ---|
-  |<-- {"type":"progress","percent":30,"message":"Separating..."} ------|
-  |<-- {"type":"progress","percent":70,"message":"Writing stems..."} ---|
-  |<-- {"type":"result","stems":{...},"model":"htdemucs","output_dir":".."} ---|
-  |<-- exit_status: 0 --------------|
-  |                                  |
-  v                                  v
+```mermaid
+sequenceDiagram
+    participant E as Elixir (BEAM)
+    participant P as Python (demucs_runner.py)
+
+    E->>P: spawn_executable<br/>args: [script, path, --model, "htdemucs", --output, "/tmp/demucs"]
+    P-->>E: {"type":"progress","percent":10,"message":"Loading model..."}
+    P-->>E: {"type":"progress","percent":30,"message":"Separating..."}
+    P-->>E: {"type":"progress","percent":70,"message":"Writing stems..."}
+    P-->>E: {"type":"result","stems":{...},"model":"htdemucs","output_dir":".."}
+    P-->>E: exit_status: 0
 ```
 
 Each newline-delimited JSON line is parsed independently:
@@ -461,25 +425,23 @@ end
 
 As the application matures, the supervision tree will expand:
 
-```
-SoundForge.Supervisor (:one_for_one)
-    |
-    +-- [existing children...]
-    |
-    +-- SoundForge.Audio.Supervisor (:one_for_one)  [PLANNED]
-    |       |
-    |       +-- SoundForge.Audio.AnalyzerPort (GenServer, on-demand)
-    |       +-- SoundForge.Audio.DemucsPort (GenServer, on-demand)
-    |
-    +-- SoundForge.Spotify.TokenRefresher (GenServer) [PLANNED]
-    |       |
-    |       +-- Periodic token refresh every 3500s
-    |       +-- Replaces ETS-based lazy refresh
-    |
-    +-- SoundForge.Storage.Janitor (GenServer) [PLANNED]
-            |
-            +-- Periodic cleanup of orphaned files
-            +-- Storage statistics collection
+```mermaid
+flowchart TD
+    SUP["SoundForge.Supervisor\n(:one_for_one)"]
+
+    SUP --> EXISTING["[existing children...]"]
+
+    SUP --> ASUP["SoundForge.Audio.Supervisor\n(:one_for_one)\n[PLANNED]"]
+    ASUP --> AP["SoundForge.Audio.AnalyzerPort\n(GenServer, on-demand)"]
+    ASUP --> DP["SoundForge.Audio.DemucsPort\n(GenServer, on-demand)"]
+
+    SUP --> TR["SoundForge.Spotify.TokenRefresher\n(GenServer)\n[PLANNED]"]
+    TR --> TR1["Periodic token refresh every 3500s"]
+    TR --> TR2["Replaces ETS-based lazy refresh"]
+
+    SUP --> JAN["SoundForge.Storage.Janitor\n(GenServer)\n[PLANNED]"]
+    JAN --> JAN1["Periodic cleanup of orphaned files"]
+    JAN --> JAN2["Storage statistics collection"]
 ```
 
 The Audio.Supervisor would use `DynamicSupervisor` to start port processes on demand and supervise them for the duration of their work, rather than requiring callers to manage lifecycle manually.

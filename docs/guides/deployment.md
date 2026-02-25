@@ -29,17 +29,16 @@ Azure Container Apps + Docker deployment guide for Sound Forge Alchemy.
 
 Production deployment runs on Azure Container Apps:
 
-```
-Internet
-   |
-Azure Container Apps (sfa-app)
-   |  - Bandit HTTP server on PORT
-   |  - PHX_HOST = sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io
-   |  - SSL terminated by Azure
-   |
-Azure PostgreSQL Flexible Server
-   |
-Azure Container Registry (SFA image ~4.8 GB)
+```mermaid
+flowchart TD
+    Internet["Internet"]
+    ACA["Azure Container Apps (sfa-app)\n- Bandit HTTP server on PORT\n- PHX_HOST = sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io\n- SSL terminated by Azure"]
+    PG["Azure PostgreSQL Flexible Server"]
+    ACR["Azure Container Registry\n(SFA image ~4.8 GB)"]
+
+    Internet --> ACA
+    ACA --> PG
+    ACA --> ACR
 ```
 
 Live URL: `https://sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io`

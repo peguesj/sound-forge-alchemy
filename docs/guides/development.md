@@ -292,42 +292,78 @@ SoundForge.Audio.DemucsPort.separate("/path/to/audio.wav", model: "htdemucs")
 
 ## Project Structure
 
-```
-sfa/
-├── config/                   # Elixir configuration files
-│   ├── config.exs            # Compile-time config
-│   ├── dev.exs               # Development overrides
-│   ├── test.exs              # Test overrides
-│   └── runtime.exs           # Runtime config (env vars)
-├── lib/
-│   ├── sound_forge/          # Core business logic
-│   │   ├── accounts/         # User auth
-│   │   ├── admin/            # Admin context
-│   │   ├── agents/           # AI agent system
-│   │   ├── audio/            # Erlang Port wrappers
-│   │   ├── daw/              # DAW context
-│   │   ├── dj/               # DJ context
-│   │   ├── jobs/             # Oban worker contexts
-│   │   ├── llm/              # LLM providers
-│   │   ├── midi/             # MIDI interface
-│   │   ├── music/            # Core domain (tracks, stems)
-│   │   ├── processing/       # Demucs config
-│   │   ├── spotify/          # Spotify API client
-│   │   └── telemetry/        # Metrics
-│   └── sound_forge_web/      # Phoenix web layer
-│       ├── components/       # Reusable LiveView components
-│       ├── controllers/      # HTTP controllers
-│       ├── live/             # LiveView modules
-│       └── router.ex         # Route definitions
-├── priv/
-│   ├── python/               # Python scripts (analyzer, demucs)
-│   ├── repo/migrations/      # Ecto migrations
-│   └── uploads/              # Audio file storage
-├── assets/
-│   ├── css/app.css           # Tailwind v4 entry
-│   └── js/app.js             # JS entry (hooks, LiveSocket)
-├── test/                     # ExUnit tests
-└── docs/                     # This documentation
+```mermaid
+flowchart TD
+    Root["sfa/"]
+    Config["config/\nElixir configuration files"]
+    ConfigExs["config.exs\nCompile-time config"]
+    DevExs["dev.exs\nDevelopment overrides"]
+    TestExs["test.exs\nTest overrides"]
+    RuntimeExs["runtime.exs\nRuntime config (env vars)"]
+    Lib["lib/"]
+    SF["sound_forge/\nCore business logic"]
+    Accounts["accounts/\nUser auth"]
+    AdminCtx["admin/\nAdmin context"]
+    Agents["agents/\nAI agent system"]
+    Audio["audio/\nErlang Port wrappers"]
+    DAW["daw/\nDAW context"]
+    DJ["dj/\nDJ context"]
+    Jobs["jobs/\nOban worker contexts"]
+    LLM["llm/\nLLM providers"]
+    MIDI["midi/\nMIDI interface"]
+    Music["music/\nCore domain (tracks, stems)"]
+    Processing["processing/\nDemucs config"]
+    Spotify["spotify/\nSpotify API client"]
+    Telemetry["telemetry/\nMetrics"]
+    SFWeb["sound_forge_web/\nPhoenix web layer"]
+    Components["components/\nReusable LiveView components"]
+    Controllers["controllers/\nHTTP controllers"]
+    Live["live/\nLiveView modules"]
+    Router["router.ex\nRoute definitions"]
+    Priv["priv/"]
+    Python["python/\nPython scripts (analyzer, demucs)"]
+    Migrations["repo/migrations/\nEcto migrations"]
+    Uploads["uploads/\nAudio file storage"]
+    Assets["assets/"]
+    CSS["css/app.css\nTailwind v4 entry"]
+    JS["js/app.js\nJS entry (hooks, LiveSocket)"]
+    Test["test/\nExUnit tests"]
+    Docs["docs/\nThis documentation"]
+
+    Root --> Config
+    Config --> ConfigExs
+    Config --> DevExs
+    Config --> TestExs
+    Config --> RuntimeExs
+    Root --> Lib
+    Lib --> SF
+    SF --> Accounts
+    SF --> AdminCtx
+    SF --> Agents
+    SF --> Audio
+    SF --> DAW
+    SF --> DJ
+    SF --> Jobs
+    SF --> LLM
+    SF --> MIDI
+    SF --> Music
+    SF --> Processing
+    SF --> Spotify
+    SF --> Telemetry
+    Lib --> SFWeb
+    SFWeb --> Components
+    SFWeb --> Controllers
+    SFWeb --> Live
+    SFWeb --> Router
+    Root --> Priv
+    Priv --> Python
+    Priv --> Migrations
+    Priv --> Uploads
+    Root --> Assets
+    Assets --> CSS
+    Assets --> JS
+    Root --> Test
+    Root --> Docs
 ```
 
 ---
