@@ -8,7 +8,7 @@ defmodule SoundForgeWeb.AdminLive do
   alias SoundForge.Admin
 
   @admin_tabs ~w(overview users jobs system analytics audit llm)a
-  @valid_roles ~w(user pro enterprise admin super_admin)a
+  @valid_roles ~w(user pro enterprise admin super_admin platform_admin)a
 
   @impl true
   def mount(_params, _session, socket) do
@@ -783,6 +783,7 @@ defmodule SoundForgeWeb.AdminLive do
   defp tab_label(:llm), do: "LLM"
 
   defp role_badge_class(:super_admin), do: "select-error"
+  defp role_badge_class(:platform_admin), do: "select-warning"
   defp role_badge_class(:admin), do: "select-primary"
   defp role_badge_class(:enterprise), do: "select-accent"
   defp role_badge_class(:pro), do: "select-info"
