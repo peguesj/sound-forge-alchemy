@@ -895,8 +895,8 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
         result = List.first(track.analysis_results)
 
         cond do
-          is_map(result.results) && is_number(result.results["duration"]) ->
-            result.results["duration"]
+          result.features && is_map(result.features) && is_number(result.features["duration"]) ->
+            result.features["duration"]
 
           true ->
             estimate_duration_from_segments(analysis)

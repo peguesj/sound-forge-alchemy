@@ -1060,6 +1060,22 @@ defmodule SoundForgeWeb.DashboardLive do
      |> push_patch(to: ~p"/?#{[tab: "pads"]}")}
   end
 
+  @impl true
+  def handle_event("load_in_pads", %{"track-id" => track_id}, socket) do
+    socket =
+      socket
+      |> assign(:nav_tab, :pads)
+      |> assign(:nav_context, :pads)
+      |> push_patch(to: ~p"/?#{[tab: "pads"]}")
+
+    send_update(SoundForgeWeb.Live.Components.ChromaticPadsComponent,
+      id: "pads-tab",
+      auto_load_track_id: track_id
+    )
+
+    {:noreply, socket}
+  end
+
   def handle_event("nav_tab", %{"tab" => _unknown}, socket) do
     {:noreply, socket}
   end
@@ -1115,6 +1131,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:browse_filter, nil)
       |> assign(:page, 1)
       |> assign(:filters, %{status: "all", artist: "all"})
+      |> push_patch(to: ~p"/")
 
     reload_tracks(socket, page: 1, filters: %{status: "all", artist: "all"})
   end
@@ -1149,7 +1166,8 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
-     |> stream(:tracks, tracks, reset: true)}
+     |> stream(:tracks, tracks, reset: true)
+     |> push_patch(to: ~p"/")}
   end
 
   @impl true
@@ -1166,7 +1184,8 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
-     |> stream(:tracks, tracks, reset: true)}
+     |> stream(:tracks, tracks, reset: true)
+     |> push_patch(to: ~p"/")}
   end
 
   @impl true
@@ -1175,7 +1194,8 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:nav_tab, :browse)
      |> assign(:nav_context, :artist)
-     |> assign(:browse_filter, nil)}
+     |> assign(:browse_filter, nil)
+     |> push_patch(to: ~p"/")}
   end
 
   @impl true
@@ -1210,7 +1230,8 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:nav_tab, :browse)
      |> assign(:nav_context, :album)
-     |> assign(:browse_filter, nil)}
+     |> assign(:browse_filter, nil)
+     |> push_patch(to: ~p"/")}
   end
 
   @impl true
@@ -1865,6 +1886,17 @@ defmodule SoundForgeWeb.DashboardLive do
         socket
         |> push_notification(:error, "#{stage_name} Failed", "#{stage_name} failed for track. Check server logs.", %{track_id: track_id})
         |> put_flash(:error, "#{stage_name} failed. Check server logs for details.")
+      else
+        socket
+      end
+
+    # When download or processing completes, update the track entry in the library stream
+    socket =
+      if payload.status == :completed && stage in [:download, :processing] do
+        case Music.get_track(track_id) do
+          {:ok, track} when not is_nil(track) -> stream_insert(socket, :tracks, track)
+          _ -> socket
+        end
       else
         socket
       end

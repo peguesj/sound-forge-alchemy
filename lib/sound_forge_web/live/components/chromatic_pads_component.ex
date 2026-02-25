@@ -96,6 +96,27 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
        |> assign(:midi_mappings_count, midi_count)
        |> assign(:initialized, true)}
     else
+      # Handle auto-load request from "Load in Pads" button in track detail
+      socket =
+        case assigns[:auto_load_track_id] do
+          nil ->
+            socket
+
+          track_id ->
+            track =
+              SoundForge.Music.get_track!(track_id)
+              |> SoundForge.Repo.preload(:stems)
+
+            if track.stems != [] && socket.assigns[:current_bank] do
+              case Sampler.quick_load_stems(socket.assigns.current_bank, track.stems) do
+                {:ok, updated_bank} -> assign(socket, :current_bank, updated_bank)
+                _ -> socket
+              end
+            else
+              socket
+            end
+        end
+
       {:ok, socket}
     end
   end

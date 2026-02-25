@@ -57,7 +57,8 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
 
         bpm =
           case assigns[:analysis] do
-            %{results: %{"tempo" => t}} when is_number(t) -> t
+            %SoundForge.Music.AnalysisResult{tempo: t} when is_number(t) -> t
+            %{tempo: t} when is_number(t) -> t
             _ -> socket.assigns.bpm
           end
 

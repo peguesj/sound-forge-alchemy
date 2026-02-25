@@ -77,7 +77,7 @@
     />
     
 <!-- Main Content (scrollable) -->
-    <main class="flex-1 overflow-y-auto flex flex-col pb-24" id="main-scroll">
+    <main class={["flex-1 overflow-y-auto flex flex-col", if(@nav_tab in [:dj, :daw, :pads], do: "", else: "pb-24")]} id="main-scroll">
       <%= if @nav_tab == :dj do %>
         <.live_component
           module={SoundForgeWeb.Live.Components.DjTabComponent}
@@ -490,6 +490,18 @@
                   Load in DJ
                 </.link>
                 <button
+                  :if={length(@stems) > 0}
+                  phx-click="load_in_pads"
+                  phx-value-track-id={@track.id}
+                  aria-label={"Load #{@track.title} stems into Pads"}
+                  class="w-full flex items-center gap-2 bg-violet-900/30 hover:bg-violet-900/60 text-violet-400 hover:text-violet-300 border border-violet-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  </svg>
+                  Load in Pads
+                </button>
+                <button
                   phx-click="delete_track"
                   phx-value-id={@track.id}
                   data-confirm="Delete this track and all associated files?"
@@ -787,7 +799,7 @@
         <!-- Library Index View -->
         <%= if @nav_tab not in [:dj, :daw, :pads] do %>
         <!-- Input Section: Spotify URL + File Upload -->
-        <div class="px-6 py-4 bg-gray-900/50 space-y-3">
+        <div class="relative z-10 px-6 py-4 bg-gray-900/50 space-y-3">
           <form phx-submit="fetch_spotify" class="flex gap-3">
             <input
               type="text"
@@ -1113,7 +1125,7 @@
             </div>
             
 <!-- Filter Bar -->
-            <form phx-change="filter" class="flex gap-3 px-6 mb-4">
+            <form phx-change="filter" class="relative z-10 flex gap-3 px-6 mb-4">
               <select
                 name="status"
                 aria-label="Filter by status"
@@ -1850,7 +1862,7 @@
 <!-- Sticky Pagination -->
           <div
             :if={@track_count > @per_page && @search_query == ""}
-            class="sticky bottom-0 z-10 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 py-2 px-6"
+            class="sticky bottom-0 z-20 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 py-2 px-6"
           >
             <div class="flex items-center justify-center gap-2">
               <button
@@ -2745,8 +2757,9 @@
     </div>
   </div>
   
-<!-- Spotify Playback Bar -->
+<!-- Spotify Playback Bar (hidden in DJ/DAW/Pads) -->
   <.live_component
+    :if={@nav_tab not in [:dj, :daw, :pads]}
     module={SoundForgeWeb.Live.Components.SpotifyPlayer}
     id="spotify-player"
     spotify_playback={@spotify_playback}
@@ -3023,8 +3036,9 @@
   </p>
 </div>
 
-<%!-- SMPTE Transport Bar (fixed bottom) --%>
+<%!-- SMPTE Transport Bar (fixed bottom) -- hidden in DJ/DAW/Pads which have their own players --%>
 <.live_component
+  :if={@nav_tab not in [:dj, :daw, :pads]}
   module={SoundForgeWeb.Live.Components.TransportBarComponent}
   id="transport-bar"
   nav_tab={@nav_tab}
