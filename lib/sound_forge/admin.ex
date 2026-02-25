@@ -373,7 +373,7 @@ defmodule SoundForge.Admin do
             "MAX(CASE WHEN ? IS NOT NULL THEN ? ELSE 'none' END)",
             dj.id, dj.status
           ),
-          stem_count: count(fragment("DISTINCT ?", pj.id), :distinct),
+          stem_count: count(pj.id, :distinct),
           inserted_at: t.inserted_at
         },
         order_by: [desc: t.inserted_at],

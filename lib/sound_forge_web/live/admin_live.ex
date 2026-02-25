@@ -11,7 +11,15 @@ defmodule SoundForgeWeb.AdminLive do
   @valid_roles ~w(user pro enterprise admin super_admin platform_admin)a
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
+    socket =
+      if is_nil(socket.assigns[:current_scope]) do
+        scope = load_scope_from_session(session)
+        assign(socket, :current_scope, scope)
+      else
+        socket
+      end
+
     socket =
       socket
       |> assign(:page_title, "Admin Dashboard")
@@ -822,5 +830,14 @@ defmodule SoundForgeWeb.AdminLive do
     if max_count == 0,
       do: 0,
       else: round(count / max_count * 100)
+  end
+
+  defp load_scope_from_session(session) do
+    with token when is_binary(token) <- session["user_token"],
+         {user, _inserted_at} <- SoundForge.Accounts.get_user_by_session_token(token) do
+      SoundForge.Accounts.Scope.for_user(user)
+    else
+      _ -> nil
+    end
   end
 end

@@ -104,6 +104,12 @@ The application starts at [http://localhost:4000](http://localhost:4000).
 
 Register an account at `/users/register`.
 
+![Login page showing magic link and password login options on a dark navy background](../assets/screenshots/login.png)
+*The login page offers two authentication methods: a magic link sent to your email, or a traditional email and password form.*
+
+![Registration page with a single email field and orange Create an account button](../assets/screenshots/register.png)
+*Registration only requires an email address. After submitting, check your inbox for a confirmation link.*
+
 ---
 
 ## Step 5: Import Your First Track
@@ -113,6 +119,9 @@ Register an account at `/users/register`.
 3. Paste a Spotify track URL (e.g., `https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC`)
 4. Click **Import**
 5. Watch the download, stem separation, and analysis pipeline run in real time
+
+![Authenticated dashboard showing track library with sidebar navigation, track cards, and Spotify player bar](../assets/screenshots/dashboard-authenticated.png)
+*The main library view after importing tracks. The left sidebar provides navigation across Library, Playlists, Browse, and Studio tools. The orange Fetch button and drag-and-drop zone at the top are the primary import entry points.*
 
 ---
 

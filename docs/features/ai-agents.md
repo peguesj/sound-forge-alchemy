@@ -24,6 +24,9 @@ Multi-LLM agent system for music intelligence.
 
 ## Overview
 
+![Main library dashboard](../assets/screenshots/dashboard-authenticated.png)
+*Main library dashboard where AI agent results surface — track cards, the DAW/DJ/Pads studio tabs, and the Spotify playback bar. The Admin tab in the top navigation provides access to the LLM management panel where platform-level AI provider keys and token usage are configured.*
+
 Sound Forge Alchemy includes six AI agents powered by your choice of LLM backend. Agents provide music intelligence on top of your library — analysing tracks, suggesting mixes, recommending loop points, and more.
 
 All agents route through the `Orchestrator`, which selects the right specialist based on your instruction. See [Agent System Architecture](../architecture/agents.md) for implementation details.

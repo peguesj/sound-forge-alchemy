@@ -55,6 +55,9 @@ The `require_admin_user` plug verifies `current_scope.user.role in [:admin, :pla
 **LiveView:** `SoundForgeWeb.AdminLive`
 **Route:** `GET /admin`
 
+![Admin Dashboard overview](../assets/screenshots/admin-authenticated.png)
+*Admin Dashboard showing system metrics: 5 active users, 230 tracks in library, job queue status, and role distribution. Tabs across the top provide access to Users, Jobs, System, Analytics, Audit Log, and LLM management. The current user's role badge (Super_admin) is displayed in the top-right corner.*
+
 The admin dashboard provides:
 
 ### User Analytics

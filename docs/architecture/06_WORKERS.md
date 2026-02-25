@@ -587,6 +587,15 @@ end
 
 ## Monitoring
 
+### Phoenix LiveDashboard
+
+Phoenix LiveDashboard (mounted at `/dev/dashboard` in development) provides real-time visibility into the running BEAM node, including Oban queue activity via the Ecto Stats tab.
+
+![Phoenix LiveDashboard showing Elixir 1.19.5/Phoenix 1.8.3 runtime statistics and system health](../assets/screenshots/dev-dashboard.png)
+*Phoenix LiveDashboard at `/dev/dashboard`. Available in development mode, it provides real-time visibility into Elixir processes, memory allocation, ETS tables, Ecto query stats, and port/socket status.*
+
+The Processes tab shows all running Oban queue consumers. The ETS tab exposes the Oban configuration tables. The Ecto Stats tab shows query counts and execution times against the `oban_jobs` table, which is useful for diagnosing slow job dispatch or large queue backlogs.
+
 ### Oban Web (Planned)
 
 For production monitoring, Oban Pro includes Oban Web, a LiveView dashboard for inspecting queues, jobs, and workers. The open-source alternative is querying the `oban_jobs` table directly:

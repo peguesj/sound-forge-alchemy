@@ -28,6 +28,9 @@ Audio analysis extracts musical features from downloaded audio files using Pytho
 
 The analysis runs as an Oban background job (`:analysis` queue, concurrency: 2) after a track is downloaded.
 
+![Main dashboard track library showing downloaded tracks available for analysis](../assets/screenshots/dashboard-authenticated.png)
+*The track library at `/`. Click any downloaded track to open the detail view, which displays the D3.js analysis charts (radar, chroma, beats, MFCC, spectral) once analysis has run.*
+
 ---
 
 ## Feature Categories

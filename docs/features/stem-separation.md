@@ -33,6 +33,9 @@ Stem separation isolates individual audio components from a mixed track (e.g., v
 
 Engine selection is a per-user setting in the Settings page.
 
+![Track library showing downloaded tracks that can be processed for stem separation](../assets/screenshots/dashboard-authenticated.png)
+*The track library shows downloaded tracks by album art and title. Stem separation is initiated from a track card once a track has been downloaded.*
+
 ---
 
 ## Dual Engine Architecture
@@ -54,6 +57,9 @@ Both engines write stems to the same directory structure and create `Stem` recor
 ---
 
 ## Local Demucs Engine
+
+![Settings page showing Demucs and Cloud Separation in the sidebar navigation](../assets/screenshots/settings-authenticated.png)
+*The Settings sidebar exposes separate sections for Demucs (local engine) and Cloud Separation (lalal.ai). Engine choice, model selection, and API keys are configured here per user.*
 
 **Module:** `SoundForge.Audio.DemucsPort` (GenServer + Erlang Port)
 

@@ -10,6 +10,9 @@
 
 Sound Forge Alchemy (SFA) transforms Spotify tracks into a professional production toolkit. Import playlists, download audio, separate stems with local Demucs or cloud lalal.ai, analyze harmonic content with D3.js visualizations, and orchestrate AI agents that understand your music — all from a real-time Phoenix LiveView dashboard.
 
+![Sound Forge Alchemy Dashboard](docs/assets/screenshots/dashboard-authenticated.png)
+*The main library view showing track cards with album art, sidebar navigation, pipeline controls, and Spotify player integration.*
+
 <details>
 <summary><strong>Table of Contents</strong></summary>
 
@@ -227,6 +230,9 @@ Analysis runs via `SoundForge.Audio.AnalyzerPort` — an Erlang port wrapping a 
 | `super_admin` | Role assignment, audit log, platform configuration |
 | `system` | Internal service account |
 
+![Admin Dashboard](docs/assets/screenshots/admin-authenticated.png)
+*The admin dashboard showing system stats (5 users, 230 tracks), job queue depth, and tabbed management controls.*
+
 **Admin Dashboard (`/admin`) — 6 tabs:**
 - **Overview**: active users, job queue depth, system stats
 - **Users**: role promotion/demotion, account status, bulk operations
@@ -236,6 +242,9 @@ Analysis runs via `SoundForge.Audio.AnalyzerPort` — an Erlang port wrapping a 
 - **Audit**: full action audit log with actor/target/timestamp
 
 **Audit Log:** Every privileged action recorded to `audit_logs` table.
+
+![Platform Library](docs/assets/screenshots/platform-library-authenticated.png)
+*The platform library view showing all 230 tracks across all users in a paginated table, accessible to admins and super_admins.*
 
 **Provider Health:** `ProviderHealthWorker` polls configured LLM providers on a schedule and updates `ModelRegistry` availability status.
 
@@ -272,6 +281,9 @@ source .env && mix phx.server
 ```
 
 Open [http://localhost:4000](http://localhost:4000).
+
+![Login page](docs/assets/screenshots/login.png)
+*The login page supports magic link and password-based authentication against a dark navy background.*
 
 <details>
 <summary><strong>Full Setup Guide</strong></summary>
@@ -313,6 +325,9 @@ pip install spotdl demucs librosa numpy torch torchaudio soundfile
 | `PHX_SERVER` | Prod | Set `true` to start HTTP server in release |
 | `POOL_SIZE` | Optional | Ecto connection pool size (default: 10) |
 | `DATABASE_SSL` | Optional | Set `true` to require SSL for database |
+
+![User Settings](docs/assets/screenshots/settings-authenticated.png)
+*The settings page showing Spotify OAuth integration status, SpotDL/FFmpeg tool health, stem engine selection, and LLM provider configuration.*
 
 ### Database Setup
 
@@ -791,6 +806,9 @@ Full history: [CHANGELOG.md](CHANGELOG.md)
 ## Contributing
 
 Pull requests welcome. For substantial changes, open an issue first.
+
+![Prototype Sandbox](docs/assets/screenshots/prototype-authenticated.png)
+*The prototype sandbox with the Components tab open, showcasing the daisyUI/Tailwind design system elements used throughout the application.*
 
 **Before submitting:**
 

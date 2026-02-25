@@ -13,7 +13,15 @@ defmodule SoundForgeWeb.CombinedLibraryLive do
   @per_page 50
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
+    socket =
+      if is_nil(socket.assigns[:current_scope]) do
+        scope = load_scope_from_session(session)
+        assign(socket, :current_scope, scope)
+      else
+        socket
+      end
+
     case check_platform_admin_access(socket) do
       :ok ->
         socket =
@@ -208,6 +216,15 @@ defmodule SoundForgeWeb.CombinedLibraryLive do
       :ok
     else
       :error
+    end
+  end
+
+  defp load_scope_from_session(session) do
+    with token when is_binary(token) <- session["user_token"],
+         {user, _inserted_at} <- SoundForge.Accounts.get_user_by_session_token(token) do
+      SoundForge.Accounts.Scope.for_user(user)
+    else
+      _ -> nil
     end
   end
 

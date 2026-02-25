@@ -15,6 +15,9 @@ nav_order: 1
 
 Sound Forge Alchemy (SFA) is a production-grade audio toolkit built on Elixir/OTP and Phoenix LiveView. Import tracks from Spotify, separate stems locally via Demucs or in the cloud via lalal.ai, analyze audio features with librosa, query a multi-LLM agent system for music intelligence, and control it all in real time through MIDI/OSC hardware.
 
+![Sound Forge Alchemy - Main Dashboard](assets/screenshots/dashboard-authenticated.png)
+*Main library view: 67-track collection with album art, sidebar navigation (Library, Playlists, Browse, Studio), and Spotify player integration.*
+
 ---
 
 ## Quick Navigation
@@ -31,6 +34,9 @@ Sound Forge Alchemy (SFA) is a production-grade audio toolkit built on Elixir/OT
 ---
 
 ## Feature Highlights
+
+![Login page with magic link and password authentication](assets/screenshots/login.png)
+*Authentication page supporting both magic link (email-only) and traditional password login flows.*
 
 - **Spotify Import** — Paste any Spotify URL (track, album, playlist). Metadata fetched via OAuth2 client credentials; audio downloaded by `spotdl`.
 - **Dual Stem Engine** — Local Demucs (htdemucs, htdemucs_ft, htdemucs_6s, mdx_extra) or cloud lalal.ai with 9+ stem types and 60-second preview.
@@ -56,6 +62,15 @@ Sound Forge Alchemy (SFA) is a production-grade audio toolkit built on Elixir/OT
 ### v3.0.0 (2026-01)
 - Audio analysis expansion: MFCC, chroma, spectral, 5 D3.js visualizations
 - 24 files, +4,712 lines
+
+---
+
+## Getting Started
+
+![Registration page](assets/screenshots/register.png)
+*Registration page: create an account to begin importing tracks and building your library.*
+
+For setup instructions see the [Quickstart Guide](guides/quickstart.md).
 
 ---
 

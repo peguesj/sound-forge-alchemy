@@ -12,6 +12,7 @@ All environment variables and configuration options for Sound Forge Alchemy.
 
 ## Table of Contents
 
+- [User Settings Panel](#user-settings-panel)
 - [Environment Variable Reference](#environment-variable-reference)
 - [Required Variables](#required-variables)
 - [Optional Variables](#optional-variables)
@@ -20,6 +21,15 @@ All environment variables and configuration options for Sound Forge Alchemy.
 - [Encryption Configuration](#encryption-configuration)
 - [Oban Configuration](#oban-configuration)
 - [Config File Reference](#config-file-reference)
+
+---
+
+## User Settings Panel
+
+The Settings page (accessible after login at `/settings`) provides a UI for all per-user configuration. The sidebar lists every category available:
+
+![User Settings panel showing Spotify integration and tool availability](../assets/screenshots/settings-authenticated.png)
+*Settings panel: Spotify Connected status (green dot), SpotDL and FFmpeg tool availability indicators, and full sidebar with 10 configuration categories.*
 
 ---
 

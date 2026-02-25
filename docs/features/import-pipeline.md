@@ -27,6 +27,9 @@ Spotify URL import, metadata retrieval, and audio download.
 
 The import pipeline accepts a Spotify URL, fetches track metadata via the Spotify Web API, and downloads the audio using `spotdl`. The entire pipeline runs in the background via Oban workers, with real-time progress updates pushed to the LiveView dashboard via Phoenix PubSub.
 
+![Main dashboard showing the orange Fetch button and track library](../assets/screenshots/dashboard-authenticated.png)
+*The orange "Fetch" button in the main area accepts Spotify URLs. The drag-and-drop upload zone and track library with album art are visible below.*
+
 ```
 User pastes URL
       |
@@ -139,7 +142,12 @@ config :sound_forge, :spotify_client, SoundForge.Spotify.MockClient
 
 ### Spotify OAuth (User Account)
 
-For playback via Spotify (not just metadata), users can connect their Spotify account via the Settings page. The OAuth flow:
+For playback via Spotify (not just metadata), users can connect their Spotify account via the Settings page.
+
+![Settings page showing Spotify integration connected and tool availability](../assets/screenshots/settings-authenticated.png)
+*The Settings page Spotify Integration panel shows connection status (green dot = Connected) and the Unlink button. SpotDL and FFmpeg tool availability is reported in the Tool Status section.*
+
+The OAuth flow:
 
 1. `GET /auth/spotify` — redirects to Spotify authorization
 2. Spotify redirects to `GET /auth/spotify/callback` with authorization code

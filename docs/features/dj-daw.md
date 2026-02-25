@@ -31,6 +31,9 @@ SFA includes two professional audio tools built into the dashboard:
 
 Both are accessed via tabs on the main dashboard at `/` (using `?tab=dj` and `?tab=daw`). Legacy routes `/dj` and `/daw/:track_id` redirect to the appropriate dashboard tabs.
 
+![Main dashboard with Library, Browse, DAW, DJ, and Pads tabs in the top navigation](../assets/screenshots/dashboard-authenticated.png)
+*The main dashboard at `/`. The **DAW**, **DJ**, and **Pads** tabs in the top navigation open the respective tools. The left sidebar's **Studio** section (DAW, DJ, Pads) provides the same navigation. Both tools are LiveComponents embedded in `DashboardLive` and share its track library without a separate data fetch.*
+
 ---
 
 ## DJ Deck

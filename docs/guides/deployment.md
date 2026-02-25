@@ -268,7 +268,12 @@ az containerapp logs show \
   --tail 100
 ```
 
-Phoenix LiveDashboard is available in development at `/dev/dashboard`. In production, set up basic auth if you expose it:
+Phoenix LiveDashboard is available in development at `/dev/dashboard`. It provides real-time system metrics, process introspection, Ecto query stats, and request logging.
+
+![Phoenix LiveDashboard home showing system info, Elixir version, and resource utilization](../assets/screenshots/dev-dashboard.png)
+*Phoenix LiveDashboard: system info (Elixir 1.19.5, Phoenix 1.8.3), uptime, atom/port/process utilization gauges, and navigation tabs for OS Data, Memory Allocators, Metrics, Ecto Stats, and more.*
+
+In production, set up basic auth if you expose it:
 
 ```elixir
 # config/prod.exs

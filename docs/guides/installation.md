@@ -225,6 +225,9 @@ SPOTIFY_CLIENT_SECRET=your_client_secret_here
 
 For Spotify user account features (playback in Spotify app), also connect via the Settings page after logging in.
 
+![Settings page showing Spotify Integration panel with green Connected dot and Tool Status section listing SpotDL and FFmpeg as Available](../assets/screenshots/settings-authenticated.png)
+*The Settings page confirms your Spotify connection status (green dot = connected) and shows whether the required audio tools — SpotDL and FFmpeg — are available on the system PATH.*
+
 ---
 
 ## First Boot Verification
@@ -242,6 +245,17 @@ Expected output:
 ```
 
 Navigate to [http://localhost:4000](http://localhost:4000) and register an account.
+
+![Login page showing magic link and password login options on a dark navy background](../assets/screenshots/login.png)
+*The login page on first visit. Use magic link for passwordless sign-in or the password form if you set a password during registration.*
+
+![Registration page with a single email field and orange Create an account button](../assets/screenshots/register.png)
+*New user registration. Enter your email address and click Create an account. A confirmation email will be sent before the account is activated.*
+
+Once logged in, the main dashboard loads your track library.
+
+![Authenticated dashboard showing track library with sidebar navigation, track cards, and Spotify player bar](../assets/screenshots/dashboard-authenticated.png)
+*A fully loaded library with imported tracks. The sidebar provides access to Library, Playlists, Browse (Artists/Albums), and Studio tools (DAW, DJ, Pads). The Spotify playback bar appears at the bottom once Spotify is connected.*
 
 ### Verify Each Subsystem
 

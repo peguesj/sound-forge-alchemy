@@ -95,6 +95,11 @@ The web layer serves two distinct interfaces:
 
 **LiveView Interface** -- The primary user interface is a single-page LiveView application mounted at `/`. `DashboardLive` manages the main dashboard using Phoenix streams for efficient list rendering of tracks. It subscribes to PubSub topics for real-time updates when tracks are added or job progress changes. Supporting function components (`TrackCard`, `SpotifyInput`, `JobProgress`) decompose the UI into reusable pieces.
 
+The admin interface is accessible to users with the `admin` or `platform_admin` role and provides system-wide statistics, user management, job monitoring, and audit logging.
+
+![Admin Dashboard showing system statistics including 5 total users, 230 total tracks, 0 active jobs, 13 failed jobs](../assets/screenshots/admin-authenticated.png)
+*Admin Dashboard with the Overview tab active. The super_admin role badge is visible in the top-right corner. Tabs provide access to Users, Jobs, System, Analytics, Audit Log, and LLM provider management.*
+
 **JSON API** -- A REST-style API under `/api` provides programmatic access to all operations. Four controllers handle the lifecycle:
 - `SpotifyController` -- POST `/api/spotify/fetch` for metadata retrieval
 - `DownloadController` -- POST `/api/download/track` and GET `/api/download/job/:id`
@@ -279,3 +284,12 @@ SoundForge.Supervisor (one_for_one)
 ```
 
 Note: `Audio.AnalyzerPort` and `Audio.DemucsPort` are not yet added to the supervision tree. They are currently started on-demand. Adding them as supervised children is planned for the next phase, at which point they will appear under `SoundForge.Supervisor`.
+
+## Observability
+
+Phoenix LiveDashboard is mounted at `/dev/dashboard` (development mode only). It provides real-time introspection of the running BEAM node without any external tooling.
+
+![Phoenix LiveDashboard showing Elixir 1.19.5/Phoenix 1.8.3 runtime statistics and system health](../assets/screenshots/dev-dashboard.png)
+*Phoenix LiveDashboard at `/dev/dashboard`. Available in development mode, it provides real-time visibility into Elixir processes, memory allocation, ETS tables, Ecto query stats, and port/socket status.*
+
+The dashboard surfaces the full BEAM supervision tree and resource utilization at a glance. In the screenshot above, the system is running Elixir 1.19.5 on Phoenix 1.8.3 with 553 processes active (0.1% of the 1,048,576 process limit), 24 ports open, and a total memory footprint of 77.5 MB broken down across code (22.7 MB), processes (26.6 MB), binary (4.6 MB), ETS (2.1 MB), and atoms (1.1 MB). The Oban queue tables and Ecto connection pool are visible under the ETS and Ecto Stats tabs respectively.
