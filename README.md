@@ -1,74 +1,410 @@
-# Sound Forge Alchemy v4.1.0
+# Sound Forge Alchemy
 
-Audio stem separation, analysis, and production toolkit built with Elixir, Phoenix 1.8, and LiveView. Import tracks from Spotify, separate stems locally via Demucs or in the cloud via lalal.ai, analyze audio features with librosa, control stems in real-time through MIDI/OSC hardware, and manage it all from a responsive dashboard with full authentication and admin controls.
+**Professional audio engineering platform for DJs and producers — built on Elixir/Phoenix.**
 
-## Table of Contents
+[![Version](https://img.shields.io/badge/version-4.3.0-blue.svg)](CHANGELOG.md)
+[![Elixir](https://img.shields.io/badge/elixir-~%3E1.15-purple.svg)](https://elixir-lang.org)
+[![Phoenix](https://img.shields.io/badge/phoenix-~%3E1.8-orange.svg)](https://phoenixframework.org)
+[![Tests](https://img.shields.io/badge/tests-707%20passing-brightgreen.svg)](test/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
+Sound Forge Alchemy (SFA) transforms Spotify tracks into a professional production toolkit. Import playlists, download audio, separate stems with local Demucs or cloud lalal.ai, analyze harmonic content with D3.js visualizations, and orchestrate AI agents that understand your music — all from a real-time Phoenix LiveView dashboard.
+
+<details>
+<summary><strong>Table of Contents</strong></summary>
+
 - [Features](#features)
-- [Getting Started](#getting-started)
-- [Development Commands](#development-commands)
-- [Project Structure](#project-structure)
-- [API Endpoints](#api-endpoints)
-- [Testing](#testing)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [API Reference](#api-reference)
+- [Deployment](#deployment)
+- [Changelog](#changelog)
 - [Contributing](#contributing)
-- [License](#license)
+
+</details>
+
+---
+
+## Features
+
+<details>
+<summary><strong>Core Pipeline</strong></summary>
+
+The SFA pipeline is a chained Oban job graph that executes asynchronously with real-time LiveView progress via Phoenix PubSub.
+
+| Stage | Worker | Description |
+|-------|--------|-------------|
+| Import | — | Spotify OAuth playlist import, track metadata resolution |
+| Download | `DownloadWorker` | SpotDL primary + yt-dlp fallback when Spotify API is unavailable |
+| Stem Separation | `ProcessingWorker` | Routes to Demucs (local) or lalal.ai (cloud) based on user setting |
+| Audio Analysis | `AnalysisWorker` | Python/librosa port: BPM, key, energy, chroma, MFCC, spectral |
+| Auto-Cue | `AutoCueWorker` | Drop detection and cue point generation |
+| Export | `ExportController` | Individual stem or bundled `.zip` download |
+
+**Pipeline behavior:**
+- Each stage broadcasts progress via `SoundForge.Jobs.PipelineBroadcaster`
+- Failed jobs display retry button with exponential backoff display
+- `pipeline_complete?/1` checks only triggered stages — skipped stages do not block completion
+- Deduplication guards with unique database indexes prevent duplicate stems and analysis records
+
+**Oban queue configuration:**
+
+| Queue | Concurrency | Workers |
+|-------|-------------|---------|
+| `download` | 3 | `DownloadWorker` |
+| `processing` | 2 | `ProcessingWorker`, `LalalaiWorker`, `MultistemWorker` |
+| `analysis` | 2 | `AnalysisWorker`, `AutoCueWorker` |
+
+Plugins: `Pruner` (7-day retention), `Lifeline` (30-min rescue), `Cron` (daily storage cleanup at 03:00 UTC).
+
+</details>
+
+<details>
+<summary><strong>AI Agent System</strong></summary>
+
+`SoundForge.Agents.Orchestrator` is the single entry point for all AI work. It routes tasks to specialist agents based on instruction keyword patterns or explicit `:task` hints, then dispatches to the best available LLM via `SoundForge.LLM.Router`.
+
+**6 Specialist Agents:**
+
+| Agent | Capabilities |
+|-------|-------------|
+| `TrackAnalysisAgent` | Key detection, BPM, energy profiling, harmonic analysis |
+| `MixPlanningAgent` | Set sequencing, transition advice, key compatibility, harmonic mixing |
+| `StemIntelligenceAgent` | Stem quality analysis, loop extraction recommendations |
+| `CuePointAgent` | Drop detection, loop region detection, cue point placement |
+| `MasteringAgent` | Loudness analysis (LUFS), mastering chain recommendations |
+| `LibraryAgent` | Semantic library search, track recommendations, playlist curation |
+
+**Usage:**
+
+```elixir
+# Direct dispatch with task hint
+Orchestrator.run(%Context{instruction: "Analyse the key", track_id: id}, task: :track_analysis)
+
+# Auto-routing from natural language
+Orchestrator.run(%Context{instruction: "Plan a set with these 5 tracks", track_ids: ids})
+
+# Multi-agent pipeline
+Orchestrator.pipeline(%Context{...}, [TrackAnalysisAgent, MixPlanningAgent])
+```
+
+**Multi-LLM Routing:**
+
+`SoundForge.LLM.Router` selects the best available provider with automatic fallback chains (up to 4 retries):
+
+| Adapter | Provider |
+|---------|----------|
+| `anthropic.ex` | Anthropic Claude |
+| `openai.ex` | OpenAI |
+| `azure_openai.ex` | Azure OpenAI |
+| `google_gemini.ex` | Google Gemini |
+| `ollama.ex` | Ollama (local) |
+| `lm_studio.ex` | LM Studio (local) |
+| `litellm.ex` | LiteLLM proxy |
+| `custom_openai.ex` | Any OpenAI-compatible endpoint |
+| `system_providers.ex` | System-level providers |
+
+Task spec controls routing preference:
+```elixir
+LLM.Router.route(user_id, messages, %{prefer: :quality, task_type: :harmonic_analysis})
+```
+
+All provider API keys stored at-rest with AES-256-GCM encryption via `Cloak.Ecto`.
+
+</details>
+
+<details>
+<summary><strong>Stem Separation</strong></summary>
+
+Two separation engines with per-user toggle in settings:
+
+**Local — Demucs (htdemucs models)**
+
+| Model | Stems | Notes |
+|-------|-------|-------|
+| `htdemucs` | 4 (vocals, drums, bass, other) | Fast, good general quality |
+| `htdemucs_ft` | 4 | Fine-tuned, slower, higher quality |
+| `htdemucs_6s` | 6 (adds guitar, piano) | Best quality, slowest |
+| `mdx_extra` | 4 | MDX architecture variant |
+
+Runs via `SoundForge.Audio.DemucsPort` Erlang port, supervised with restart strategy in `PortSupervisor`.
+
+**Cloud — lalal.ai API v1.1.0**
+
+Additional stem types: electric guitar, acoustic guitar, piano, synthesizer, strings, wind instruments, noise, mid/side
+
+- `SoundForge.Audio.Lalalai` API client with polling/backoff
+- `LalalaiWorker` Oban job with configurable retry intervals
+- 60-second **preview mode** — evaluate separation quality before committing to full processing
+- Source badges on stems indicate which engine produced each file
+- Per-user lalal.ai API key support (encrypted at rest)
+
+**Batch processing:** `BatchProcessor` and `MultistemWorker` for parallel multi-track operations.
+
+</details>
+
+<details>
+<summary><strong>Audio Analysis</strong></summary>
+
+Analysis runs via `SoundForge.Audio.AnalyzerPort` — an Erlang port wrapping a Python 3.11 script using `librosa` and `numpy`.
+
+**Extracted features:**
+
+- Tempo (BPM) and beat grid
+- Musical key (Camelot notation)
+- Energy and loudness profile
+- Chroma features (12-bin harmonic content)
+- MFCC coefficients (timbre fingerprint)
+- Spectral centroid, rolloff, contrast
+- Audio structure segmentation
+
+**7 D3.js visualization hooks** registered in `assets/js/app.js`:
+
+| Hook | Visualization |
+|------|---------------|
+| `AnalysisRadar` | Polar energy/feature radar chart |
+| `AnalysisChroma` | 12-bin chroma heat map |
+| `AnalysisBeats` | Beat grid timeline |
+| `AnalysisMFCC` | MFCC coefficient heat map |
+| `AnalysisSpectral` | Spectral centroid/rolloff curve |
+| `AnalysisEnergyCurve` | Energy-over-time waveform |
+| `AnalysisStructure` | Song section labeling (intro/verse/chorus/outro) |
+
+</details>
+
+<details>
+<summary><strong>DJ and DAW Tools</strong></summary>
+
+**DAW Tab (`DawLive` / `daw_editor.js`)**
+- Multi-clip WebAudio arrangement editor (700+ lines)
+- Clip dragging, loop regions, quantized editing
+- Waveform preview (`daw_preview.js`)
+- Export arrangements via `POST /api/daw/export`
+- Edit operation history persisted to `edit_operations` table
+
+**DJ Deck (`DjLive` / `dj_deck.js`)**
+- Virtual 2-deck DJ interface (711 lines)
+- BPM sync, pitch/rate controls, crossfader, EQ, filter
+- Jog wheel emulation (`jog_wheel.js`)
+- DJ preset management (`SoundForge.DJ.Presets`)
+
+**MIDI Integration (`SoundForge.MIDI`)**
+- USB MIDI device enumeration via `midiex` (Rust NIF)
+- Network MIDI discovery (`NetworkDiscovery`)
+- MIDI clock sync (`Clock`)
+- Device-agnostic mapping system (`Mapping`, `Mappings`, `Dispatcher`)
+- Akai MPC profile: MPC Beats, MPC 2.0, iMPC Pro 2 (`Profiles.Mpc`, `Profiles.MpcApp`)
+- Custom mapping UI in `MidiLive`
+
+**OSC / TouchOSC**
+- UDP-based OSC 1.0 server on port 8000 (`SoundForge.OSC.Server`)
+- OSC client for TouchOSC feedback (`SoundForge.OSC.Client`)
+- MIDI-OSC bridge (`SoundForge.Bridge.MidiOsc`)
+- TouchOSC layout generator: `mix sfa.touchosc.generate`
+
+**Melodics Integration**
+- Practice session import and tracking (`SoundForge.Integrations.Melodics`)
+- Accuracy-to-stem-difficulty adaptation (simple / matched / complex)
+- `PracticeLive` view for real-time session display
+
+**Auto-Cue Points (`AutoCueWorker`)**
+- Drop detection using energy analysis
+- Configurable cue point types: intro, drop, outro
+- Stem loop extraction recommendations
+
+</details>
+
+<details>
+<summary><strong>Admin and Platform</strong></summary>
+
+**5-Tier Role Hierarchy**
+
+| Role | Access Level |
+|------|-------------|
+| `user` | Own tracks, library, settings |
+| `moderator` | View all tracks, flag content |
+| `admin` | User management, job queue, system stats |
+| `super_admin` | Role assignment, audit log, platform configuration |
+| `system` | Internal service account |
+
+**Admin Dashboard (`/admin`) — 6 tabs:**
+- **Overview**: active users, job queue depth, system stats
+- **Users**: role promotion/demotion, account status, bulk operations
+- **Jobs**: all Oban jobs with retry/cancel/inspect controls
+- **System**: Phoenix LiveDashboard integration
+- **Analytics**: track/stem/analysis volume trends
+- **Audit**: full action audit log with actor/target/timestamp
+
+**Audit Log:** Every privileged action recorded to `audit_logs` table.
+
+**Provider Health:** `ProviderHealthWorker` polls configured LLM providers on a schedule and updates `ModelRegistry` availability status.
+
+**Debug Inspector (users with `debug_mode` enabled):**
+- Real-time log streaming with color coding and severity filtering
+- Error and event tracing tab with dependency graph visualization
+- Worker status collapsible with async PubSub updates
+- Job queue panel with active/history tabs
+
+**Security:**
+- Rate limiting: 120 req/min browser, 60 req/min API, 10 req/min heavy operations
+- Security headers plug: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, CSP
+- CSRF protection on all browser routes
+- IDOR ownership checks on all track/stem/analysis resources
+
+</details>
+
+---
+
+## Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/peguesj/sound-forge-alchemy.git sfa
+cd sfa
+mix setup
+
+# Configure
+cp .env.example .env
+# Edit .env: SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SECRET_KEY_BASE
+
+# Start
+source .env && mix phx.server
+```
+
+Open [http://localhost:4000](http://localhost:4000).
+
+<details>
+<summary><strong>Full Setup Guide</strong></summary>
+
+### Prerequisites
+
+| Dependency | Version | Installation |
+|------------|---------|-------------|
+| Elixir | ~> 1.15 | `brew install elixir` or `asdf install` |
+| Erlang/OTP | 26+ | Installed with Elixir |
+| PostgreSQL | 14+ | `brew install postgresql` or Docker |
+| Python | 3.11.7 | Required for SpotDL, Demucs, analyzer |
+| Node.js | 18+ | Asset compilation only (auto-installed) |
+| FFmpeg | 6+ | Required by SpotDL and Demucs |
+
+> **Python version note:** Must be exactly 3.11.7 for SpotDL/Demucs compatibility.
+
+### Python Environment
+
+```bash
+python3.11 -m venv priv/python/venv
+source priv/python/venv/bin/activate
+pip install spotdl demucs librosa numpy torch torchaudio soundfile
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SECRET_KEY_BASE` | Yes (prod) | 64-char secret — `mix phx.gen.secret` |
+| `DATABASE_URL` | Yes (prod) | PostgreSQL connection string |
+| `SPOTIFY_CLIENT_ID` | Yes | Spotify app client ID |
+| `SPOTIFY_CLIENT_SECRET` | Yes | Spotify app client secret |
+| `LALALAI_API_KEY` | Optional | Enables cloud stem separation |
+| `SYSTEM_LALALAI_ACTIVATION_KEY` | Optional | System-level lalal.ai key |
+| `LLM_ENCRYPTION_KEY` | Optional | Base64-encoded 32-byte key for LLM API key encryption |
+| `PHX_HOST` | Prod | Public hostname for URL generation |
+| `PORT` | Optional | HTTP port (default: 4000) |
+| `PHX_SERVER` | Prod | Set `true` to start HTTP server in release |
+| `POOL_SIZE` | Optional | Ecto connection pool size (default: 10) |
+| `DATABASE_SSL` | Optional | Set `true` to require SSL for database |
+
+### Database Setup
+
+```bash
+mix ecto.create && mix ecto.migrate
+```
+
+### First Admin User
+
+```bash
+# Register an account via the web UI, then:
+mix promote_admin your@email.com
+```
+
+### Development Commands
+
+| Command | Description |
+|---------|-------------|
+| `mix phx.server` | Start dev server on port 4000 |
+| `mix test` | Run full test suite (707 tests) |
+| `mix precommit` | Compile + format + test (pre-PR check) |
+| `mix credo` | Static analysis |
+| `mix dialyzer` | Type checking |
+| `mix ecto.reset` | Drop, create, migrate, seed |
+| `mix sfa.touchosc.generate` | Generate TouchOSC `.tosc` layout |
+
+</details>
+
+---
 
 ## Architecture
 
+<details>
+<summary><strong>Stack Overview</strong></summary>
+
 ```
-                         Browser (LiveView WebSocket)
-                         PWA (manifest.json + sw.js)
-                                    |
-                         +----------+----------+
-                         |   Phoenix Endpoint   |
-                         |  (Bandit / Port 4000) |
-                         +----------+----------+
-                                    |
-              +---------------------+---------------------+
-              |                     |                     |
-      LiveViews               API Controllers        PubSub
-      (Dashboard, Admin,     (JSON REST +            (Real-time
-       MIDI, Practice,        rate limiting)          job progress,
-       Settings)                                      OSC/MIDI events)
-              |                     |                     |
-              +---------------------+---------------------+
-                                    |
-                    +---------------+---------------+
-                    |               |               |
-               Contexts        Accounts         Admin
-               (Music,         (Users, Auth,    (User mgmt,
-                Spotify,        Scopes,          audit logs,
-                Jobs,           Roles)           analytics)
-                Storage)            |
-                    |               |
-                    +-------+-------+
-                            |
-                      PostgreSQL
-                     (Ecto 3.13)
-                            |
-                    +-------+-------+
-                    |               |
-              Oban Workers    Supervised Processes
-              (Background)    (GenServers)
-                    |               |
-          +---------+---------+     +----------+----------+
-          |         |         |     |          |          |
-     Download  Processing  Analysis  MIDI      OSC     Port
-     Worker    Worker      Worker    Device    Server   Supervisor
-          |         |         |     Manager            |
-          |    +----+----+    |                   +----+----+
-          |    |         |    |                   |         |
-        spotdl Demucs  LalalAI librosa      DemucsPort  AnalyzerPort
-               (local) (cloud)              (Erlang Port) (Erlang Port)
-               (Port)                            |         |
-                                           Python/Demucs  Python/librosa
+┌─────────────────────────────────────────────────────────┐
+│              Browser / PWA (manifest + sw.js)            │
+│         Phoenix LiveView + D3.js + Web Audio API         │
+└───────────────────────┬─────────────────────────────────┘
+                        │  WebSocket (Phoenix Channels)
+┌───────────────────────▼─────────────────────────────────┐
+│                  Phoenix / Bandit 1.5                     │
+│   LiveViews          JSON API           PubSub            │
+│   DashboardLive      SpotifyController  pipeline:{uid}    │
+│   AdminLive          DownloadController debug:{uid}       │
+│   DjLive / DawLive   ProcessingCtrl     notifications     │
+│   MidiLive           AnalysisCtrl                        │
+└───────────────────────┬─────────────────────────────────┘
+                        │
+┌───────────────────────▼─────────────────────────────────┐
+│                   Domain Contexts                         │
+│   Music    Accounts    Admin    Agents    LLM            │
+│   DJ       DAW         Sampler  MIDI/OSC  Integrations   │
+└──────┬───────────────────┬────────────────┬─────────────┘
+       │                   │                │
+┌──────▼──────┐   ┌────────▼──────┐  ┌─────▼──────────────┐
+│ Oban Workers│   │ Erlang Ports  │  │ LLM Adapters        │
+│ Download    │   │ AnalyzerPort  │  │ Anthropic / OpenAI  │
+│ Processing  │   │ DemucsPort    │  │ Azure / Gemini      │
+│ Analysis    │   │ SpotDL        │  │ Ollama / LM Studio  │
+│ LalalAI     │   └───────────────┘  │ LiteLLM / Custom    │
+│ AutoCue     │                      └────────────────────-┘
+└──────┬──────┘
+       │
+┌──────▼──────────────────────────────────────────────────┐
+│                     PostgreSQL (Ecto 3.13)                │
+│   tracks  stems  analysis_results  processing_jobs       │
+│   users   user_settings  spotify_oauth_tokens  playlists │
+│   midi_mappings  dj_tables  edit_operations              │
+│   llm_providers  audit_logs  stem_loops  cue_points      │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### OTP Supervision Tree
+**Technology choices:**
 
-The application starts the following supervised children in order:
+| Layer | Technology | Rationale |
+|-------|-----------|-----------|
+| Web framework | Phoenix 1.8 + LiveView 1.1 | Real-time UI without a custom JS framework |
+| HTTP server | Bandit 1.5 | Modern Elixir-native HTTP/1.1 + HTTP/2 |
+| Background jobs | Oban 2.18 | PostgreSQL-backed, reliable, observable |
+| Audio separation | Demucs + lalal.ai | Best-in-class open source + cloud option |
+| Audio analysis | librosa + numpy | Industry-standard Python audio library |
+| Download | SpotDL + yt-dlp | Spotify metadata with YouTube audio fallback |
+| MIDI | midiex 0.6 | Elixir NIF wrapping RtMidi (Rust) |
+| CSS | Tailwind + daisyUI | Utility-first with component presets |
+| Encryption | Cloak.Ecto + AES-GCM | Transparent at-rest field encryption |
+
+</details>
+
+<details>
+<summary><strong>OTP Supervision Tree</strong></summary>
 
 | Child | Type | Purpose |
 |-------|------|---------|
@@ -84,515 +420,394 @@ The application starts the following supervised children in order:
 | `SoundForge.MIDI.DeviceManager` | GenServer | USB/Network MIDI device discovery and hotplug monitoring |
 | `SoundForgeWeb.Endpoint` | Supervisor | HTTP server (Bandit) |
 
-### PubSub Topics
+</details>
 
-| Topic | Events | Purpose |
-|-------|--------|---------|
-| `"jobs:{job_id}"` | Job progress updates | Workers broadcast download/processing/analysis status |
-| `"tracks"` | Track additions | DashboardLive subscribes for new track inserts |
-| `"track_pipeline:{track_id}"` | Pipeline stage failures | ObanHandler broadcasts stage failures for dashboard |
-| `"debug:worker_status"` | Worker lifecycle | Worker start/stop/exception events for debug panel |
-| `"osc:messages"` | `{:osc_message, msg, sender}` | OSC messages from UDP server |
-| `"midi:bridge"` | `{:midi_from_osc, msg}` | MIDI messages from OSC translation |
-| `"track_playback"` | Play/stop, stem volume/mute/solo | Unified playback actions from all control surfaces |
+<details>
+<summary><strong>Agent System</strong></summary>
 
-### Oban Queues
-
-| Queue | Concurrency | Worker | Purpose |
-|-------|-------------|--------|---------|
-| `download` | 3 | `DownloadWorker` | Audio downloads via spotdl |
-| `processing` | 2 | `ProcessingWorker`, `LalalAIWorker` | Stem separation (Demucs local or lalal.ai cloud) |
-| `analysis` | 2 | `AnalysisWorker` | Audio feature extraction via librosa |
-
-Plugins: `Pruner` (7-day retention), `Lifeline` (30-min rescue), `Cron` (daily storage cleanup at 03:00 UTC).
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Language | Elixir 1.15+ / Erlang OTP 26+ |
-| Web Framework | Phoenix 1.8 |
-| Real-Time UI | LiveView 1.1 |
-| Database | PostgreSQL via Ecto 3.13 |
-| Background Jobs | Oban 2.18 |
-| HTTP Client | Req |
-| HTTP Server | Bandit |
-| Authentication | bcrypt_elixir, Phoenix.Token |
-| MIDI | Midiex (NIF-based, Rust) |
-| Python Interop | Erlang Ports (GenServer wrappers) |
-| Stem Separation (local) | Demucs (Python, via Erlang Port) |
-| Stem Separation (cloud) | lalal.ai REST API |
-| Audio Analysis | librosa (Python, via Erlang Port) |
-| CSS | Tailwind CSS v4 + DaisyUI 5 |
-| JS Bundler | esbuild |
-| Static Analysis | Credo, Dialyxir |
-| JSON | Jason |
-
-## Features
-
-### Stem Separation
-
-- **Local processing** via Demucs (htdemucs, htdemucs_ft, htdemucs_6s models) through supervised Erlang Ports
-- **Cloud processing** via lalal.ai REST API with support for 11 stem types (vocals, drums, bass, piano, electric guitar, acoustic guitar, synthesizer, strings, winds, noise, mid/side)
-- Dual-engine `ProcessingJob` schema with `engine` field (`"demucs"` or `"lalalai"`)
-- Real-time progress tracking via PubSub broadcasts
-- Extended stem type system supporting both Demucs 4-stem and lalal.ai 11-stem outputs
-
-### Audio Analysis
-
-- librosa-based feature extraction: tempo, key, energy, spectral centroid, MFCCs, chroma, beat positions
-- Interactive visualizations via D3.js hooks (radar chart, spectral plot, chroma heatmap, MFCC, beat timeline)
-- Analysis results stored as structured maps in PostgreSQL
-
-### MIDI Integration
-
-- USB and Network MIDI device discovery with hotplug monitoring (`SoundForge.MIDI.DeviceManager`)
-- Akai MPC controller support: MPC Beats, MPC 2.0, iMPC Pro 2 detection by port name pattern, multi-port (A-D) awareness (`SoundForge.MIDI.MPCController`)
-- MIDI message parsing: Note On/Off, CC, Program Change, Pitch Bend, System Exclusive, Clock (`SoundForge.MIDI.Parser`)
-- MIDI output for sending note/CC/program data to external devices
-- MIDI clock sync (internal/external) with tempo tracking
-- CC-to-stem-volume action mapping with configurable CC assignments
-- Dedicated MidiLive page for device monitoring and configuration
-
-### OSC / TouchOSC
-
-- UDP-based OSC 1.0 server (default port 8000) with PubSub broadcasting (`SoundForge.OSC.Server`)
-- OSC client for sending feedback messages to TouchOSC (`SoundForge.OSC.Client`)
-- OSC parser with `f`, `i`, `s`, `b` type tags and bundle support (`SoundForge.OSC.Parser`)
-- TouchOSC `.tosc` layout generator: 8 stem faders, mute/solo, transport, BPM, title (`mix sfa.touchosc.generate`)
-- OSC action executor routing addresses to SFA playback actions (`/stem/{n}/volume`, `/transport/*`)
-- End-to-end pipeline simulation and latency benchmarking (`SoundForge.OSC.Pipeline`)
-
-### MIDI-OSC Bridge
-
-- Bidirectional MIDI-to-OSC protocol translation (`SoundForge.Bridge.MidiOsc`)
-- CC 7-14 mapped to `/stem/{n}/volume` with configurable mapping profiles
-- Bridge toggle in control surface settings UI
-
-### Melodics Integration
-
-- Import practice sessions from Melodics local data directory
-- Session history, accuracy trends, and statistics tracking
-- Practice-to-stem difficulty adaptation: simple (<60%), matched (60-85%), complex (>85%)
-- Dedicated PracticeLive page with session history and stem recommendations
-
-### Admin Dashboard
-
-- Production-grade admin panel at `/admin` with role-gated access
-- Six admin tabs: Overview, Users, Jobs, System, Analytics, Audit
-- User management: search, role/status filters, bulk role assignment, user suspension
-- 5-tier SaaS role hierarchy: `user` -> `pro` -> `enterprise` -> `admin` -> `super_admin`
-- Feature gating per role (stem separation, lalal.ai cloud, OSC/TouchOSC, MIDI, Melodics, full analysis)
-- Audit logging for administrative actions (`SoundForge.Admin.AuditLog`)
-- System statistics: user counts, track counts, job states, storage usage
-
-### Authentication and Authorization
-
-- Email/password authentication with bcrypt hashing
-- Magic link / token-based login
-- Session-based auth with CSRF protection
-- Role-based authorization via `SoundForge.Accounts.Scope`
-- Security headers plug and rate limiting (120 req/min browser, 60 req/min API, 10 req/min heavy operations)
-- API key authentication for programmatic access
-
-### Debug Panel and Observability
-
-- Slide-in debug panel on the dashboard with real-time Oban job inspection
-- Active and historical job views with state filtering (executing, available, scheduled, retryable, completed, cancelled, discarded)
-- Structured Oban telemetry logging with namespace-scoped prefixes (`[oban.WorkerName]`)
-- Worker status PubSub broadcasts for live debug panel updates
-- Pipeline failure detection and dashboard notification
-- Log metadata: `oban_job_id`, `oban_queue`, `oban_worker`, `oban_attempt`, `track_id`, `stage`
-- Debug log auto-scroll JS hook
-
-### Responsive UI and PWA
-
-- Mobile-first responsive dashboard with bottom navigation bar (Library/Player/MIDI/Settings)
-- Touch-optimized stem mixer with vertical faders, mute/solo buttons, 60fps throttled updates
-- Swipe-based tab navigation on track detail views
-- Mobile drawer component for sidebar replacement
-- Container-aware chart resizing via ResizeObserver hook
-- PWA manifest (`manifest.json`) with standalone display mode
-- Service worker (`sw.js`) with network-first navigation and cache-first assets
-- MPC pad assignment UI with drag-and-drop and touch support (4x4 grid)
-
-### Track and Playlist Management
-
-- Spotify URL import: tracks, albums, playlists
-- Spotify OAuth integration for authenticated metadata fetching
-- Spotify playback component with embedded player
-- Album art display from Spotify metadata
-- Playlist schema with manual, Spotify, and import sources
-- Track search and filtering
-- Stem file export (individual or all stems per track)
-- Analysis data export
-
-### Notifications
-
-- ETS-backed in-memory notification store
-- Real-time notification bell component with unread count
-- Toast stack component for transient alerts
-
-## Getting Started
-
-### Prerequisites
-
-- **Elixir** >= 1.15 and **Erlang/OTP** >= 26
-- **PostgreSQL** >= 14
-- **Python** >= 3.9 with pip
-- **Node.js** (for esbuild/tailwind asset compilation, installed automatically)
-
-### Python Dependencies
-
-```bash
-pip install librosa demucs soundfile numpy
+```
+                    User Request
+                         │
+                    Orchestrator
+                    ┌────┴────┐
+                    │  Route  │
+                    └────┬────┘
+         ┌───────────────┼───────────────┐
+         │               │               │
+  Direct dispatch   Auto-route      Pipeline
+  (task: hint)    (keyword NLP)   (agent list)
+         │               │               │
+    ┌────▼───────────────▼───────────────▼────┐
+    │              Specialist Agents            │
+    │  TrackAnalysis  MixPlanning  StemIntel   │
+    │  CuePoint       Mastering    Library     │
+    └────────────────────┬────────────────────┘
+                         │
+                    LLM.Router
+                    ┌────┴────┐
+                    │  Build  │
+                    │provider │
+                    │ chain   │
+                    └────┬────┘
+           ┌─────────────┼─────────────┐
+           │             │             │
+      Primary       Fallback 1    Fallback 2
+     (LiteLLM)     (Anthropic)    (Ollama)
 ```
 
-### Optional Services
+**Context and Result structs:**
 
-- **spotdl** for Spotify audio downloads: `pip install spotdl`
-- **lalal.ai API key** for cloud stem separation: set `LALALAI_API_KEY` environment variable
-- **Spotify OAuth credentials**: set `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` for authenticated metadata access
+```elixir
+%SoundForge.Agents.Context{
+  instruction: String.t(),
+  track_id: integer() | nil,
+  track_ids: [integer()] | nil,
+  user_id: integer(),
+  metadata: map()
+}
 
-### Setup
-
-```bash
-# Clone the repository
-git clone <repo-url> sound-forge-alchemy
-cd sound-forge-alchemy
-
-# Install Elixir dependencies, create database, run migrations, build assets
-mix setup
-
-# Start the development server
-mix phx.server
+%SoundForge.Agents.Result{
+  output: term(),
+  agent: module(),
+  model: String.t(),
+  provider: atom(),
+  tokens_used: integer(),
+  latency_ms: integer()
+}
 ```
 
-Visit [localhost:4000](http://localhost:4000) in your browser.
+</details>
 
-To start inside an IEx shell:
+<details>
+<summary><strong>PubSub Topics</strong></summary>
 
-```bash
-iex -S mix phx.server
-```
+| Topic | Events | Subscribers |
+|-------|--------|-------------|
+| `"jobs:{job_id}"` | Stage progress updates | `DashboardLive`, `JobProgress` component |
+| `"track_pipeline:{track_id}"` | Pipeline stage failures | `ObanHandler` → dashboard |
+| `"debug:worker_status"` | Worker lifecycle events | Debug Inspector panel |
+| `"osc:messages"` | `{:osc_message, msg, sender}` | OSC pipeline |
+| `"midi:bridge"` | `{:midi_from_osc, msg}` | MIDI-OSC bridge |
+| `"track_playback"` | Play/stop, stem volume/mute/solo | All control surfaces |
+| `"notifications:{user_id}"` | User notifications | `AppHeader` bell component |
 
-### Environment Variables
+</details>
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Production | PostgreSQL connection string |
-| `SECRET_KEY_BASE` | Production | Phoenix secret key (generate with `mix phx.gen.secret`) |
-| `LALALAI_API_KEY` | No | lalal.ai API key for cloud stem separation |
-| `SPOTIFY_CLIENT_ID` | No | Spotify OAuth client ID |
-| `SPOTIFY_CLIENT_SECRET` | No | Spotify OAuth client secret |
-| `PORT` | No | HTTP port (default: 4000) |
+<details>
+<summary><strong>Database Schema</strong></summary>
 
-## Development Commands
+**Core Tables**
 
-| Command | Description |
-|---------|-------------|
-| `mix setup` | Install deps, create DB, run migrations, build assets |
-| `mix phx.server` | Start the development server on port 4000 |
-| `mix test` | Run the full test suite |
-| `mix test --failed` | Re-run only previously failed tests |
-| `mix test path/to/test.exs:42` | Run a specific test at a line |
-| `mix format` | Format all Elixir files |
-| `mix precommit` | Compile (warnings-as-errors) + deps.unlock --unused + format + test |
-| `mix ecto.migrate` | Run pending database migrations |
-| `mix ecto.reset` | Drop, create, migrate, and seed the database |
-| `mix ecto.gen.migration name` | Generate a new migration file |
-| `mix sfa.touchosc.generate` | Generate TouchOSC layout file at `priv/touchosc/sfa_mixer.tosc` |
-| `mix credo` | Run static analysis |
-| `mix dialyzer` | Run type checking with Dialyxir |
+| Table | Key Columns |
+|-------|-------------|
+| `tracks` | `id`, `title`, `artist`, `spotify_id`, `file_path`, `user_id` |
+| `stems` | `id`, `track_id`, `stem_type`, `file_path`, `engine`, `preview` |
+| `analysis_results` | `id`, `track_id`, `bpm`, `key`, `energy`, `chroma`, `mfcc`, `spectral` |
+| `processing_jobs` | `id`, `track_id`, `stage`, `status`, `engine`, `options` |
+| `playlists` | `id`, `user_id`, `name`, `spotify_id`, `source` |
+| `playlist_tracks` | `playlist_id`, `track_id`, `position` |
 
-## Project Structure
+**User Tables**
+
+| Table | Key Columns |
+|-------|-------------|
+| `users` | `id`, `email`, `hashed_password`, `role`, `status` |
+| `user_settings` | `user_id`, `debug_mode`, `stem_engine`, `lalalai_api_key` (encrypted) |
+| `spotify_oauth_tokens` | `user_id`, `access_token`, `refresh_token`, `expires_at` |
+| `audit_logs` | `id`, `actor_id`, `target_type`, `target_id`, `action`, `inserted_at` |
+
+**Integration Tables**
+
+| Table | Description |
+|-------|-------------|
+| `midi_mappings` | MIDI CC/note to action mappings per device |
+| `dj_presets` | Saved DJ deck configurations |
+| `edit_operations` | DAW clip edit history |
+| `melodics_sessions` | Melodics practice session records |
+| `llm_providers` | Per-user LLM provider configs (API keys encrypted at rest) |
+| `stem_loops` | Extracted loop regions from stems |
+| `cue_points` | Track cue points with auto-cue metadata |
+| `batch_jobs` | Batch processing job groups |
+| `voice_packs` | Voice pack definitions for voice change worker |
+
+</details>
+
+<details>
+<summary><strong>Project Structure</strong></summary>
 
 ```
 lib/
 ├── sound_forge/
-│   ├── application.ex              # OTP supervision tree
-│   ├── repo.ex                     # Ecto repository
-│   ├── accounts.ex                 # Accounts context (registration, auth, sessions)
-│   ├── accounts/
-│   │   ├── user.ex                 # User schema (email, hashed_password, role, status)
-│   │   ├── user_token.ex           # Session/magic-link tokens
-│   │   ├── user_settings.ex        # Per-user settings schema
-│   │   ├── user_notifier.ex        # Email notifications
-│   │   ├── scope.ex                # Role-based authorization (5-tier hierarchy)
-│   │   └── spotify_oauth_token.ex  # Spotify OAuth token storage
-│   ├── admin.ex                    # Admin context (user mgmt, analytics, audit)
-│   ├── admin/
-│   │   └── audit_log.ex            # Audit log schema
-│   ├── music.ex                    # Music context - CRUD for all schemas
-│   ├── music/
-│   │   ├── track.ex                # Track schema (spotify metadata, album_art_url)
-│   │   ├── download_job.ex         # Download job with Ecto.Enum status
-│   │   ├── processing_job.ex       # Stem separation job (engine: demucs/lalalai)
-│   │   ├── analysis_job.ex         # Audio analysis job (results map)
-│   │   ├── stem.ex                 # Stem schema (11 types, source: local/cloud)
-│   │   ├── analysis_result.ex      # Extracted features (tempo, key, energy, ...)
-│   │   ├── playlist.ex             # Playlist schema (spotify/manual/import)
-│   │   └── playlist_track.ex       # Many-to-many join table
-│   ├── spotify.ex                  # Spotify context (fetch_metadata/1)
-│   ├── spotify/
-│   │   ├── client.ex               # Behaviour for Spotify API (mockable)
-│   │   ├── http_client.ex          # Req-based Spotify HTTP client with ETS token cache
-│   │   └── url_parser.ex           # Parse Spotify track/album/playlist URLs
-│   ├── audio/
-│   │   ├── analyzer_port.ex        # GenServer wrapping librosa Python script
-│   │   ├── demucs_port.ex          # GenServer wrapping Demucs Python script
-│   │   ├── port_supervisor.ex      # DynamicSupervisor for Port processes
-│   │   └── lalalai.ex              # lalal.ai REST API client (upload, poll, download)
-│   ├── jobs/
-│   │   ├── download_worker.ex      # Oban worker for audio downloads (spotdl)
-│   │   ├── processing_worker.ex    # Oban worker for Demucs stem separation
-│   │   ├── lalalai_worker.ex       # Oban worker for lalal.ai cloud separation
-│   │   ├── analysis_worker.ex      # Oban worker for librosa analysis
-│   │   └── cleanup_worker.ex       # Cron worker for storage cleanup
-│   ├── midi/
-│   │   ├── device_manager.ex       # USB/Network MIDI discovery + hotplug
-│   │   ├── mpc_controller.ex       # Akai MPC device profiles and modes
-│   │   ├── parser.ex               # MIDI message parsing (Note, CC, SysEx, Clock)
-│   │   ├── output.ex               # MIDI output (send notes, CCs, programs)
-│   │   ├── clock.ex                # MIDI clock sync (internal/external)
-│   │   ├── dispatcher.ex           # MIDI message routing
-│   │   ├── action_executor.ex      # CC-to-stem action mapping
-│   │   ├── message.ex              # MIDI message struct
-│   │   ├── mapping.ex              # MIDI mapping struct
-│   │   ├── mappings.ex             # Mapping presets
-│   │   ├── network_discovery.ex    # Network MIDI device scanning
-│   │   └── profiles/
-│   │       └── mpc_app.ex          # MPC Beats/MPC 2.0/iMPC Pro 2 profiles
-│   ├── osc/
-│   │   ├── server.ex               # GenServer UDP listener (port 8000)
-│   │   ├── client.ex               # UDP sender for TouchOSC feedback
-│   │   ├── parser.ex               # OSC 1.0 encode/decode (f/i/s/b + bundles)
-│   │   ├── action_executor.ex      # OSC address to SFA action routing
-│   │   ├── touchosc_layout.ex      # .tosc ZIP layout generator
-│   │   └── pipeline.ex             # E2E simulation and latency benchmarking
-│   ├── bridge/
-│   │   └── midi_osc.ex             # Bidirectional MIDI<->OSC translation
-│   ├── integrations/
-│   │   ├── melodics.ex             # Melodics session import and stats
-│   │   └── melodics/
-│   │       ├── melodics_session.ex # Ecto schema for practice sessions
-│   │       └── practice_adapter.ex # Accuracy-to-stem-difficulty mapping
-│   ├── debug/
-│   │   ├── jobs.ex                 # Debug queries for Oban job inspector
-│   │   └── log_broadcaster.ex      # Live log broadcasting for debug panel
-│   ├── telemetry/
-│   │   └── oban_handler.ex         # Structured Oban job lifecycle logging
-│   ├── processing/
-│   │   └── demucs.ex               # Demucs model configuration
-│   ├── notifications.ex            # ETS-backed notification store
-│   ├── settings.ex                 # Application settings context
-│   ├── storage.ex                  # Local file storage management
-│   └── release.ex                  # Release tasks (migrate, rollback)
-├── sound_forge_web/
-│   ├── router.ex                   # Routes (browser + API + admin + auth)
-│   ├── user_auth.ex                # Authentication plugs and helpers
-│   ├── live/
-│   │   ├── dashboard_live.ex       # Main dashboard LiveView
-│   │   ├── dashboard_live.html.heex
-│   │   ├── admin_live.ex           # Admin dashboard (6 tabs)
-│   │   ├── midi_live.ex            # MIDI device monitoring page
-│   │   ├── practice_live.ex        # Melodics practice sessions page
-│   │   ├── settings_live.ex        # User settings page
-│   │   ├── audio_player_live.ex    # Audio player LiveView
-│   │   └── components/
-│   │       ├── app_header.ex       # Application header bar
-│   │       ├── sidebar.ex          # Navigation sidebar
-│   │       ├── stem_mixer.ex       # Touch-optimized stem mixer faders
-│   │       ├── mobile_nav.ex       # Bottom nav bar (mobile)
-│   │       ├── mobile_drawer.ex    # Slide-out mobile drawer
-│   │       ├── midi_osc_status_bar.ex  # MIDI/OSC connection status
-│   │       ├── control_surfaces_settings.ex # OSC/MIDI/MPC config UI
-│   │       ├── pad_assignment.ex   # 4x4 MPC pad grid with drag-and-drop
-│   │       ├── track_detail_responsive.ex  # Responsive track detail tabs
-│   │       ├── job_progress.ex     # Job progress indicator
-│   │       ├── notification_bell.ex # Notification dropdown
-│   │       ├── toast_stack.ex      # Toast notifications
-│   │       └── spotify_player.ex   # Spotify embedded player
-│   ├── controllers/
-│   │   ├── api/
-│   │   │   ├── spotify_controller.ex
-│   │   │   ├── download_controller.ex
-│   │   │   ├── processing_controller.ex
-│   │   │   └── analysis_controller.ex
-│   │   ├── file_controller.ex      # Serve stored audio files
-│   │   ├── health_controller.ex    # Health check endpoint
-│   │   ├── export_controller.ex    # Stem and analysis export downloads
-│   │   ├── spotify_oauth_controller.ex  # Spotify OAuth flow
-│   │   ├── user_registration_controller.ex
-│   │   ├── user_session_controller.ex
-│   │   └── user_settings_controller.ex
-│   ├── plugs/
-│   │   ├── api_auth.ex             # API token authentication plug
-│   │   ├── rate_limiter.ex         # Configurable rate limiting plug
-│   │   └── security_headers.ex     # Security headers plug
-│   ├── channels/
-│   │   ├── user_socket.ex
-│   │   └── job_channel.ex          # Real-time job progress channel
-│   └── components/
-│       ├── core_components.ex      # Shared UI components
-│       └── layouts.ex              # App and root layouts
-├── mix/tasks/
-│   └── sfa.touchosc.generate.ex   # TouchOSC layout generation task
-├── assets/
-│   ├── js/hooks/
-│   │   ├── stem_mixer_hook.js      # Touch + mouse fader control (60fps)
-│   │   ├── swipe_hook.js           # Horizontal swipe detection
-│   │   ├── resize_observer_hook.js # Container dimension tracking for charts
-│   │   ├── pad_assign_hook.js      # Drag-and-drop pad assignment
-│   │   ├── audio_player.js         # Audio playback controls
-│   │   ├── spotify_player.js       # Spotify embed integration
-│   │   ├── debug_log_scroll.js     # Debug panel auto-scroll
-│   │   ├── shift_select.js         # Shift-click multi-select
-│   │   ├── auto_dismiss.js         # Auto-dismiss notifications
-│   │   ├── analysis_beats.js       # Beat timeline D3 visualization
-│   │   ├── analysis_chroma.js      # Chroma heatmap visualization
-│   │   ├── analysis_mfcc.js        # MFCC visualization
-│   │   ├── analysis_radar.js       # Radar chart visualization
-│   │   ├── analysis_spectral.js    # Spectral plot visualization
-│   │   └── job_trace_graph.js      # Job trace graph visualization
-│   └── css/app.css                 # Tailwind CSS v4 entry point
-├── config/
-│   ├── config.exs                  # Base config (Oban queues, Ecto, esbuild, Tailwind)
-│   ├── dev.exs                     # Development config
-│   ├── test.exs                    # Test config (Mox, Oban testing mode)
-│   └── runtime.exs                 # Runtime/production config (env vars)
-├── priv/
-│   ├── python/
-│   │   ├── analyzer.py             # librosa audio analysis script
-│   │   └── demucs_runner.py        # Demucs stem separation wrapper
-│   ├── repo/migrations/            # Ecto migrations
-│   ├── static/
-│   │   ├── manifest.json           # PWA manifest (standalone, purple theme)
-│   │   └── sw.js                   # Service worker (network-first + cache-first)
-│   └── touchosc/                   # Generated TouchOSC layouts
-└── test/
-    ├── sound_forge/                # Context, schema, and worker tests
-    ├── sound_forge_web/            # Controller, LiveView, and channel tests
-    └── support/                    # Test helpers, fixtures, data cases
+│   ├── agents/             # AI agent system (orchestrator + 6 specialists)
+│   ├── llm/                # Multi-provider LLM router + 9 adapters
+│   ├── audio/              # Erlang ports: AnalyzerPort, DemucsPort, lalal.ai client
+│   ├── jobs/               # Oban workers: Download, Processing, Analysis, AutoCue, etc.
+│   ├── music/              # Core schemas: Track, Stem, AnalysisResult, ProcessingJob
+│   ├── accounts/           # User auth, sessions, OAuth tokens, role scopes
+│   ├── admin/              # Admin context, audit log
+│   ├── midi/               # MIDI device manager, parser, MPC profiles
+│   ├── osc/                # OSC server, client, parser, TouchOSC layout generator
+│   ├── bridge/             # MIDI-OSC bidirectional translation
+│   ├── dj/                 # DJ presets
+│   ├── daw/                # DAW state management
+│   ├── sampler/            # Sampler context
+│   ├── debug/              # Debug jobs inspector, log broadcaster
+│   ├── telemetry/          # Oban telemetry handler
+│   ├── integrations/       # Melodics session import
+│   └── processing/         # Demucs model configuration
+└── sound_forge_web/
+    ├── live/               # LiveViews: Dashboard, Admin, DJ, DAW, MIDI, Practice, Settings
+    ├── controllers/        # API controllers + auth controllers
+    ├── plugs/              # APIAuth, RateLimiter, SecurityHeaders
+    └── components/         # Shared UI components (stem mixer, debug panel, etc.)
+
+assets/js/hooks/
+├── dj_deck.js              # 711-line virtual DJ deck
+├── daw_editor.js           # 700-line WebAudio arrangement editor
+├── audio_player.js         # Stem switching audio player
+├── stem_mixer_hook.js      # Touch + mouse fader control (60fps)
+├── analysis_*.js           # 7 D3.js visualization hooks
+├── jog_wheel.js            # Hardware jog wheel emulation
+└── pad_assign_hook.js      # Drag-and-drop MPC pad assignment
+
+priv/python/
+├── analyzer.py             # librosa audio analysis script
+└── demucs_runner.py        # Demucs stem separation wrapper
 ```
 
-## API Endpoints
+</details>
 
-### Browser Routes (authenticated)
+---
 
-| Method | Path | Handler | Description |
-|--------|------|---------|-------------|
-| GET | `/` | `DashboardLive` | Main dashboard |
-| GET | `/tracks/:id` | `DashboardLive :show` | Track detail view |
-| GET | `/admin` | `AdminLive` | Admin dashboard (admin+ role required) |
-| GET | `/midi` | `MidiLive` | MIDI device monitoring |
-| GET | `/practice` | `PracticeLive` | Melodics practice sessions |
-| GET | `/settings` | `SettingsLive` | User settings |
-| GET | `/files/*path` | `FileController` | Serve stored audio files |
-| GET | `/export/stem/:id` | `ExportController` | Download individual stem |
-| GET | `/export/stems/:track_id` | `ExportController` | Download all stems for a track |
-| GET | `/export/analysis/:track_id` | `ExportController` | Export analysis data |
+## API Reference
 
-### Authentication Routes
+<details>
+<summary><strong>REST Endpoints</strong></summary>
+
+**Public**
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/users/register` | Registration form |
-| POST | `/users/register` | Create account |
-| GET | `/users/log-in` | Login form |
-| POST | `/users/log-in` | Create session |
-| GET | `/users/log-in/:token` | Magic link confirmation |
-| DELETE | `/users/log-out` | Destroy session |
-| GET | `/users/settings` | Edit user settings |
-| GET | `/auth/spotify` | Initiate Spotify OAuth |
-| GET | `/auth/spotify/callback` | Spotify OAuth callback |
+| `GET` | `/health` | System health check |
 
-### JSON API Routes (`/api`, authenticated + rate limited)
-
-| Method | Path | Handler | Rate Limit | Description |
-|--------|------|---------|------------|-------------|
-| POST | `/api/spotify/fetch` | `SpotifyController.fetch` | 60/min | Fetch Spotify metadata |
-| POST | `/api/download/track` | `DownloadController.create` | 10/min | Start audio download |
-| GET | `/api/download/job/:id` | `DownloadController.show` | 60/min | Get download job status |
-| POST | `/api/processing/separate` | `ProcessingController.create` | 10/min | Start stem separation |
-| GET | `/api/processing/job/:id` | `ProcessingController.show` | 60/min | Get processing job status |
-| GET | `/api/processing/models` | `ProcessingController.models` | 60/min | List available Demucs models |
-| POST | `/api/analysis/analyze` | `AnalysisController.create` | 10/min | Start audio analysis |
-| GET | `/api/analysis/job/:id` | `AnalysisController.show` | 60/min | Get analysis job status |
-
-### Utility Routes
+**Authenticated** — rate limit: 60 req/min
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | Health check (unauthenticated) |
+| `POST` | `/api/spotify/fetch` | Fetch Spotify track metadata |
+| `GET` | `/api/download/job/:id` | Poll download job status |
+| `GET` | `/api/processing/job/:id` | Poll processing job status |
+| `GET` | `/api/processing/models` | List available Demucs models |
+| `GET` | `/api/analysis/job/:id` | Poll analysis job status |
+| `GET` | `/api/lalalai/quota` | Get lalal.ai account quota |
 
-### Development Routes (dev only)
+**Heavy** — rate limit: 10 req/min
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/dev/dashboard` | Phoenix LiveDashboard |
-| GET | `/dev/mailbox` | Swoosh mailbox preview |
+| `POST` | `/api/download/track` | Create download job |
+| `POST` | `/api/processing/separate` | Enqueue stem separation |
+| `POST` | `/api/analysis/analyze` | Enqueue audio analysis |
+| `POST` | `/api/daw/export` | Export DAW arrangement |
+| `POST` | `/api/lalalai/cancel` | Cancel lalal.ai job |
+| `POST` | `/api/lalalai/cancel-all` | Cancel all lalal.ai jobs |
 
-## Testing
+**File / Export (browser, authenticated)**
 
-### Framework
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/files/*path` | Serve audio files |
+| `GET` | `/export/stem/:id` | Download single stem |
+| `GET` | `/export/stems/:track_id` | Download all stems as `.zip` |
+| `GET` | `/export/analysis/:track_id` | Export analysis as JSON |
 
-- **ExUnit** with `Ecto.Adapters.SQL.Sandbox` for database isolation
-- **Mox** for Spotify API mocking via behaviour (`SoundForge.Spotify.Client`)
-- **Oban.Testing** with `testing: :manual` mode
-- **Phoenix.LiveViewTest** for LiveView integration testing
-- **LazyHTML** for HTML assertions
+**Spotify OAuth**
 
-### Running Tests
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/auth/spotify` | Initiate OAuth PKCE flow |
+| `GET` | `/auth/spotify/callback` | Handle callback, store tokens |
+
+</details>
+
+<details>
+<summary><strong>LiveView Routes</strong></summary>
+
+| Path | LiveView | Description |
+|------|----------|-------------|
+| `/` | `DashboardLive` | Main dashboard — Library, Player, DJ, DAW, Debug tabs |
+| `/settings` | `SettingsLive` | User preferences, LLM providers, stem engine |
+| `/admin` | `AdminLive` | Admin panel (admin role required) |
+| `/midi` | `MidiLive` | MIDI device configuration |
+| `/practice` | `PracticeLive` | Melodics practice session display |
+
+</details>
+
+<details>
+<summary><strong>Testing</strong></summary>
 
 ```bash
-mix test                              # Run all tests
-mix test test/sound_forge/            # Run context tests only
-mix test test/sound_forge_web/        # Run web tests only
-mix test --failed                     # Re-run previously failed tests
-mix test path/to/test.exs:42          # Run specific test at line
+mix test                    # All 707 tests
+mix test test/sound_forge/  # Context/worker tests only
+mix test test/sound_forge_web/ # Web/LiveView tests
+mix test --failed           # Re-run previously failed
+mix test path/to_test.exs:42 # Specific test by line
 ```
 
-### Pre-Commit Checks
+**Test infrastructure:**
+- `ExUnit` with `Ecto.Adapters.SQL.Sandbox` for database isolation
+- `Mox` for Spotify API mocking via behaviour (`SoundForge.Spotify.Client`)
+- `Oban.Testing` with `testing: :manual` mode
+- `Phoenix.LiveViewTest` for LiveView integration testing
+- `Req.Test` stubs for HTTP client testing
+
+</details>
+
+---
+
+## Deployment
+
+<details>
+<summary><strong>Azure Container Apps (live production)</strong></summary>
+
+**Live:** `https://sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io`
+
+**Build** (amd64 only — BEAM cannot run under QEMU on Apple Silicon):
 
 ```bash
-mix precommit
+az acr build \
+  --registry <your-acr> \
+  --image sfa:latest \
+  --platform linux/amd64 \
+  .
 ```
 
-This runs: `compile --warnings-as-errors` + `deps.unlock --unused` + `format` + `test`.
+**Deploy:**
 
-### Mox Setup
-
-The Spotify client uses a behaviour with a mock defined in `test/test_helper.exs`:
-
-```elixir
-Mox.defmock(SoundForge.Spotify.MockClient, for: SoundForge.Spotify.Client)
+```bash
+az containerapp update \
+  --name sfa-app \
+  --resource-group <rg> \
+  --image <your-acr>.azurecr.io/sfa:latest
 ```
 
-Swapped in via `config/test.exs`:
+**Required environment variables:**
 
-```elixir
-config :sound_forge, :spotify_client, SoundForge.Spotify.MockClient
 ```
+DATABASE_URL          = ecto://user:pass@host/db
+SECRET_KEY_BASE       = <64-char secret>
+SPOTIFY_CLIENT_ID     = <from Spotify developer portal>
+SPOTIFY_CLIENT_SECRET = <from Spotify developer portal>
+PHX_HOST              = sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io
+PHX_SERVER            = true
+DATABASE_SSL          = true
+```
+
+> **Build constraints:** Do not use `ARG` interpolation in `FROM` directives. Combine all `COPY` + compile steps into a single `RUN` layer to avoid "MixProject already compiled" errors. Image is ~4.8 GB due to Python dependencies.
+
+</details>
+
+<details>
+<summary><strong>Docker (local / self-hosted)</strong></summary>
+
+```yaml
+# docker-compose.yml
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: sound_forge
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    image: sfa:latest
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: ecto://postgres:postgres@db/sound_forge
+      SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
+      SPOTIFY_CLIENT_ID: "${SPOTIFY_CLIENT_ID}"
+      SPOTIFY_CLIENT_SECRET: "${SPOTIFY_CLIENT_SECRET}"
+      PHX_SERVER: "true"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
+```
+
+```bash
+docker compose up
+```
+
+</details>
+
+<details>
+<summary><strong>Mix Release (bare metal / VPS)</strong></summary>
+
+```bash
+# Build
+MIX_ENV=prod mix do assets.deploy, release
+
+# Migrate
+_build/prod/rel/sound_forge/bin/migrate
+
+# Start
+_build/prod/rel/sound_forge/bin/server
+```
+
+Release scripts are in `rel/overlays/bin/`.
+
+</details>
+
+---
+
+## Changelog
+
+Full history: [CHANGELOG.md](CHANGELOG.md)
+
+| Version | Date | Highlights |
+|---------|------|-----------|
+| [v4.3.0](CHANGELOG.md#430---2026-02-25) | 2026-02-25 | Multi-LLM routing, 6 specialist AI agents, 707 tests |
+| [v4.2.12](CHANGELOG.md#4212---2026-02-25) | 2026-02-25 | Azure Container Apps production deployment |
+| [v4.2.11](CHANGELOG.md#4211---2026-02-24) | 2026-02-24 | Analysis expansion + DAW/DJ tabs (PR #9) |
+| [v4.2.10](CHANGELOG.md#4210---2026-02-24) | 2026-02-24 | Full lalal.ai API v1.1.0 + DAW/DJ hooks (PR #7) |
+| [v4.2.8](CHANGELOG.md#428---2026-02-19) | 2026-02-19 | SaaS role hierarchy + audit log (PR #6) |
+| [v4.2.7](CHANGELOG.md#427---2026-02-19) | 2026-02-19 | Melodics, OSC, TouchOSC, responsive layout (PR #2) |
+| [v4.2.5](CHANGELOG.md#425---2026-02-19) | 2026-02-19 | USB/network MIDI + MPC controller (PR #1) |
+| [v4.2.3](CHANGELOG.md#423---2026-02-19) | 2026-02-19 | lalal.ai cloud stem separation |
+| [v4.2.2](CHANGELOG.md#422---2026-02-18) | 2026-02-18 | 5 D3.js analysis visualization hooks |
+| [v4.2.1](CHANGELOG.md#421---2026-02-17) | 2026-02-17 | yt-dlp fallback + debug panel (10 user stories) |
+| [v4.0.0](CHANGELOG.md#400---2026-02-14) | 2026-02-14 | Spotify OAuth, playlists, settings, notifications |
+| [v3.0.0](CHANGELOG.md#300---2026-02-13) | 2026-02-13 | Security hardening, rate limiting, IDOR guards |
+| [v2.0.0](CHANGELOG.md#200---2026-02-13) | 2026-02-13 | SpotDL replaces direct Spotify API |
+| [v1.0.0](CHANGELOG.md#100---2026-02-13) | 2026-02-13 | Feature-complete MVP, 653 tests |
+| [v0.1.0](CHANGELOG.md#010---2026-02-12) | 2026-02-12 | Initial Phoenix scaffold |
+
+---
 
 ## Contributing
 
-1. Create a feature branch from `main`
-2. Write tests first (Red-Green-Refactor)
-3. Ensure all tests pass: `mix test`
-4. Run pre-commit checks: `mix precommit`
-5. Open a pull request
+Pull requests welcome. For substantial changes, open an issue first.
 
-### Code Quality
+**Before submitting:**
 
-- Zero compiler warnings required (`--warnings-as-errors`)
-- All code formatted with `mix format`
+```bash
+mix precommit    # compile --warnings-as-errors + format + test
+```
+
+**Standards:**
+- Strict Elixir typespecs on all public functions
+- `@moduledoc` on all modules
+- Credo compliance (`.credo.exs` in repo root)
+- Dialyzer clean on all new modules
 - Contexts return `{:ok, _} | {:error, _}` tuples
-- All schemas use `binary_id` UUIDs
-- External services are mocked via behaviours + Mox in tests
-- `@spec` and `@doc` annotations on all public functions
-- Static analysis with Credo and Dialyxir
+- External services mocked via behaviours + Mox
+
+---
 
 ## License
 
-All rights reserved.
+MIT License. See [LICENSE](LICENSE) for details.
