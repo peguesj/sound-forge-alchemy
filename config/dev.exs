@@ -17,9 +17,9 @@ config :sound_forge, SoundForge.Repo,
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
 config :sound_forge, SoundForgeWeb.Endpoint,
-  # Binding to loopback ipv4 address prevents access from other machines.
-  # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}],
+  # Bound to 0.0.0.0 so the server is reachable from all interfaces (LAN, Docker, etc.)
+  # Port is always 4000 — use PORT env var only for production overrides.
+  http: [ip: {0, 0, 0, 0}, port: 4000],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
