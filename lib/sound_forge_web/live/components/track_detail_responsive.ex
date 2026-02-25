@@ -42,21 +42,20 @@ defmodule SoundForgeWeb.Live.Components.TrackDetailResponsive do
 
   def responsive_album_art(assigns) do
     ~H"""
-    <div class="flex-shrink-0">
-      <img
-        :if={@src}
-        src={@src}
-        alt={@alt}
-        class="w-[120px] h-[120px] md:w-[200px] md:h-[200px] rounded-lg object-cover"
-      />
-      <div
-        :if={!@src}
-        class="w-[120px] h-[120px] md:w-[200px] md:h-[200px] rounded-lg bg-gray-800 flex items-center justify-center"
-      >
+    <div class="flex-shrink-0 relative w-[120px] h-[120px] md:w-[200px] md:h-[200px]">
+      <div class="w-full h-full rounded-lg bg-gray-800 flex items-center justify-center absolute inset-0">
         <svg class="w-12 h-12 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
         </svg>
       </div>
+      <img
+        :if={@src}
+        src={@src}
+        alt={@alt}
+        class="w-full h-full rounded-lg object-cover relative z-10"
+        loading="lazy"
+        onerror="this.style.display='none'"
+      />
     </div>
     """
   end

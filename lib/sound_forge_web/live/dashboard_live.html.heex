@@ -115,21 +115,20 @@
           <div class="flex gap-8">
             <!-- Track Info -->
             <div class="w-64 shrink-0">
-              <div class="aspect-square bg-gray-800 rounded-lg overflow-hidden mb-4">
-                <img
-                  :if={valid_album_art?(@track.album_art_url)}
-                  src={@track.album_art_url}
-                  class="w-full h-full object-cover"
-                  alt={@track.title}
-                />
-                <div
-                  :if={!valid_album_art?(@track.album_art_url)}
-                  class="w-full h-full flex items-center justify-center"
-                >
+              <div class="aspect-square bg-gray-800 rounded-lg overflow-hidden mb-4 relative">
+                <div class="w-full h-full flex items-center justify-center absolute inset-0">
                   <svg class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                   </svg>
                 </div>
+                <img
+                  :if={valid_album_art?(@track.album_art_url)}
+                  src={@track.album_art_url}
+                  class="w-full h-full object-cover relative z-10"
+                  alt={@track.title}
+                  loading="lazy"
+                  onerror="this.style.display='none'"
+                />
               </div>
               <h1 class="text-xl font-bold">{@track.title}</h1>
               <p class="text-gray-400">{@track.artist}</p>
@@ -1236,16 +1235,23 @@
                   />
                   <.link navigate={~p"/tracks/#{track.id}"} class="block">
                     <div class="aspect-square bg-gray-700 rounded-md mb-3 overflow-hidden relative">
+                      <div class="w-full h-full flex items-center justify-center absolute inset-0">
+                        <svg class="w-10 h-10 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                        </svg>
+                      </div>
                       <img
                         :if={valid_album_art?(track.album_art_url)}
                         src={track.album_art_url}
-                        class="w-full h-full object-cover"
+                        class="w-full h-full object-cover relative z-10"
                         alt={track.title}
+                        loading="lazy"
+                        onerror="this.style.display='none'"
                       />
                       <!-- Download status overlay (bottom-right of album art) -->
                       <div
                         :if={track.spotify_url && is_nil(track.download_status)}
-                        class="absolute bottom-1.5 right-1.5"
+                        class="absolute bottom-1.5 right-1.5 z-20"
                       >
                         <button
                           phx-click="download_track"
@@ -1271,7 +1277,7 @@
                       </div>
                       <div
                         :if={track.download_status == "queued"}
-                        class="absolute bottom-1.5 right-1.5 p-1 bg-black/60 rounded-full"
+                        class="absolute bottom-1.5 right-1.5 z-20 p-1 bg-black/60 rounded-full"
                         title="Queued"
                       >
                         <svg
@@ -1290,7 +1296,7 @@
                       </div>
                       <div
                         :if={track.download_status == "downloading"}
-                        class="absolute bottom-1.5 right-1.5 p-1 bg-black/60 rounded-full"
+                        class="absolute bottom-1.5 right-1.5 z-20 p-1 bg-black/60 rounded-full"
                         title="Downloading"
                       >
                         <svg
@@ -1315,7 +1321,7 @@
                       </div>
                       <div
                         :if={track.download_status == "completed"}
-                        class="absolute bottom-1.5 right-1.5 p-1 bg-black/60 rounded-full"
+                        class="absolute bottom-1.5 right-1.5 z-20 p-1 bg-black/60 rounded-full"
                         title="Downloaded"
                       >
                         <svg
@@ -1332,7 +1338,7 @@
                       </div>
                       <div
                         :if={track.download_status == "failed"}
-                        class="absolute bottom-1.5 right-1.5"
+                        class="absolute bottom-1.5 right-1.5 z-20"
                       >
                         <button
                           phx-click="download_track"
@@ -1442,21 +1448,20 @@
                     navigate={~p"/tracks/#{track.id}"}
                     class="flex items-center gap-3 flex-1 min-w-0 hover:text-purple-400 transition-colors"
                   >
-                    <div class="w-9 h-9 min-w-[2.25rem] bg-gray-700 rounded overflow-hidden shrink-0">
-                      <img
-                        :if={valid_album_art?(track.album_art_url)}
-                        src={track.album_art_url}
-                        class="w-9 h-9 object-cover"
-                        alt=""
-                      />
-                      <div
-                        :if={!valid_album_art?(track.album_art_url)}
-                        class="w-full h-full flex items-center justify-center"
-                      >
+                    <div class="w-9 h-9 min-w-[2.25rem] bg-gray-700 rounded overflow-hidden shrink-0 relative">
+                      <div class="w-full h-full flex items-center justify-center absolute inset-0">
                         <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                         </svg>
                       </div>
+                      <img
+                        :if={valid_album_art?(track.album_art_url)}
+                        src={track.album_art_url}
+                        class="w-9 h-9 object-cover relative z-10"
+                        alt=""
+                        loading="lazy"
+                        onerror="this.style.display='none'"
+                      />
                     </div>
                     <div class="min-w-0">
                       <p class="text-sm font-medium text-white truncate leading-tight">
@@ -1641,21 +1646,20 @@
                     aria-label={"Select #{track.title}"}
                   />
                   <.link navigate={~p"/tracks/#{track.id}"} class="shrink-0">
-                    <div class="w-14 h-14 min-w-[3.5rem] bg-gray-700 rounded-md overflow-hidden">
-                      <img
-                        :if={valid_album_art?(track.album_art_url)}
-                        src={track.album_art_url}
-                        class="w-14 h-14 object-cover"
-                        alt={track.title}
-                      />
-                      <div
-                        :if={!valid_album_art?(track.album_art_url)}
-                        class="w-full h-full flex items-center justify-center"
-                      >
+                    <div class="w-14 h-14 min-w-[3.5rem] bg-gray-700 rounded-md overflow-hidden relative">
+                      <div class="w-full h-full flex items-center justify-center absolute inset-0">
                         <svg class="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                         </svg>
                       </div>
+                      <img
+                        :if={valid_album_art?(track.album_art_url)}
+                        src={track.album_art_url}
+                        class="w-14 h-14 object-cover relative z-10"
+                        alt={track.title}
+                        loading="lazy"
+                        onerror="this.style.display='none'"
+                      />
                     </div>
                   </.link>
                   <div class="flex-1 min-w-0">
