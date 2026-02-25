@@ -7,7 +7,7 @@ defmodule SoundForgeWeb.AdminLive do
 
   alias SoundForge.Admin
 
-  @admin_tabs ~w(overview users jobs system analytics audit)a
+  @admin_tabs ~w(overview users jobs system analytics audit llm)a
   @valid_roles ~w(user pro enterprise admin super_admin)a
 
   @impl true
@@ -34,6 +34,7 @@ defmodule SoundForgeWeb.AdminLive do
       |> assign(:registrations_by_day, [])
       |> assign(:tracks_by_day, [])
       |> assign(:pipeline, %{})
+      |> assign(:llm_stats, %{total: 0, enabled: 0, healthy: 0})
 
     {:ok, socket}
   end
@@ -42,7 +43,7 @@ defmodule SoundForgeWeb.AdminLive do
   def handle_params(params, _uri, socket) do
     tab =
       case params["tab"] do
-        tab when tab in ~w(overview users jobs system analytics audit) ->
+        tab when tab in ~w(overview users jobs system analytics audit llm) ->
           String.to_existing_atom(tab)
 
         _ ->
@@ -189,6 +190,20 @@ defmodule SoundForgeWeb.AdminLive do
     {:noreply, assign(socket, :jobs, jobs)}
   end
 
+  # -- LLM Events --
+
+  def handle_event("run_health_checks", _params, socket) do
+    user_id = socket.assigns.current_scope.user.id
+    count = Admin.enqueue_health_checks(user_id)
+
+    socket =
+      socket
+      |> assign(:llm_stats, Admin.llm_stats())
+      |> put_flash(:info, "Enqueued health checks for #{count} provider(s).")
+
+    {:noreply, socket}
+  end
+
   # -- Audit Events --
 
   def handle_event("filter_audit_action", %{"action" => action}, socket) do
@@ -243,6 +258,10 @@ defmodule SoundForgeWeb.AdminLive do
 
   defp load_tab_data(%{assigns: %{tab: :audit}} = socket) do
     load_audit_logs(socket)
+  end
+
+  defp load_tab_data(%{assigns: %{tab: :llm}} = socket) do
+    assign(socket, :llm_stats, Admin.llm_stats())
   end
 
   defp load_tab_data(socket), do: socket
@@ -672,6 +691,32 @@ defmodule SoundForgeWeb.AdminLive do
           No audit logs found
         </div>
       </div>
+
+      <%!-- LLM Tab --%>
+      <div :if={@tab == :llm} class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <.stat_card label="Total Providers" value={@llm_stats.total} />
+          <.stat_card label="Enabled Providers" value={@llm_stats.enabled} />
+          <.stat_card label="Healthy Providers" value={@llm_stats.healthy} />
+        </div>
+
+        <div class="card bg-base-100 shadow-md">
+          <div class="card-body">
+            <h2 class="card-title text-lg">Provider Health</h2>
+            <p class="text-sm text-base-content/60">
+              Enqueue background health checks for all your enabled LLM providers.
+            </p>
+            <div class="card-actions justify-end mt-4">
+              <button
+                class="btn btn-primary btn-sm"
+                phx-click="run_health_checks"
+              >
+                Run Health Checks
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     """
   end
@@ -735,6 +780,7 @@ defmodule SoundForgeWeb.AdminLive do
   defp tab_label(:system), do: "System"
   defp tab_label(:analytics), do: "Analytics"
   defp tab_label(:audit), do: "Audit Log"
+  defp tab_label(:llm), do: "LLM"
 
   defp role_badge_class(:super_admin), do: "select-error"
   defp role_badge_class(:admin), do: "select-primary"
