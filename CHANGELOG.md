@@ -11,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.4.0] - 2026-02-25
+
+### Added
+- `/prototype` route: dev-only sandbox with four tabs (Components, DevTools, UAT, LLM Sandbox), gated to admin/super_admin/platform_admin role in dev environment
+- **Components tab**: full daisyUI v5 component reference — buttons, badges, alerts, cards, stats, tables, form elements, modals, loading states
+- **DevTools tab**: live Oban queue monitor (pending/executing/failed/scheduled counts), LLM provider health status, recent jobs table with retry button, log entry display
+- **UAT tab**: scenario runner with 5 named scenarios (Import Spotify Track, Run Stem Separation, Call AI Agent, Admin Role Change, Platform Library View), fixture loader (5 test tracks), clear test data action
+- **LLM Sandbox tab**: direct `Orchestrator.run/2` textarea with raw result display, provider badge, and token usage
+- `SoundForge.UAT` module: `seed_test_track/1`, `seed_test_user/1`, `clear_test_data/0`, `list_scenarios/0`, `run_scenario/2` — runtime env guard (raises in prod)
+- `platform_admin` role: 6th tier in role hierarchy, access to `/platform/library` combined library
+- `CombinedLibraryLive` at `/platform/library`: paginated table of all tracks across all users with search (title/artist/email), read-only track detail modal
+- `DevToolsPanelComponent`: floating bottom-right overlay injected into app layout in dev environment, shows current path, assigns count, quick links to /prototype, /admin, /platform/library, Phoenix LiveDashboard
+- `SoundForge.Accounts` context: `list_users/0`, `get_user!/1`, `update_user_role/2`, session management
+- `SoundForge.Tracks` context: `list_all_tracks/0`, `list_all_tracks_paginated/1` with search and pagination
+- Router: `/platform` scope with `:require_platform_admin` pipeline, `/prototype` scope, `require_platform_admin_role/2` plug
+- Migration `20260225000001_add_platform_admin_role` (audit trail)
+- `docs/` folder: Jekyll just-the-docs site with architecture, guides, features, decisions, API reference, deployment docs (32 .md files)
+- `docs/_config.yml`: dark theme, just-the-docs, GitHub aux link
+
+### Changed
+- Dev server now binds to `0.0.0.0:4000` (was `127.0.0.1`) for LAN/Docker access
+- `AdminLive @valid_roles` now includes `:platform_admin`
+- `layouts.ex` `role_badge/1` clause for `platform_admin` → `badge-secondary`
+- README.md: complete rewrite with HTML collapsible `<details>/<summary>` sections, badge shields, v4.4.0
+
+---
+
 ## [4.3.0] - 2026-02-25
 
 ### Added
