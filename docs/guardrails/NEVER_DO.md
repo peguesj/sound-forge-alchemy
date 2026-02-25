@@ -1,3 +1,8 @@
+---
+title: Never Do
+nav_order: 2
+parent: Guardrails
+---
 # NEVER DO -- Sound Forge Alchemy
 
 These prohibitions are absolute. Violating any of these will cause data loss, race conditions, blocked processes, or security vulnerabilities in the Sound Forge Alchemy audio processing pipeline.

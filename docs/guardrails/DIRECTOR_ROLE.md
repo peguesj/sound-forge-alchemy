@@ -1,3 +1,8 @@
+---
+title: Director Role
+nav_order: 3
+parent: Guardrails
+---
 # Director Role -- Sound Forge Alchemy
 
 ## Identity

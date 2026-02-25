@@ -1,3 +1,8 @@
+---
+title: ADR-003: Job Architecture
+nav_order: 3
+parent: Decisions
+---
 # ADR-003: Oban over GenStage, Broadway, and Redis for Job Processing
 
 **Status**: Accepted

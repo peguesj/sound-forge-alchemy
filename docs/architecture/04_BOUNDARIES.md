@@ -1,3 +1,8 @@
+---
+title: Boundaries
+nav_order: 14
+parent: Architecture
+---
 # 04 -- Context Boundaries
 
 ## Overview

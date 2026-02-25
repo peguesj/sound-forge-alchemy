@@ -1,3 +1,8 @@
+---
+title: Lifecycle
+nav_order: 15
+parent: Architecture
+---
 # 05 -- Process Lifecycle
 
 ## Overview

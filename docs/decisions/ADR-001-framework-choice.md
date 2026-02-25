@@ -1,3 +1,8 @@
+---
+title: ADR-001: Framework Choice
+nav_order: 1
+parent: Decisions
+---
 # ADR-001: Phoenix + Standard Ecto over Ash Framework
 
 **Status**: Accepted

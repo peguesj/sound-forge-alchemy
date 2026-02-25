@@ -1,3 +1,8 @@
+---
+title: System Overview
+nav_order: 10
+parent: Architecture
+---
 # System Overview
 
 ## Vision

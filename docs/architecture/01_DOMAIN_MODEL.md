@@ -1,3 +1,8 @@
+---
+title: Domain Model
+nav_order: 11
+parent: Architecture
+---
 # Domain Model
 
 ## Entity Overview

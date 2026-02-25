@@ -2,18 +2,7 @@ title: Sound Forge Alchemy
 description: AI-powered audio pipeline with multi-LLM agents, stem separation, and DJ/DAW tools
 url: https://peguesj.github.io
 baseurl: /sound-forge-alchemy
-nav_order_page_title: true
-search_enabled: false
-heading_anchors: true
 footer_content: "© 2026 Sound Forge Alchemy — Concept & design by Jeremiah Pegues. Built with Phoenix/Elixir + Claude Code."
-
-nav_sort: case_insensitive
-
-aux_links:
-  "GitHub":
-    - "https://github.com/peguesj/sound-forge-alchemy"
-
-aux_links_new_tab: true
 
 markdown: kramdown
 highlighter: rouge
@@ -34,20 +23,3 @@ defaults:
       type: "pages"
     values:
       layout: "page"
-
-callouts_level: quiet
-callouts:
-  highlight:
-    color: yellow
-  important:
-    title: Important
-    color: blue
-  new:
-    title: New
-    color: green
-  note:
-    title: Note
-    color: purple
-  warning:
-    title: Warning
-    color: red

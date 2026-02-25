@@ -1,3 +1,8 @@
+---
+title: Functional Core
+nav_order: 13
+parent: Architecture
+---
 # Functional Core
 
 ## Overview

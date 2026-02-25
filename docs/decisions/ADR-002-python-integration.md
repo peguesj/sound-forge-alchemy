@@ -1,3 +1,8 @@
+---
+title: ADR-002: Python Integration
+nav_order: 2
+parent: Decisions
+---
 # ADR-002: Erlang Ports over NIFs and Microservices for Python ML Integration
 
 **Status**: Accepted

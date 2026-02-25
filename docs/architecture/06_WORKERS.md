@@ -1,3 +1,8 @@
+---
+title: Workers
+nav_order: 16
+parent: Architecture
+---
 # 06 -- Oban Worker Architecture
 
 ## Overview

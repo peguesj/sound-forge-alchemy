@@ -1,3 +1,8 @@
+---
+title: Integration Patterns
+nav_order: 17
+parent: Architecture
+---
 # 07 -- Integration Patterns
 
 ## Overview

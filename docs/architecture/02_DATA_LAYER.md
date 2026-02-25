@@ -1,3 +1,8 @@
+---
+title: Data Layer
+nav_order: 12
+parent: Architecture
+---
 # Data Layer
 
 ## Overview

@@ -1,3 +1,7 @@
+---
+title: Handoff Notes
+nav_order: 99
+---
 # Sound Forge Alchemy - Agent Handoff Document
 
 ## Project Overview

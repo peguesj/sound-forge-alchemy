@@ -1,3 +1,8 @@
+---
+title: Always Do
+nav_order: 1
+parent: Guardrails
+---
 # ALWAYS DO -- Sound Forge Alchemy
 
 These are mandatory practices for all code contributed to Sound Forge Alchemy. Every one of these has been chosen because the alternative caused bugs, data loss, or architectural drift in the Node.js/TypeScript predecessor or during early Elixir development.

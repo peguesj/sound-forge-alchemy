@@ -1,3 +1,8 @@
+---
+title: Code Review Checklist
+nav_order: 5
+parent: Guardrails
+---
 # Code Review Checklist -- Sound Forge Alchemy
 
 Use this checklist for every code review. Items are grouped by category and ordered by severity within each category. A single failure in the **Critical** section blocks merge.
