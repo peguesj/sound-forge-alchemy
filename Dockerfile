@@ -1,11 +1,5 @@
 # Stage 1: Build Elixir release
-ARG ELIXIR_VERSION=1.18.3
-ARG OTP_VERSION=27.2.4
-ARG DEBIAN_VERSION=bookworm-20250224-slim
-ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
-ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
-
-FROM ${BUILDER_IMAGE} AS builder
+FROM hexpm/elixir:1.18.3-erlang-27.2.4-debian-bookworm-20250224-slim AS builder
 
 RUN apt-get update -y && apt-get install -y build-essential git curl \
     && apt-get clean && rm -f /var/lib/apt/lists/*_*
@@ -20,35 +14,28 @@ RUN mix local.hex --force && mix local.rebar --force
 
 ENV MIX_ENV="prod"
 
-# Install mix dependencies
+# Copy everything needed for compilation
 COPY mix.exs mix.lock ./
-RUN mix deps.get --only $MIX_ENV
-RUN mkdir config
-COPY config/config.exs config/${MIX_ENV}.exs config/
-RUN mix deps.compile
-
-# Copy source and compile (needed before assets.deploy for colocated hooks)
-COPY assets/package.json assets/package-lock.json ./assets/
-RUN cd assets && npm ci
+COPY config config
+COPY lib lib
 COPY priv priv
 COPY assets assets
-COPY lib lib
-RUN mix compile
-
-# Build assets (after compile so phoenix-colocated resolves from build path)
-RUN mix assets.setup
-RUN mix assets.deploy
-
-# Build release
-COPY config/runtime.exs config/
 COPY rel rel
-RUN mix release
+
+# Fetch deps, install npm, compile, build assets, and release in one layer
+RUN mix deps.get --only $MIX_ENV \
+    && cd assets && npm ci && cd .. \
+    && mix deps.compile \
+    && mix compile \
+    && mix assets.setup \
+    && mix assets.deploy \
+    && mix release
 
 # Stage 2: Runtime image
-FROM ${RUNNER_IMAGE}
+FROM debian:bookworm-20250224-slim
 
 RUN apt-get update -y && apt-get install -y \
-    libstdc++6 openssl libncurses6 locales ca-certificates \
+    libstdc++6 openssl libncurses6 locales ca-certificates curl \
     python3 python3-pip python3-venv ffmpeg \
     && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
@@ -68,7 +55,9 @@ RUN chown nobody /app
 ENV MIX_ENV="prod"
 
 # Copy release from builder
-COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/sound_forge ./
+COPY --from=builder --chown=nobody:root /app/_build/prod/rel/sound_forge ./
+# Ensure release scripts are executable
+RUN chmod +x /app/bin/server /app/bin/migrate /app/bin/sound_forge
 # Copy Python scripts
 COPY --chown=nobody:root priv/python priv/python
 

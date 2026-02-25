@@ -452,8 +452,8 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
           stem_id = params["stem_id"]
 
           if stem_id do
-            track = Music.get_track!(socket.assigns.track.id) |> SoundForge.Repo.preload(:stems)
-            assign(socket, :stems, track.stems)
+            track = Music.get_track!(socket.assigns.track.id) |> SoundForge.Repo.preload([:stems, :analysis_results])
+            assign(socket, :track, track) |> assign(:stems, track.stems)
           else
             socket
           end
