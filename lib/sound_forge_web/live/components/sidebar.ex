@@ -15,7 +15,7 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
 
   def sidebar(assigns) do
     ~H"""
-    <aside :if={@nav_tab not in [:dj, :daw]} class="w-56 shrink-0 bg-gray-900 border-r border-gray-800 overflow-y-auto hidden md:block sidebar-scroll">
+    <aside :if={@nav_tab not in [:dj, :daw, :pads]} class="w-56 shrink-0 bg-gray-900 border-r border-gray-800 overflow-y-auto hidden md:block sidebar-scroll">
       <nav class="py-4 space-y-6" aria-label="Library navigation">
         <!-- Library section -->
         <div class="px-4">
@@ -131,6 +131,18 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 12h.01" />
                 </svg>
                 <span class="truncate">DJ</span>
+              </button>
+            </li>
+            <li>
+              <button
+                phx-click="nav_tab"
+                phx-value-tab="pads"
+                class={sidebar_item_class(@nav_tab == :pads)}
+              >
+                <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                </svg>
+                <span class="truncate">Pads</span>
               </button>
             </li>
           </ul>

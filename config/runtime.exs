@@ -47,6 +47,37 @@ config :sound_forge, :spotify,
 config :sound_forge, :lalalai_api_key, System.get_env("LALALAI_API_KEY")
 config :sound_forge, :system_lalalai_key, System.get_env("SYSTEM_LALALAI_ACTIVATION_KEY")
 
+# Configure Cloak Vault for at-rest encryption (API keys, tokens, etc.)
+# Key resolution: LLM_ENCRYPTION_KEY env var (Base64-encoded 32 bytes),
+# otherwise derive 32 bytes from SECRET_KEY_BASE via SHA-256.
+vault_key =
+  case System.get_env("LLM_ENCRYPTION_KEY") do
+    key when is_binary(key) and byte_size(key) > 0 ->
+      Base.decode64!(key)
+
+    _ ->
+      # Fall back to SECRET_KEY_BASE (env var or hardcoded dev/test value)
+      secret =
+        System.get_env("SECRET_KEY_BASE") ||
+          case config_env() do
+            :dev -> "QqSvLpq9KwsEZOGkhwja/3h8iuY5st7SPoZHQAeYyHAPO9Zm/xoofeEa32T9MBKB"
+            :test -> "LHyTDWwDtX849e0NHhwpWFZi9n1ApqAzO6/Adf7ILFp+373yCm9LJuGYARSTxjbT"
+            :prod -> raise "SECRET_KEY_BASE or LLM_ENCRYPTION_KEY must be set in production"
+          end
+
+      :crypto.hash(:sha256, secret)
+  end
+
+config :sound_forge, SoundForge.Vault,
+  ciphers: [
+    default: {
+      Cloak.Ciphers.AES.GCM,
+      tag: "AES.GCM.V1",
+      key: vault_key,
+      iv_length: 12
+    }
+  ]
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

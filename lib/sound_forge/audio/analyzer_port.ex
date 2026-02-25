@@ -23,6 +23,7 @@ defmodule SoundForge.Audio.AnalyzerPort do
   - loop_points: Detected loop regions with start/end timestamps and confidence
   - arrangement: High-level arrangement map combining structure and energy flow
   - energy_curve: Per-beat energy envelope for waveform visualization
+  - auto_cues: Automatic cue point detection from arrangement analysis
   - all: Extract all available features
 
   ## Port Protocol
@@ -37,7 +38,7 @@ defmodule SoundForge.Audio.AnalyzerPort do
   require Logger
 
   @default_timeout 120_000
-  @valid_features ~w(tempo key energy spectral mfcc chroma structure loop_points arrangement energy_curve all)
+  @valid_features ~w(tempo key energy spectral mfcc chroma structure loop_points arrangement energy_curve auto_cues all)
 
   # Client API
 

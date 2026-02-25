@@ -9,6 +9,8 @@ defmodule SoundForge.Admin do
   alias SoundForge.Accounts.User
   alias SoundForge.Music.Track
   alias SoundForge.Admin.AuditLog
+  alias SoundForge.LLM.{Provider, Providers}
+  alias SoundForge.Jobs.ProviderHealthWorker
 
   @valid_roles ~w(user pro enterprise admin super_admin)a
 
@@ -288,6 +290,47 @@ defmodule SoundForge.Admin do
     Repo.all(query)
     |> Enum.group_by(&elem(&1, 0), fn {_q, state, count} -> {state, count} end)
     |> Map.new(fn {queue, stats} -> {queue, Map.new(stats)} end)
+  end
+
+  # ============================================================
+  # LLM Provider Stats & Health
+  # ============================================================
+
+  @doc """
+  Returns aggregate counts for LLM providers across all users.
+
+  Returns a map with `:total`, `:enabled`, and `:healthy` counts.
+  """
+  def llm_stats do
+    total = Repo.aggregate(Provider, :count)
+
+    enabled =
+      from(p in Provider, where: p.enabled == true)
+      |> Repo.aggregate(:count)
+
+    healthy =
+      from(p in Provider, where: p.enabled == true and p.health_status == :healthy)
+      |> Repo.aggregate(:count)
+
+    %{total: total, enabled: enabled, healthy: healthy}
+  end
+
+  @doc """
+  Enqueues a `ProviderHealthWorker` job for each enabled provider belonging
+  to `user_id`.
+
+  Returns the count of jobs enqueued.
+  """
+  def enqueue_health_checks(user_id) do
+    providers = Providers.get_enabled_providers(user_id)
+
+    Enum.each(providers, fn provider ->
+      %{"provider_id" => provider.id}
+      |> ProviderHealthWorker.new()
+      |> Oban.insert()
+    end)
+
+    length(providers)
   end
 
   # ============================================================

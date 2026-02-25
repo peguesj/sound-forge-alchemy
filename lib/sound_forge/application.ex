@@ -17,6 +17,7 @@ defmodule SoundForge.Application do
 
     children = [
       SoundForgeWeb.Telemetry,
+      SoundForge.Vault,
       SoundForge.Repo,
       {DNSCluster, query: Application.get_env(:sound_forge, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: SoundForge.PubSub},
@@ -26,12 +27,16 @@ defmodule SoundForge.Application do
       SoundForge.Audio.PortSupervisor,
       # ETS-backed notification store
       SoundForge.Notifications,
+      # ETS-backed audio prefetch cache for DJ/DAW modes
+      SoundForge.Audio.Prefetch,
       # Start Oban for background job processing
       {Oban, Application.fetch_env!(:sound_forge, Oban)},
       # Oban telemetry handler for job lifecycle tracking
       SoundForge.Telemetry.ObanHandler,
       # MIDI device discovery and hotplug monitoring
       SoundForge.MIDI.DeviceManager,
+      # LLM model capability registry with health checks
+      SoundForge.LLM.ModelRegistry,
       # Start to serve requests, typically the last entry
       SoundForgeWeb.Endpoint
     ]

@@ -90,6 +90,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
 
     job = Music.get_processing_job!(job_id)
     Music.update_processing_job(job, %{status: :processing, progress: 0})
+    PipelineBroadcaster.broadcast_stage_started(track_id, job_id, :processing)
     broadcast_progress(job_id, :processing, 0)
     broadcast_track_progress(track_id, :processing, :processing, 0)
 

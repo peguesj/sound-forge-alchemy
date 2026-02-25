@@ -58,6 +58,10 @@ const AudioPlayer = {
     // Handle DOM events and forward to LiveView
     this.handleDOMEvents()
 
+    // Initialize transport bridge for TransportBar coordination
+    this._setupTransportListener()
+    this._updateTransportBridge(0)
+
     // Keyboard shortcuts (only when not typing in an input)
     this._keyHandler = (e) => {
       const tag = e.target.tagName
@@ -214,6 +218,7 @@ const AudioPlayer = {
     console.log("[AudioPlayer] Duration:", maxDuration)
     this._setLoadingText("Rendering waveform...")
     this.pushEvent("player_ready", { duration: maxDuration })
+    this._updateTransportBridge(0)
 
     // Initialize WaveSurfer waveform using the first stem (vocals preferred)
     this.initWaveform(stemData)
@@ -388,12 +393,14 @@ const AudioPlayer = {
           this.pauseOffset = 0
           this.pushEvent("time_update", { time: 0 })
           if (this.wavesurfer) this.wavesurfer.seekTo(0)
+          this._updateTransportBridge(0)
         } else {
           this.pushEvent("time_update", { time: currentTime })
           // Sync waveform cursor
           if (this.wavesurfer && this.duration > 0) {
             this.wavesurfer.seekTo(currentTime / this.duration)
           }
+          this._updateTransportBridge(currentTime)
         }
       }
     }, 250)
@@ -406,10 +413,61 @@ const AudioPlayer = {
     }
   },
 
+  /**
+   * Update the global transport bridge so TransportBar can read our state.
+   */
+  _updateTransportBridge(currentTime) {
+    window.__audioPlayerTransport = {
+      currentTime: currentTime,
+      duration: this.duration || 0,
+      playing: this.isPlaying,
+    }
+  },
+
+  /**
+   * Set up listener for transport commands from TransportBar.
+   */
+  _setupTransportListener() {
+    this._transportHandler = (e) => {
+      const { command, tab } = e.detail || {}
+      if (tab !== "library") return
+
+      switch (command) {
+        case "play":
+          if (!this.isPlaying) this.togglePlay()
+          break
+        case "pause":
+          if (this.isPlaying) this.togglePlay()
+          break
+        case "stop":
+          if (this.isPlaying) this.pause()
+          this.pauseOffset = 0
+          if (this.wavesurfer) this.wavesurfer.seekTo(0)
+          this._updateTransportBridge(0)
+          break
+        case "seek":
+          if (e.detail.time !== undefined) {
+            this.seek(e.detail.time)
+          }
+          break
+        case "volume":
+          if (e.detail.level !== undefined) {
+            this.setMasterVolume(e.detail.level / 100)
+          }
+          break
+      }
+    }
+    window.addEventListener("sfa:transport", this._transportHandler)
+  },
+
   destroyed() {
     if (this._keyHandler) {
       document.removeEventListener("keydown", this._keyHandler)
     }
+    if (this._transportHandler) {
+      window.removeEventListener("sfa:transport", this._transportHandler)
+    }
+    delete window.__audioPlayerTransport
     this._cleanup()
   }
 }

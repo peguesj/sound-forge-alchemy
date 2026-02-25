@@ -11,6 +11,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   alias SoundForge.Music
   alias SoundForge.DAW
   alias SoundForge.Audio.AnalysisHelpers
+  alias SoundForge.Audio.Prefetch
 
   @operation_colors %{
     crop: "#3b82f6",
@@ -27,6 +28,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   def mount(socket) do
     {:ok,
      socket
+     |> assign(:operation_colors, @operation_colors)
      |> assign(:track, nil)
      |> assign(:stems, [])
      |> assign(:stem_operations, %{})
@@ -86,16 +88,26 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
           {stem.id, ops}
         end)
 
-      structure_segments =
-        case track.analysis_results do
-          [result | _] -> AnalysisHelpers.structure_segments(result)
-          _ -> []
-        end
+      # Use prefetch cache for structure/bar data when available
+      {structure_segments, bar_times} =
+        case Prefetch.get_cached(track_id, :daw) do
+          %{structure_segments: segs, bar_times: bars} ->
+            {segs, bars}
 
-      bar_times =
-        case track.analysis_results do
-          [result | _] -> AnalysisHelpers.bar_times(result)
-          _ -> []
+          nil ->
+            segs =
+              case track.analysis_results do
+                [result | _] -> AnalysisHelpers.structure_segments(result)
+                _ -> []
+              end
+
+            bars =
+              case track.analysis_results do
+                [result | _] -> AnalysisHelpers.bar_times(result)
+                _ -> []
+              end
+
+            {segs, bars}
         end
 
       socket
@@ -540,8 +552,40 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
             </div>
           </div>
 
+          <%!-- Time Grid Ruler --%>
+          <div :if={@stems != []} class="px-6 pt-4 pb-0">
+            <div
+              id="daw-time-grid"
+              class="relative h-7 bg-gray-900/70 rounded-t border-b border-gray-700/50 overflow-hidden"
+              style="font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;"
+            >
+              <%!-- Time markers rendered via JS or statically --%>
+              <div class="absolute inset-0 flex items-end">
+                <%= for i <- time_grid_markers(get_track_duration(assigns)) do %>
+                  <div
+                    class="absolute bottom-0 flex flex-col items-center"
+                    style={"left: #{i.percent}%"}
+                  >
+                    <span class="text-[9px] text-gray-500 mb-0.5 -translate-x-1/2">
+                      {i.label}
+                    </span>
+                    <div class={"w-px bg-gray-700 " <> if(i.major, do: "h-3", else: "h-1.5")}></div>
+                  </div>
+                <% end %>
+              </div>
+              <%!-- Playback position indicator --%>
+              <div
+                id="daw-time-cursor"
+                class="absolute top-0 bottom-0 w-0.5 bg-green-500 z-10 transition-all pointer-events-none"
+                style="left: 0%;"
+              >
+                <div class="w-2 h-2 bg-green-500 rounded-full -translate-x-[3px] -translate-y-0.5"></div>
+              </div>
+            </div>
+          </div>
+
           <%!-- Stem Tracks --%>
-          <div class="p-6 space-y-4">
+          <div class="p-6 pt-0 space-y-4">
             <div :if={@stems == []} class="text-center py-20 text-gray-500">
               <p class="text-lg">No stems available for this track.</p>
               <p class="text-sm mt-2">Process the track first to separate stems.</p>
@@ -635,22 +679,20 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
               phx-value-track-id={track.id}
               class="group text-left bg-gray-800 rounded-lg border border-gray-700 hover:border-purple-500 hover:bg-gray-750 transition-all p-3"
             >
-              <div class="aspect-square bg-gray-900 rounded-md overflow-hidden mb-2">
-                <img
-                  :if={track.album_art_url && track.album_art_url != ""}
-                  src={track.album_art_url}
-                  class="w-full h-full object-cover"
-                  alt={track.title}
-                  loading="lazy"
-                />
-                <div
-                  :if={is_nil(track.album_art_url) || track.album_art_url == ""}
-                  class="w-full h-full flex items-center justify-center text-gray-600"
-                >
+              <div class="aspect-square bg-gray-900 rounded-md overflow-hidden mb-2 relative">
+                <div class="w-full h-full flex items-center justify-center text-gray-600 absolute inset-0">
                   <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                   </svg>
                 </div>
+                <img
+                  :if={track.album_art_url && track.album_art_url != ""}
+                  src={track.album_art_url}
+                  class="w-full h-full object-cover relative z-10"
+                  alt={track.title}
+                  loading="lazy"
+                  onerror="this.style.display='none'"
+                />
               </div>
               <p class="text-sm text-white font-medium truncate group-hover:text-purple-300 transition-colors">
                 {track.title}
@@ -842,6 +884,81 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
     |> Enum.map(&String.capitalize/1)
     |> Enum.join(" ")
   end
+
+  defp get_track_duration(assigns) do
+    track = assigns[:track]
+    analysis = assigns[:structure_segments]
+
+    cond do
+      # Try to get duration from analysis results
+      track && track.analysis_results && track.analysis_results != [] ->
+        result = List.first(track.analysis_results)
+
+        cond do
+          is_map(result.results) && is_number(result.results["duration"]) ->
+            result.results["duration"]
+
+          true ->
+            estimate_duration_from_segments(analysis)
+        end
+
+      # Estimate from structure segments
+      analysis && analysis != [] ->
+        estimate_duration_from_segments(analysis)
+
+      true ->
+        180.0
+    end
+  end
+
+  defp estimate_duration_from_segments(nil), do: 180.0
+  defp estimate_duration_from_segments([]), do: 180.0
+
+  defp estimate_duration_from_segments(segments) do
+    segments
+    |> Enum.map(fn seg ->
+      end_ms = seg["end_ms"] || seg["end"] || seg[:end_ms] || seg[:end] || 0
+      end_ms / 1000
+    end)
+    |> Enum.max(fn -> 180.0 end)
+  end
+
+  @doc false
+  defp time_grid_markers(duration) when is_number(duration) and duration > 0 do
+    # Choose interval based on duration
+    interval =
+      cond do
+        duration <= 30 -> 1.0
+        duration <= 120 -> 5.0
+        duration <= 300 -> 10.0
+        duration <= 600 -> 30.0
+        true -> 60.0
+      end
+
+    major_interval = interval * 4
+
+    count = trunc(duration / interval)
+
+    Enum.map(0..count, fn i ->
+      time = i * interval
+      percent = Float.round(time / duration * 100, 2)
+      major = rem(trunc(time), trunc(major_interval)) == 0
+
+      label =
+        if major or interval <= 5.0 do
+          mins = div(trunc(time), 60)
+          secs = rem(trunc(time), 60)
+          "#{mins}:#{String.pad_leading(to_string(secs), 2, "0")}"
+        else
+          ""
+        end
+
+      %{percent: percent, label: label, major: major}
+    end)
+    |> Enum.filter(fn m -> m.percent <= 100 end)
+  end
+
+  defp time_grid_markers(_), do: []
 
   defp list_user_tracks(scope) when is_map(scope) and not is_nil(scope) do
     Music.list_tracks(scope, sort_by: :title)

@@ -35,6 +35,7 @@ const DjDeck = {
     this.handleEvent("set_cue_points", (payload) => this._setCuePoints(payload))
     this.handleEvent("seek_and_play", (payload) => this._seekAndPlay(payload))
     this.handleEvent("set_pitch", (payload) => this._setPitch(payload))
+    this.handleEvent("stem_loop_preview", (payload) => this._stemLoopPreview(payload))
   },
 
   /**
@@ -334,12 +335,16 @@ const DjDeck = {
           deckState.pauseOffset = 0
           this.pushEvent("deck_stopped", { deck: deck })
           if (deckState.wavesurfer) deckState.wavesurfer.seekTo(0)
+          // Update transport bridge
+          window.__djTransport = { currentTime: 0, duration: deckState.duration, playing: false, deck }
         } else {
           this.pushEvent("time_update", { deck: deck, position: currentTime })
           // Sync waveform cursor
           if (deckState.wavesurfer && deckState.duration > 0) {
             deckState.wavesurfer.seekTo(currentTime / deckState.duration)
           }
+          // Update transport bridge for TransportBar
+          window.__djTransport = { currentTime, duration: deckState.duration, playing: true, deck }
         }
       }
     }, 50) // 50ms for tighter loop accuracy (was 250ms)
@@ -652,6 +657,60 @@ const DjDeck = {
     console.log(`[DjDeck] Deck ${deck}: rendered ${deckState.beatMarkers.length} beat grid markers`)
   },
 
+  /**
+   * Play a short audio preview of a stem loop region.
+   * Fetches the stem audio, decodes it, and plays only the specified region.
+   * Auto-stops after one pass through the loop.
+   * @param {Object} payload - { deck, stem_type, url, start_ms, end_ms }
+   */
+  async _stemLoopPreview({ deck, stem_type, url, start_ms, end_ms }) {
+    console.log(`[DjDeck] Stem loop preview: deck=${deck} type=${stem_type} ${start_ms}ms-${end_ms}ms`)
+
+    // Stop any existing preview
+    if (this._previewSource) {
+      try { this._previewSource.stop() } catch (_e) { /* already stopped */ }
+      this._previewSource = null
+    }
+    if (this._previewContext) {
+      this._previewContext.close().catch(() => {})
+      this._previewContext = null
+    }
+
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      this._previewContext = ctx
+
+      const response = await fetch(url)
+      if (!response.ok) {
+        console.error(`[DjDeck] Preview fetch failed: HTTP ${response.status}`)
+        return
+      }
+
+      const arrayBuffer = await response.arrayBuffer()
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+
+      const source = ctx.createBufferSource()
+      source.buffer = audioBuffer
+      source.connect(ctx.destination)
+
+      const startSec = start_ms / 1000
+      const durationSec = (end_ms - start_ms) / 1000
+
+      source.start(0, startSec, durationSec)
+      this._previewSource = source
+
+      source.onended = () => {
+        this._previewSource = null
+        if (this._previewContext) {
+          this._previewContext.close().catch(() => {})
+          this._previewContext = null
+        }
+      }
+    } catch (err) {
+      console.error(`[DjDeck] Stem loop preview failed:`, err)
+    }
+  },
+
   _cleanupDeck(deck) {
     const deckState = this.decks[deck]
     if (!deckState) return
@@ -705,6 +764,16 @@ const DjDeck = {
     console.log("[DjDeck] Hook destroyed, cleaning up")
     this._cleanupDeck(1)
     this._cleanupDeck(2)
+
+    // Clean up any active stem loop preview
+    if (this._previewSource) {
+      try { this._previewSource.stop() } catch (_e) { /* already stopped */ }
+      this._previewSource = null
+    }
+    if (this._previewContext) {
+      this._previewContext.close().catch(() => {})
+      this._previewContext = null
+    }
   }
 }
 

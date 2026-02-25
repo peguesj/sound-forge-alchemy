@@ -101,7 +101,11 @@ config :mime, :types, %{
   "audio/aac" => ["aac"],
   "audio/ogg" => ["ogg"],
   "audio/x-m4a" => ["m4a"],
-  "audio/x-ms-wma" => ["wma"]
+  "audio/x-ms-wma" => ["wma"],
+  "application/x-traktor-settings" => ["tsi"],
+  "application/x-touchosc" => ["touchosc"],
+  "application/x-mpc-program" => ["xpm"],
+  "application/x-mpc-legacy-program" => ["pgm"]
 }
 
 # Configure Elixir's Logger

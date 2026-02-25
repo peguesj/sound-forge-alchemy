@@ -48,8 +48,8 @@ defmodule SoundForge.Accounts.UserSettings do
     field :tracks_per_page, :integer
     field :max_upload_size, :integer
 
-    # Cloud Separation
-    field :lalalai_api_key, :binary
+    # Cloud Separation (encrypted at rest via Cloak AES-GCM-256)
+    field :lalalai_api_key, SoundForge.Encrypted.Binary
     field :lalalai_splitter, :string
     field :lalalai_dereverb, :boolean
     field :lalalai_extraction_level, :string

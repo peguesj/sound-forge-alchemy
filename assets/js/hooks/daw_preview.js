@@ -23,6 +23,38 @@ const DawPreview = {
 
     this.handleEvent("daw_preview", (payload) => this._handlePreview(payload))
 
+    // Initialize transport bridge for DAW
+    window.__dawTransport = { currentTime: 0, duration: 0, playing: false }
+
+    // Listen for transport commands from TransportBar
+    this._transportHandler = (e) => {
+      const { command, tab } = e.detail || {}
+      if (tab !== "daw") return
+
+      switch (command) {
+        case "play":
+          if (!this._previewPlaying) {
+            this.pushEvent("toggle_preview", {})
+          }
+          break
+        case "pause":
+        case "stop":
+          if (this._previewPlaying) {
+            this.pushEvent("toggle_preview", {})
+          }
+          if (command === "stop") {
+            // Reset cursors to beginning
+            const editors = window.__dawEditors || {}
+            Object.values(editors).forEach((editor) => {
+              if (editor && editor.wavesurfer) editor.wavesurfer.seekTo(0)
+            })
+            window.__dawTransport = { currentTime: 0, duration: 0, playing: false }
+          }
+          break
+      }
+    }
+    window.addEventListener("sfa:transport", this._transportHandler)
+
     // Spacebar toggles play/pause (ignore if focus is in an input/textarea)
     this._keyHandler = (e) => {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return
@@ -144,6 +176,11 @@ const DawPreview = {
 
     this._stopPreviewCursor()
 
+    // Update transport bridge
+    if (window.__dawTransport) {
+      window.__dawTransport.playing = false
+    }
+
     // Reset all wavesurfer cursors to the beginning
     const editors = window.__dawEditors || {}
     Object.values(editors).forEach((editor) => {
@@ -175,6 +212,13 @@ const DawPreview = {
         }
       })
 
+      // Update transport bridge for TransportBar
+      window.__dawTransport = {
+        currentTime: elapsed,
+        duration: maxDuration,
+        playing: true,
+      }
+
       if (elapsed >= maxDuration && maxDuration > 0) {
         this._stopPreview()
         this.pushEvent("stop_preview", {})
@@ -193,6 +237,10 @@ const DawPreview = {
     if (this._keyHandler) {
       document.removeEventListener("keydown", this._keyHandler)
     }
+    if (this._transportHandler) {
+      window.removeEventListener("sfa:transport", this._transportHandler)
+    }
+    delete window.__dawTransport
     this._stopPreview()
   },
 }

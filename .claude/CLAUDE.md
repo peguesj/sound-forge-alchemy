@@ -567,6 +567,48 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - [x] **CP-16**: Document Azure resources as authoritative in CLAUDE.md, commit, PR (US-006, US-007)
 - After CP-16: All changes committed and merged
 
+### Feature: Multi-LLM Agentic System (feature/multi-llm-agentic)
+
+#### Wave 1 - Foundation (Schemas, Vault, CRUD)
+- [x] **CP-29**: Ecto migration and schema for LLM provider configurations with encrypted API keys (US-101)
+- [x] **CP-30**: Encryption vault module and Cloak integration for API key storage (US-102)
+- After CP-30: `mix compile --warnings-as-errors` PASS, llm_providers table and vault operational
+
+#### Wave 2 - Client Abstraction + UI
+- [x] **CP-31**: LLM provider context module with CRUD operations (US-103)
+- [x] **CP-32**: Unified LLM client abstraction with provider adapters (Anthropic, OpenAI, Gemini, Ollama, LiteLLM, etc.) (US-104)
+- [x] **CP-35**: Settings UI for LLM provider management with connection testing (US-107)
+- After CP-35: `mix compile --warnings-as-errors` PASS, all providers configurable via Settings
+
+#### Wave 3 - Model Registry + Router
+- [x] **CP-33**: Model registry GenServer with capability catalog and dynamic discovery (US-105)
+- [x] **CP-34**: Intelligent task-to-model router with fallback chains and telemetry events (US-106)
+- After CP-34: `mix compile --warnings-as-errors` PASS, routing and fallback chains operational
+
+#### Wave 4 - Agent Framework
+- [x] **CP-36**: Base Agent behaviour, Tool struct, Agent.Runner, and Agent.Context (US-108)
+- After CP-36: `mix compile --warnings-as-errors` PASS, agent framework complete
+
+#### Wave 5 - Specialist Agents
+- [x] **CP-37**: Track Analysis Agent with genre, mood, and tag suggestion tools (US-109)
+- [x] **CP-38**: Mix Planning Agent (enhanced Chef) with intelligent set construction tools (US-110)
+- [x] **CP-39**: Stem Intelligence and Cue Point agents (US-111)
+- [x] **CP-40**: Mastering and Library agents (US-112)
+- After CP-40: `mix compile --warnings-as-errors` PASS, all 6 specialist agents runnable
+
+#### Wave 6 - Orchestrator + Integration
+- [x] **CP-41**: Workflow Orchestrator agent for multi-agent coordination (US-113)
+- [x] **CP-43**: Refactor Chef module to use LLM Router, integrate agents into existing features (US-115)
+- After CP-43: `mix compile --warnings-as-errors` PASS, Chef decoupled from Anthropic hardcode
+
+#### Wave 7 - Chat UI
+- [x] **CP-42**: Agent chat interface and status dashboard UI with agent_conversations table (US-114)
+- After CP-42: `mix compile --warnings-as-errors` PASS, AI Assistant panel live in dashboard
+
+#### Wave 8 - Tests + Health + Telemetry (IN PROGRESS)
+- [ ] **CP-44**: End-to-end integration tests, health monitoring, and telemetry dashboard (US-116)
+- After CP-44: All 653+ tests pass, provider health monitoring active, telemetry wired to LiveDashboard
+
 ## Agentic Complexity Tree View Requirement
 
 When any request involves agentic complexity (UPM, Formation, agent deployment), ALWAYS display a `tree`-style hierarchical view of the planned structure BEFORE execution. This applies to /upm build, /formation deploy, /deploy:agents-v2, /ralph story mapping, /plane-pm issue creation, and any todo/task list with concurrent work. No exceptions.

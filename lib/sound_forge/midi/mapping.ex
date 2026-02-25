@@ -18,6 +18,8 @@ defmodule SoundForge.MIDI.Mapping do
           action: atom(),
           params: map(),
           source: String.t() | nil,
+          bank_id: binary() | nil,
+          parameter_index: integer() | nil,
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()
         }
@@ -41,7 +43,13 @@ defmodule SoundForge.MIDI.Mapping do
     :dj_crossfader,
     :dj_loop_toggle,
     :dj_loop_size,
-    :dj_pitch
+    :dj_pitch,
+    # Chromatic Pads actions
+    :pad_trigger,
+    :pad_volume,
+    :pad_pitch,
+    :pad_velocity,
+    :pad_master_volume
   ]
 
   schema "midi_mappings" do
@@ -53,12 +61,14 @@ defmodule SoundForge.MIDI.Mapping do
     field :action, Ecto.Enum, values: @actions
     field :params, :map, default: %{}
     field :source, :string
+    field :bank_id, :binary_id
+    field :parameter_index, :integer
 
     timestamps(type: :utc_datetime)
   end
 
   @required_fields ~w(user_id device_name midi_type channel number action)a
-  @optional_fields ~w(params source)a
+  @optional_fields ~w(params source bank_id parameter_index)a
 
   @doc false
   def changeset(mapping, attrs) do

@@ -62,6 +62,16 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
               </svg>
               DJ
             </button>
+            <button
+              phx-click="nav_tab"
+              phx-value-tab="pads"
+              class={tab_class(@nav_tab == :pads)}
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+              </svg>
+              Pads
+            </button>
             <a
               :if={@current_scope && @current_scope.admin?}
               href="/admin"
@@ -189,6 +199,7 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
             module={SoundForgeWeb.Live.Components.NotificationBell}
             id="notification-bell"
             user_id={@current_user_id}
+            active_pipelines={extract_active_pipelines(@pipelines)}
           />
           <%= if @current_scope do %>
             <div class="dropdown dropdown-end">
@@ -197,15 +208,33 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                 role="button"
                 class="btn btn-ghost btn-sm flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
               >
-                <span class="hero-user-circle w-5 h-5"></span>
+                <span class="flex items-center justify-center w-7 h-7 rounded-full bg-purple-600 text-white text-xs font-semibold shrink-0">
+                  {user_initials(@current_scope.user.email)}
+                </span>
                 <span class="hidden sm:inline truncate max-w-[120px]">
-                  {@current_scope.user.email}
+                  {user_display_name(@current_scope.user.email)}
                 </span>
               </label>
               <ul
                 tabindex="0"
-                class="dropdown-content z-[60] menu p-2 shadow-lg bg-gray-800 border border-gray-700 rounded-lg w-48 mt-2"
+                class="dropdown-content z-[60] menu p-2 shadow-lg bg-gray-800 border border-gray-700 rounded-lg w-56 mt-2"
               >
+                <li class="menu-title px-3 pt-2 pb-1">
+                  <div class="flex items-center gap-2">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-white text-xs font-semibold">
+                      {user_initials(@current_scope.user.email)}
+                    </span>
+                    <div class="flex flex-col min-w-0">
+                      <span class="text-xs font-medium text-gray-200 truncate">
+                        {user_display_name(@current_scope.user.email)}
+                      </span>
+                      <span class="text-[10px] text-gray-500 truncate">
+                        {@current_scope.user.email}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+                <div class="divider my-1 h-px"></div>
                 <li><a href="/settings" class="text-gray-300 hover:text-white">Settings</a></li>
                 <li :if={@current_scope && @current_scope.admin?}>
                   <a href="/admin" class="text-amber-400 hover:text-amber-300">Admin Dashboard</a>
@@ -252,8 +281,8 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
             >
               Albums
             </button>
-          <% @nav_tab in [:dj, :daw] -> %>
-            <%!-- No sub-nav for DJ/DAW modes --%>
+          <% @nav_tab in [:dj, :daw, :pads] -> %>
+            <%!-- No sub-nav for DJ/DAW/Pads modes --%>
           <% true -> %>
             <%!-- Fallback: empty --%>
         <% end %>
@@ -288,4 +317,60 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
   defp midi_tooltip_text(_devices) do
     "No MIDI devices connected. Connect a MIDI controller to enable hardware control."
   end
+
+  @active_statuses [:downloading, :processing, :analyzing, :queued]
+
+  # Extracts active pipeline stages from the pipelines map into a flat list of
+  # tuples: {track_id, track_title, stage, status, progress}
+  # Used to pass transient in-flight actions to the NotificationBell component.
+  defp extract_active_pipelines(pipelines) when is_map(pipelines) do
+    pipelines
+    |> Enum.flat_map(fn {track_id, pipeline} ->
+      pipeline
+      |> Enum.filter(fn
+        {stage, %{status: status}} when is_atom(stage) -> status in @active_statuses
+        _ -> false
+      end)
+      |> Enum.map(fn {stage, %{status: status, progress: progress}} ->
+        track_title = pipeline_track_label(track_id)
+        {track_id, track_title, stage, status, progress}
+      end)
+    end)
+  end
+
+  defp extract_active_pipelines(_), do: []
+
+  defp pipeline_track_label(track_id) when is_binary(track_id) do
+    case SoundForge.Music.get_track(track_id) do
+      {:ok, %{title: title}} when is_binary(title) and title != "" -> title
+      _ -> "Track #{String.slice(track_id, 0, 8)}..."
+    end
+  rescue
+    _ -> "Track"
+  end
+
+  defp pipeline_track_label(_), do: "Track"
+
+  defp user_initials(email) when is_binary(email) do
+    email
+    |> String.split("@")
+    |> hd()
+    |> String.split(~r/[._\-+]/)
+    |> Enum.take(2)
+    |> Enum.map_join("", &String.first/1)
+    |> String.upcase()
+    |> String.slice(0, 2)
+  end
+
+  defp user_initials(_), do: "?"
+
+  defp user_display_name(email) when is_binary(email) do
+    email
+    |> String.split("@")
+    |> hd()
+    |> String.split(~r/[._\-+]/)
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
+
+  defp user_display_name(_), do: "User"
 end
