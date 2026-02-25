@@ -189,6 +189,7 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
             module={SoundForgeWeb.Live.Components.NotificationBell}
             id="notification-bell"
             user_id={@current_user_id}
+            active_pipelines={extract_active_pipelines(@pipelines)}
           />
           <%= if @current_scope do %>
             <div class="dropdown dropdown-end">
@@ -288,4 +289,37 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
   defp midi_tooltip_text(_devices) do
     "No MIDI devices connected. Connect a MIDI controller to enable hardware control."
   end
+
+  @active_statuses [:downloading, :processing, :analyzing, :queued]
+
+  # Extracts active pipeline stages from the pipelines map into a flat list of
+  # tuples: {track_id, track_title, stage, status, progress}
+  # Used to pass transient in-flight actions to the NotificationBell component.
+  defp extract_active_pipelines(pipelines) when is_map(pipelines) do
+    pipelines
+    |> Enum.flat_map(fn {track_id, pipeline} ->
+      pipeline
+      |> Enum.filter(fn
+        {stage, %{status: status}} when is_atom(stage) -> status in @active_statuses
+        _ -> false
+      end)
+      |> Enum.map(fn {stage, %{status: status, progress: progress}} ->
+        track_title = pipeline_track_label(track_id)
+        {track_id, track_title, stage, status, progress}
+      end)
+    end)
+  end
+
+  defp extract_active_pipelines(_), do: []
+
+  defp pipeline_track_label(track_id) when is_binary(track_id) do
+    case SoundForge.Music.get_track(track_id) do
+      {:ok, %{title: title}} when is_binary(title) and title != "" -> title
+      _ -> "Track #{String.slice(track_id, 0, 8)}..."
+    end
+  rescue
+    _ -> "Track"
+  end
+
+  defp pipeline_track_label(_), do: "Track"
 end

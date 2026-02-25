@@ -77,6 +77,25 @@ defmodule SoundForge.Jobs.PipelineBroadcaster do
   end
 
   @doc """
+  Broadcasts a stage started event to the track pipeline topic.
+
+  Unlike `broadcast_stage_complete/3` and `broadcast_stage_failed/3`, this
+  does NOT persist a notification to the database. Instead, the active
+  pipeline state (tracked in-memory in DashboardLive's `@pipelines` assign)
+  is shown in the notification bell's "Active Actions" section as a transient
+  progress row. This gives users visibility into in-flight operations without
+  cluttering stored notifications.
+
+  Called from workers at the start of each pipeline stage.
+  """
+  @spec broadcast_stage_started(binary(), binary(), atom()) :: :ok
+  def broadcast_stage_started(track_id, job_id, stage) do
+    broadcast_progress(job_id, stage_to_status(stage), 0)
+    broadcast_track_progress(track_id, stage, stage_to_status(stage), 0)
+    :ok
+  end
+
+  @doc """
   Broadcasts a stage completion event and pushes a user notification.
 
   Sends to both the track pipeline topic (for the pipeline tracker) and
@@ -228,4 +247,9 @@ defmodule SoundForge.Jobs.PipelineBroadcaster do
   rescue
     _ -> nil
   end
+
+  defp stage_to_status(:download), do: :downloading
+  defp stage_to_status(:processing), do: :processing
+  defp stage_to_status(:analysis), do: :analyzing
+  defp stage_to_status(stage), do: stage
 end

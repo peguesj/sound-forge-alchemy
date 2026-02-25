@@ -15,6 +15,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   alias SoundForge.DJ
   alias SoundForge.DJ.{Presets, Timecode}
   alias SoundForge.MIDI.Mappings
+  alias SoundForge.Audio.Prefetch
 
   # -- Lifecycle --
 
@@ -164,8 +165,17 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           stems = if track, do: track.stems || [], else: []
           audio_urls = build_stem_urls(stems, track)
           pitch = session.pitch_adjust || 0.0
+
+          # Try prefetch cache first for analysis data, fall back to DB
           {tempo, beat_times, structure, loop_points, bar_times, arrangement_markers} =
-            extract_analysis_data(track)
+            case track && Prefetch.get_cached(track.id, :dj) do
+              %{} = cached ->
+                {cached.tempo, cached.beat_times, cached.structure,
+                 cached.loop_points, cached.bar_times, cached.arrangement_markers}
+
+              nil ->
+                extract_analysis_data(track)
+            end
 
           deck_state = %{
             track: track,

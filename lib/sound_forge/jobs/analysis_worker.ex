@@ -30,6 +30,7 @@ defmodule SoundForge.Jobs.AnalysisWorker do
 
     job = Music.get_analysis_job!(job_id)
     Music.update_analysis_job(job, %{status: :processing, progress: 0})
+    PipelineBroadcaster.broadcast_stage_started(track_id, job_id, :analysis)
     broadcast_progress(job_id, :processing, 0)
     broadcast_track_progress(track_id, :analysis, :processing, 0)
 

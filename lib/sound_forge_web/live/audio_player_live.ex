@@ -53,6 +53,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
     <div
       id={"audio-player-#{@id}"}
       phx-hook="AudioPlayer"
+      phx-target={@myself}
       data-stems={Jason.encode!(Map.get(assigns, :audio_data, []))}
       class="bg-gray-800 rounded-lg p-6"
     >

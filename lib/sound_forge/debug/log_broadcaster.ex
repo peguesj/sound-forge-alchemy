@@ -22,7 +22,13 @@ defmodule SoundForge.Debug.LogBroadcaster do
 
   @impl true
   def handle_event({level, _gl, {Logger, message, timestamp, metadata}}, state) do
-    msg = IO.iodata_to_binary(message)
+    msg =
+      try do
+        IO.iodata_to_binary(message)
+      rescue
+        ArgumentError -> inspect(message)
+      end
+
     namespace = extract_namespace(msg)
 
     event = %{

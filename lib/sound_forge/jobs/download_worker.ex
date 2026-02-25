@@ -35,6 +35,7 @@ defmodule SoundForge.Jobs.DownloadWorker do
     # Update job status to downloading
     job = Music.get_download_job!(job_id)
     Music.update_download_job(job, %{status: :downloading, progress: 0})
+    PipelineBroadcaster.broadcast_stage_started(track_id, job_id, :download)
     broadcast_progress(job_id, :downloading, 0)
     broadcast_track_progress(track_id, :download, :downloading, 0)
 

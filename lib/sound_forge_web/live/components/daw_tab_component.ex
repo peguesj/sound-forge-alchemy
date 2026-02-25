@@ -11,6 +11,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   alias SoundForge.Music
   alias SoundForge.DAW
   alias SoundForge.Audio.AnalysisHelpers
+  alias SoundForge.Audio.Prefetch
 
   @operation_colors %{
     crop: "#3b82f6",
@@ -27,6 +28,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   def mount(socket) do
     {:ok,
      socket
+     |> assign(:operation_colors, @operation_colors)
      |> assign(:track, nil)
      |> assign(:stems, [])
      |> assign(:stem_operations, %{})
@@ -86,16 +88,26 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
           {stem.id, ops}
         end)
 
-      structure_segments =
-        case track.analysis_results do
-          [result | _] -> AnalysisHelpers.structure_segments(result)
-          _ -> []
-        end
+      # Use prefetch cache for structure/bar data when available
+      {structure_segments, bar_times} =
+        case Prefetch.get_cached(track_id, :daw) do
+          %{structure_segments: segs, bar_times: bars} ->
+            {segs, bars}
 
-      bar_times =
-        case track.analysis_results do
-          [result | _] -> AnalysisHelpers.bar_times(result)
-          _ -> []
+          nil ->
+            segs =
+              case track.analysis_results do
+                [result | _] -> AnalysisHelpers.structure_segments(result)
+                _ -> []
+              end
+
+            bars =
+              case track.analysis_results do
+                [result | _] -> AnalysisHelpers.bar_times(result)
+                _ -> []
+              end
+
+            {segs, bars}
         end
 
       socket
