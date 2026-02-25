@@ -17,15 +17,13 @@ defmodule SoundForge.DJ.Chef do
   import Ecto.Query, warn: false
 
   alias SoundForge.DJ.Chef.Recipe
+  alias SoundForge.LLM.Router
   alias SoundForge.Music.AnalysisResult
   alias SoundForge.Music.Track
   alias SoundForge.Repo
 
   require Logger
 
-  @anthropic_url "https://api.anthropic.com/v1/messages"
-  @anthropic_version "2023-06-01"
-  @model "claude-sonnet-4-20250514"
   @max_tokens 1024
   @default_bpm_tolerance 5.0
   @max_tracks 10
@@ -61,8 +59,7 @@ defmodule SoundForge.DJ.Chef do
   """
   @spec cook(String.t(), integer()) :: {:ok, Recipe.t()} | {:error, atom() | String.t()}
   def cook(prompt, user_id) when is_binary(prompt) and is_integer(user_id) do
-    with {:ok, api_key} <- fetch_api_key(),
-         {:ok, parsed_intent} <- parse_intent(prompt, api_key),
+    with {:ok, parsed_intent} <- parse_intent(prompt, user_id),
          {:ok, analysed_tracks} <- fetch_analysed_tracks(user_id),
          ranked <- rank_tracks(analysed_tracks, parsed_intent),
          selected <- Enum.take(ranked, @max_tracks) do
@@ -72,24 +69,11 @@ defmodule SoundForge.DJ.Chef do
   end
 
   # ---------------------------------------------------------------------------
-  # Step 1 -- Fetch API key
+  # Step 1 -- Parse natural language intent via LLM Router
   # ---------------------------------------------------------------------------
 
-  @spec fetch_api_key() :: {:ok, String.t()} | {:error, :missing_api_key}
-  defp fetch_api_key do
-    case System.get_env("ANTHROPIC_API_KEY") do
-      nil -> {:error, :missing_api_key}
-      "" -> {:error, :missing_api_key}
-      key -> {:ok, key}
-    end
-  end
-
-  # ---------------------------------------------------------------------------
-  # Step 2 -- Parse natural language intent via Anthropic API
-  # ---------------------------------------------------------------------------
-
-  @spec parse_intent(String.t(), String.t()) :: {:ok, map()} | {:error, String.t()}
-  defp parse_intent(prompt, api_key) do
+  @spec parse_intent(String.t(), integer()) :: {:ok, map()} | {:error, String.t()}
+  defp parse_intent(prompt, user_id) do
     system_prompt = """
     You are a DJ set planner AI. Given a natural language request, extract a \
     structured JSON object with the following fields:
@@ -109,55 +93,50 @@ defmodule SoundForge.DJ.Chef do
     }
 
     Rules:
-    - Tempo values are BPM (beats per minute). Common ranges: house 118-130, \
-    techno 125-145, hip-hop 80-100, drum-and-bass 160-180.
+    - Tempo values are BPM. Common ranges: house 118-130, techno 125-145, hip-hop 80-100, dnb 160-180.
     - Energy is 0.0 (very chill) to 1.0 (peak energy).
     - If the user doesn't specify a field, use null or empty array.
     - Respond with ONLY the JSON object, no markdown fences, no explanation.
     """
 
-    body = %{
-      model: @model,
-      max_tokens: @max_tokens,
-      system: system_prompt,
-      messages: [%{role: "user", content: prompt}]
-    }
-
-    headers = [
-      {"x-api-key", api_key},
-      {"anthropic-version", @anthropic_version},
-      {"content-type", "application/json"}
+    messages = [
+      %{"role" => "system", "content" => system_prompt},
+      %{"role" => "user", "content" => prompt}
     ]
 
-    case Req.post(@anthropic_url, headers: headers, json: body) do
-      {:ok, %Req.Response{status: 200, body: resp_body}} ->
-        extract_parsed_intent(resp_body)
+    task_spec = %{task_type: :analysis, max_tokens: @max_tokens}
 
-      {:ok, %Req.Response{status: status, body: resp_body}} ->
-        Logger.error("Anthropic API returned #{status}: #{inspect(resp_body)}")
-        {:error, "anthropic_api_error_#{status}"}
+    case Router.route(user_id, messages, task_spec) do
+      {:ok, response} ->
+        extract_parsed_intent(response.content)
 
       {:error, reason} ->
-        Logger.error("Anthropic API request failed: #{inspect(reason)}")
-        {:error, "anthropic_api_request_failed"}
+        Logger.error("[Chef] LLM routing failed: #{inspect(reason)}")
+        {:error, "llm_routing_failed"}
     end
   end
 
-  @spec extract_parsed_intent(map()) :: {:ok, map()} | {:error, String.t()}
-  defp extract_parsed_intent(%{"content" => [%{"text" => text} | _]}) do
-    case Jason.decode(text) do
+  @spec extract_parsed_intent(String.t() | nil) :: {:ok, map()} | {:error, String.t()}
+  defp extract_parsed_intent(nil) do
+    {:error, "empty_llm_response"}
+  end
+
+  defp extract_parsed_intent(text) when is_binary(text) do
+    # Strip markdown fences if the LLM returned them despite instructions
+    clean =
+      text
+      |> String.replace(~r/^```(?:json)?\s*/m, "")
+      |> String.replace(~r/\s*```\s*$/m, "")
+      |> String.trim()
+
+    case Jason.decode(clean) do
       {:ok, parsed} ->
         {:ok, normalize_intent(parsed)}
 
       {:error, _} ->
-        Logger.warning("Failed to parse Anthropic response as JSON: #{text}")
+        Logger.warning("[Chef] Failed to parse LLM response as JSON: #{text}")
         {:error, "invalid_llm_response"}
     end
-  end
-
-  defp extract_parsed_intent(body) do
-    Logger.warning("Unexpected Anthropic response structure: #{inspect(body)}")
-    {:error, "unexpected_llm_response"}
   end
 
   @spec normalize_intent(map()) :: map()

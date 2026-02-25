@@ -17,6 +17,7 @@ defmodule SoundForge.Application do
 
     children = [
       SoundForgeWeb.Telemetry,
+      SoundForge.Vault,
       SoundForge.Repo,
       {DNSCluster, query: Application.get_env(:sound_forge, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: SoundForge.PubSub},
@@ -34,6 +35,8 @@ defmodule SoundForge.Application do
       SoundForge.Telemetry.ObanHandler,
       # MIDI device discovery and hotplug monitoring
       SoundForge.MIDI.DeviceManager,
+      # LLM model capability registry with health checks
+      SoundForge.LLM.ModelRegistry,
       # Start to serve requests, typically the last entry
       SoundForgeWeb.Endpoint
     ]

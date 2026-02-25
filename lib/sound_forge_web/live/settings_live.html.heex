@@ -78,7 +78,7 @@
     <!-- Sidebar -->
     <nav class="w-full md:w-48 md:shrink-0" aria-label="Settings sections">
       <ul class="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0">
-        <li :for={section <- ~w(spotify downloads youtube demucs cloud_separation analysis storage general advanced)a}>
+        <li :for={section <- ~w(spotify downloads youtube demucs cloud_separation analysis storage general advanced ai_providers)a}>
           <button
             phx-click="switch_section"
             phx-value-section={section}
@@ -878,8 +878,245 @@
           </div>
         </div>
 
+<!-- AI Providers Section -->
+        <div :if={@section == :ai_providers}>
+          <div
+            id="section-content-ai-providers"
+            style="display:none;"
+            class="space-y-6"
+            phx-mounted={
+              JS.show(
+                transition:
+                  {"transition-all duration-200 ease-out", "opacity-0 translate-y-1",
+                   "opacity-100 translate-y-0"}
+              )
+            }
+          >
+            <div>
+              <h2
+                id="section-heading-ai-providers"
+                tabindex="-1"
+                class="text-lg font-semibold text-white"
+              >
+                AI Providers
+              </h2>
+              <p class="text-sm text-gray-500 mt-1">
+                Configure LLM providers for Chef AI, agentic features, and intelligent routing.
+                LiteLLM is recommended as a unified proxy for all cloud and local models.
+              </p>
+            </div>
+
+            <!-- Provider List -->
+            <div class="space-y-2">
+              <div
+                :if={@llm_providers == []}
+                class="bg-gray-900/50 rounded-lg p-5 border border-gray-800/50 text-center text-sm text-gray-500"
+              >
+                No providers configured. Add one below.
+              </div>
+
+              <div
+                :for={provider <- @llm_providers}
+                class="bg-gray-900 rounded-lg p-4 border border-gray-800 flex flex-col sm:flex-row sm:items-center gap-3"
+              >
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                  <!-- Health dot -->
+                  <div
+                    class={"w-2 h-2 rounded-full shrink-0 #{provider_health_class(provider.health_status)}"}
+                    title={to_string(provider.health_status)}
+                  >
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-white truncate">{provider.name}</p>
+                    <p class="text-xs text-gray-500">
+                      {provider_type_label(provider.provider_type)}
+                      {if provider.default_model && provider.default_model != "",
+                        do: " · #{provider.default_model}",
+                        else: ""}
+                      · priority #{provider.priority}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                  <!-- Enabled toggle -->
+                  <button
+                    type="button"
+                    phx-click="toggle_provider"
+                    phx-value-id={provider.id}
+                    class={[
+                      "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+                      if(provider.enabled, do: "bg-purple-600", else: "bg-gray-700")
+                    ]}
+                    title={if(provider.enabled, do: "Disable", else: "Enable")}
+                  >
+                    <span class={[
+                      "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
+                      if(provider.enabled, do: "translate-x-4", else: "translate-x-0.5")
+                    ]} />
+                  </button>
+
+                  <!-- Test -->
+                  <button
+                    type="button"
+                    phx-click="test_provider"
+                    phx-value-id={provider.id}
+                    disabled={@provider_testing_id == provider.id}
+                    class="px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:opacity-50"
+                    title="Test connection"
+                  >
+                    {if @provider_testing_id == provider.id, do: "Testing...", else: "Test"}
+                  </button>
+
+                  <!-- Edit -->
+                  <button
+                    type="button"
+                    phx-click="edit_provider"
+                    phx-value-id={provider.id}
+                    class="px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded hover:bg-gray-600"
+                  >
+                    Edit
+                  </button>
+
+                  <!-- Delete -->
+                  <button
+                    type="button"
+                    phx-click="delete_provider"
+                    phx-value-id={provider.id}
+                    data-confirm="Remove this provider?"
+                    class="px-2 py-1 text-xs bg-red-900/40 text-red-400 rounded hover:bg-red-900/60"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Add Provider Button -->
+            <button
+              :if={is_nil(@provider_form_mode)}
+              type="button"
+              phx-click="show_add_provider"
+              class="w-full flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-gray-700 text-gray-400 rounded-lg hover:border-purple-500 hover:text-purple-400 transition-colors text-sm"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Provider
+            </button>
+
+            <!-- Provider Form -->
+            <div :if={@provider_form_mode} class="bg-gray-900/50 rounded-lg p-5 border border-gray-800/50">
+              <h3 class="text-sm font-semibold text-white mb-4">
+                {if @provider_form_mode == :new, do: "Add Provider", else: "Edit Provider"}
+              </h3>
+
+              <.form
+                for={@provider_form}
+                phx-change="validate_provider"
+                phx-submit="save_provider"
+                class="space-y-4"
+              >
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <.input
+                    field={@provider_form[:provider_type]}
+                    type="select"
+                    label="Provider Type"
+                    options={[
+                      {"Anthropic", "anthropic"},
+                      {"OpenAI", "openai"},
+                      {"Azure OpenAI", "azure_openai"},
+                      {"Google Gemini", "google_gemini"},
+                      {"Ollama", "ollama"},
+                      {"LM Studio", "lm_studio"},
+                      {"LiteLLM (recommended)", "litellm"},
+                      {"Custom OpenAI", "custom_openai"}
+                    ]}
+                    prompt="Select provider..."
+                  />
+
+                  <.input
+                    field={@provider_form[:name]}
+                    type="text"
+                    label="Display Name"
+                    placeholder="e.g. My Anthropic Key"
+                  />
+                </div>
+
+                <!-- API key for cloud providers -->
+                <div>
+                  <.input
+                    field={@provider_form[:api_key]}
+                    type="password"
+                    label="API Key"
+                    placeholder="sk-..."
+                    autocomplete="off"
+                  />
+                  <p class="mt-1 text-xs text-gray-500">Required for Anthropic, OpenAI, Azure, and Gemini.</p>
+                </div>
+
+                <!-- Base URL for local/proxy providers -->
+                <div>
+                  <.input
+                    field={@provider_form[:base_url]}
+                    type="text"
+                    label="Base URL"
+                    placeholder="http://localhost:11434"
+                  />
+                  <p class="mt-1 text-xs text-gray-500">Required for Ollama, LM Studio, LiteLLM, and custom endpoints.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <.input
+                    field={@provider_form[:default_model]}
+                    type="text"
+                    label="Default Model"
+                    placeholder="e.g. claude-opus-4-6"
+                  />
+
+                  <.input
+                    field={@provider_form[:priority]}
+                    type="number"
+                    label="Priority (lower = higher)"
+                    placeholder="0"
+                    min="0"
+                  />
+                </div>
+
+                <.input
+                  field={@provider_form[:enabled]}
+                  type="checkbox"
+                  label="Enabled"
+                />
+
+                <div class="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                  >
+                    {if @provider_form_mode == :new, do: "Add Provider", else: "Save Changes"}
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="cancel_provider_form"
+                    class="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </.form>
+            </div>
+
+            <!-- Provider Tips -->
+            <div class="bg-gray-900 rounded-lg p-4 border border-gray-800 text-xs text-gray-500 space-y-1">
+              <p class="font-medium text-gray-400">Routing Priority</p>
+              <p>LiteLLM is used first when configured, providing access to all cloud models through one endpoint. Local providers (Ollama, LM Studio) are tried for offline/privacy tasks. Lowest priority number = highest preference.</p>
+            </div>
+          </div>
+        </div>
+
 <!-- Save Button -->
-        <div :if={@section != :spotify} class="pt-4 border-t border-gray-800">
+        <div :if={@section not in [:spotify, :ai_providers]} class="pt-4 border-t border-gray-800">
           <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <button
               type="submit"

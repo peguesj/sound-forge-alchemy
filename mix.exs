@@ -77,6 +77,9 @@ defmodule SoundForge.MixProject do
       # MIDI
       {:midiex, "~> 0.6"},
 
+      # Encryption
+      {:cloak_ecto, "~> 1.3"},
+
       # Static analysis
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}

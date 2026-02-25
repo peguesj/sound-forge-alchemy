@@ -3032,4 +3032,12 @@
   analysis={@analysis}
 />
 
+<%!-- AI Assistant Chat (floating, bottom-right) --%>
+<.live_component
+  module={SoundForgeWeb.Live.Components.AgentChatComponent}
+  id="agent-chat"
+  current_user_id={@current_user_id}
+  track_id={if @track, do: @track.id, else: nil}
+/>
+
 </div>

@@ -3303,4 +3303,5 @@ defmodule SoundForgeWeb.DashboardLive do
 
     socket
   end
+
 end

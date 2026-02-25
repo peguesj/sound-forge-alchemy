@@ -9,8 +9,9 @@ defmodule SoundForgeWeb.SettingsLive do
   alias SoundForge.Accounts.UserSettings
   alias SoundForge.Audio.SpotDL
   alias SoundForge.Audio.LalalAI
+  alias SoundForge.LLM.{Providers, Provider, Client}
 
-  @sections ~w(spotify downloads youtube demucs cloud_separation analysis storage control_surfaces general advanced)a
+  @sections ~w(spotify downloads youtube demucs cloud_separation analysis storage control_surfaces general advanced ai_providers)a
 
   @impl true
   def mount(_params, session, socket) do
@@ -38,6 +39,7 @@ defmodule SoundForgeWeb.SettingsLive do
       |> assign(:lalalai_quota, nil)
       |> assign(:form_dirty, false)
       |> assign_form(changeset)
+      |> assign_provider_assigns(user_id)
 
     if connected?(socket), do: :timer.send_interval(60_000, self(), :refresh_quota)
 
@@ -193,6 +195,121 @@ defmodule SoundForgeWeb.SettingsLive do
     end
   end
 
+  def handle_event("show_add_provider", _params, socket) do
+    changeset = Providers.change_provider(%Provider{})
+
+    {:noreply,
+     socket
+     |> assign(:provider_form_mode, :new)
+     |> assign(:provider_editing_id, nil)
+     |> assign(:provider_form, to_form(changeset, as: "provider"))}
+  end
+
+  def handle_event("cancel_provider_form", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:provider_form_mode, nil)
+     |> assign(:provider_editing_id, nil)
+     |> assign(:provider_form, nil)}
+  end
+
+  def handle_event("validate_provider", %{"provider" => params}, socket) do
+    provider =
+      case socket.assigns.provider_editing_id do
+        nil -> %Provider{}
+        id -> Providers.get_provider!(id)
+      end
+
+    changeset =
+      provider
+      |> Providers.change_provider(params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :provider_form, to_form(changeset, as: "provider"))}
+  end
+
+  def handle_event("save_provider", %{"provider" => params}, socket) do
+    user_id = socket.assigns.current_user_id
+
+    result =
+      case socket.assigns.provider_editing_id do
+        nil ->
+          Providers.create_provider(user_id, params)
+
+        id ->
+          provider = Providers.get_provider!(id)
+          Providers.update_provider(provider, params)
+      end
+
+    case result do
+      {:ok, _provider} ->
+        {:noreply,
+         socket
+         |> assign_provider_assigns(user_id)
+         |> assign(:provider_form_mode, nil)
+         |> assign(:provider_editing_id, nil)
+         |> assign(:provider_form, nil)
+         |> put_flash(:info, "Provider saved.")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :provider_form, to_form(changeset, as: "provider"))}
+    end
+  end
+
+  def handle_event("edit_provider", %{"id" => id}, socket) do
+    provider = Providers.get_provider!(id)
+    changeset = Providers.change_provider(provider)
+
+    {:noreply,
+     socket
+     |> assign(:provider_form_mode, :edit)
+     |> assign(:provider_editing_id, id)
+     |> assign(:provider_form, to_form(changeset, as: "provider"))}
+  end
+
+  def handle_event("delete_provider", %{"id" => id}, socket) do
+    user_id = socket.assigns.current_user_id
+    provider = Providers.get_provider!(id)
+
+    case Providers.delete_provider(provider) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign_provider_assigns(user_id)
+         |> put_flash(:info, "Provider removed.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to remove provider.")}
+    end
+  end
+
+  def handle_event("toggle_provider", %{"id" => id}, socket) do
+    user_id = socket.assigns.current_user_id
+    provider = Providers.get_provider!(id)
+
+    case Providers.toggle_provider(provider) do
+      {:ok, _} ->
+        {:noreply, assign_provider_assigns(socket, user_id)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to toggle provider.")}
+    end
+  end
+
+  def handle_event("test_provider", %{"id" => id}, socket) do
+    provider = Providers.get_provider!(id)
+    lv_pid = self()
+
+    socket = assign(socket, :provider_testing_id, id)
+
+    Task.Supervisor.async_nolink(SoundForge.TaskSupervisor, fn ->
+      result = Client.test_connection(provider)
+      send(lv_pid, {:provider_test_result, id, result})
+    end)
+
+    {:noreply, socket}
+  end
+
   @impl true
   def handle_info(:refresh_quota, socket) do
     lv_pid = self()
@@ -251,6 +368,28 @@ defmodule SoundForgeWeb.SettingsLive do
          |> assign(:lalalai_testing, false)
          |> assign(:lalalai_test_result, {:error, "Connection failed: #{inspect(reason)}"})}
     end
+  end
+
+  def handle_info({:provider_test_result, id, result}, socket) do
+    user_id = socket.assigns.current_user_id
+    provider = Providers.get_provider!(id)
+    health = if match?(:ok, result), do: :healthy, else: :unreachable
+
+    provider
+    |> Provider.changeset(%{health_status: health, last_health_check_at: DateTime.utc_now()})
+    |> SoundForge.Repo.update()
+
+    {flash_type, flash_msg} =
+      case result do
+        :ok -> {:info, "Provider connection successful."}
+        {:error, reason} -> {:error, "Connection failed: #{inspect(reason)}"}
+      end
+
+    {:noreply,
+     socket
+     |> assign_provider_assigns(user_id)
+     |> assign(:provider_testing_id, nil)
+     |> put_flash(flash_type, flash_msg)}
   end
 
   # Handle Task.Supervisor async task results
@@ -337,4 +476,30 @@ defmodule SoundForgeWeb.SettingsLive do
   defp section_label(:storage), do: "Storage"
   defp section_label(:general), do: "General"
   defp section_label(:advanced), do: "Advanced"
+  defp section_label(:ai_providers), do: "AI Providers"
+
+  defp assign_provider_assigns(socket, user_id) do
+    providers = if user_id, do: Providers.list_providers(user_id), else: []
+
+    socket
+    |> assign(:llm_providers, providers)
+    |> assign(:provider_form_mode, nil)
+    |> assign(:provider_editing_id, nil)
+    |> assign(:provider_form, nil)
+    |> assign(:provider_testing_id, nil)
+  end
+
+  defp provider_type_label(:anthropic), do: "Anthropic"
+  defp provider_type_label(:openai), do: "OpenAI"
+  defp provider_type_label(:azure_openai), do: "Azure OpenAI"
+  defp provider_type_label(:google_gemini), do: "Google Gemini"
+  defp provider_type_label(:ollama), do: "Ollama"
+  defp provider_type_label(:lm_studio), do: "LM Studio"
+  defp provider_type_label(:litellm), do: "LiteLLM"
+  defp provider_type_label(:custom_openai), do: "Custom OpenAI"
+
+  defp provider_health_class(:healthy), do: "bg-green-500"
+  defp provider_health_class(:degraded), do: "bg-yellow-500"
+  defp provider_health_class(:unreachable), do: "bg-red-500"
+  defp provider_health_class(_), do: "bg-gray-500"
 end
