@@ -89,7 +89,7 @@ defmodule SoundForge.Audio.LalalAI do
     enhanced = Keyword.get(opts, :enhanced_processing, false)
     splitter = Keyword.get(opts, :splitter, "phoenix")
 
-    case api_key() do
+    case resolve_key() do
       nil ->
         {:error, :api_key_missing}
 
@@ -113,7 +113,7 @@ defmodule SoundForge.Audio.LalalAI do
   """
   @spec get_status(task_id()) :: {:ok, status_response()} | {:error, term()}
   def get_status(task_id) do
-    case api_key() do
+    case resolve_key() do
       nil ->
         {:error, :api_key_missing}
 
@@ -179,7 +179,7 @@ defmodule SoundForge.Audio.LalalAI do
   end
 
   @doc """
-  Returns the configured lalal.ai API key, or nil if not configured.
+  Returns the configured lalal.ai API key from LALALAI_API_KEY env var, or nil.
   """
   @spec api_key() :: String.t() | nil
   def api_key do
@@ -187,11 +187,20 @@ defmodule SoundForge.Audio.LalalAI do
   end
 
   @doc """
-  Returns true if lalal.ai is configured (API key is present).
+  Returns the best available API key from any source:
+  LALALAI_API_KEY env var, then SYSTEM_LALALAI_ACTIVATION_KEY.
+  """
+  @spec resolve_key() :: String.t() | nil
+  def resolve_key do
+    api_key() || system_key()
+  end
+
+  @doc """
+  Returns true if lalal.ai is configured via any key source.
   """
   @spec configured?() :: boolean()
   def configured? do
-    not is_nil(api_key())
+    not is_nil(resolve_key())
   end
 
   @doc """
@@ -611,9 +620,9 @@ defmodule SoundForge.Audio.LalalAI do
   end
 
   # Wraps an API call that requires an API key, returning {:error, :api_key_missing}
-  # if no key is configured.
+  # if no key is configured via any source (env, system, or user).
   defp with_api_key(fun) do
-    case api_key() do
+    case resolve_key() do
       nil -> {:error, :api_key_missing}
       key -> fun.(key)
     end
@@ -728,7 +737,10 @@ defmodule SoundForge.Audio.LalalAI do
           {"stem_filter", stem_filter},
           {"enhanced_processing", if(enhanced, do: "1", else: "0")},
           {"splitter", splitter},
-          {:file, file_path, content_type: detect_content_type(file_path)}
+          {"file",
+           {File.stream!(file_path),
+            filename: Path.basename(file_path),
+            content_type: detect_content_type(file_path)}}
         ]
       )
 

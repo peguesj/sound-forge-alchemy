@@ -62,6 +62,16 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
               </svg>
               DJ
             </button>
+            <button
+              phx-click="nav_tab"
+              phx-value-tab="pads"
+              class={tab_class(@nav_tab == :pads)}
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+              </svg>
+              Pads
+            </button>
             <a
               :if={@current_scope && @current_scope.admin?}
               href="/admin"
@@ -198,15 +208,33 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                 role="button"
                 class="btn btn-ghost btn-sm flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
               >
-                <span class="hero-user-circle w-5 h-5"></span>
+                <span class="flex items-center justify-center w-7 h-7 rounded-full bg-purple-600 text-white text-xs font-semibold shrink-0">
+                  {user_initials(@current_scope.user.email)}
+                </span>
                 <span class="hidden sm:inline truncate max-w-[120px]">
-                  {@current_scope.user.email}
+                  {user_display_name(@current_scope.user.email)}
                 </span>
               </label>
               <ul
                 tabindex="0"
-                class="dropdown-content z-[60] menu p-2 shadow-lg bg-gray-800 border border-gray-700 rounded-lg w-48 mt-2"
+                class="dropdown-content z-[60] menu p-2 shadow-lg bg-gray-800 border border-gray-700 rounded-lg w-56 mt-2"
               >
+                <li class="menu-title px-3 pt-2 pb-1">
+                  <div class="flex items-center gap-2">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-white text-xs font-semibold">
+                      {user_initials(@current_scope.user.email)}
+                    </span>
+                    <div class="flex flex-col min-w-0">
+                      <span class="text-xs font-medium text-gray-200 truncate">
+                        {user_display_name(@current_scope.user.email)}
+                      </span>
+                      <span class="text-[10px] text-gray-500 truncate">
+                        {@current_scope.user.email}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+                <div class="divider my-1 h-px"></div>
                 <li><a href="/settings" class="text-gray-300 hover:text-white">Settings</a></li>
                 <li :if={@current_scope && @current_scope.admin?}>
                   <a href="/admin" class="text-amber-400 hover:text-amber-300">Admin Dashboard</a>
@@ -253,8 +281,8 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
             >
               Albums
             </button>
-          <% @nav_tab in [:dj, :daw] -> %>
-            <%!-- No sub-nav for DJ/DAW modes --%>
+          <% @nav_tab in [:dj, :daw, :pads] -> %>
+            <%!-- No sub-nav for DJ/DAW/Pads modes --%>
           <% true -> %>
             <%!-- Fallback: empty --%>
         <% end %>
@@ -322,4 +350,27 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
   end
 
   defp pipeline_track_label(_), do: "Track"
+
+  defp user_initials(email) when is_binary(email) do
+    email
+    |> String.split("@")
+    |> hd()
+    |> String.split(~r/[._\-+]/)
+    |> Enum.take(2)
+    |> Enum.map_join("", &String.first/1)
+    |> String.upcase()
+    |> String.slice(0, 2)
+  end
+
+  defp user_initials(_), do: "?"
+
+  defp user_display_name(email) when is_binary(email) do
+    email
+    |> String.split("@")
+    |> hd()
+    |> String.split(~r/[._\-+]/)
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
+
+  defp user_display_name(_), do: "User"
 end

@@ -1163,6 +1163,70 @@ def analyze_audio(audio_path: str, features: List[str]) -> Dict[str, Any]:
         )
 
     # -----------------------------------------------------------------------
+    # US-003b: Auto Cues (arrangement markers formatted as cue points)
+    # -----------------------------------------------------------------------
+    if extract_all or 'auto_cues' in features:
+        _ensure_structure()
+        assert _beat_times is not None and _segments is not None
+        raw_markers = extract_arrangement_markers(y, sr, _beat_times, _segments)
+
+        # Also include structure segment boundaries as cue candidates
+        cue_color_map = {
+            "key_change": "#9B59B6",   # purple
+            "energy_rise": "#E74C3C",  # red
+            "energy_drop": "#3498DB",  # blue
+            "drop": "#F39C12",         # orange
+            "build_up": "#2ECC71",     # green
+            "intro": "#1ABC9C",        # teal
+            "verse": "#2980B9",        # dark blue
+            "chorus": "#E91E63",       # pink
+            "bridge": "#FF9800",       # amber
+            "outro": "#607D8B",        # grey
+        }
+
+        auto_cues = []
+        # Convert arrangement markers to cue points
+        for marker in raw_markers:
+            cue_type = marker.get("marker_type", "unknown")
+            color = cue_color_map.get(cue_type, "#95A5A6")
+            confidence = marker.get("intensity", 0.5)
+            # Use metadata confidence if available (e.g. key_change)
+            if "metadata" in marker and "confidence" in marker["metadata"]:
+                confidence = marker["metadata"]["confidence"]
+            auto_cues.append({
+                "position_ms": marker["position_ms"],
+                "label": marker.get("description", cue_type),
+                "cue_type": cue_type,
+                "color": color,
+                "confidence": round(float(confidence), 4),
+            })
+
+        # Add structure segment boundaries as cues
+        if _segments:
+            for seg in _segments:
+                seg_type = seg.get("label", "unknown").lower()
+                color = cue_color_map.get(seg_type, "#95A5A6")
+                auto_cues.append({
+                    "position_ms": int(seg.get("start_ms", seg.get("start", 0) * 1000)),
+                    "label": f"{seg.get('label', 'Section')} start",
+                    "cue_type": seg_type,
+                    "color": color,
+                    "confidence": round(float(seg.get("confidence", 0.7)), 4),
+                })
+
+        # Deduplicate: keep highest confidence when cues are within 500ms
+        auto_cues.sort(key=lambda c: c["position_ms"])
+        deduped: List[Dict[str, Any]] = []
+        for cue in auto_cues:
+            if deduped and abs(cue["position_ms"] - deduped[-1]["position_ms"]) < 500:
+                if cue["confidence"] > deduped[-1]["confidence"]:
+                    deduped[-1] = cue
+            else:
+                deduped.append(cue)
+
+        results["auto_cues"] = deduped
+
+    # -----------------------------------------------------------------------
     # US-004: Energy Curve
     # -----------------------------------------------------------------------
     if extract_all or 'energy_curve' in features:
@@ -1215,7 +1279,7 @@ Examples:
     valid_features = {
         'tempo', 'key', 'energy', 'spectral', 'mfcc', 'chroma',
         'structure', 'loop_points', 'arrangement', 'energy_curve',
-        'all'
+        'auto_cues', 'all'
     }
     invalid_features = set(features) - valid_features
     if invalid_features:

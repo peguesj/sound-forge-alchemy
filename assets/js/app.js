@@ -45,6 +45,8 @@ import DawEditor from "./hooks/daw_editor"
 import DawPreview from "./hooks/daw_preview"
 import DjDeck from "./hooks/dj_deck"
 import JogWheel from "./hooks/jog_wheel"
+import ChromaticPads from "./hooks/chromatic_pads"
+import TransportBar from "./hooks/transport_bar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const Hooks = {
@@ -52,7 +54,7 @@ const Hooks = {
   DebugLogScroll, JobTraceGraph,
   AnalysisRadar, AnalysisChroma, AnalysisBeats,
   AnalysisMFCC, AnalysisSpectral, AnalysisStructure, AnalysisEnergyCurve,
-  ResizeObserverHook, SwipeHook, StemMixerHook, PadAssignHook, DawEditor, DawPreview, DjDeck, JogWheel,
+  ResizeObserverHook, SwipeHook, StemMixerHook, PadAssignHook, DawEditor, DawPreview, DjDeck, JogWheel, ChromaticPads, TransportBar,
   ...colocatedHooks
 }
 const liveSocket = new LiveSocket("/live", Socket, {
@@ -65,6 +67,14 @@ const liveSocket = new LiveSocket("/live", Socket, {
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
+
+// Prevent Cmd+P / Ctrl+P from opening the browser print dialog;
+// let the LiveView keydown handler switch to Pads view instead.
+window.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "p") {
+    e.preventDefault()
+  }
+})
 
 // Accessibility: focus section headings on navigation
 window.addEventListener("phx:focus_section_heading", (event) => {

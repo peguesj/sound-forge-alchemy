@@ -62,6 +62,8 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:lalalai_modal_key_input, "")
       |> assign(:lalalai_modal_testing, false)
       |> assign(:lalalai_modal_test_result, nil)
+      |> assign(:lalalai_last_error, nil)
+      |> assign(:lalalai_connection_status, nil)
       |> assign(:lalalai_mode, "stem_separator")
       |> assign(:multistem_selection, MapSet.new())
       |> assign(:noise_level, 0)
@@ -126,6 +128,9 @@ defmodule SoundForgeWeb.DashboardLive do
           else
             socket
           end
+
+        # Subscribe to Chef PubSub topics for recipe progress/completion
+        SoundForgeWeb.Endpoint.subscribe("chef:#{current_user_id}")
 
         # Subscribe to MIDI PubSub topics
         Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:devices")
@@ -213,6 +218,14 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:nav_tab, :daw)
      |> assign(:nav_context, :daw)
      |> assign(:daw_track_id, nil)}
+  end
+
+  def handle_params(%{"tab" => "pads"}, _uri, socket) do
+    {:noreply,
+     socket
+     |> assign(:live_action, :index)
+     |> assign(:nav_tab, :pads)
+     |> assign(:nav_context, :pads)}
   end
 
   def handle_params(_params, _uri, socket) do
@@ -632,6 +645,28 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, assign(socket, :show_lalalai_modal, false)}
   end
 
+  def handle_event("test_lalalai_connection", _params, socket) do
+    user_id = socket.assigns[:current_user_id]
+    key = LalalAI.api_key_for_user(user_id)
+
+    if key do
+      socket = assign(socket, :lalalai_connection_status, :testing)
+      lv_pid = self()
+
+      Task.Supervisor.start_child(SoundForge.TaskSupervisor, fn ->
+        result = LalalAI.test_api_key(key)
+        send(lv_pid, {:lalalai_connection_result, result})
+      end)
+
+      {:noreply, socket}
+    else
+      {:noreply,
+       socket
+       |> assign(:lalalai_connection_status, :error)
+       |> assign(:lalalai_last_error, "No API key configured. Add one in Settings or set SYSTEM_LALALAI_ACTIVATION_KEY.")}
+    end
+  end
+
   def handle_event("expand_lalalai_key_form", _params, socket) do
     {:noreply, assign(socket, :lalalai_modal_expanded, true)}
   end
@@ -1017,6 +1052,14 @@ defmodule SoundForgeWeb.DashboardLive do
      |> push_patch(to: ~p"/?#{[tab: "daw"]}")}
   end
 
+  def handle_event("nav_tab", %{"tab" => "pads"}, socket) do
+    {:noreply,
+     socket
+     |> assign(:nav_tab, :pads)
+     |> assign(:nav_context, :pads)
+     |> push_patch(to: ~p"/?#{[tab: "pads"]}")}
+  end
+
   def handle_event("nav_tab", %{"tab" => _unknown}, socket) do
     {:noreply, socket}
   end
@@ -1024,6 +1067,24 @@ defmodule SoundForgeWeb.DashboardLive do
   # -- Keyboard delegation to DJ component --
 
   @impl true
+  def handle_event("keydown", %{"key" => "p", "metaKey" => true} = _params, socket) do
+    # Cmd+P (macOS) toggles Pads view -- prevent default browser print dialog via JS
+    {:noreply,
+     socket
+     |> assign(:nav_tab, :pads)
+     |> assign(:nav_context, :pads)
+     |> push_patch(to: ~p"/?#{[tab: "pads"]}")}
+  end
+
+  def handle_event("keydown", %{"key" => "p", "ctrlKey" => true} = _params, socket) do
+    # Ctrl+P (Linux/Windows) toggles Pads view
+    {:noreply,
+     socket
+     |> assign(:nav_tab, :pads)
+     |> assign(:nav_context, :pads)
+     |> push_patch(to: ~p"/?#{[tab: "pads"]}")}
+  end
+
   def handle_event("keydown", params, %{assigns: %{nav_tab: :dj}} = socket) do
     send_update(SoundForgeWeb.Live.Components.DjTabComponent,
       id: "dj-tab",
@@ -1741,6 +1802,31 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
+  # Handle lalal.ai connection test result (system/resolved key)
+  @impl true
+  def handle_info({:lalalai_connection_result, result}, socket) do
+    case result do
+      {:ok, :valid} ->
+        {:noreply,
+         socket
+         |> assign(:lalalai_connection_status, :ok)
+         |> assign(:lalalai_last_error, nil)
+         |> put_flash(:info, "lalal.ai connection verified.")}
+
+      {:error, :invalid_api_key} ->
+        {:noreply,
+         socket
+         |> assign(:lalalai_connection_status, :error)
+         |> assign(:lalalai_last_error, "API key is invalid or expired. Update in Settings > Cloud Separation.")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:lalalai_connection_status, :error)
+         |> assign(:lalalai_last_error, "Connection failed: #{inspect(reason)}")}
+    end
+  end
+
   # Handle Task.Supervisor task failures (e.g., if spotdl process crashes)
   @impl true
   def handle_info({ref, _result}, socket) when is_reference(ref) do
@@ -1931,6 +2017,81 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:worker_stats, SoundForge.Debug.Jobs.worker_stats())
      |> assign(:queue_active_jobs, SoundForge.Debug.Jobs.active_jobs())}
+  end
+
+  # -- Auto Cue PubSub forwarding to DjTabComponent and ChromaticPadsComponent --
+
+  @impl true
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "auto_cues_complete", payload: payload},
+        socket
+      ) do
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab",
+        auto_cues_complete: payload
+      )
+    end
+
+    if socket.assigns.nav_tab == :pads do
+      send_update(SoundForgeWeb.Live.Components.ChromaticPadsComponent,
+        id: "pads-tab",
+        auto_cues_complete: payload
+      )
+    end
+
+    {:noreply, socket}
+  end
+
+  # -- Chef PubSub forwarding to DjTabComponent --
+
+  @impl true
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "chef_progress", payload: payload},
+        socket
+      ) do
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab",
+        chef_progress: payload
+      )
+    end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "chef_complete", payload: payload},
+        socket
+      ) do
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab",
+        chef_complete: payload
+      )
+    end
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Chef recipe ready! #{payload[:track_count] || 0} tracks prepared.")}
+  end
+
+  @impl true
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "chef_failed", payload: payload},
+        socket
+      ) do
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab",
+        chef_failed: payload
+      )
+    end
+
+    {:noreply,
+     socket
+     |> put_flash(:error, "Chef recipe failed: #{payload[:reason] || "unknown error"}")}
   end
 
   # -- MIDI handle_info callbacks --

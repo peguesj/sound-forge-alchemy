@@ -217,6 +217,22 @@ defmodule SoundForge.MIDI.ActionExecutor do
       :dj_pitch ->
         handle_dj_pitch(message, params, state)
 
+      # Chromatic Pads actions
+      :pad_trigger ->
+        handle_pad_trigger(message, mapping, state)
+
+      :pad_volume ->
+        handle_pad_cc(message, mapping, :pad_volume, state)
+
+      :pad_pitch ->
+        handle_pad_cc(message, mapping, :pad_pitch, state)
+
+      :pad_velocity ->
+        handle_pad_cc(message, mapping, :pad_velocity, state)
+
+      :pad_master_volume ->
+        handle_pad_cc(message, mapping, :pad_master_volume, state)
+
       _ ->
         state
     end
@@ -317,6 +333,35 @@ defmodule SoundForge.MIDI.ActionExecutor do
 
   def cc_to_float(value) when is_integer(value) and value > 127, do: 1.0
   def cc_to_float(_), do: 0.0
+
+  defp handle_pad_trigger(message, mapping, state) do
+    pad_index = mapping.parameter_index || 0
+    velocity = extract_cc_value(message)
+    bank_id = mapping.bank_id
+
+    Phoenix.PubSub.broadcast(
+      @pubsub,
+      "sampler:midi",
+      {:pad_trigger, %{bank_id: bank_id, pad_index: pad_index, velocity: velocity}}
+    )
+
+    state
+  end
+
+  defp handle_pad_cc(message, mapping, param_type, state) do
+    pad_index = mapping.parameter_index || 0
+    value = extract_cc_value(message)
+    float_value = cc_to_float(value)
+    bank_id = mapping.bank_id
+
+    Phoenix.PubSub.broadcast(
+      @pubsub,
+      "sampler:midi",
+      {:pad_cc, %{bank_id: bank_id, pad_index: pad_index, param: param_type, value: float_value}}
+    )
+
+    state
+  end
 
   defp broadcast_action(action, params) do
     Phoenix.PubSub.broadcast(

@@ -552,8 +552,40 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
             </div>
           </div>
 
+          <%!-- Time Grid Ruler --%>
+          <div :if={@stems != []} class="px-6 pt-4 pb-0">
+            <div
+              id="daw-time-grid"
+              class="relative h-7 bg-gray-900/70 rounded-t border-b border-gray-700/50 overflow-hidden"
+              style="font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;"
+            >
+              <%!-- Time markers rendered via JS or statically --%>
+              <div class="absolute inset-0 flex items-end">
+                <%= for i <- time_grid_markers(get_track_duration(assigns)) do %>
+                  <div
+                    class="absolute bottom-0 flex flex-col items-center"
+                    style={"left: #{i.percent}%"}
+                  >
+                    <span class="text-[9px] text-gray-500 mb-0.5 -translate-x-1/2">
+                      {i.label}
+                    </span>
+                    <div class={"w-px bg-gray-700 " <> if(i.major, do: "h-3", else: "h-1.5")}></div>
+                  </div>
+                <% end %>
+              </div>
+              <%!-- Playback position indicator --%>
+              <div
+                id="daw-time-cursor"
+                class="absolute top-0 bottom-0 w-0.5 bg-green-500 z-10 transition-all pointer-events-none"
+                style="left: 0%;"
+              >
+                <div class="w-2 h-2 bg-green-500 rounded-full -translate-x-[3px] -translate-y-0.5"></div>
+              </div>
+            </div>
+          </div>
+
           <%!-- Stem Tracks --%>
-          <div class="p-6 space-y-4">
+          <div class="p-6 pt-0 space-y-4">
             <div :if={@stems == []} class="text-center py-20 text-gray-500">
               <p class="text-lg">No stems available for this track.</p>
               <p class="text-sm mt-2">Process the track first to separate stems.</p>
@@ -854,6 +886,81 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
     |> Enum.map(&String.capitalize/1)
     |> Enum.join(" ")
   end
+
+  defp get_track_duration(assigns) do
+    track = assigns[:track]
+    analysis = assigns[:structure_segments]
+
+    cond do
+      # Try to get duration from analysis results
+      track && track.analysis_results && track.analysis_results != [] ->
+        result = List.first(track.analysis_results)
+
+        cond do
+          is_map(result.results) && is_number(result.results["duration"]) ->
+            result.results["duration"]
+
+          true ->
+            estimate_duration_from_segments(analysis)
+        end
+
+      # Estimate from structure segments
+      analysis && analysis != [] ->
+        estimate_duration_from_segments(analysis)
+
+      true ->
+        180.0
+    end
+  end
+
+  defp estimate_duration_from_segments(nil), do: 180.0
+  defp estimate_duration_from_segments([]), do: 180.0
+
+  defp estimate_duration_from_segments(segments) do
+    segments
+    |> Enum.map(fn seg ->
+      end_ms = seg["end_ms"] || seg["end"] || seg[:end_ms] || seg[:end] || 0
+      end_ms / 1000
+    end)
+    |> Enum.max(fn -> 180.0 end)
+  end
+
+  @doc false
+  defp time_grid_markers(duration) when is_number(duration) and duration > 0 do
+    # Choose interval based on duration
+    interval =
+      cond do
+        duration <= 30 -> 1.0
+        duration <= 120 -> 5.0
+        duration <= 300 -> 10.0
+        duration <= 600 -> 30.0
+        true -> 60.0
+      end
+
+    major_interval = interval * 4
+
+    count = trunc(duration / interval)
+
+    Enum.map(0..count, fn i ->
+      time = i * interval
+      percent = Float.round(time / duration * 100, 2)
+      major = rem(trunc(time), trunc(major_interval)) == 0
+
+      label =
+        if major or interval <= 5.0 do
+          mins = div(trunc(time), 60)
+          secs = rem(trunc(time), 60)
+          "#{mins}:#{String.pad_leading(to_string(secs), 2, "0")}"
+        else
+          ""
+        end
+
+      %{percent: percent, label: label, major: major}
+    end)
+    |> Enum.filter(fn m -> m.percent <= 100 end)
+  end
+
+  defp time_grid_markers(_), do: []
 
   defp list_user_tracks(scope) when is_map(scope) and not is_nil(scope) do
     Music.list_tracks(scope, sort_by: :title)
