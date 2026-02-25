@@ -133,7 +133,7 @@ defmodule SoundForge.Audio.LalalAI do
 
           {:ok, %{status: status_code, body: body}} ->
             Logger.warning("lalal.ai status check returned #{status_code}: #{inspect(body)}")
-            {:error, {:http_error, status_code}}
+            {:error, {:http_error, status_code, body}}
 
           {:error, reason} ->
             Logger.error("lalal.ai status check failed: #{inspect(reason)}")
@@ -169,7 +169,7 @@ defmodule SoundForge.Audio.LalalAI do
       {:ok, %{status: status_code}} ->
         File.rm(output_path)
         Logger.error("lalal.ai download returned HTTP #{status_code}")
-        {:error, {:http_error, status_code}}
+        {:error, {:http_error, status_code, ""}}
 
       {:error, reason} ->
         File.rm(output_path)
@@ -279,9 +279,9 @@ defmodule SoundForge.Audio.LalalAI do
       {:ok, %{status: 403}} ->
         {:error, :invalid_api_key}
 
-      {:ok, %{status: status_code}} ->
+      {:ok, %{status: status_code, body: body}} ->
         Logger.warning("lalal.ai key test returned HTTP #{status_code}")
-        {:error, {:http_error, status_code}}
+        {:error, {:http_error, status_code, body}}
 
       {:error, reason} ->
         Logger.error("lalal.ai key test failed: #{inspect(reason)}")

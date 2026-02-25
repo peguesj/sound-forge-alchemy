@@ -34,7 +34,7 @@ defmodule SoundForge.Jobs.LalalAIWorker do
   """
   use Oban.Worker,
     queue: :processing,
-    max_attempts: 3,
+    max_attempts: 10,
     priority: 2
 
   alias SoundForge.Audio.LalalAI
@@ -49,15 +49,26 @@ defmodule SoundForge.Jobs.LalalAIWorker do
   # Maximum total polling time: 20 minutes
   @max_poll_attempts 120
 
+  # Transient HTTP status codes that should trigger a snooze+retry
+  @transient_http_codes [502, 503, 504, 408, 429]
+
+  # Base snooze delay in seconds for transient errors (doubles per attempt)
+  @base_snooze_seconds 30
+  # Maximum snooze delay in seconds
+  @max_snooze_seconds 600
+
   @impl Oban.Worker
-  def perform(%Oban.Job{
-        args:
-          %{
-            "track_id" => track_id,
-            "job_id" => job_id,
-            "file_path" => file_path
-          } = args
-      }) do
+  def perform(
+        %Oban.Job{
+          args:
+            %{
+              "track_id" => track_id,
+              "job_id" => job_id,
+              "file_path" => file_path
+            } = args,
+          attempt: attempt
+        } = _oban_job
+      ) do
     Logger.metadata(track_id: track_id, job_id: job_id, worker: "LalalAIWorker")
 
     stem_filter = Map.get(args, "stem_filter", "vocals")
@@ -66,7 +77,7 @@ defmodule SoundForge.Jobs.LalalAIWorker do
     multivocal = Map.get(args, "multivocal", nil)
 
     Logger.info(
-      "Starting lalal.ai separation: filter=#{stem_filter}, preview=#{preview}, splitter=#{splitter}" <>
+      "Starting lalal.ai separation (attempt #{attempt}): filter=#{stem_filter}, preview=#{preview}, splitter=#{splitter}" <>
         if(multivocal, do: ", multivocal=#{multivocal}", else: "")
     )
 
@@ -109,13 +120,116 @@ defmodule SoundForge.Jobs.LalalAIWorker do
       )
     else
       {:error, reason} ->
-        error_msg = inspect(reason)
-        Logger.error("lalal.ai separation failed: #{error_msg}")
-        fresh_job = Music.get_processing_job!(job_id)
-        Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
-        PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
-        {:error, error_msg}
+        handle_perform_error(reason, track_id, job_id, attempt)
     end
+  end
+
+  # Handles errors from the perform/1 with-chain, distinguishing transient
+  # HTTP errors (5xx, 429, 408) that should snooze from permanent failures.
+  defp handle_perform_error({:http_error, status_code, _body}, track_id, job_id, attempt)
+       when status_code in @transient_http_codes do
+    snooze_seconds = compute_snooze(attempt)
+    friendly_msg = friendly_http_error(status_code)
+
+    Logger.warning(
+      "lalal.ai returned HTTP #{status_code} (transient), snoozing #{snooze_seconds}s before retry (attempt #{attempt})"
+    )
+
+    fresh_job = Music.get_processing_job!(job_id)
+
+    Music.update_processing_job(fresh_job, %{
+      error: friendly_msg <> " Retrying in #{snooze_seconds}s..."
+    })
+
+    broadcast_track_progress(track_id, :processing, :retrying, 0)
+    {:snooze, snooze_seconds}
+  end
+
+  defp handle_perform_error({:http_error, status_code}, track_id, job_id, attempt)
+       when status_code in @transient_http_codes do
+    snooze_seconds = compute_snooze(attempt)
+    friendly_msg = friendly_http_error(status_code)
+
+    Logger.warning(
+      "lalal.ai returned HTTP #{status_code} (transient), snoozing #{snooze_seconds}s before retry (attempt #{attempt})"
+    )
+
+    fresh_job = Music.get_processing_job!(job_id)
+
+    Music.update_processing_job(fresh_job, %{
+      error: friendly_msg <> " Retrying in #{snooze_seconds}s..."
+    })
+
+    broadcast_track_progress(track_id, :processing, :retrying, 0)
+    {:snooze, snooze_seconds}
+  end
+
+  defp handle_perform_error(reason, track_id, job_id, _attempt) do
+    error_msg = format_error_message(reason)
+    Logger.error("lalal.ai separation failed: #{error_msg}")
+    fresh_job = Music.get_processing_job!(job_id)
+    Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
+    PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
+    {:error, error_msg}
+  end
+
+  # Computes exponential backoff snooze duration in seconds, capped at @max_snooze_seconds.
+  # attempt 1 -> 30s, attempt 2 -> 60s, attempt 3 -> 120s, ... up to 600s
+  defp compute_snooze(attempt) do
+    delay = @base_snooze_seconds * Integer.pow(2, attempt - 1)
+    min(delay, @max_snooze_seconds)
+  end
+
+  # Translates raw error reasons into user-friendly messages suitable for
+  # display in the pipeline notification system.
+  defp format_error_message({:http_error, status_code, _body}) do
+    friendly_http_error(status_code)
+  end
+
+  defp format_error_message({:http_error, status_code}) do
+    friendly_http_error(status_code)
+  end
+
+  defp format_error_message({:lalalai_error, message}) when is_binary(message) do
+    "lalal.ai processing error: #{message}"
+  end
+
+  defp format_error_message({:api_error, message}) when is_binary(message) do
+    "lalal.ai API error: #{message}"
+  end
+
+  defp format_error_message(:api_key_missing) do
+    "lalal.ai API key is not configured. Please add your API key in Settings."
+  end
+
+  defp format_error_message(:polling_timeout) do
+    "lalal.ai processing timed out. The service may be experiencing high load. Please try again later."
+  end
+
+  defp format_error_message(reason) when is_binary(reason) do
+    reason
+  end
+
+  defp format_error_message(reason) do
+    "Unexpected error during lalal.ai separation: #{inspect(reason)}"
+  end
+
+  defp friendly_http_error(502), do: "lalal.ai service is temporarily unavailable (Bad Gateway)."
+  defp friendly_http_error(503), do: "lalal.ai service is temporarily unavailable (Service Unavailable)."
+  defp friendly_http_error(504), do: "lalal.ai service timed out (Gateway Timeout)."
+  defp friendly_http_error(408), do: "Request to lalal.ai timed out."
+  defp friendly_http_error(429), do: "lalal.ai rate limit exceeded. Too many requests."
+
+  defp friendly_http_error(status_code) when status_code >= 400 and status_code < 500 do
+    "lalal.ai request failed (HTTP #{status_code})."
+  end
+
+  defp friendly_http_error(status_code) when status_code >= 500 do
+    "lalal.ai server error (HTTP #{status_code})."
+  end
+
+  defp friendly_http_error(status_code) do
+    "lalal.ai returned unexpected HTTP #{status_code}."
   end
 
   # -- Private --
