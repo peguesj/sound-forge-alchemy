@@ -1,0 +1,23 @@
+---
+layout: default
+---
+<div class="wiki-page">
+  {% if page.parent %}
+  <nav class="wiki-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{{ '/' | relative_url }}">Home</a>
+    <span aria-hidden="true"> › </span>
+    {% assign parent_page = site.pages | where: "title", page.parent | first %}
+    {% if parent_page %}
+      <a href="{{ parent_page.url | relative_url }}">{{ page.parent }}</a>
+    {% else %}
+      <span>{{ page.parent }}</span>
+    {% endif %}
+    <span aria-hidden="true"> › </span>
+    <span aria-current="page">{{ page.title }}</span>
+  </nav>
+  {% endif %}
+
+  <article class="wiki-article">
+    {{ content }}
+  </article>
+</div>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if page.title %}{{ page.title }} — {% endif %}{{ site.title }}</title>
+  <link rel="stylesheet" href="{{ '/assets/css/wiki.css' | relative_url }}">
+  {% seo %}
+</head>
+<body>
+  <div class="wiki-shell">
+
+    <header class="wiki-topbar">
+      <a class="wiki-topbar-brand" href="{{ '/' | relative_url }}">
+        <span class="wiki-logo">⚗</span>
+        <span class="wiki-brand-text">{{ site.title }}</span>
+      </a>
+      <nav class="wiki-topbar-links">
+        <a href="{{ '/guides/quickstart' | relative_url }}">Quickstart</a>
+        <a href="{{ '/architecture/' | relative_url }}">Architecture</a>
+        <a href="{{ '/api/' | relative_url }}">API</a>
+        <a href="https://github.com/peguesj/sound-forge-alchemy" target="_blank" rel="noopener">GitHub ↗</a>
+      </nav>
+    </header>
+
+    <div class="wiki-body">
+      <nav class="wiki-sidebar" id="wiki-sidebar" aria-label="Site navigation">
+        <div class="wiki-sidebar-inner">
+          {% include sidebar.html %}
+        </div>
+      </nav>
+
+      <main class="wiki-main" id="wiki-main">
+        {{ content }}
+      </main>
+    </div>
+
+    <footer class="wiki-footer">
+      <div class="wiki-footer-inner">
+        {{ site.footer_content }}
+        &nbsp;·&nbsp;
+        <a href="https://github.com/peguesj/sound-forge-alchemy" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    // Convert Jekyll-rendered mermaid fenced blocks → mermaid divs
+    document.querySelectorAll('.language-mermaid pre code, .highlight.language-mermaid code').forEach(function(el) {
+      var container = el.closest('.language-mermaid') || el.closest('pre');
+      if (!container) return;
+      var div = document.createElement('div');
+      div.className = 'mermaid';
+      div.textContent = el.textContent;
+      container.replaceWith(div);
+    });
+
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        background:       'oklch(25.26% 0.014 253.1)',
+        mainBkg:          'oklch(25.26% 0.014 253.1)',
+        nodeBorder:       'oklch(58% 0.233 277.117)',
+        primaryColor:     'oklch(37% 0.044 257.287)',
+        primaryTextColor: 'oklch(97.807% 0.029 256.847)',
+        primaryBorderColor:'oklch(58% 0.233 277.117)',
+        lineColor:        'oklch(58% 0.233 277.117)',
+        edgeLabelBackground:'oklch(30.33% 0.016 252.42)',
+        clusterBkg:       'oklch(20.15% 0.012 254.09)',
+        titleColor:       'oklch(97.807% 0.029 256.847)',
+        attributeBackgroundColorOdd:  'oklch(25.26% 0.014 253.1)',
+        attributeBackgroundColorEven: 'oklch(20.15% 0.012 254.09)'
+      },
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      flowchart: { curve: 'basis', htmlLabels: true }
+    });
+
+    // Mobile sidebar toggle
+    document.querySelectorAll('.sidebar-section-title').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        var section = el.closest('.sidebar-section');
+        if (section) section.classList.toggle('open');
+      });
+    });
+  </script>
+</body>
+</html>

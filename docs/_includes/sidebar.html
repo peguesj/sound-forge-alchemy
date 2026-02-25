@@ -1,0 +1,34 @@
+{% assign nav_pages = site.pages | where_exp: "item", "item.title != nil" | sort: "nav_order" %}
+{% assign top_level = nav_pages | where_exp: "item", "item.parent == nil" %}
+
+<ul class="sidebar-nav">
+{% for tl in top_level %}
+  {% unless tl.url contains '/assets/' or tl.url contains 'sitemap' or tl.url contains '404' or tl.url == nil %}
+    {% assign children = nav_pages | where: "parent", tl.title | sort: "nav_order" %}
+    {% assign is_current_section = false %}
+    {% if page.title == tl.title or page.parent == tl.title %}
+      {% assign is_current_section = true %}
+    {% endif %}
+
+    {% if children.size > 0 %}
+    <li class="sidebar-section{% if is_current_section %} open{% endif %}">
+      <span class="sidebar-link sidebar-section-title{% if page.url == tl.url %} active{% endif %}">{{ tl.title }}</span>
+      <ul class="sidebar-children">
+        <li>
+          <a class="sidebar-link sidebar-child-link{% if page.url == tl.url %} active{% endif %}" href="{{ tl.url | relative_url }}">Overview</a>
+        </li>
+        {% for child in children %}
+        <li>
+          <a class="sidebar-link sidebar-child-link{% if page.url == child.url %} active{% endif %}" href="{{ child.url | relative_url }}">{{ child.title }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% else %}
+    <li>
+      <a class="sidebar-link sidebar-top-link{% if page.url == tl.url %} active{% endif %}" href="{{ tl.url | relative_url }}">{{ tl.title }}</a>
+    </li>
+    {% endif %}
+  {% endunless %}
+{% endfor %}
+</ul>
