@@ -1,8 +1,11 @@
 title: Sound Forge Alchemy
 description: AI-powered audio pipeline with multi-LLM agents, stem separation, and DJ/DAW tools
 remote_theme: just-the-docs/just-the-docs
-url: https://peguesj.github.io/sound-forge-alchemy
+url: https://peguesj.github.io
 baseurl: /sound-forge-alchemy
+
+plugins:
+  - jekyll-remote-theme
 nav_order_page_title: true
 search_enabled: true
 heading_anchors: true

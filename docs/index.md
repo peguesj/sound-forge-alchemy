@@ -87,9 +87,13 @@ For setup instructions see the [Quickstart Guide](guides/quickstart.md).
 
 ---
 
+## About
+
+Sound Forge Alchemy is a project by **[Jeremiah Pegues](mailto:jeremiah@pegues.io)**. The concept, original architecture, and feature design are entirely his. This repository is a complete port of his original React/Node.js prototype to Elixir/Phoenix.
+
 ## Built with Claude Code
 
-This project was ported from its original React/Node.js prototype to the current Elixir/Phoenix stack almost entirely using [Claude Code](https://github.com/anthropics/claude-code) (Anthropic). Custom skills `/elixir-architect` and `/ralph` were instrumental — handling architecture documentation, OTP design, PRD-driven story decomposition, and TDD enforcement across all 707 tests.
+The port was done almost entirely using [Claude Code](https://github.com/anthropics/claude-code) (Anthropic). Custom skills `/elixir-architect` and `/ralph` were instrumental — handling OTP supervision design, Phoenix context boundaries, PRD-driven story decomposition, and TDD enforcement across all 707 tests.
 
 ---
 
