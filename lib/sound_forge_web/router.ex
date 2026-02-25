@@ -47,6 +47,20 @@ defmodule SoundForgeWeb.Router do
     live "/dev-tools", DevToolsLive, :index
   end
 
+  # Platform admin routes (platform_admin + super_admin)
+  scope "/platform", SoundForgeWeb do
+    pipe_through [:browser, :require_authenticated_user, :require_platform_admin]
+
+    live "/library", CombinedLibraryLive, :index
+  end
+
+  # Prototype/devtools sandbox (dev env + admin role enforced in mount)
+  scope "/prototype", SoundForgeWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live "/", PrototypeLive, :index
+  end
+
   scope "/", SoundForgeWeb do
     pipe_through [:browser, :require_authenticated_user]
 

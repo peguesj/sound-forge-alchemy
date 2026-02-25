@@ -230,6 +230,24 @@ defmodule SoundForgeWeb.UserAuth do
   end
 
   @doc """
+  Plug for routes that require the `platform_admin` or `super_admin` role.
+
+  Used to gate the /platform/* routes (e.g. CombinedLibraryLive).
+  """
+  def require_platform_admin(conn, _opts) do
+    role = conn.assigns.current_scope && conn.assigns.current_scope.role
+
+    if role in [:platform_admin, :super_admin] do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You don't have permission to access the platform area.")
+      |> redirect(to: ~p"/")
+      |> halt()
+    end
+  end
+
+  @doc """
   Plug for routes that require a minimum role level.
 
   Usage in router:

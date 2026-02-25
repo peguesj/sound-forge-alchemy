@@ -15,9 +15,12 @@ defmodule SoundForge.Accounts.Scope do
 
   alias SoundForge.Accounts.User
 
-  defstruct user: nil, role: :user, admin?: false
+  defstruct user: nil, role: :user, admin?: false, platform_admin?: false
 
-  @role_hierarchy [:user, :pro, :enterprise, :admin, :super_admin]
+  # :platform_admin sits alongside :admin in the hierarchy at the same level
+  # but with a separate privilege axis (cross-user library access).
+  # For ordering purposes platform_admin is treated as equivalent to admin.
+  @role_hierarchy [:user, :pro, :enterprise, :admin, :platform_admin, :super_admin]
 
   @doc """
   Creates a scope for the given user.
@@ -28,13 +31,15 @@ defmodule SoundForge.Accounts.Scope do
     %__MODULE__{
       user: user,
       role: role,
-      admin?: role in [:admin, :super_admin]
+      admin?: role in [:admin, :super_admin],
+      platform_admin?: role in [:platform_admin, :super_admin]
     }
   end
 
   def for_user(nil), do: nil
 
   @doc "Returns the numeric level for a role (higher = more privileged)."
+  def role_level(:platform_admin), do: 3
   def role_level(role) when role in @role_hierarchy do
     Enum.find_index(@role_hierarchy, &(&1 == role))
   end
@@ -61,13 +66,14 @@ defmodule SoundForge.Accounts.Scope do
   @doc "Can the user access a specific feature based on role gating?"
   def can_use_feature?(%__MODULE__{role: role}, feature) do
     case feature do
-      :stem_separation -> role in [:pro, :enterprise, :admin, :super_admin]
-      :lalalai_cloud -> role in [:enterprise, :admin, :super_admin]
-      :osc_touchosc -> role in [:enterprise, :admin, :super_admin]
-      :midi_control -> role in [:pro, :enterprise, :admin, :super_admin]
-      :melodics -> role in [:pro, :enterprise, :admin, :super_admin]
-      :full_analysis -> role in [:pro, :enterprise, :admin, :super_admin]
+      :stem_separation -> role in [:pro, :enterprise, :admin, :super_admin, :platform_admin]
+      :lalalai_cloud -> role in [:enterprise, :admin, :super_admin, :platform_admin]
+      :osc_touchosc -> role in [:enterprise, :admin, :super_admin, :platform_admin]
+      :midi_control -> role in [:pro, :enterprise, :admin, :super_admin, :platform_admin]
+      :melodics -> role in [:pro, :enterprise, :admin, :super_admin, :platform_admin]
+      :full_analysis -> role in [:pro, :enterprise, :admin, :super_admin, :platform_admin]
       :admin_dashboard -> role in [:admin, :super_admin]
+      :platform_library -> role in [:platform_admin, :super_admin]
       :feature_flags -> role == :super_admin
       :billing -> role == :super_admin
       _ -> true

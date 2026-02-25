@@ -12,7 +12,7 @@ defmodule SoundForge.Admin do
   alias SoundForge.LLM.{Provider, Providers}
   alias SoundForge.Jobs.ProviderHealthWorker
 
-  @valid_roles ~w(user pro enterprise admin super_admin)a
+  @valid_roles ~w(user pro enterprise admin super_admin platform_admin)a
 
   # ============================================================
   # User Management
@@ -336,6 +336,89 @@ defmodule SoundForge.Admin do
   # ============================================================
   # Audit Logging
   # ============================================================
+
+  # ============================================================
+  # Platform-wide Library (platform_admin)
+  # ============================================================
+
+  @doc """
+  Returns a paginated list of all tracks across all users, with user email
+  joined in. Intended for the platform_admin combined library view.
+
+  Accepts keyword options: `:page`, `:per_page`, `:search`.
+  Returns `%{tracks: list, total: integer, page: integer, per_page: integer}`.
+  """
+  def all_tracks_paginated(opts \\ []) do
+    page = Keyword.get(opts, :page, 1)
+    per_page = Keyword.get(opts, :per_page, 50)
+    search = Keyword.get(opts, :search)
+    offset = (page - 1) * per_page
+
+    base =
+      from(t in Track,
+        left_join: u in User, on: u.id == t.user_id,
+        left_join: dj in SoundForge.Music.DownloadJob,
+          on: dj.track_id == t.id,
+        left_join: pj in SoundForge.Music.ProcessingJob,
+          on: pj.track_id == t.id,
+        group_by: [t.id, u.email],
+        select: %{
+          id: t.id,
+          title: t.title,
+          artist: t.artist,
+          album: t.album,
+          user_email: u.email,
+          user_id: t.user_id,
+          download_status: fragment(
+            "MAX(CASE WHEN ? IS NOT NULL THEN ? ELSE 'none' END)",
+            dj.id, dj.status
+          ),
+          stem_count: count(fragment("DISTINCT ?", pj.id), :distinct),
+          inserted_at: t.inserted_at
+        },
+        order_by: [desc: t.inserted_at],
+        offset: ^offset,
+        limit: ^per_page
+      )
+
+    base =
+      if search && search != "" do
+        pattern = "%#{search}%"
+        from([t, u] in base,
+          where:
+            ilike(t.title, ^pattern) or
+            ilike(t.artist, ^pattern) or
+            ilike(u.email, ^pattern)
+        )
+      else
+        base
+      end
+
+    tracks = Repo.all(base)
+
+    total_base =
+      from(t in Track,
+        left_join: u in User, on: u.id == t.user_id,
+        select: count(t.id)
+      )
+
+    total_base =
+      if search && search != "" do
+        pattern = "%#{search}%"
+        from([t, u] in total_base,
+          where:
+            ilike(t.title, ^pattern) or
+            ilike(t.artist, ^pattern) or
+            ilike(u.email, ^pattern)
+        )
+      else
+        total_base
+      end
+
+    total = Repo.one(total_base) || 0
+
+    %{tracks: tracks, total: total, page: page, per_page: per_page}
+  end
 
   @doc "Inserts an audit log entry recording an admin action against a resource."
   def log_action(actor_id, action, resource_type, resource_id, changes \\ %{}, ip \\ nil) do
