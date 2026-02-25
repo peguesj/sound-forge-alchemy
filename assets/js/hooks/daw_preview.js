@@ -49,7 +49,13 @@ const DawPreview = {
     const stemIds = Object.keys(editors)
     if (stemIds.length === 0) return
 
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    let ctx
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)()
+    } catch (_e) {
+      console.error("DawPreview: AudioContext not available")
+      return
+    }
     this._previewContext = ctx
     this._previewPlaying = true
     this._previewStartTime = ctx.currentTime

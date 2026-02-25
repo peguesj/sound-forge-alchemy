@@ -549,11 +549,104 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - [x] **CP-12**: Update AnalysisBeats hook with bar boundaries and section overlays (US-012)
 - After CP-12: `mix compile --warnings-as-errors` PASS (all 12 stories complete)
 
+### Feature: Azure Production Deployment (feature/azure-deployment)
+
+#### Wave 1 - Infrastructure
+- [x] **CP-13**: Create Resource Group, ACR, PostgreSQL Flexible Server (US-001, US-002, US-003)
+- After CP-13: All Azure resources provisioned, database created, extensions enabled
+
+#### Wave 2 - Docker Build
+- [x] **CP-14**: Build and push Docker image via ACR remote build (US-004)
+- After CP-14: Image at sfaprod.azurecr.io/sfa:latest
+
+#### Wave 3 - Deploy + Migrate
+- [x] **CP-15**: Deploy Container App, run 23 migrations, SSL fix (US-005)
+- After CP-15: App live, health check passing, all subsystems green
+
+#### Wave 4 - Document + Ship
+- [x] **CP-16**: Document Azure resources as authoritative in CLAUDE.md, commit, PR (US-006, US-007)
+- After CP-16: All changes committed and merged
+
 ## Agentic Complexity Tree View Requirement
 
 When any request involves agentic complexity (UPM, Formation, agent deployment), ALWAYS display a `tree`-style hierarchical view of the planned structure BEFORE execution. This applies to /upm build, /formation deploy, /deploy:agents-v2, /ralph story mapping, /plane-pm issue creation, and any todo/task list with concurrent work. No exceptions.
 
 Referenced systems: UPM, Plane PM, Plan mode, Ralph PRD, Formation, Todo/TaskList.
+
+## Azure Production Deployment
+
+**Status**: LIVE (deployed 2026-02-25)
+**URL**: https://sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io/
+**Health**: https://sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io/health
+
+### Authoritative Azure Resources
+
+| Resource | Name | Location | Details |
+|----------|------|----------|---------|
+| Resource Group | `rg-sfa-prod` | eastus | `/subscriptions/43b7d5b4-6853-4a3b-9dc4-4eeb545dd2ef/resourceGroups/rg-sfa-prod` |
+| Container Registry | `sfaprod.azurecr.io` | eastus | Basic SKU, admin enabled |
+| PostgreSQL Flexible | `sfa-pg-prod.postgres.database.azure.com` | eastus2 | Standard_B1ms, PG 16, SSL required |
+| Container Apps Env | `sfa-env` | eastus | Consumption plan |
+| Container App | `sfa-app` | eastus | 0.5 vCPU, 1Gi mem, min 0 / max 1 replicas, external ingress port 4000 |
+| Migration Job | `sfa-migrate` | eastus | Manual trigger, runs `/app/bin/migrate` |
+
+### Database
+
+- **Host**: `sfa-pg-prod.postgres.database.azure.com`
+- **Database**: `sfa_prod`
+- **User**: `sfaadmin`
+- **SSL**: Required (`DATABASE_SSL=true`, `ssl_opts: [verify: :verify_none]`)
+- **Extensions**: CITEXT, UUID-OSSP (allow-listed via `azure.extensions` parameter)
+- **Migrations**: 23 applied (as of 2026-02-25)
+
+### Container App Environment Variables
+
+| Variable | Source |
+|----------|--------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `DATABASE_SSL` | `true` |
+| `SECRET_KEY_BASE` | Generated via `mix phx.gen.secret` |
+| `PHX_HOST` | `sfa-app.jollyplant-d0a9771d.eastus.azurecontainerapps.io` |
+| `PHX_SERVER` | `true` |
+| `PORT` | `4000` |
+| `SPOTIFY_CLIENT_ID` | Spotify API credential |
+| `SPOTIFY_CLIENT_SECRET` | Spotify API credential |
+
+### Operational Commands
+
+```bash
+# Build and push image via ACR (remote amd64 build -- required for Apple Silicon)
+az acr build --registry sfaprod --image sfa:latest --image sfa:$(git rev-parse --short HEAD) .
+
+# Deploy new image revision
+az containerapp update --name sfa-app --resource-group rg-sfa-prod \
+  --image sfaprod.azurecr.io/sfa:latest
+
+# View logs
+az containerapp logs show --name sfa-app --resource-group rg-sfa-prod --type console --follow
+
+# Restart
+az containerapp revision restart --name sfa-app --resource-group rg-sfa-prod \
+  --revision $(az containerapp revision list --name sfa-app -g rg-sfa-prod --query '[0].name' -o tsv)
+
+# Scale (0-3 replicas)
+az containerapp update --name sfa-app --resource-group rg-sfa-prod \
+  --min-replicas 0 --max-replicas 3
+
+# Run migrations (local, pointing at Azure PG)
+DATABASE_URL="postgresql://sfaadmin:<password>@sfa-pg-prod.postgres.database.azure.com/sfa_prod?sslmode=require" \
+  SECRET_KEY_BASE=$(mix phx.gen.secret) \
+  mix ecto.migrate
+
+# ACR login
+az acr login --name sfaprod
+```
+
+### Build Notes
+
+- **Cross-compilation**: Local Docker builds for linux/amd64 fail on Apple Silicon (BEAM VM cannot run under QEMU). Always use `az acr build` for remote amd64 builds.
+- **Dockerfile ARGs**: ACR build does not support ARG variable interpolation in FROM directives. Image references must be hardcoded.
+- **Image size**: ~4.8GB (includes Python venv with Demucs, librosa, spotdl). Container Apps job timeout may be insufficient for image pull -- prefer running migrations locally.
 
 ## Plane Project
 - **Project**: Sound Forge Alchemy (SFA)
