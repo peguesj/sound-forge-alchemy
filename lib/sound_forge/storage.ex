@@ -100,6 +100,83 @@ defmodule SoundForge.Storage do
     end
   end
 
+  @doc """
+  Validate that an audio file exists, has minimum size, and valid audio header.
+
+  Returns `:ok` or `{:error, reason}`.
+  Useful for pre-flight checks before processing/analysis.
+  """
+  @spec validate_audio_file(String.t()) :: :ok | {:error, String.t()}
+  def validate_audio_file(path) when is_binary(path) do
+    resolved_path = resolve_path(path)
+    min_size = Application.get_env(:sound_forge, :min_audio_size, 1024)
+
+    cond do
+      not File.exists?(resolved_path) ->
+        {:error, "File does not exist: #{resolved_path}"}
+
+      true ->
+        case File.stat(resolved_path) do
+          {:ok, %{size: file_size}} when file_size < min_size ->
+            {:error, "File too small (#{file_size} bytes), likely corrupt"}
+
+          {:ok, _stat} ->
+            validate_audio_header(resolved_path)
+
+          {:error, reason} ->
+            {:error, "Cannot stat file: #{inspect(reason)}"}
+        end
+    end
+  end
+
+  # Valid audio file headers (MP3, FLAC, Ogg, RIFF/WAV)
+  @valid_audio_headers [
+    # MP3 frame sync (various bitrates)
+    <<0xFF, 0xFB>>,
+    <<0xFF, 0xFA>>,
+    <<0xFF, 0xF3>>,
+    <<0xFF, 0xF2>>,
+    # ID3v2 (MP3 metadata)
+    "ID3",
+    # WAV/AVI
+    "RIFF",
+    # FLAC
+    "fLaC",
+    # Ogg Vorbis/Opus
+    "OggS"
+  ]
+
+  defp validate_audio_header(path) do
+    case File.read(path) do
+      {:ok, data} when byte_size(data) >= 4 ->
+        if Enum.any?(@valid_audio_headers, &String.starts_with?(data, &1)),
+          do: :ok,
+          else: {:error, "File does not appear to be a valid audio file (unrecognized header)"}
+
+      {:ok, _small_data} ->
+        {:error, "File too small to validate header"}
+
+      {:error, reason} ->
+        {:error, "Cannot read file: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Validate that a download path exists and is a valid audio file.
+
+  Returns `{:ok, resolved_path}` or `{:error, reason}`.
+  Combines path resolution with audio file validation.
+  """
+  @spec validate_download_path(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def validate_download_path(path) when is_binary(path) do
+    resolved = resolve_path(path)
+
+    case validate_audio_file(resolved) do
+      :ok -> {:ok, resolved}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   @doc "Clean up orphaned files not referenced in the database"
   @spec cleanup_orphaned() :: {:ok, non_neg_integer()}
   def cleanup_orphaned do

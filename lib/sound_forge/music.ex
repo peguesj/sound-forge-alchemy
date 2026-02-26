@@ -534,6 +534,24 @@ defmodule SoundForge.Music do
   end
 
   @doc """
+  Gets the download path for a track and validates that the file exists.
+
+  Returns `{:ok, path}` if file exists and is valid, or `{:error, reason}`.
+  Useful for pre-flight checks before processing/playing audio.
+  """
+  @spec get_download_path_validated(String.t()) ::
+          {:ok, String.t()} | {:error, :no_completed_download | String.t()}
+  def get_download_path_validated(track_id) do
+    with {:ok, path} <- get_download_path(track_id),
+         {:ok, resolved_path} <- SoundForge.Storage.validate_download_path(path) do
+      {:ok, resolved_path}
+    else
+      {:error, :no_completed_download} = err -> err
+      {:error, validation_error} -> {:error, "File validation failed: #{validation_error}"}
+    end
+  end
+
+  @doc """
   Updates a download job.
   """
   @spec update_download_job(DownloadJob.t(), map()) ::

@@ -103,25 +103,28 @@ defmodule SoundForge.Jobs.ProcessingWorker do
 
     resolved_path = SoundForge.Storage.resolve_path(file_path)
 
-    result =
-      try do
-        # Start a dedicated port process for this job
-        {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_demucs()
+    # Pre-flight validation: ensure input file exists and is valid before processing
+    case SoundForge.Storage.validate_audio_file(resolved_path) do
+      :ok ->
+        result =
+          try do
+            # Start a dedicated port process for this job
+            {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_demucs()
 
-        DemucsPort.separate(resolved_path,
-          model: model,
-          progress_callback: progress_callback,
-          server: port_pid
-        )
-      catch
-        :exit, reason ->
-          {:error, "Port process crashed: #{inspect(reason)}"}
-      end
+            DemucsPort.separate(resolved_path,
+              model: model,
+              progress_callback: progress_callback,
+              server: port_pid
+            )
+          catch
+            :exit, reason ->
+              {:error, "Port process crashed: #{inspect(reason)}"}
+          end
 
-    case result do
-      {:ok, %{stems: stems, output_dir: output_dir}} ->
-        # Validate stem count (htdemucs produces 4, htdemucs_6s produces 6)
-        expected = expected_stem_count(model)
+        case result do
+          {:ok, %{stems: stems, output_dir: output_dir}} ->
+            # Validate stem count (htdemucs produces 4, htdemucs_6s produces 6)
+            expected = expected_stem_count(model)
 
         if map_size(stems) < expected do
           Logger.warning(
@@ -174,6 +177,14 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         cleanup_output(fresh_job)
 
         {:error, error_msg}
+        end
+
+      {:error, validation_error} ->
+        error_msg = "Input file validation failed: #{validation_error}"
+        Logger.error(error_msg)
+        Music.update_processing_job(job, %{status: :failed, error: error_msg})
+        PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
+        {:error, validation_error}
     end
   end
 

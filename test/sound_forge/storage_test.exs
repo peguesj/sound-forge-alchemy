@@ -83,4 +83,92 @@ defmodule SoundForge.StorageTest do
       assert stats.file_count == 0
     end
   end
+
+  describe "validate_audio_file/1" do
+    test "returns :ok for valid MP3 file" do
+      audio_dir = Path.join(@tmp_dir, "audio")
+      File.mkdir_p!(audio_dir)
+      valid_mp3 = Path.join(audio_dir, "sample.mp3")
+      File.write!(valid_mp3, <<0xFF, 0xFB>> <> String.duplicate("x", 2048))
+
+      assert :ok = Storage.validate_audio_file(valid_mp3)
+    end
+
+    test "returns error for non-existent file" do
+      assert {:error, msg} = Storage.validate_audio_file("/nonexistent/file.mp3")
+      assert msg =~ "does not exist"
+    end
+
+    test "returns error for file that's too small" do
+      audio_dir = Path.join(@tmp_dir, "audio")
+      File.mkdir_p!(audio_dir)
+      tiny_file = Path.join(audio_dir, "tiny.mp3")
+      File.write!(tiny_file, "x")
+
+      assert {:error, msg} = Storage.validate_audio_file(tiny_file)
+      assert msg =~ "too small"
+    end
+
+    test "returns error for file with invalid audio header" do
+      audio_dir = Path.join(@tmp_dir, "audio")
+      File.mkdir_p!(audio_dir)
+      invalid_file = Path.join(audio_dir, "invalid.mp3")
+      File.write!(invalid_file, String.duplicate("x", 2048))
+
+      assert {:error, msg} = Storage.validate_audio_file(invalid_file)
+      assert msg =~ "does not appear to be a valid audio file"
+    end
+
+    test "validates FLAC header" do
+      audio_dir = Path.join(@tmp_dir, "audio")
+      File.mkdir_p!(audio_dir)
+      flac_file = Path.join(audio_dir, "sample.flac")
+      File.write!(flac_file, "fLaC" <> String.duplicate("x", 2048))
+
+      assert :ok = Storage.validate_audio_file(flac_file)
+    end
+
+    test "validates OggS header" do
+      audio_dir = Path.join(@tmp_dir, "audio")
+      File.mkdir_p!(audio_dir)
+      ogg_file = Path.join(audio_dir, "sample.ogg")
+      File.write!(ogg_file, "OggS" <> String.duplicate("x", 2048))
+
+      assert :ok = Storage.validate_audio_file(ogg_file)
+    end
+
+    test "validates ID3 (MP3) header" do
+      audio_dir = Path.join(@tmp_dir, "audio")
+      File.mkdir_p!(audio_dir)
+      mp3_file = Path.join(audio_dir, "id3.mp3")
+      File.write!(mp3_file, "ID3" <> String.duplicate("x", 2048))
+
+      assert :ok = Storage.validate_audio_file(mp3_file)
+    end
+  end
+
+  describe "validate_download_path/1" do
+    test "returns {:ok, path} for valid file" do
+      audio_dir = Path.join(@tmp_dir, "audio")
+      File.mkdir_p!(audio_dir)
+      valid_mp3 = Path.join(audio_dir, "sample.mp3")
+      File.write!(valid_mp3, <<0xFF, 0xFB>> <> String.duplicate("x", 2048))
+
+      assert {:ok, resolved} = Storage.validate_download_path(valid_mp3)
+      assert String.ends_with?(resolved, "sample.mp3")
+    end
+
+    test "returns error for invalid file" do
+      assert {:error, _} = Storage.validate_download_path("/nonexistent.mp3")
+    end
+
+    test "returns error for file with bad audio header" do
+      audio_dir = Path.join(@tmp_dir, "audio")
+      File.mkdir_p!(audio_dir)
+      bad_file = Path.join(audio_dir, "bad.mp3")
+      File.write!(bad_file, String.duplicate("x", 2048))
+
+      assert {:error, _} = Storage.validate_download_path(bad_file)
+    end
+  end
 end
