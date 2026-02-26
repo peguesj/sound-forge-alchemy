@@ -2,6 +2,7 @@
 title: Implementor Role
 nav_order: 4
 parent: Guardrails
+render_with_liquid: false
 ---
 # Implementor Role -- Sound Forge Alchemy
 

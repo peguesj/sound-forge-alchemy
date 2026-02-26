@@ -1,6 +1,7 @@
 ---
 title: Handoff Notes
 nav_order: 99
+render_with_liquid: false
 ---
 # Sound Forge Alchemy - Agent Handoff Document
 
