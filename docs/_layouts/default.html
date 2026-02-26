@@ -48,8 +48,9 @@
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <script>
     // Convert Jekyll-rendered mermaid fenced blocks → mermaid divs
-    document.querySelectorAll('.language-mermaid pre code, .highlight.language-mermaid code').forEach(function(el) {
-      var container = el.closest('.language-mermaid') || el.closest('pre');
+    // Jekyll renders ```mermaid as <pre><code class="language-mermaid">
+    document.querySelectorAll('pre > code.language-mermaid').forEach(function(el) {
+      var container = el.closest('pre');
       if (!container) return;
       var div = document.createElement('div');
       div.className = 'mermaid';
