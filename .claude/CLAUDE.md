@@ -606,7 +606,7 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - After CP-42: `mix compile --warnings-as-errors` PASS, AI Assistant panel live in dashboard
 
 #### Wave 8 - Tests + Health + Telemetry (IN PROGRESS)
-- [ ] **CP-44**: End-to-end integration tests, health monitoring, and telemetry dashboard (US-116)
+- [x] **CP-44**: End-to-end integration tests, health monitoring, and telemetry dashboard (US-116)
 - After CP-44: All 653+ tests pass, provider health monitoring active, telemetry wired to LiveDashboard
 
 ## Agentic Complexity Tree View Requirement

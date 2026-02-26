@@ -12,6 +12,9 @@ defmodule SoundForge.LLM.Router do
   alias SoundForge.LLM.{Client, ModelRegistry, Providers, Response}
   require Logger
 
+  # Telemetry event prefix
+  @telemetry_prefix [:sound_forge, :llm, :router]
+
   @max_fallback_attempts 4
 
   @type task_spec :: %{
@@ -42,12 +45,34 @@ defmodule SoundForge.LLM.Router do
   """
   @spec route(term(), list(), task_spec()) :: {:ok, Response.t()} | {:error, term()}
   def route(user_id, messages, task_spec \\ %{}) do
+    start_time = System.monotonic_time()
     providers = build_provider_chain(user_id, task_spec)
 
     if providers == [] do
+      :telemetry.execute(@telemetry_prefix ++ [:call, :stop], %{duration: 0}, %{
+        result: :error,
+        reason: :no_providers_available,
+        provider_type: nil
+      })
+
       {:error, :no_providers_available}
     else
-      try_providers(providers, messages, task_spec, [])
+      result = try_providers(providers, messages, task_spec, [])
+      duration = System.monotonic_time() - start_time
+
+      {result_tag, provider_type} =
+        case result do
+          {:ok, %Response{model: model}} -> {:ok, infer_provider_type(model, providers)}
+          {:error, _} -> {:error, nil}
+        end
+
+      :telemetry.execute(@telemetry_prefix ++ [:call, :stop], %{duration: duration}, %{
+        result: result_tag,
+        provider_type: provider_type,
+        provider_count: length(providers)
+      })
+
+      result
     end
   end
 
@@ -127,13 +152,36 @@ defmodule SoundForge.LLM.Router do
       "LLM Router: trying #{provider.provider_type} (#{provider.name}) model=#{opts[:model]}"
     )
 
+    provider_start = System.monotonic_time()
+
     case Client.chat(provider, messages, opts) do
       {:ok, %Response{}} = success ->
-        # Update health on success
+        provider_duration = System.monotonic_time() - provider_start
+
+        :telemetry.execute(
+          [:sound_forge, :llm, :provider, :call, :stop],
+          %{duration: provider_duration},
+          %{provider_type: provider.provider_type, result: :ok}
+        )
+
         if provider.id, do: Providers.update_health(provider, :healthy)
         success
 
       {:error, reason} = _error ->
+        provider_duration = System.monotonic_time() - provider_start
+
+        :telemetry.execute(
+          [:sound_forge, :llm, :provider, :call, :stop],
+          %{duration: provider_duration},
+          %{provider_type: provider.provider_type, result: :error}
+        )
+
+        :telemetry.execute(
+          @telemetry_prefix ++ [:fallback],
+          %{count: 1},
+          %{provider_type: provider.provider_type, reason: inspect(reason)}
+        )
+
         Logger.warning(
           "LLM Router: #{provider.provider_type} failed: #{inspect(reason)}, trying next..."
         )
@@ -142,6 +190,9 @@ defmodule SoundForge.LLM.Router do
         try_providers(rest, messages, task_spec, [{provider.provider_type, reason} | errors])
     end
   end
+
+  defp infer_provider_type(_model, [first | _]), do: first.provider_type
+  defp infer_provider_type(_model, []), do: nil
 
   defp build_opts(provider, task_spec) do
     opts = []

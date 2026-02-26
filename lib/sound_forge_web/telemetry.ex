@@ -79,7 +79,33 @@ defmodule SoundForgeWeb.Telemetry do
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
       summary("vm.total_run_queue_lengths.cpu"),
-      summary("vm.total_run_queue_lengths.io")
+      summary("vm.total_run_queue_lengths.io"),
+
+      # LLM Router Metrics
+      summary("sound_forge.llm.router.call.stop.duration",
+        unit: {:native, :millisecond},
+        tags: [:result, :provider_type],
+        description: "End-to-end LLM routing call duration"
+      ),
+      counter("sound_forge.llm.router.call.stop.count",
+        tags: [:result, :provider_type],
+        description: "Total LLM routing calls by result and provider"
+      ),
+      counter("sound_forge.llm.router.fallback.count",
+        tags: [:provider_type],
+        description: "Number of provider fallbacks triggered"
+      ),
+
+      # LLM Provider Metrics
+      summary("sound_forge.llm.provider.call.stop.duration",
+        unit: {:native, :millisecond},
+        tags: [:provider_type, :result],
+        description: "Per-provider LLM call duration"
+      ),
+      counter("sound_forge.llm.provider.call.stop.count",
+        tags: [:provider_type, :result],
+        description: "Per-provider LLM call count"
+      )
     ]
   end
 
