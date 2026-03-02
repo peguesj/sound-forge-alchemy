@@ -98,6 +98,115 @@ def fetch_album_metadata(sp, album_id):
     return tracks
 
 
+def _parse_embed_page(content_type, content_id):
+    """Fetch and parse the Spotify embed page __NEXT_DATA__ JSON.
+
+    Works without any API credentials for public content.
+    Returns the ``entity`` dict from the embed page state.
+    """
+    import requests
+
+    embed_url = f"https://open.spotify.com/embed/{content_type}/{content_id}"
+    resp = requests.get(embed_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+    resp.raise_for_status()
+
+    match = re.search(
+        r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>', resp.text
+    )
+    if not match:
+        raise ValueError(f"Could not parse {content_type} embed page for {content_id}")
+
+    embed_data = json.loads(match.group(1))
+    return embed_data["props"]["pageProps"]["state"]["data"]["entity"]
+
+
+def _embed_duration_seconds(raw):
+    """Convert embed page duration field to seconds.
+
+    The embed page may return duration as a plain integer (milliseconds) or
+    as ``{"totalMilliseconds": N}``.
+    """
+    if isinstance(raw, dict):
+        return raw.get("totalMilliseconds", 0) / 1000
+    return (raw or 0) / 1000
+
+
+def fetch_track_metadata_no_creds(track_id):
+    """Fetch metadata for a single track via embed page (no API credentials)."""
+    entity = _parse_embed_page("track", track_id)
+
+    cover_url = ""
+    if entity.get("coverArt", {}).get("sources"):
+        cover_url = entity["coverArt"]["sources"][0].get("url", "")
+
+    artists_str = entity.get("subtitle", "")
+    artists = [a.strip() for a in artists_str.split(",") if a.strip()]
+
+    album_name = ""
+    if entity.get("albumOfTrack"):
+        album_name = entity["albumOfTrack"].get("name", "")
+
+    return {
+        "name": entity.get("title", ""),
+        "artists": artists,
+        "album_name": album_name,
+        "album_artist": artists[0] if artists else "",
+        "duration": _embed_duration_seconds(entity.get("duration", 0)),
+        "song_id": track_id,
+        "cover_url": cover_url,
+        "url": f"https://open.spotify.com/track/{track_id}",
+        "disc_number": 1,
+        "track_number": 1,
+        "isrc": "",
+    }
+
+
+def fetch_album_metadata_no_creds(album_id):
+    """Fetch metadata for all tracks in an album via embed page (no API credentials)."""
+    entity = _parse_embed_page("album", album_id)
+
+    album_name = entity.get("title", "")
+    album_artist_str = entity.get("subtitle", "")
+    album_artist = album_artist_str.split(",")[0].strip() if album_artist_str else ""
+
+    cover_url = ""
+    if entity.get("coverArt", {}).get("sources"):
+        cover_url = entity["coverArt"]["sources"][0].get("url", "")
+
+    track_list = entity.get("trackList", [])
+    tracks = []
+    for i, item in enumerate(track_list):
+        uri = item.get("uri", "")
+        if not uri.startswith("spotify:track:"):
+            continue
+        tid = uri.split(":")[-1]
+
+        artists_str = item.get("subtitle", "")
+        artists = [a.strip() for a in artists_str.split(",") if a.strip()]
+
+        track_cover = cover_url
+        if item.get("coverArt", {}).get("sources"):
+            item_cover = item["coverArt"]["sources"][0].get("url", "")
+            if item_cover:
+                track_cover = item_cover
+
+        tracks.append({
+            "name": item.get("title", ""),
+            "artists": artists or [album_artist],
+            "album_name": album_name,
+            "album_artist": album_artist,
+            "duration": _embed_duration_seconds(item.get("duration", 0)),
+            "song_id": tid,
+            "cover_url": track_cover,
+            "url": f"https://open.spotify.com/track/{tid}",
+            "disc_number": item.get("disc_number", 1),
+            "track_number": i + 1,
+            "isrc": "",
+        })
+
+    return tracks
+
+
 def fetch_playlist_metadata(sp, playlist_id):
     """Fetch metadata for all tracks in a playlist.
 
@@ -107,6 +216,7 @@ def fetch_playlist_metadata(sp, playlist_id):
 
     Falls back to individual sp.track() calls for enrichment when possible,
     but works fully from embed data alone if the API is restricted.
+    If ``sp`` is None, skips API enrichment entirely.
     """
     import requests
 
@@ -148,28 +258,30 @@ def fetch_playlist_metadata(sp, playlist_id):
         track_ids.append(tid)
         embed_tracks.append((i, item, tid))
 
-    # Enrich tracks with album data from Spotify API (individual calls)
+    # Enrich tracks with album data from Spotify API (individual calls).
+    # Skipped when sp is None (no-credentials mode) -- embed data used as-is.
     # The embed page doesn't include album names; sp.tracks() batch
     # endpoint returns 403 with client credentials, so use sp.track()
     album_map = {}  # track_id -> {"album_name": ..., "album_artist": ..., "isrc": ...}
-    import time
-    for tid in track_ids:
-        try:
-            t = sp.track(tid)
-            if t and t.get("album"):
-                album_images = t["album"].get("images", [])
-                album_map[tid] = {
-                    "album_name": t["album"]["name"],
-                    "album_artist": (
-                        t["album"]["artists"][0]["name"]
-                        if t["album"].get("artists") else ""
-                    ),
-                    "isrc": t.get("external_ids", {}).get("isrc", ""),
-                    "cover_url": album_images[0]["url"] if album_images else "",
-                }
-            time.sleep(0.05)  # Rate limit courtesy
-        except Exception as e:
-            emit_error({"warning": "enrichment_failed", "track_id": tid, "error": str(e)})
+    if sp is not None:
+        import time
+        for tid in track_ids:
+            try:
+                t = sp.track(tid)
+                if t and t.get("album"):
+                    album_images = t["album"].get("images", [])
+                    album_map[tid] = {
+                        "album_name": t["album"]["name"],
+                        "album_artist": (
+                            t["album"]["artists"][0]["name"]
+                            if t["album"].get("artists") else ""
+                        ),
+                        "isrc": t.get("external_ids", {}).get("isrc", ""),
+                        "cover_url": album_images[0]["url"] if album_images else "",
+                    }
+                time.sleep(0.05)  # Rate limit courtesy
+            except Exception as e:
+                emit_error({"warning": "enrichment_failed", "track_id": tid, "error": str(e)})
 
     tracks = []
     for i, item, tid in embed_tracks:
@@ -222,6 +334,34 @@ def cmd_metadata(args):
     elif item_type == "playlist":
         result = fetch_playlist_metadata(sp, item_id)
         emit(result)  # Emits {"playlist": {...}, "tracks": [...]}
+    else:
+        emit_error({"error": f"Unsupported type: {item_type}"})
+        sys.exit(1)
+
+
+def cmd_metadata_no_creds(args):
+    """Fetch metadata for a Spotify URL using embed page scraping (no API credentials).
+
+    Uses the same Spotify embed page approach as fetch_playlist_metadata but
+    extended to tracks and albums. No SPOTIPY_CLIENT_ID / SPOTIPY_CLIENT_SECRET
+    required. Album names and ISRCs are omitted for playlist tracks (not in embed).
+    """
+    item_type, item_id = extract_spotify_info(args.url)
+
+    if not item_type:
+        emit_error({"error": "Invalid Spotify URL"})
+        sys.exit(1)
+
+    if item_type == "track":
+        track = fetch_track_metadata_no_creds(item_id)
+        emit([track])
+    elif item_type == "album":
+        tracks = fetch_album_metadata_no_creds(item_id)
+        emit(tracks)
+    elif item_type == "playlist":
+        # Pass sp=None to skip API enrichment; embed data is sufficient
+        result = fetch_playlist_metadata(None, item_id)
+        emit(result)
     else:
         emit_error({"error": f"Unsupported type: {item_type}"})
         sys.exit(1)
@@ -363,9 +503,16 @@ def main():
     parser = argparse.ArgumentParser(description="Spotify metadata & download helper")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # metadata command
+    # metadata command (requires SPOTIPY_CLIENT_ID + SPOTIPY_CLIENT_SECRET)
     meta_parser = subparsers.add_parser("metadata", help="Fetch Spotify metadata")
     meta_parser.add_argument("url", help="Spotify URL")
+
+    # metadata-no-creds command (embed page scraping, no API credentials required)
+    mnc_parser = subparsers.add_parser(
+        "metadata-no-creds",
+        help="Fetch Spotify metadata via embed page (no API credentials)",
+    )
+    mnc_parser.add_argument("url", help="Spotify URL")
 
     # download command
     dl_parser = subparsers.add_parser("download", help="Download audio from Spotify URL")
@@ -392,6 +539,8 @@ def main():
 
     if args.command == "metadata":
         cmd_metadata(args)
+    elif args.command == "metadata-no-creds":
+        cmd_metadata_no_creds(args)
     elif args.command == "download":
         cmd_download(args)
     elif args.command == "download-direct":

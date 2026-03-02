@@ -38,24 +38,26 @@ defmodule SoundForge.Audio.SpotDL do
   def fetch_metadata(url) when is_binary(url) do
     Logger.info("Fetching metadata for #{url}")
 
+    # Use the no-credentials embed-page path when API keys are not configured.
+    # Album names and ISRCs will be absent for playlist tracks but title/artist
+    # are always present, which is sufficient for the download fallback chain.
+    cmd = if credentials_configured?(), do: "metadata", else: "metadata-no-creds"
+
     unless credentials_configured?() do
-      Logger.error("Spotify API credentials not configured")
+      Logger.info("Spotify API credentials not configured -- using embed page scraping")
+    end
 
-      {:error,
-       "Spotify API credentials not configured. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET."}
-    else
-      case run_helper(["metadata", url], @metadata_timeout) do
-        {:ok, output, _stderr} ->
-          parse_json_output(output)
+    case run_helper([cmd, url], @metadata_timeout) do
+      {:ok, output, _stderr} ->
+        parse_json_output(output)
 
-        {:error, :timeout} ->
-          Logger.error("Metadata fetch timed out after #{div(@metadata_timeout, 1000)}s")
-          {:error, "Metadata fetch timed out. Spotify may be rate-limiting requests."}
+      {:error, :timeout} ->
+        Logger.error("Metadata fetch timed out after #{div(@metadata_timeout, 1000)}s")
+        {:error, "Metadata fetch timed out. Spotify may be rate-limiting requests."}
 
-        {:error, reason} ->
-          Logger.error("Metadata fetch failed: #{reason}")
-          {:error, "Failed to fetch metadata: #{reason}"}
-      end
+      {:error, reason} ->
+        Logger.error("Metadata fetch failed: #{reason}")
+        {:error, "Failed to fetch metadata: #{reason}"}
     end
   end
 

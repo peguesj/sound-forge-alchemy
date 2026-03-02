@@ -106,6 +106,10 @@ def main():
     meta_parser = subparsers.add_parser("metadata")
     meta_parser.add_argument("url")
 
+    # metadata-no-creds uses the same mock response as metadata
+    mnc_parser = subparsers.add_parser("metadata-no-creds")
+    mnc_parser.add_argument("url")
+
     dl_parser = subparsers.add_parser("download")
     dl_parser.add_argument("url")
     dl_parser.add_argument("--output-dir")
@@ -115,7 +119,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.command == "metadata":
+    if args.command in ("metadata", "metadata-no-creds"):
         cmd_metadata(args)
     elif args.command == "download":
         cmd_download(args)
