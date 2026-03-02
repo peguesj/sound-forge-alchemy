@@ -9,6 +9,15 @@
             "command": "bash /Users/jeremiah/Developer/sfa/.claude/hooks/dev_server_mgmt.sh ensure"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [[ \"$branch\" == release/* ]]; then echo \"WARNING: On $branch. Changes should be made on main and promoted via merge.\"; fi'"
+          }
+        ]
       }
     ]
   }

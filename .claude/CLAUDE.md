@@ -609,6 +609,32 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - [x] **CP-44**: End-to-end integration tests, health monitoring, and telemetry dashboard (US-116)
 - After CP-44: All 653+ tests pass, provider health monitoring active, telemetry wired to LiveDashboard
 
+### Feature: Azure QA Deployment + Multi-Environment Strategy (feature/azure-qa-deployment)
+
+#### Wave 1 - Code Changes
+- [x] **CP-45**: WORKER_MODE Oban queue splitting in runtime.exs (Phase 1a)
+- [x] **CP-46**: Remove hardcoded Python path from config.exs (Phase 1b)
+- [x] **CP-47**: Conditional supervision tree in application.ex (Phase 1c)
+- [x] **CP-48**: Pin Python deps in requirements.txt + Dockerfile update (Phase 1d, 1e)
+- [x] **CP-49**: .env.example with all new environment variables (Phase 1f)
+- After CP-49: `mix compile --warnings-as-errors` PASS, 734 tests 0 failures
+
+#### Wave 2 - Branch Strategy + Hooks
+- [x] **CP-50**: Branch protection hook in .claude/settings.json (Phase 2c)
+- [ ] **CP-51**: Create release/qa, release/staging, release/prod branches (Phase 2a)
+- After CP-51: All release branches on origin
+
+#### Wave 3 - Azure QA Provisioning
+- [ ] **CP-52**: Create rg-sfa-qa, PostgreSQL, Container Apps env with GPU profile (Phase 3a-3c)
+- [ ] **CP-53**: Build QA image and deploy web + GPU containers (Phase 3d-3f)
+- [ ] **CP-54**: Run migrations and verify health (Phase 3g-3h)
+- After CP-54: QA environment live, both containers healthy
+
+#### Wave 4 - Documentation
+- [x] **CP-55**: CLAUDE.md with QA deployment, branch strategy, environment comparison (Phase 4a)
+- [x] **CP-56**: Project memory with environment references (Phase 4b)
+- After CP-56: All documentation authoritative
+
 ## Agentic Complexity Tree View Requirement
 
 When any request involves agentic complexity (UPM, Formation, agent deployment), ALWAYS display a `tree`-style hierarchical view of the planned structure BEFORE execution. This applies to /upm build, /formation deploy, /deploy:agents-v2, /ralph story mapping, /plane-pm issue creation, and any todo/task list with concurrent work. No exceptions.
@@ -689,6 +715,129 @@ az acr login --name sfaprod
 - **Cross-compilation**: Local Docker builds for linux/amd64 fail on Apple Silicon (BEAM VM cannot run under QEMU). Always use `az acr build` for remote amd64 builds.
 - **Dockerfile ARGs**: ACR build does not support ARG variable interpolation in FROM directives. Image references must be hardcoded.
 - **Image size**: ~4.8GB (includes Python venv with Demucs, librosa, spotdl). Container Apps job timeout may be insufficient for image pull -- prefer running migrations locally.
+
+## Azure QA Deployment
+
+**Status**: PROVISIONING (as of 2026-03-02)
+
+### Architecture
+
+QA uses a **decoupled dual-container** model: a CPU web container handles HTTP + download/analysis queues, while a GPU container (NVIDIA T4) handles Demucs processing. Both share one PostgreSQL database and an Azure Files volume for uploads.
+
+```
+sfaprod.azurecr.io (shared ACR)
+sfa:qa-latest | sfa:prod-latest
+       |
++------+------+
+|             |
+rg-sfa-qa    rg-sfa-prod
++-----------+ +-----------+
+|sfa-app-qa | |sfa-app    |
+| CPU, web  | | CPU, full |
+|sfa-demucs | +-----------+
+| -qa GPU   |
+|sfa-pg-qa  |
+|Azure Files|
++-----------+
+```
+
+### Authoritative Azure QA Resources
+
+| Resource | Name | Location | Details |
+|----------|------|----------|---------|
+| Resource Group | `rg-sfa-qa` | eastus | QA environment resource group |
+| Container Registry | `sfaprod.azurecr.io` | eastus | Shared with prod (Basic SKU) |
+| PostgreSQL Flexible | `sfa-pg-qa.postgres.database.azure.com` | eastus2 | Standard_B1ms, PG 16, SSL required |
+| Container Apps Env | `sfa-env-qa` | eastus | Workload profiles enabled (GPU support) |
+| Container App (web) | `sfa-app-qa` | eastus | 0.5 vCPU, 1Gi mem, WORKER_MODE=web |
+| Container App (GPU) | `sfa-demucs-qa` | eastus | 4 vCPU, 16Gi mem, NVIDIA T4, WORKER_MODE=gpu_worker |
+| Storage Account | `sfastorageqa` | eastus | Standard_LRS, Azure Files share `sfa-uploads` |
+
+### WORKER_MODE
+
+The `WORKER_MODE` environment variable controls which Oban queues and supervision tree components start:
+
+| Mode | Queues | Endpoint | MIDI | Use Case |
+|------|--------|----------|------|----------|
+| `full` (default) | download, processing, analysis | Yes | Yes | Local dev |
+| `web` | download, analysis | Yes | No | QA/prod web container |
+| `gpu_worker` | processing | No | No | QA GPU container |
+
+Set in `config/runtime.exs`. The supervision tree in `application.ex` conditionally starts children based on mode.
+
+### QA Operational Commands
+
+```bash
+# Build and push QA image
+az acr build --registry sfaprod --image sfa:qa-latest --image sfa:qa-$(git rev-parse --short HEAD) .
+
+# Deploy QA web container update
+az containerapp update --name sfa-app-qa --resource-group rg-sfa-qa \
+  --image sfaprod.azurecr.io/sfa:qa-latest
+
+# Deploy QA GPU worker update
+az containerapp update --name sfa-demucs-qa --resource-group rg-sfa-qa \
+  --image sfaprod.azurecr.io/sfa:qa-latest
+
+# View QA logs
+az containerapp logs show --name sfa-app-qa -g rg-sfa-qa --type console --follow
+az containerapp logs show --name sfa-demucs-qa -g rg-sfa-qa --type console --follow
+
+# Run QA migrations
+DATABASE_URL="postgresql://sfaadmin:<pw>@sfa-pg-qa.postgres.database.azure.com/sfa_qa?sslmode=require" \
+  SECRET_KEY_BASE=$(mix phx.gen.secret) mix ecto.migrate
+```
+
+## Multi-Environment Branch Strategy
+
+### Branch Hierarchy
+
+```
+main  -->  release/qa  -->  release/staging  -->  release/prod
+ ^              |                 |                     |
+ |         QA deploy        Staging deploy        Prod deploy
+Feature branches merge here
+```
+
+### Promotion Flow
+
+Feature work merges to `main`. Promote via merge (never direct commits to release branches):
+
+```bash
+# Promote to QA
+git checkout release/qa && git merge main && git push
+
+# Promote to staging
+git checkout release/staging && git merge release/qa && git push
+
+# Promote to prod
+git checkout release/prod && git merge release/staging && git push
+```
+
+### Image Tagging Convention
+
+| Environment | Image Tag | Branch |
+|-------------|-----------|--------|
+| QA | `sfa:qa-latest`, `sfa:qa-<sha>` | `release/qa` |
+| Staging | `sfa:staging-latest`, `sfa:staging-<sha>` | `release/staging` |
+| Prod | `sfa:prod-latest`, `sfa:prod-<sha>` | `release/prod` |
+
+### Branch Protection
+
+A PreToolUse hook in `.claude/settings.json` warns when editing files on `release/*` branches. Changes should always be made on `main` and promoted via merge.
+
+## Environment Comparison
+
+| Aspect | Dev | QA | Staging | Prod |
+|--------|-----|-----|---------|------|
+| WORKER_MODE | `full` | `web` + `gpu_worker` | TBD | `full` |
+| GPU | None | NVIDIA T4 | TBD | None (CPU Demucs) |
+| Database | Local PG | `sfa-pg-qa` | TBD | `sfa-pg-prod` |
+| Replicas | 1 | 0-1 each | TBD | 0-1 |
+| LLM Providers | Local keys | Azure env vars | TBD | Not configured |
+| MIDI | Hardware | Disabled | Disabled | Disabled |
+| Branch | `main` | `release/qa` | `release/staging` | `release/prod` |
+| ACR Tag | N/A | `sfa:qa-latest` | `sfa:staging-latest` | `sfa:prod-latest` |
 
 ## Plane Project
 - **Project**: Sound Forge Alchemy (SFA)

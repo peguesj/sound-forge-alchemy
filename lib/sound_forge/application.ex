@@ -7,39 +7,21 @@ defmodule SoundForge.Application do
 
   @impl true
   def start(_type, _args) do
-    check_port_available!()
+    worker_mode = Application.get_env(:sound_forge, :worker_mode, "full")
 
-    # Initialize Spotify HTTP client ETS table for token caching
-    SoundForge.Spotify.HTTPClient.init()
+    unless worker_mode == "gpu_worker" do
+      check_port_available!()
+      # Initialize Spotify HTTP client ETS table for token caching
+      SoundForge.Spotify.HTTPClient.init()
+    end
 
     # Ensure upload directories exist
     SoundForge.Storage.ensure_directories!()
 
-    children = [
-      SoundForgeWeb.Telemetry,
-      SoundForge.Vault,
-      SoundForge.Repo,
-      {DNSCluster, query: Application.get_env(:sound_forge, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: SoundForge.PubSub},
-      # Task.Supervisor for async LiveView operations (e.g., SpotDL metadata fetch)
-      {Task.Supervisor, name: SoundForge.TaskSupervisor},
-      # DynamicSupervisor for audio processing port processes
-      SoundForge.Audio.PortSupervisor,
-      # ETS-backed notification store
-      SoundForge.Notifications,
-      # ETS-backed audio prefetch cache for DJ/DAW modes
-      SoundForge.Audio.Prefetch,
-      # Start Oban for background job processing
-      {Oban, Application.fetch_env!(:sound_forge, Oban)},
-      # Oban telemetry handler for job lifecycle tracking
-      SoundForge.Telemetry.ObanHandler,
-      # MIDI device discovery and hotplug monitoring
-      SoundForge.MIDI.DeviceManager,
-      # LLM model capability registry with health checks
-      SoundForge.LLM.ModelRegistry,
-      # Start to serve requests, typically the last entry
-      SoundForgeWeb.Endpoint
-    ]
+    children =
+      core_children() ++
+        web_children(worker_mode) ++
+        midi_children(worker_mode)
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -54,6 +36,45 @@ defmodule SoundForge.Application do
     SoundForgeWeb.Endpoint.config_change(changed, removed)
     :ok
   end
+
+  # Core children started in ALL worker modes
+  defp core_children do
+    [
+      SoundForgeWeb.Telemetry,
+      SoundForge.Vault,
+      SoundForge.Repo,
+      {DNSCluster, query: Application.get_env(:sound_forge, :dns_cluster_query) || :ignore},
+      {Phoenix.PubSub, name: SoundForge.PubSub},
+      {Task.Supervisor, name: SoundForge.TaskSupervisor},
+      SoundForge.Audio.PortSupervisor,
+      {Oban, Application.fetch_env!(:sound_forge, Oban)}
+    ]
+  end
+
+  # Web-facing children: notifications, prefetch, telemetry handlers,
+  # LLM registry, and the HTTP endpoint. Skipped for gpu_worker mode.
+  defp web_children("gpu_worker"), do: []
+
+  defp web_children(_mode) do
+    [
+      SoundForge.Notifications,
+      SoundForge.Audio.Prefetch,
+      SoundForge.Telemetry.ObanHandler,
+      SoundForge.LLM.ModelRegistry,
+      SoundForgeWeb.Endpoint
+    ]
+  end
+
+  # MIDI device monitoring only in "full" mode (local dev with hardware).
+  # Disabled in "web" and "gpu_worker" container modes.
+  defp midi_children("full") do
+    [
+      SoundForge.MIDI.DeviceManager,
+      SoundForge.MIDI.Dispatcher
+    ]
+  end
+
+  defp midi_children(_mode), do: []
 
   # Checks if the configured HTTP port is available before starting the
   # supervision tree. Only runs in dev/test where Mix is available.

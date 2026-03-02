@@ -47,6 +47,31 @@ config :sound_forge, :spotify,
 config :sound_forge, :lalalai_api_key, System.get_env("LALALAI_API_KEY")
 config :sound_forge, :system_lalalai_key, System.get_env("SYSTEM_LALALAI_ACTIVATION_KEY")
 
+# Worker mode for decoupled Azure deployment
+# "web" = download + analysis queues (no GPU processing)
+# "gpu_worker" = processing queue only (no web endpoint)
+# "full" = all queues + web endpoint (default, local dev)
+worker_mode = System.get_env("WORKER_MODE", "full")
+
+oban_queues =
+  case worker_mode do
+    "web" -> [download: 3, analysis: 2]
+    "gpu_worker" -> [processing: 2]
+    _ -> [download: 3, processing: 2, analysis: 2]
+  end
+
+config :sound_forge, Oban, queues: oban_queues
+config :sound_forge, :worker_mode, worker_mode
+
+# Optional runtime overrides for container deployments
+if storage_path = System.get_env("STORAGE_PATH") do
+  config :sound_forge, :storage_path, storage_path
+end
+
+if demucs_python = System.get_env("DEMUCS_PYTHON") do
+  config :sound_forge, :demucs_python, demucs_python
+end
+
 # Configure Cloak Vault for at-rest encryption (API keys, tokens, etc.)
 # Key resolution: LLM_ENCRYPTION_KEY env var (Base64-encoded 32 bytes),
 # otherwise derive 32 bytes from SECRET_KEY_BASE via SHA-256.

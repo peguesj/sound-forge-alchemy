@@ -42,7 +42,8 @@ RUN apt-get update -y && apt-get install -y \
 # Install Python audio dependencies
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir demucs librosa numpy spotdl
+COPY priv/python/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Set locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
@@ -66,6 +67,7 @@ RUN mkdir -p priv/uploads && chown nobody priv/uploads
 
 USER nobody
 
+ENV WORKER_MODE="full"
 ENV PHX_SERVER=true
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
