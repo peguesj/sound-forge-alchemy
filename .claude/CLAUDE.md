@@ -621,13 +621,13 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 
 #### Wave 2 - Branch Strategy + Hooks
 - [x] **CP-50**: Branch protection hook in .claude/settings.json (Phase 2c)
-- [ ] **CP-51**: Create release/qa, release/staging, release/prod branches (Phase 2a)
+- [x] **CP-51**: Create release/qa, release/staging, release/prod branches (Phase 2a)
 - After CP-51: All release branches on origin
 
 #### Wave 3 - Azure QA Provisioning
-- [ ] **CP-52**: Create rg-sfa-qa, PostgreSQL, Container Apps env with GPU profile (Phase 3a-3c)
-- [ ] **CP-53**: Build QA image and deploy web + GPU containers (Phase 3d-3f)
-- [ ] **CP-54**: Run migrations and verify health (Phase 3g-3h)
+- [x] **CP-52**: Create rg-sfa-qa, PostgreSQL, Container Apps env with GPU profile (Phase 3a-3c)
+- [x] **CP-53**: Build QA image and deploy web + GPU containers (Phase 3d-3f)
+- [x] **CP-54**: Run migrations and verify health (Phase 3g-3h)
 - After CP-54: QA environment live, both containers healthy
 
 #### Wave 4 - Documentation
@@ -718,7 +718,9 @@ az acr login --name sfaprod
 
 ## Azure QA Deployment
 
-**Status**: PROVISIONING (as of 2026-03-02)
+**Status**: LIVE (deployed 2026-03-02)
+**URL**: https://sfa-app-qa.agreeablecoast-39adb1cd.eastus.azurecontainerapps.io/
+**Health**: https://sfa-app-qa.agreeablecoast-39adb1cd.eastus.azurecontainerapps.io/health
 
 ### Architecture
 
@@ -749,8 +751,8 @@ rg-sfa-qa    rg-sfa-prod
 | Container Registry | `sfaprod.azurecr.io` | eastus | Shared with prod (Basic SKU) |
 | PostgreSQL Flexible | `sfa-pg-qa.postgres.database.azure.com` | eastus2 | Standard_B1ms, PG 16, SSL required |
 | Container Apps Env | `sfa-env-qa` | eastus | Workload profiles enabled (GPU support) |
-| Container App (web) | `sfa-app-qa` | eastus | 0.5 vCPU, 1Gi mem, WORKER_MODE=web |
-| Container App (GPU) | `sfa-demucs-qa` | eastus | 4 vCPU, 16Gi mem, NVIDIA T4, WORKER_MODE=gpu_worker |
+| Container App (web) | `sfa-app-qa` | eastus | 0.5 vCPU, 1Gi mem, WORKER_MODE=web, min-replicas 1 |
+| Container App (GPU) | `sfa-demucs-qa` | eastus | 8 vCPU, 16Gi mem, Consumption-GPU-NC8as-T4, WORKER_MODE=gpu_worker |
 | Storage Account | `sfastorageqa` | eastus | Standard_LRS, Azure Files share `sfa-uploads` |
 
 ### WORKER_MODE
