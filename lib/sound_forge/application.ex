@@ -73,7 +73,7 @@ defmodule SoundForge.Application do
   defp swoosh_children do
     case Application.get_env(:sound_forge, SoundForge.Mailer, [])[:adapter] do
       Swoosh.Adapters.Local ->
-        [{Swoosh.Adapters.Local, storage_driver: Swoosh.Adapters.Local.Storage.Memory}]
+        [Swoosh.Adapters.Local.Storage.Manager]
 
       _ ->
         []
