@@ -56,13 +56,28 @@ defmodule SoundForge.Application do
   defp web_children("gpu_worker"), do: []
 
   defp web_children(_mode) do
-    [
-      SoundForge.Notifications,
-      SoundForge.Audio.Prefetch,
-      SoundForge.Telemetry.ObanHandler,
-      SoundForge.LLM.ModelRegistry,
-      SoundForgeWeb.Endpoint
-    ]
+    swoosh_children() ++
+      [
+        SoundForge.Notifications,
+        SoundForge.Audio.Prefetch,
+        SoundForge.Telemetry.ObanHandler,
+        SoundForge.LLM.ModelRegistry,
+        SoundForgeWeb.Endpoint
+      ]
+  end
+
+  # Start Swoosh local email storage when the local adapter is configured.
+  # Required for dev and QA environments that use Swoosh.Adapters.Local.
+  # In test, the adapter is Swoosh.Adapters.Test (no GenServer needed).
+  # In production with a real SMTP/API adapter, this list is empty.
+  defp swoosh_children do
+    case Application.get_env(:sound_forge, SoundForge.Mailer, [])[:adapter] do
+      Swoosh.Adapters.Local ->
+        [{Swoosh.Adapters.Local, storage_driver: Swoosh.Adapters.Local.Storage.Memory}]
+
+      _ ->
+        []
+    end
   end
 
   # MIDI device monitoring only in "full" mode (local dev with hardware).
