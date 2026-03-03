@@ -9,8 +9,8 @@ defmodule SoundForge.MIDI.Mapping do
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-          id: binary(),
-          user_id: binary(),
+          id: integer() | nil,
+          user_id: integer(),
           device_name: String.t(),
           midi_type: atom(),
           channel: integer(),
@@ -23,9 +23,6 @@ defmodule SoundForge.MIDI.Mapping do
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()
         }
-
-  @primary_key {:id, :binary_id, autogenerate: true}
-  @foreign_key_type :binary_id
 
   @midi_types [:cc, :note_on, :note_off]
   @actions [
@@ -53,7 +50,7 @@ defmodule SoundForge.MIDI.Mapping do
   ]
 
   schema "midi_mappings" do
-    field :user_id, :binary_id
+    field :user_id, :integer
     field :device_name, :string
     field :midi_type, Ecto.Enum, values: @midi_types
     field :channel, :integer

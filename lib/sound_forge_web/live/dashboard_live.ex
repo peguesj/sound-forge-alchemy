@@ -83,6 +83,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:debug_log_namespaces, MapSet.new())
       |> assign(:midi_devices, [])
       |> assign(:midi_bpm, nil)
+      |> assign(:last_bpm_ms, System.monotonic_time(:millisecond))
       |> assign(:midi_transport, :stopped)
       |> assign(:midi_log, [])
       |> assign(:trace_jobs, [])
@@ -1711,6 +1712,18 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
+  @impl true
+  def handle_event("force_reset_pipeline", %{"track-id" => track_id}, socket) do
+    cancelled_count = Music.cancel_stuck_oban_jobs(track_id)
+    Music.fail_stuck_processing_jobs(track_id)
+    pipelines = Map.delete(socket.assigns.pipelines, track_id)
+
+    {:noreply,
+     socket
+     |> assign(:pipelines, pipelines)
+     |> put_flash(:info, "Pipeline reset (#{cancelled_count} job(s) cancelled). Use Retry to restart stages.")}
+  end
+
   # Catch-all for events bubbled from child components (e.g. AudioPlayer time_update)
   @impl true
   def handle_event(_event, _params, socket) do
@@ -2028,19 +2041,26 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   def handle_info({:debug_log, event}, socket) do
-    logs = [event | socket.assigns.debug_logs] |> Enum.take(@max_debug_logs)
+    # Only update assigns when debug panel is open. LogBroadcaster fires on every
+    # Logger event (including Oban/Ecto SQL queries at 30+ Hz). Updating assigns
+    # unconditionally floods the WebSocket with diffs and crashes the view.
+    if socket.assigns.debug_panel_open do
+      logs = [event | socket.assigns.debug_logs] |> Enum.take(@max_debug_logs)
 
-    namespaces =
-      if event.namespace do
-        MapSet.put(socket.assigns.debug_log_namespaces, event.namespace)
-      else
-        socket.assigns.debug_log_namespaces
-      end
+      namespaces =
+        if event.namespace do
+          MapSet.put(socket.assigns.debug_log_namespaces, event.namespace)
+        else
+          socket.assigns.debug_log_namespaces
+        end
 
-    {:noreply,
-     socket
-     |> assign(:debug_logs, logs)
-     |> assign(:debug_log_namespaces, namespaces)}
+      {:noreply,
+       socket
+       |> assign(:debug_logs, logs)
+       |> assign(:debug_log_namespaces, namespaces)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -2150,23 +2170,36 @@ defmodule SoundForgeWeb.DashboardLive do
      |> append_midi_log(log_entry)}
   end
 
+  # Throttle BPM updates to 2 Hz max and only when value changes by ≥0.5 BPM.
+  # MIDI clock (0xF8) fires at 24 PPQN — ~54 Hz at 134 BPM. Without throttling
+  # this causes a LiveView diff on every tick even when the BPM reading is stable.
+  # send_update to DjTabComponent is intentionally OMITTED here — every send_update
+  # causes a component re-render diff even when assigns don't change, which floods
+  # the WebSocket. MIDI sync pitch is handled by the component subscribing via
+  # its own PubSub route (see dj_tab_component.ex subscribe_midi_clock/1).
+  # BPM display in AppHeader updates at most once per 5s with ≥1 BPM change.
+  # The else-branch does NOT assign last_bpm_ms — doing so causes a re-render on
+  # every beat even when midi_bpm hasn't changed, flooding the WebSocket with
+  # {10:, 17:} diffs at MIDI clock rate (~2 Hz). last_bpm_ms is only reset when
+  # we actually update midi_bpm, effectively rate-limiting to 0.2 Hz.
+  @bpm_update_interval_ms 5_000
+
   @impl true
-  def handle_info({:bpm_update, bpm} = msg, socket) do
-    socket = assign(socket, :midi_bpm, bpm)
+  def handle_info({:bpm_update, bpm}, socket) do
+    now = System.monotonic_time(:millisecond)
+    last_ms = socket.assigns.last_bpm_ms
+    current_bpm = socket.assigns.midi_bpm
+    time_ok = now - last_ms >= @bpm_update_interval_ms
+    value_changed = current_bpm == nil or abs(bpm - current_bpm) >= 1.0
 
-    socket =
-      if socket.assigns.nav_tab == :dj do
-        send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-          id: "dj-tab",
-          midi_event: msg
-        )
-
-        socket
-      else
-        socket
-      end
-
-    {:noreply, socket}
+    if time_ok and value_changed do
+      {:noreply,
+       socket
+       |> assign(:midi_bpm, bpm)
+       |> assign(:last_bpm_ms, now)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -2182,6 +2215,18 @@ defmodule SoundForgeWeb.DashboardLive do
       send_update(SoundForgeWeb.Live.Components.DjTabComponent,
         id: "dj-tab",
         midi_event: msg
+      )
+    end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:virtual_controller, :trigger_cue, params}, socket) do
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab",
+        virtual_controller: {:trigger_cue, params}
       )
     end
 

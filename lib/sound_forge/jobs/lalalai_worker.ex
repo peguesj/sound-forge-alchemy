@@ -81,46 +81,56 @@ defmodule SoundForge.Jobs.LalalAIWorker do
         if(multivocal, do: ", multivocal=#{multivocal}", else: "")
     )
 
-    job = Music.get_processing_job!(job_id)
-    Music.update_processing_job(job, %{status: :processing, progress: 0})
-    broadcast_progress(job_id, :processing, 0)
-    broadcast_track_progress(track_id, :processing, :processing, 0)
+    # Defensive check: if ProcessingJob was deleted (parent track deleted), skip gracefully
+    case Music.get_processing_job(job_id) do
+      nil ->
+        Logger.warning(
+          "ProcessingJob #{job_id} not found, skipping (likely parent track deleted)"
+        )
 
-    resolved_path = SoundForge.Storage.resolve_path(file_path)
+        :ok
 
-    unless File.exists?(resolved_path) do
-      error_msg = "Audio file not found: #{resolved_path}"
-      Logger.error(error_msg)
-      fresh_job = Music.get_processing_job!(job_id)
-      Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
-      PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
-      raise error_msg
-    end
+      job ->
+        Music.update_processing_job(job, %{status: :processing, progress: 0})
+        broadcast_progress(job_id, :processing, 0)
+        broadcast_track_progress(track_id, :processing, :processing, 0)
 
-    upload_opts =
-      [stem_filter: stem_filter, splitter: splitter]
-      |> maybe_add_multivocal(multivocal)
+        resolved_path = SoundForge.Storage.resolve_path(file_path)
 
-    with {:ok, task_id} <- LalalAI.upload_track(resolved_path, upload_opts),
-         _ <- Logger.info("lalal.ai task created: #{task_id}"),
-         _ <-
-           (fresh_upload_job = Music.get_processing_job!(job_id);
-            Music.update_processing_job(fresh_upload_job, %{
-              options: Map.put(fresh_upload_job.options || %{}, "lalalai_task_id", task_id)
-            })),
-         {:ok, stem_urls} <- poll_until_complete(task_id, job_id, track_id) do
-      process_completed_stems(
-        track_id,
-        job_id,
-        file_path,
-        stem_urls,
-        stem_filter,
-        preview,
-        multivocal
-      )
-    else
-      {:error, reason} ->
-        handle_perform_error(reason, track_id, job_id, attempt)
+        unless File.exists?(resolved_path) do
+          error_msg = "Audio file not found: #{resolved_path}"
+          Logger.error(error_msg)
+          fresh_job = Music.get_processing_job!(job_id)
+          Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
+          PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
+          raise error_msg
+        end
+
+        upload_opts =
+          [stem_filter: stem_filter, splitter: splitter]
+          |> maybe_add_multivocal(multivocal)
+
+        with {:ok, task_id} <- LalalAI.upload_track(resolved_path, upload_opts),
+             _ <- Logger.info("lalal.ai task created: #{task_id}"),
+             _ <-
+               (fresh_upload_job = Music.get_processing_job!(job_id);
+                Music.update_processing_job(fresh_upload_job, %{
+                  options: Map.put(fresh_upload_job.options || %{}, "lalalai_task_id", task_id)
+                })),
+             {:ok, stem_urls} <- poll_until_complete(task_id, job_id, track_id) do
+          process_completed_stems(
+            track_id,
+            job_id,
+            file_path,
+            stem_urls,
+            stem_filter,
+            preview,
+            multivocal
+          )
+        else
+          {:error, reason} ->
+            handle_perform_error(reason, track_id, job_id, attempt)
+        end
     end
   end
 

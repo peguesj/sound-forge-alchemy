@@ -635,6 +635,56 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - [x] **CP-56**: Project memory with environment references (Phase 4b)
 - After CP-56: All documentation authoritative
 
+### Feature: BigLoopy(TM) (feat/bigloopy)
+
+#### Wave 1 - Foundation (Schemas + Context)
+- [x] **CP-57**: AlchemySet unified schema + migration (US-201)
+- [x] **CP-58**: BigLoopyJob + BigLoopyTrackJob schemas + migrations (US-202)
+- [x] **CP-59**: BigLoopy context CRUD module (US-203)
+- After CP-59: `mix compile --warnings-as-errors` PASS, AlchemySet and BigLoopyJob tables created
+
+#### Wave 2 - AI Layer + Python Core
+- [x] **CP-60**: RecipeParser AI module -- prompt to BigLoopyRecipe (US-204)
+- [x] **CP-61**: OmegaChop AI stem routing module (US-205)
+- [x] **CP-62**: loop_extractor.py Python script + Elixir Port wrapper (US-206)
+- [x] **CP-63**: PackageBuilder module + BigLoopyBroadcaster (US-207)
+- After CP-63: `mix compile --warnings-as-errors` PASS, AI parsing and loop extraction operational
+
+#### Wave 3 - Oban Workers + Business Logic
+- [x] **CP-64**: BigLoopyOrchestratorWorker Oban worker (US-208)
+- [x] **CP-65**: BigLoopyTrackWorker Oban worker (US-209)
+- [x] **CP-66**: PerformanceSet logic + Oban queue WORKER_MODE config (US-210)
+- After CP-66: `mix compile --warnings-as-errors` PASS, full job pipeline runnable end-to-end
+
+#### Wave 4 - UI Layer
+- [x] **CP-67**: BigLoopyLive LiveView -- main feature page (US-211)
+- [x] **CP-68**: BigLoopyProgress real-time component + PerformanceSetView (US-212)
+- [x] **CP-69**: BigLoopy ZIP download endpoint + router + navigation (US-213)
+- After CP-69: `mix compile --warnings-as-errors` PASS, full UI functional
+
+#### Wave 5 - DJ Integration
+- [x] **CP-70**: DJ deck integration -- load PerformanceSet slots (US-214)
+- After CP-70: `mix compile --warnings-as-errors` PASS, all 14 stories complete
+
+### Feature: Brazilian Funk 130BPM Sample Pack Acquisition Pipeline (worktree-fix-spotify-optional)
+
+#### Wave 1 - Foundation (Scripts + Schemas + Context)
+- [x] **CP-71**: Copy acquisition scripts to priv/sample_acquisition/ and create Mix task (US-001)
+- [x] **CP-72**: Create SamplePack and SampleFile Ecto schemas with migration (US-002)
+- [x] **CP-73**: Create SoundForge.SampleLibrary context with CRUD and import_from_manifest/1 (US-003)
+- After CP-73: `mix compile --warnings-as-errors` PASS, sample_packs and sample_files tables created
+
+#### Wave 2 - Workers + Search
+- [x] **CP-74**: Create ManifestImportWorker Oban worker for background manifest ingestion (US-004)
+- [x] **CP-75**: Add SampleLibrary search and filter functions for category, BPM, key, full-text (US-005)
+- After CP-75: `mix compile --warnings-as-errors` PASS, import worker and search functional
+
+#### Wave 3 - UI
+- [x] **CP-76**: Create SampleLibraryLive LiveView at /library with streams, search, and filters (US-006)
+- [x] **CP-77**: Add SamplePreviewHook for in-browser MP3/WAV audio preview in library (US-007)
+- [x] **CP-78**: Add Sample Library tab to AdminLive with import trigger and status display (US-008)
+- After CP-78: `mix compile --warnings-as-errors` PASS, all 8 stories complete
+
 ## Agentic Complexity Tree View Requirement
 
 When any request involves agentic complexity (UPM, Formation, agent deployment), ALWAYS display a `tree`-style hierarchical view of the planned structure BEFORE execution. This applies to /upm build, /formation deploy, /deploy:agents-v2, /ralph story mapping, /plane-pm issue creation, and any todo/task list with concurrent work. No exceptions.
@@ -846,3 +896,11 @@ A PreToolUse hook in `.claude/settings.json` warns when editing files on `releas
 - **Project ID**: `6f35c181-4a86-476d-bb2a-fba869f68918`
 - **Workspace**: lgtm
 - **URL**: https://plane.lgtm.build/lgtm/projects/6f35c181-4a86-476d-bb2a-fba869f68918/
+
+## CCEM APM Integration
+
+- **APM Dashboard**: http://localhost:3031
+- **APM Config**: /Users/jeremiah/Developer/sfa/apm/apm_config.json
+- **APM Port**: 3031
+- **Skills Path**: ~/.claude/skills/
+- **APM Log**: ~/Developer/ccem/apm/hooks/apm_server.log

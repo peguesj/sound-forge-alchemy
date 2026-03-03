@@ -55,6 +55,7 @@ defmodule SoundForgeWeb.FileController do
             |> put_resp_content_type(content_type)
             |> put_resp_header("accept-ranges", "bytes")
             |> put_resp_header("content-length", to_string(size))
+            |> put_resp_header("cache-control", "public, max-age=86400, immutable")
             |> send_file(200, path)
         end
 
@@ -73,6 +74,7 @@ defmodule SoundForgeWeb.FileController do
         |> put_resp_header("accept-ranges", "bytes")
         |> put_resp_header("content-range", "bytes #{start_byte}-#{end_byte}/#{total_size}")
         |> put_resp_header("content-length", to_string(length))
+        |> put_resp_header("cache-control", "public, max-age=86400, immutable")
         |> send_file(206, path, start_byte, length)
 
       :error ->

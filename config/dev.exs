@@ -99,3 +99,6 @@ config :swoosh, :api_client, false
 config :sound_forge,
   :spotify_redirect_uri,
   "http://127.0.0.1:#{System.get_env("PORT", "4000")}/auth/spotify/callback"
+
+# Increase Demucs timeout for CPU-only dev environments (default 5min is too short)
+config :sound_forge, :demucs_timeout, 900_000

@@ -11,15 +11,40 @@ import RegionsPlugin from "wavesurfer.js/dist/plugins/regions.esm.js"
 import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline.esm.js"
 import MinimapPlugin from "wavesurfer.js/dist/plugins/minimap.esm.js"
 
+// Module-level decoded AudioBuffer cache keyed by URL.
+// Survives LiveView reconnects (hook destroy/remount cycles) so re-loading
+// the same track skips the fetch + decodeAudioData round-trip entirely.
+const _audioBufferCache = new Map()
+
 const DjDeck = {
   mounted() {
     console.log("[DjDeck] Hook mounted")
 
-    // Deck audio state: keyed by deck number (1, 2)
-    this.decks = {
-      1: { audioContext: null, masterGain: null, stems: {}, wavesurfer: null, regionsPlugin: null, loopRegion: null, cueMarkers: [], isPlaying: false, startTime: 0, pauseOffset: 0, duration: 0, loop: null, pitch: 0.0, tempo: null, beatTimes: [], beatMarkers: [] },
-      2: { audioContext: null, masterGain: null, stems: {}, wavesurfer: null, regionsPlugin: null, loopRegion: null, cueMarkers: [], isPlaying: false, startTime: 0, pauseOffset: 0, duration: 0, loop: null, pitch: 0.0, tempo: null, beatTimes: [], beatMarkers: [] }
+    // Deck audio state: keyed by deck number (1-4)
+    // Decks 3/4 are loop-track decks with simplified playback
+    const deckTemplate = () => ({
+      audioContext: null, masterGain: null, eqLow: null, eqMid: null, eqHigh: null,
+      deckFilter: null, stems: {}, wavesurfer: null, regionsPlugin: null, loopRegion: null,
+      cueMarkers: [], isPlaying: false, startTime: 0, pauseOffset: 0, duration: 0,
+      loop: null, pitch: 0.0, tempo: null, beatTimes: [], beatMarkers: [],
+      timeFactor: 1.0,
+      stemStates: {},
+      metronomeOscillator: null, metronomePlaying: false
+    })
+    this.decks = { 1: deckTemplate(), 2: deckTemplate(), 3: deckTemplate(), 4: deckTemplate() }
+
+    // Unlock all AudioContexts on first user interaction (browser autoplay policy).
+    // AudioContexts created outside a user gesture start suspended; this listener
+    // resumes them as soon as the user clicks or taps anywhere on the page.
+    this._unlockAudio = () => {
+      Object.values(this.decks).forEach(deck => {
+        if (deck.audioContext && deck.audioContext.state === "suspended") {
+          deck.audioContext.resume().catch(() => {})
+        }
+      })
     }
+    document.addEventListener("click", this._unlockAudio, { passive: true })
+    document.addEventListener("touchstart", this._unlockAudio, { passive: true })
 
     this.crossfaderValue = 0 // -100 (deck1) to +100 (deck2), 0 = center
     this.crossfaderCurve = "linear" // "linear" | "equal_power" | "sharp"
@@ -34,8 +59,22 @@ const DjDeck = {
     this.handleEvent("set_loop", (payload) => this._setLoop(payload))
     this.handleEvent("set_cue_points", (payload) => this._setCuePoints(payload))
     this.handleEvent("seek_and_play", (payload) => this._seekAndPlay(payload))
+    this.handleEvent("seek_deck", (payload) => this._handleSeekDeck(payload))
+    this.handleEvent("set_time_factor", (payload) => this._setTimeFactor(payload))
+    this.handleEvent("set_eq_kill", (payload) => this._setEqKill(payload))
+    this.handleEvent("set_stem_states", (payload) => this._setStemStates(payload))
+    this.handleEvent("toggle_metronome", (payload) => this._toggleMetronome(payload))
+    this.handleEvent("set_filter", (payload) => this._setFilter(payload))
     this.handleEvent("set_pitch", (payload) => this._setPitch(payload))
     this.handleEvent("stem_loop_preview", (payload) => this._stemLoopPreview(payload))
+
+    // Instant client-side audio actions — fired via JS.dispatch() before the
+    // server round-trip completes. Eliminates the phx-click → server → push_event
+    // latency for play/pause and hot cue seeks.
+    this._onDjPlay = (e) => this._playDeck({ deck: e.detail.deck, playing: e.detail.playing })
+    this._onDjSeek = (e) => this._seekAndPlay({ deck: e.detail.deck, position: e.detail.position })
+    this.el.addEventListener("dj:play", this._onDjPlay)
+    this.el.addEventListener("dj:seek", this._onDjSeek)
   },
 
   /**
@@ -54,6 +93,8 @@ const DjDeck = {
     // Store analysis data for beat grid
     deckState.tempo = tempo || null
     deckState.beatTimes = beat_times || []
+    deckState._audioReady = false
+    deckState._pendingPlay = false
 
     if (!urls || urls.length === 0) {
       console.warn(`[DjDeck] No audio URLs for deck ${deck}`)
@@ -64,26 +105,59 @@ const DjDeck = {
       // Create a fresh AudioContext for this deck
       const ctx = new (window.AudioContext || window.webkitAudioContext)()
       const masterGain = ctx.createGain()
-      masterGain.connect(ctx.destination)
       masterGain.gain.value = 1.0
+
+      // EQ chain: Low shelf → Mid peak → High shelf → LP/HP filter → master
+      const eqLow = ctx.createBiquadFilter()
+      eqLow.type = "lowshelf"; eqLow.frequency.value = 200; eqLow.gain.value = 0
+
+      const eqMid = ctx.createBiquadFilter()
+      eqMid.type = "peaking"; eqMid.frequency.value = 1000; eqMid.Q.value = 1.0; eqMid.gain.value = 0
+
+      const eqHigh = ctx.createBiquadFilter()
+      eqHigh.type = "highshelf"; eqHigh.frequency.value = 8000; eqHigh.gain.value = 0
+
+      const deckFilter = ctx.createBiquadFilter()
+      deckFilter.type = "allpass"  // neutral until set_filter event
+
+      // Chain: stemGainNodes → eqLow → eqMid → eqHigh → deckFilter → masterGain → destination
+      eqLow.connect(eqMid)
+      eqMid.connect(eqHigh)
+      eqHigh.connect(deckFilter)
+      deckFilter.connect(masterGain)
+      masterGain.connect(ctx.destination)
 
       deckState.audioContext = ctx
       deckState.masterGain = masterGain
+      deckState.eqLow = eqLow
+      deckState.eqMid = eqMid
+      deckState.eqHigh = eqHigh
+      deckState.deckFilter = deckFilter
       deckState.stems = {}
 
-      // Load all audio sources in parallel
+      // Start WaveSurfer waveform IMMEDIATELY — visual-only, fetches its own stream.
+      // This makes the waveform visible while audio buffers decode in the background.
+      this._initWaveform(deck, urls)
+
+      // Load all audio sources in parallel, using the module-level decoded
+      // buffer cache to skip fetch+decode for previously-loaded URLs.
       const loadPromises = urls.map(async (item) => {
         try {
-          const response = await fetch(item.url)
-          if (!response.ok) {
-            console.error(`[DjDeck] Deck ${deck}: HTTP ${response.status} for ${item.url}`)
-            return
+          let audioBuffer = _audioBufferCache.get(item.url)
+
+          if (!audioBuffer) {
+            const response = await fetch(item.url)
+            if (!response.ok) {
+              console.error(`[DjDeck] Deck ${deck}: HTTP ${response.status} for ${item.url}`)
+              return
+            }
+            const arrayBuffer = await response.arrayBuffer()
+            audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+            _audioBufferCache.set(item.url, audioBuffer)
           }
-          const arrayBuffer = await response.arrayBuffer()
-          const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
 
           const gainNode = ctx.createGain()
-          gainNode.connect(masterGain)
+          gainNode.connect(deckState.eqLow)  // into EQ chain, not directly to masterGain
 
           deckState.stems[item.type] = {
             buffer: audioBuffer,
@@ -95,18 +169,28 @@ const DjDeck = {
         }
       })
 
-      await Promise.all(loadPromises)
+      // Decode in background — do not await here so waveform renders instantly.
+      Promise.all(loadPromises).then(() => {
+        const durations = Object.values(deckState.stems).map(s => s.buffer.duration)
+        deckState.duration = Math.max(...durations, 0)
+        deckState._audioReady = true
+        console.log(`[DjDeck] Deck ${deck}: loaded ${Object.keys(deckState.stems).length} sources, duration=${deckState.duration.toFixed(1)}s`)
 
-      // Determine duration from longest buffer
-      const durations = Object.values(deckState.stems).map(s => s.buffer.duration)
-      deckState.duration = Math.max(...durations, 0)
-      console.log(`[DjDeck] Deck ${deck}: loaded ${Object.keys(deckState.stems).length} sources, duration=${deckState.duration.toFixed(1)}s`)
+        this._applyCrossfader()
 
-      // Initialize WaveSurfer (visual only)
-      this._initWaveform(deck, urls)
-
-      // Apply current crossfader balance
-      this._applyCrossfader()
+        // If play was requested while audio was still decoding, start now.
+        if (deckState._pendingPlay) {
+          deckState._pendingPlay = false
+          if (deckState.audioContext.state === "suspended") {
+            deckState.audioContext.resume().catch(() => {}).then(() => this._startDeck(deck))
+          } else {
+            this._startDeck(deck)
+          }
+        }
+      }).catch(err => {
+        deckState._audioReady = false
+        console.error(`[DjDeck] Deck ${deck}: audio decode failed:`, err)
+      })
 
     } catch (err) {
       console.error(`[DjDeck] Deck ${deck}: AudioContext init failed:`, err)
@@ -232,12 +316,30 @@ const DjDeck = {
    * Handle play/pause for a deck.
    * @param {Object} payload - { deck: number, playing: boolean }
    */
-  _playDeck({ deck, playing }) {
+  async _playDeck({ deck, playing }) {
     const deckState = this.decks[deck]
     if (!deckState || !deckState.audioContext) return
 
+    // If audio buffers are still decoding, queue the play request.
+    // _loadDeckAudio will call _startDeck when decode completes.
+    if (playing && !deckState._audioReady) {
+      console.log(`[DjDeck] Deck ${deck}: play queued — audio still loading`)
+      deckState._pendingPlay = true
+      return
+    }
+
+    if (!playing) {
+      deckState._pendingPlay = false
+    }
+
+    // Await resume so the context is truly running before source nodes are started.
+    // AudioContexts created outside a user gesture start in "suspended" state.
     if (deckState.audioContext.state === "suspended") {
-      deckState.audioContext.resume()
+      try {
+        await deckState.audioContext.resume()
+      } catch (err) {
+        console.warn(`[DjDeck] Deck ${deck}: AudioContext.resume() failed:`, err)
+      }
     }
 
     if (playing) {
@@ -260,8 +362,9 @@ const DjDeck = {
       stem.source = source
     })
 
-    // Apply stored pitch to all newly created source nodes
-    const rate = 1.0 + (deckState.pitch / 100.0)
+    // Apply stored pitch + time factor to all newly created source nodes
+    const timeFactor = deckState.timeFactor || 1.0
+    const rate = timeFactor * (1.0 + (deckState.pitch / 100.0))
     if (rate !== 1.0) {
       Object.values(deckState.stems).forEach(stem => {
         if (stem.source) {
@@ -488,15 +591,26 @@ const DjDeck = {
    * Seek to a position and start playing.
    * @param {Object} payload - { deck: number, position: number (seconds) }
    */
-  _seekAndPlay({ deck, position }) {
+  async _seekAndPlay({ deck, position }) {
     const deckState = this.decks[deck]
     if (!deckState || !deckState.audioContext) return
 
     console.log(`[DjDeck] Deck ${deck}: seek_and_play to ${position.toFixed(2)}s`)
 
+    // If audio not yet ready, queue the seek position and trigger play after decode.
+    if (!deckState._audioReady) {
+      deckState.pauseOffset = position
+      deckState._pendingPlay = true
+      return
+    }
+
     // Resume AudioContext if suspended (browser autoplay policy)
     if (deckState.audioContext.state === "suspended") {
-      deckState.audioContext.resume()
+      try {
+        await deckState.audioContext.resume()
+      } catch (err) {
+        console.warn(`[DjDeck] Deck ${deck}: AudioContext.resume() failed in seek_and_play:`, err)
+      }
     }
 
     // Seek to position
@@ -506,6 +620,151 @@ const DjDeck = {
     if (!deckState.isPlaying) {
       this._startDeck(deck)
     }
+  },
+
+  /**
+   * Seek to a position WITHOUT starting playback (loop arm, cue set, etc.).
+   * @param {Object} payload - { deck: number, position: number (seconds) }
+   */
+  _handleSeekDeck({ deck, position }) {
+    const deckState = this.decks[deck]
+    if (!deckState || !deckState.audioContext) return
+
+    console.log(`[DjDeck] Deck ${deck}: seek_deck (no-play) to ${position.toFixed(2)}s`)
+
+    if (!deckState._audioReady) {
+      // Store position for when audio is ready; do NOT arm pending play
+      deckState.pauseOffset = position
+      return
+    }
+
+    this._seekDeck(deck, position)
+  },
+
+  // -- Time Factor (Double / Half Time) --
+
+  /**
+   * Set the time factor for a deck (1.0 = normal, 2.0 = double time, 0.5 = half time).
+   * Combines with pitch so double time increases both speed and pitch.
+   * @param {Object} payload - { deck, factor }
+   */
+  _setTimeFactor({ deck, factor }) {
+    const deckState = this.decks[deck]
+    if (!deckState) return
+    deckState.timeFactor = factor
+    const combinedRate = factor * (1.0 + (deckState.pitch / 100.0))
+    Object.values(deckState.stems).forEach(stem => {
+      if (stem.source) {
+        stem.source.playbackRate.setValueAtTime(combinedRate, deckState.audioContext.currentTime)
+      }
+    })
+    console.log(`[DjDeck] Deck ${deck}: time_factor=${factor} combinedRate=${combinedRate.toFixed(3)}`)
+  },
+
+  // -- EQ Kill Switches --
+
+  /**
+   * Kill or restore an EQ band for a deck.
+   * @param {Object} payload - { deck, band: "low"|"mid"|"high", active: bool }
+   */
+  _setEqKill({ deck, band, active }) {
+    const deckState = this.decks[deck]
+    if (!deckState) return
+    const KILL_GAIN = -40  // dB — effectively silent
+    const node = band === "low" ? deckState.eqLow : band === "mid" ? deckState.eqMid : deckState.eqHigh
+    if (!node) return
+    node.gain.setValueAtTime(active ? KILL_GAIN : 0, deckState.audioContext.currentTime)
+    console.log(`[DjDeck] Deck ${deck}: EQ ${band} kill=${active}`)
+  },
+
+  // -- Stem Solo / Mute --
+
+  /**
+   * Set mute/solo/on states for all stems of a deck.
+   * @param {Object} payload - { deck, stem_states: { "vocals": "on"|"mute"|"solo", ... } }
+   */
+  _setStemStates({ deck, stem_states }) {
+    const deckState = this.decks[deck]
+    if (!deckState) return
+    deckState.stemStates = stem_states
+
+    const hasSolo = Object.values(stem_states).some(v => v === "solo")
+
+    Object.entries(deckState.stems).forEach(([type, stem]) => {
+      const state = stem_states[type] || "on"
+      let gain = 1.0
+      if (state === "mute") gain = 0.0
+      else if (hasSolo) gain = (state === "solo") ? 1.0 : 0.0
+      stem.gainNode.gain.setValueAtTime(gain, deckState.audioContext ? deckState.audioContext.currentTime : 0)
+    })
+    console.log(`[DjDeck] Deck ${deck}: stem states`, stem_states)
+  },
+
+  // -- LP/HP Filter --
+
+  /**
+   * Set the deck-wide filter (lowpass, highpass, or bypass).
+   * @param {Object} payload - { deck, mode: "none"|"lp"|"hp", cutoff: 0.0-1.0 }
+   */
+  _setFilter({ deck, mode, cutoff }) {
+    const deckState = this.decks[deck]
+    if (!deckState || !deckState.deckFilter) return
+
+    // Map 0.0-1.0 to 20Hz-20000Hz on a logarithmic scale
+    const minFreq = 20, maxFreq = 20000
+    const freq = minFreq * Math.pow(maxFreq / minFreq, cutoff)
+
+    if (mode === "lp") {
+      deckState.deckFilter.type = "lowpass"
+      deckState.deckFilter.frequency.setValueAtTime(freq, deckState.audioContext.currentTime)
+      deckState.deckFilter.Q.value = 0.7
+    } else if (mode === "hp") {
+      deckState.deckFilter.type = "highpass"
+      deckState.deckFilter.frequency.setValueAtTime(freq, deckState.audioContext.currentTime)
+      deckState.deckFilter.Q.value = 0.7
+    } else {
+      deckState.deckFilter.type = "allpass"  // bypass
+    }
+    console.log(`[DjDeck] Deck ${deck}: filter mode=${mode} freq=${freq.toFixed(0)}Hz`)
+  },
+
+  // -- Metronome --
+
+  /**
+   * Start or stop the global metronome click track.
+   * Uses a shared AudioContext on deck 1 as the clock source.
+   * @param {Object} payload - { active: bool, bpm: number, volume: 0.0-1.0 }
+   */
+  _toggleMetronome({ active, bpm, volume }) {
+    if (this._metronomeInterval) {
+      clearInterval(this._metronomeInterval)
+      this._metronomeInterval = null
+    }
+    if (!active) {
+      console.log("[DjDeck] Metronome stopped")
+      return
+    }
+
+    const beatMs = 60000 / (bpm || 120)
+    console.log(`[DjDeck] Metronome started: ${bpm}BPM, vol=${volume}`)
+
+    const click = () => {
+      // Use deck 1's AudioContext if available, else skip
+      const ctx = this.decks[1]?.audioContext || this.decks[2]?.audioContext
+      if (!ctx || ctx.state === "closed") return
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 880  // A5 — crisp click tone
+      gain.gain.setValueAtTime(volume || 0.3, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.05)
+    }
+
+    click()  // immediate first click
+    this._metronomeInterval = setInterval(click, beatMs)
   },
 
   // -- Pitch / Tempo Engine --
@@ -762,6 +1021,18 @@ const DjDeck = {
 
   destroyed() {
     console.log("[DjDeck] Hook destroyed, cleaning up")
+
+    // Remove interaction unlock listeners
+    if (this._unlockAudio) {
+      document.removeEventListener("click", this._unlockAudio)
+      document.removeEventListener("touchstart", this._unlockAudio)
+      this._unlockAudio = null
+    }
+
+    // Remove instant-action listeners
+    if (this._onDjPlay) { this.el.removeEventListener("dj:play", this._onDjPlay); this._onDjPlay = null }
+    if (this._onDjSeek) { this.el.removeEventListener("dj:seek", this._onDjSeek); this._onDjSeek = null }
+
     this._cleanupDeck(1)
     this._cleanupDeck(2)
 

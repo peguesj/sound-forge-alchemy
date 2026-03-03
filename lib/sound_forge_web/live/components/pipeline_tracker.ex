@@ -162,7 +162,16 @@ defmodule SoundForgeWeb.Live.Components.PipelineTracker do
                   </button>
                 </div>
               </div>
-              <div class="flex justify-end mt-1.5">
+              <div class="flex justify-between items-center mt-1.5">
+                <button
+                  phx-click="force_reset_pipeline"
+                  phx-value-track-id={track_id}
+                  class="text-[10px] text-amber-500 hover:text-amber-400 transition-colors"
+                  aria-label="Force reset pipeline (cancels stuck jobs)"
+                  title="Cancel stuck Oban jobs and reset pipeline state"
+                >
+                  Force Reset
+                </button>
                 <button
                   phx-click="dismiss_pipeline"
                   phx-value-track-id={track_id}

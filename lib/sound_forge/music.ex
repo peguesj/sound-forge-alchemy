@@ -569,8 +569,40 @@ defmodule SoundForge.Music do
 
   Raises `Ecto.NoResultsError` if the Processing job does not exist.
   """
+  @spec get_processing_job(String.t()) :: ProcessingJob.t() | nil
+  def get_processing_job(id), do: Repo.get(ProcessingJob, id)
+
   @spec get_processing_job!(String.t()) :: ProcessingJob.t()
   def get_processing_job!(id), do: Repo.get!(ProcessingJob, id)
+
+  @doc "Cancel all non-completed Oban jobs for a track. Returns the count cancelled."
+  @spec cancel_stuck_oban_jobs(String.t()) :: non_neg_integer()
+  def cancel_stuck_oban_jobs(track_id) do
+    import Ecto.Query
+
+    query =
+      Oban.Job
+      |> where([j], fragment("?->>'track_id' = ?", j.args, ^track_id))
+      |> where([j], j.state in ["executing", "available", "scheduled", "retryable"])
+
+    case Oban.cancel_all_jobs(Oban, query) do
+      {count, _} -> count
+      _ -> 0
+    end
+  end
+
+  @doc "Mark stuck processing jobs for a track as failed so they can be retried."
+  @spec fail_stuck_processing_jobs(String.t()) :: {non_neg_integer(), nil}
+  def fail_stuck_processing_jobs(track_id) do
+    import Ecto.Query
+
+    Repo.update_all(
+      from(pj in ProcessingJob,
+        where: pj.track_id == ^track_id and pj.status in [:processing, :queued]
+      ),
+      set: [status: :failed, error: "Force reset by user", updated_at: DateTime.utc_now()]
+    )
+  end
 
   @doc """
   Creates a processing job.

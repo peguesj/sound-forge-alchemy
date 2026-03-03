@@ -12,6 +12,7 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
   """
   use SoundForgeWeb, :live_component
 
+  alias SoundForge.Music
   alias SoundForge.Sampler
 
   @pad_key_labels ~w(1 2 3 4 Q W E R A S D F Z X C V)
@@ -33,6 +34,9 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
      |> assign(:rename_bank_name, "")
      |> assign(:initialized, false)
      |> assign(:pad_key_labels, @pad_key_labels)
+     |> assign(:browser_open, false)
+     |> assign(:browser_search, "")
+     |> assign(:browser_tracks, [])
      # MIDI Learn state
      |> assign(:midi_learn_mode, false)
      |> assign(:midi_learn_target, nil)
@@ -88,12 +92,15 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
           0
         end
 
+      browser_tracks = Music.list_tracks(assigns[:current_scope])
+
       {:ok,
        socket
        |> assign(:banks, banks)
        |> assign(:current_bank, current_bank)
        |> assign(:available_stems, stems)
        |> assign(:midi_mappings_count, midi_count)
+       |> assign(:browser_tracks, browser_tracks)
        |> assign(:initialized, true)}
     else
       # Handle auto-load request from "Load in Pads" button in track detail
@@ -264,6 +271,58 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
               {Float.round(@current_bank.bpm * 1.0, 1)}
             </span>
           </div>
+
+          <button
+            phx-click="toggle_browser"
+            phx-target={@myself}
+            class={"flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors " <>
+              if(@browser_open,
+                do: "bg-purple-700 text-white",
+                else: "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
+              )}
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Library
+          </button>
+        </div>
+      </div>
+
+      <%!-- Library Browser Panel --%>
+      <div :if={@browser_open} class="border-b border-gray-700/50 bg-gray-900">
+        <div class="px-4 py-2 border-b border-gray-800">
+          <input
+            type="text"
+            value={@browser_search}
+            phx-keyup="browser_search"
+            phx-target={@myself}
+            name="value"
+            placeholder="Search tracks..."
+            class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+          />
+        </div>
+        <div class="overflow-y-auto max-h-48">
+          <%= for track <- Enum.filter(@browser_tracks, fn t ->
+            q = String.downcase(@browser_search)
+            q == "" || String.contains?(String.downcase(t.title || ""), q) || String.contains?(String.downcase(t.artist || ""), q)
+          end) do %>
+            <div
+              phx-click="browser_load_track"
+              phx-value-track-id={track.id}
+              phx-target={@myself}
+              class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800/70 cursor-pointer border-b border-gray-800/50 last:border-0 transition-colors"
+              title={"Load stems from #{track.title} into current bank"}
+            >
+              <div class="flex-1 min-w-0">
+                <p class="text-xs text-gray-200 font-medium truncate">{track.title}</p>
+                <p class="text-xs text-gray-600 truncate">{track.artist}</p>
+              </div>
+              <div :if={track.duration} class="text-xs text-gray-700 flex-shrink-0">
+                {div(track.duration, 60)}:{String.pad_leading(Integer.to_string(rem(track.duration, 60)), 2, "0")}
+              </div>
+            </div>
+          <% end %>
         </div>
       </div>
 
@@ -1191,6 +1250,32 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
       _ ->
         {:noreply, assign(socket, :import_error, "No file selected.")}
     end
+  end
+
+  def handle_event("toggle_browser", _params, socket) do
+    {:noreply, assign(socket, :browser_open, !socket.assigns.browser_open)}
+  end
+
+  def handle_event("browser_search", %{"value" => q}, socket) do
+    {:noreply, assign(socket, :browser_search, q)}
+  end
+
+  def handle_event("browser_load_track", %{"track-id" => track_id}, socket) do
+    track =
+      Music.get_track!(track_id)
+      |> SoundForge.Repo.preload(:stems)
+
+    socket =
+      if track.stems != [] && socket.assigns[:current_bank] do
+        case Sampler.quick_load_stems(socket.assigns.current_bank, track.stems) do
+          {:ok, updated_bank} -> assign(socket, :current_bank, updated_bank)
+          _ -> socket
+        end
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   # -- Private Helpers --
