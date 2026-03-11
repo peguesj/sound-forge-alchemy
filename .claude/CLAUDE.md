@@ -7,6 +7,18 @@ Sound Forge Alchemy (SFA) is an audio stem separation and analysis tool built wi
 **Domain**: Audio engineering / music production tooling.
 **Origin**: Ported from a Node.js/TypeScript microservices architecture to a single Phoenix OTP release.
 
+## Competitive Intelligence
+
+**Primary competitor**: Samplab (v2.4.6, Electron + VST3/AU plugin, cloud-only AI)
+**Full analysis**: `.claude/COMPETITIVE_ANALYSIS_SAMPLAB.md`
+
+### Key Strategic Gaps (from 2026-03-05 analysis)
+- **P0**: No DAW plugin (VST3/AU/CLAP) -- Samplab lives inside DAWs, SFA lives in browser
+- **P0**: No note-level editing in polyphonic audio (Samplab's core value prop)
+- **P1**: No audio-to-MIDI conversion, chord detection, piano roll, or audio warping
+- **SFA advantages**: Local Demucs processing (offline capable), multiple separation engines, Spotify integration, DJ/DAW modes, MIDI hardware, multi-LLM agents, admin dashboard, 707 tests
+- **Samplab vulnerability**: 100% cloud-dependent (no local ML models bundled)
+
 ## Tech Stack
 
 - **Elixir 1.15+** / **Phoenix 1.8** / **LiveView 1.1**
@@ -684,6 +696,35 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - [x] **CP-77**: Add SamplePreviewHook for in-browser MP3/WAV audio preview in library (US-007)
 - [x] **CP-78**: Add Sample Library tab to AdminLive with import trigger and status display (US-008)
 - After CP-78: `mix compile --warnings-as-errors` PASS, all 8 stories complete
+
+### Phase 10: Competitive Response -- Audio-to-MIDI, Chord Detection, Piano Roll, Audio Warping
+#### Wave 1 (independent -- Python modules, Ecto schemas, JS hooks)
+- [ ] **CP-79**: Add basic-pitch Python dependency and integration module (US-301)
+- [ ] **CP-80**: Add chord detection Python module using librosa chroma (US-302)
+- [ ] **CP-83**: Create MidiResult and ChordResult Ecto schemas and migrations (US-305)
+- [ ] **CP-86**: Create PianoRoll JS hook for note visualization (US-308)
+- [ ] **CP-87**: Create ChordProgression JS hook for chord timeline (US-309)
+- [ ] **CP-89**: Add pyrubberband Python dependency for time-stretching (US-311)
+- After Wave 1: `mix compile --warnings-as-errors` PASS
+
+#### Wave 2 (Erlang Port GenServers + MIDI export)
+- [ ] **CP-81**: Create AudioToMidi Erlang Port wrapper GenServer (US-303)
+- [ ] **CP-82**: Create ChordDetector Erlang Port wrapper GenServer (US-304)
+- [ ] **CP-85**: Add MIDI file export endpoint and download (US-307)
+- [ ] **CP-90**: Create AudioWarp Erlang Port wrapper GenServer (US-312)
+- After Wave 2: `mix compile --warnings-as-errors` PASS
+
+#### Wave 3 (Oban workers)
+- [ ] **CP-84**: Create AudioToMidiWorker and ChordDetectionWorker Oban jobs (US-306)
+- [ ] **CP-91**: Create AudioWarpWorker Oban job for background warping (US-313)
+- After Wave 3: `mix compile --warnings-as-errors` PASS
+
+#### Wave 4 (UI integration + settings + enhancements)
+- [ ] **CP-88**: Integrate MIDI and chord views into track detail (US-310)
+- [ ] **CP-92**: Add warp controls to DJ and DAW tabs (US-314)
+- [ ] **CP-93**: Add pipeline triggers for MIDI and chord detection to settings (US-315)
+- [ ] **CP-94**: Add chord detection data to AnalysisRadar and DJ auto-cue (US-316)
+- After CP-94: `mix compile --warnings-as-errors` PASS, all 16 stories complete
 
 ## Agentic Complexity Tree View Requirement
 

@@ -33,6 +33,8 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:track, nil)
       |> assign(:stems, [])
       |> assign(:analysis, nil)
+      |> assign(:midi_result, nil)
+      |> assign(:chord_result, nil)
       |> assign(:sort_by, :newest)
       |> assign(:view_mode, :grid)
       |> assign(:filters, %{status: "all", artist: "all"})
@@ -171,7 +173,9 @@ defmodule SoundForgeWeb.DashboardLive do
        |> assign(:live_action, :show)
        |> assign(:track, track)
        |> assign(:stems, track.stems)
-       |> assign(:analysis, analysis)}
+       |> assign(:analysis, analysis)
+       |> assign(:midi_result, Music.get_midi_result_for_track(id))
+       |> assign(:chord_result, Music.get_chord_result_for_track(id))}
     else
       {:noreply,
        socket
@@ -777,6 +781,42 @@ defmodule SoundForgeWeb.DashboardLive do
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not start analysis")}
+    end
+  end
+
+  @impl true
+  def handle_event("convert_to_midi", %{"id" => id}, socket) do
+    with {:ok, track} <- fetch_owned_track(socket, id),
+         {:ok, file_path} <- Music.get_download_path_validated(track.id) do
+      %{track_id: track.id, file_path: file_path}
+      |> SoundForge.Jobs.AudioToMidiWorker.new()
+      |> Oban.insert()
+
+      {:noreply, put_flash(socket, :info, "Converting #{track.title} to MIDI...")}
+    else
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Track not found")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Download the track first")}
+    end
+  end
+
+  @impl true
+  def handle_event("detect_chords", %{"id" => id}, socket) do
+    with {:ok, track} <- fetch_owned_track(socket, id),
+         {:ok, file_path} <- Music.get_download_path_validated(track.id) do
+      %{track_id: track.id, file_path: file_path}
+      |> SoundForge.Jobs.ChordDetectionWorker.new()
+      |> Oban.insert()
+
+      {:noreply, put_flash(socket, :info, "Detecting chords in #{track.title}...")}
+    else
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Track not found")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Download the track first")}
     end
   end
 
@@ -1925,11 +1965,41 @@ defmodule SoundForgeWeb.DashboardLive do
         |> assign(:track, track)
         |> assign(:stems, track.stems)
         |> assign(:analysis, List.first(track.analysis_results))
+        |> assign(:midi_result, Music.get_midi_result_for_track(track_id))
+        |> assign(:chord_result, Music.get_chord_result_for_track(track_id))
       else
         socket
       end
 
     {:noreply, assign(socket, :pipelines, pipelines)}
+  end
+
+  # MIDI conversion complete - reload midi_result
+  @impl true
+  def handle_info({:midi_conversion_complete, track_id}, socket) do
+    socket =
+      if socket.assigns.live_action == :show &&
+           socket.assigns.track && socket.assigns.track.id == track_id do
+        assign(socket, :midi_result, Music.get_midi_result_for_track(track_id))
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  # Chord detection complete - reload chord_result
+  @impl true
+  def handle_info({:chord_detection_complete, track_id}, socket) do
+    socket =
+      if socket.assigns.live_action == :show &&
+           socket.assigns.track && socket.assigns.track.id == track_id do
+        assign(socket, :chord_result, Music.get_chord_result_for_track(track_id))
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   # Pipeline complete - reload the track to get fresh data
@@ -2469,10 +2539,10 @@ defmodule SoundForgeWeb.DashboardLive do
       end)
   end
 
-  def radar_features(analysis) do
+  def radar_features(analysis, chord_result \\ nil) do
     features = analysis.features || %{}
 
-    %{
+    base = %{
       tempo: analysis.tempo,
       energy: analysis.energy,
       spectral_centroid: analysis.spectral_centroid,
@@ -2481,6 +2551,17 @@ defmodule SoundForgeWeb.DashboardLive do
       spectral_bandwidth: get_in(features, ["spectral", "bandwidth_mean"]),
       spectral_flatness: get_in(features, ["spectral", "flatness_mean"])
     }
+
+    # Add harmonic complexity from chord data if available
+    if chord_result && is_list(chord_result.chords) && length(chord_result.chords) > 0 do
+      # Harmonic complexity: unique chord count / total chords (higher = more complex)
+      unique_chords = chord_result.chords |> Enum.map(& &1["chord"]) |> Enum.uniq() |> length()
+      total_chords = length(chord_result.chords)
+      complexity = unique_chords / max(total_chords, 1)
+      Map.put(base, :harmonic_complexity, complexity)
+    else
+      base
+    end
   end
 
   def beats_with_tempo(analysis) do

@@ -3,3 +3,5 @@ librosa==0.10.2.post1
 numpy==1.26.4
 spotdl==4.2.10
 soundfile==0.12.1
+basic-pitch==0.3.1
+pyrubberband==0.4.0

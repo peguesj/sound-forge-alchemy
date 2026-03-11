@@ -33,6 +33,11 @@ const AnalysisRadar = {
       { key: "flatness", label: "Flatness", value: Math.min((data.spectral_flatness || 0) / 0.5, 1) }
     ]
 
+    // Add Harmonic Complexity axis when chord data is available
+    if (data.harmonic_complexity != null) {
+      axes.push({ key: "harmony", label: "Harmony", value: Math.min(data.harmonic_complexity, 1) })
+    }
+
     const width = 280
     const height = 280
     const margin = 40

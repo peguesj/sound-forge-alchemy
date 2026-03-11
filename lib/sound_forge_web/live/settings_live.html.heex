@@ -749,6 +749,23 @@
             placeholder={to_string(@defaults.analyzer_timeout)}
             min="1"
           />
+
+          <fieldset class="space-y-2 mt-4">
+            <legend class="text-sm text-gray-300">Auto Pipeline Extensions</legend>
+            <p class="text-xs text-gray-500 mb-2">
+              When enabled, these run automatically after analysis completes.
+            </p>
+            <.input
+              field={@form[:auto_midi_conversion]}
+              type="checkbox"
+              label="Auto MIDI Conversion (basic-pitch)"
+            />
+            <.input
+              field={@form[:auto_chord_detection]}
+              type="checkbox"
+              label="Auto Chord Detection (librosa chroma)"
+            />
+          </fieldset>
         </div>
         
 <!-- Storage Section -->

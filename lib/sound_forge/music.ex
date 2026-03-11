@@ -755,4 +755,64 @@ defmodule SoundForge.Music do
     |> AnalysisResult.changeset(attrs)
     |> Repo.insert()
   end
+
+  # ----- MIDI Results -----
+
+  alias SoundForge.Music.MidiResult
+
+  @doc """
+  Gets the MIDI result for a track, or nil if none exists.
+  """
+  def get_midi_result_for_track(track_id) do
+    Repo.get_by(MidiResult, track_id: track_id)
+  end
+
+  @doc """
+  Creates or replaces a MIDI result for a track.
+  """
+  def upsert_midi_result(attrs) do
+    track_id = attrs[:track_id] || attrs["track_id"]
+
+    case get_midi_result_for_track(track_id) do
+      nil ->
+        %MidiResult{}
+        |> MidiResult.changeset(attrs)
+        |> Repo.insert()
+
+      existing ->
+        existing
+        |> MidiResult.changeset(attrs)
+        |> Repo.update()
+    end
+  end
+
+  # ----- Chord Results -----
+
+  alias SoundForge.Music.ChordResult
+
+  @doc """
+  Gets the chord result for a track, or nil if none exists.
+  """
+  def get_chord_result_for_track(track_id) do
+    Repo.get_by(ChordResult, track_id: track_id)
+  end
+
+  @doc """
+  Creates or replaces a chord result for a track.
+  """
+  def upsert_chord_result(attrs) do
+    track_id = attrs[:track_id] || attrs["track_id"]
+
+    case get_chord_result_for_track(track_id) do
+      nil ->
+        %ChordResult{}
+        |> ChordResult.changeset(attrs)
+        |> Repo.insert()
+
+      existing ->
+        existing
+        |> ChordResult.changeset(attrs)
+        |> Repo.update()
+    end
+  end
 end
