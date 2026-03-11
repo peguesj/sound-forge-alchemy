@@ -11,6 +11,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.6.0] - 2026-03-11
+
+### Added
+- DJ instantaneous playback via `JS.dispatch` -- eliminates delayed start by dispatching play events directly from the client
+- AI-powered cue point detection in `AutoCueWorker` -- ML-based drop, breakdown, and build-up identification
+- Stem loop decks -- load individual stems (vocals, drums, bass, other) into dedicated loop deck slots with independent loop points
+- Crossfader curve selection -- linear, constant power, and sharp cut curves configurable per session
+- SMPTE timecode transport -- generate LTC timecode output for external DAW sync
+- Virtual controller UI -- on-screen jog wheels, pitch faders, and transport buttons for mouse/touch DJ control
+- Chef AI integration in DJ tab -- AI-assisted track selection, harmonic mixing suggestions, and energy flow planning
+- DJ preset import -- load and save controller mappings and deck configurations as named presets
+- `midi_results` database table for persisting MIDI conversion output per track
+- `chord_results` database table for persisting chord detection output per track
+- `auto_midi_chord` user settings -- toggle automatic MIDI conversion and chord detection after analysis completes
+
+### Fixed
+- MIDI `DeviceManager` ETS composite port_id -- input/output ports sharing the same numeric index no longer overwrite each other; port IDs now use `"input:N"` / `"output:N"` format
+- MIDI `Dispatcher` added to OTP supervision tree -- GenServer was never started, zero MIDI messages were dispatched
+- `phx-change` on `<select>` elements outside `<form>` tags silently failed -- all MIDI selects now wrapped in `<form>` elements
+- `resolve_user_id/1` guard clause changed from `when is_binary(id)` to `when is_integer(id)` -- was returning raw UUID bytes to integer column
+- `Mapping` schema removed incorrect `@primary_key {:id, :binary_id, autogenerate: true}` override -- migration creates integer serial PK, not UUID
+- `debug_log` WebSocket flood fixed -- was broadcasting at 30Hz uncapped; now guarded with rate limiting
+- BPM display throttled to 5-second intervals to prevent excessive DOM updates during live analysis
+
+---
+
+## [4.5.0] - 2026-03-11
+
+### Added
+- Polyphonic audio-to-MIDI conversion via Spotify's basic-pitch (`AudioToMidiPort`, `AudioToMidiWorker`)
+- Chord detection via librosa chroma_cqt with Krumhansl key profiles (`ChordDetectorPort`, `ChordDetectionWorker`)
+- Pure Elixir MIDI file writer with variable-length quantity encoding (`MidiFileWriter`)
+- Canvas-based piano roll visualization JS hook (`piano_roll.js`)
+- D3-based chord progression timeline JS hook (`chord_progression.js`)
+- Audio warping (time-stretch / pitch-shift) via pyrubberband (`AudioWarpPort`, `AudioWarpWorker`)
+- `MidiResult` and `ChordResult` Ecto schemas with upsert pattern (one result per track)
+- Auto-pipeline extensions: user settings for auto MIDI conversion and auto chord detection after analysis
+- Chord boundary cue points in `AutoCueWorker` — generates cue points at major chord changes
+- Harmonic complexity axis in analysis radar chart (7th axis when chord data available)
+- MIDI file export endpoint (`GET /export/midi/:track_id`)
+- DJ deck instantaneous playback via `JS.dispatch` (eliminates delayed start)
+- 38 new tests covering MidiFileWriter, MidiResult, ChordResult, workers, and ports
+
+### Changed
+- `AnalysisWorker` now chains MIDI/chord workers when user auto-pipeline settings are enabled
+- `AutoCueWorker` merges chord boundary cues with structure-based cues (500ms dedup window)
+- `PortSupervisor` extended with `start_audio_to_midi/0`, `start_chord_detector/0`, `start_audio_warp/0`
+- Dockerfile runtime image now includes `rubberband-cli` and `libsndfile1` for pyrubberband
+
+---
+
 ## [4.4.0] - 2026-02-25
 
 ### Added
@@ -457,7 +508,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.3.0...HEAD
+[Unreleased]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.6.0...HEAD
+[4.6.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.5.0...v4.6.0
+[4.5.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.4.0...v4.5.0
+[4.4.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.3.0...v4.4.0
 [4.3.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.2.12...v4.3.0
 [4.2.12]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.2.11...v4.2.12
 [4.2.11]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.2.10...v4.2.11

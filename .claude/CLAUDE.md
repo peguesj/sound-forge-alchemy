@@ -7,6 +7,18 @@ Sound Forge Alchemy (SFA) is an audio stem separation and analysis tool built wi
 **Domain**: Audio engineering / music production tooling.
 **Origin**: Ported from a Node.js/TypeScript microservices architecture to a single Phoenix OTP release.
 
+## Competitive Intelligence
+
+**Primary competitor**: Samplab (v2.4.6, Electron + VST3/AU plugin, cloud-only AI)
+**Full analysis**: `.claude/COMPETITIVE_ANALYSIS_SAMPLAB.md`
+
+### Key Strategic Gaps (from 2026-03-05 analysis)
+- **P0**: No DAW plugin (VST3/AU/CLAP) -- Samplab lives inside DAWs, SFA lives in browser
+- **P0**: No note-level editing in polyphonic audio (Samplab's core value prop)
+- **P1**: ~~No audio-to-MIDI conversion, chord detection, piano roll, or audio warping~~ (RESOLVED in v4.5.0)
+- **SFA advantages**: Local Demucs processing (offline capable), multiple separation engines, Spotify integration, DJ/DAW modes, MIDI hardware, multi-LLM agents, admin dashboard, 707 tests
+- **Samplab vulnerability**: 100% cloud-dependent (no local ML models bundled)
+
 ## Tech Stack
 
 - **Elixir 1.15+** / **Phoenix 1.8** / **LiveView 1.1**
@@ -226,7 +238,7 @@ Follow this sequence:
 ### Dev Server Management
 - **Script**: `.claude/hooks/dev_server_mgmt.sh`
 - **Trigger**: PreToolUse hook on `Bash|Task` (configured in `.claude/settings.json`)
-- **Behavior**: Detects server status on port 4000. If stopped, starts it. If stalled (process exists but not responding to HTTP), restarts it. If running, writes PID to state file.
+- **Behavior**: Detects server status on port 5000. If stopped, starts it. If stalled (process exists but not responding to HTTP), restarts it. If running, writes PID to state file.
 - **State file**: `.claude/hooks/data/dev_server.json` -- JSON with `pid`, `port`, `status`, `updated_at`, `log_file`. Readable by external tools and TTY sessions.
 - **Cooldown**: 30 seconds between checks to avoid excessive overhead.
 - **Skill**: `/dev-server-mgmt` -- manages server lifecycle (status, start, stop, restart, pid, logs, ensure).
@@ -899,8 +911,8 @@ A PreToolUse hook in `.claude/settings.json` warns when editing files on `releas
 
 ## CCEM APM Integration
 
-- **APM Dashboard**: http://localhost:3031
+- **APM Dashboard**: http://localhost:3032
 - **APM Config**: /Users/jeremiah/Developer/sfa/apm/apm_config.json
-- **APM Port**: 3031
+- **APM Port**: 3032
 - **Skills Path**: ~/.claude/skills/
 - **APM Log**: ~/Developer/ccem/apm/hooks/apm_server.log
