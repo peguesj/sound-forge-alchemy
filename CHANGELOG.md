@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.5.0] - 2026-03-11
+
+### Added
+- Polyphonic audio-to-MIDI conversion via Spotify's basic-pitch (`AudioToMidiPort`, `AudioToMidiWorker`)
+- Chord detection via librosa chroma_cqt with Krumhansl key profiles (`ChordDetectorPort`, `ChordDetectionWorker`)
+- Pure Elixir MIDI file writer with variable-length quantity encoding (`MidiFileWriter`)
+- Canvas-based piano roll visualization JS hook (`piano_roll.js`)
+- D3-based chord progression timeline JS hook (`chord_progression.js`)
+- Audio warping (time-stretch / pitch-shift) via pyrubberband (`AudioWarpPort`, `AudioWarpWorker`)
+- `MidiResult` and `ChordResult` Ecto schemas with upsert pattern (one result per track)
+- Auto-pipeline extensions: user settings for auto MIDI conversion and auto chord detection after analysis
+- Chord boundary cue points in `AutoCueWorker` — generates cue points at major chord changes
+- Harmonic complexity axis in analysis radar chart (7th axis when chord data available)
+- MIDI file export endpoint (`GET /export/midi/:track_id`)
+- DJ deck instantaneous playback via `JS.dispatch` (eliminates delayed start)
+- 38 new tests covering MidiFileWriter, MidiResult, ChordResult, workers, and ports
+
+### Changed
+- `AnalysisWorker` now chains MIDI/chord workers when user auto-pipeline settings are enabled
+- `AutoCueWorker` merges chord boundary cues with structure-based cues (500ms dedup window)
+- `PortSupervisor` extended with `start_audio_to_midi/0`, `start_chord_detector/0`, `start_audio_warp/0`
+- Dockerfile runtime image now includes `rubberband-cli` and `libsndfile1` for pyrubberband
+
+---
+
 ## [4.4.0] - 2026-02-25
 
 ### Added

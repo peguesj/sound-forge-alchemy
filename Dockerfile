@@ -36,7 +36,7 @@ FROM debian:bookworm-20250224-slim
 
 RUN apt-get update -y && apt-get install -y \
     libstdc++6 openssl libncurses6 locales ca-certificates curl \
-    python3 python3-pip python3-venv ffmpeg \
+    python3 python3-pip python3-venv ffmpeg rubberband-cli libsndfile1 \
     && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Install Python audio dependencies
