@@ -6,8 +6,8 @@ defmodule SoundForgeWeb.MidiLive do
   type badges, and real-time activity indicators. Supports enabling/disabling
   MIDI input listening per device and discovering network MIDI sessions.
 
-  Includes a MIDI mapping editor with learn mode for binding MIDI controls
-  to application actions, preset loading, and mapping management.
+  Includes a comprehensive MIDI mapping editor with learn mode, visual controller
+  mapping grid, CC/Note heatmaps, MIDI activity monitor, and preset loading.
   """
   use SoundForgeWeb, :live_view
 
@@ -29,7 +29,7 @@ defmodule SoundForgeWeb.MidiLive do
 
     socket =
       socket
-      |> assign(:page_title, "MIDI Devices")
+      |> assign(:page_title, "MIDI Settings")
       |> assign(:current_user_id, current_user_id)
       |> assign(:devices, devices)
       |> assign(:network_devices, network_devices)
@@ -46,6 +46,9 @@ defmodule SoundForgeWeb.MidiLive do
       |> assign(:learned_number, nil)
       |> assign(:selected_preset, nil)
       |> assign(:mapping_flash, nil)
+      |> assign(:selected_tab, "overview")
+      |> assign(:midi_monitor, [])
+      |> assign(:monitor_listening, false)
 
     {:ok, socket}
   end
@@ -211,6 +214,59 @@ defmodule SoundForgeWeb.MidiLive do
     end
   end
 
+  # -- New event handlers (comprehensive MIDI settings) --
+
+  def handle_event("select_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :selected_tab, tab)}
+  end
+
+  def handle_event("toggle_monitor_listen", _params, socket) do
+    if socket.assigns.monitor_listening do
+      {:noreply, assign(socket, :monitor_listening, false)}
+    else
+      # Subscribe to all input devices for monitoring
+      for device <- socket.assigns.devices,
+          device.direction in [:input, :duplex] do
+        Dispatcher.subscribe(device.port_id)
+      end
+
+      {:noreply, assign(socket, :monitor_listening, true)}
+    end
+  end
+
+  def handle_event("clear_monitor", _params, socket) do
+    {:noreply, assign(socket, :midi_monitor, [])}
+  end
+
+  def handle_event("start_learn_action", %{"action" => action}, socket) do
+    action_atom = String.to_existing_atom(action)
+    device_name = socket.assigns.selected_device
+
+    socket = assign(socket, :selected_action, action_atom)
+
+    if device_name do
+      device = Enum.find(socket.assigns.devices, &(&1.name == device_name))
+
+      if device do
+        Dispatcher.subscribe(device.port_id)
+
+        socket =
+          socket
+          |> assign(:learn_mode, true)
+          |> assign(:learn_device, device.port_id)
+          |> assign(:learned_type, nil)
+          |> assign(:learned_channel, nil)
+          |> assign(:learned_number, nil)
+
+        {:noreply, socket}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
   # -- PubSub handlers --
 
   @impl true
@@ -243,6 +299,16 @@ defmodule SoundForgeWeb.MidiLive do
   end
 
   def handle_info({:midi_message, port_id, message}, socket) do
+    # Monitor: accumulate messages when monitoring is enabled
+    socket =
+      if socket.assigns.monitor_listening do
+        entry = build_monitor_entry(port_id, message)
+        monitor = [entry | socket.assigns.midi_monitor] |> Enum.take(50)
+        assign(socket, :midi_monitor, monitor)
+      else
+        socket
+      end
+
     if socket.assigns.learn_mode && socket.assigns.learn_device == port_id do
       {midi_type, channel, number} = extract_mapping_from_message(message)
 
@@ -292,162 +358,274 @@ defmodule SoundForgeWeb.MidiLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-4xl mx-auto p-6 space-y-8">
+    <div class="max-w-5xl mx-auto p-6 space-y-6">
+      <%!-- Header --%>
       <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-white">MIDI Devices</h1>
-        <div class="badge badge-lg badge-primary">{device_count(@devices, @network_devices)} devices</div>
-      </div>
-
-      <%!-- USB / Local Devices --%>
-      <div class="space-y-4">
-        <h2 class="text-lg font-semibold text-gray-300">Connected Devices</h2>
-
-        <div :if={@devices == []} class="text-gray-500 italic text-sm">
-          No MIDI devices connected.
+        <h1 class="text-2xl font-bold text-white">MIDI Settings</h1>
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-gray-400">
+            {device_count(@devices, @network_devices)} device{if device_count(@devices, @network_devices) != 1,
+              do: "s"}
+          </span>
+          <div class={[
+            "w-2.5 h-2.5 rounded-full",
+            if(@devices != [] or @network_devices != [],
+              do: "bg-green-400",
+              else: "bg-gray-600"
+            )
+          ]} />
         </div>
-
-        <div
-          :for={device <- @devices}
-          class="card bg-base-200 shadow-md"
-        >
-          <div class="card-body flex-row items-center gap-4 p-4">
+      </div>
+      <%!-- Tab bar --%>
+      <div class="flex gap-1 bg-gray-900 rounded-xl p-1">
+        <%= for {tab_id, tab_label} <- [
+              {"overview", "Overview"},
+              {"mappings", "Mappings"},
+              {"monitor", "Monitor"},
+              {"devices", "Devices"}
+            ] do %>
+          <button
+            phx-click="select_tab"
+            phx-value-tab={tab_id}
+            class={"flex-1 py-2 px-4 text-sm font-medium rounded-lg transition-colors " <>
+              if(@selected_tab == tab_id,
+                do: "bg-gray-700 text-white",
+                else: "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+              )}
+          >
+            {tab_label}
+          </button>
+        <% end %>
+      </div>
+      <%!-- Overview Tab --%>
+      <div :if={@selected_tab == "overview"} class="space-y-6">
+        <%!-- Device status bar --%>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div
+            :if={@devices == [] and @network_devices == []}
+            class="col-span-full text-gray-500 italic text-sm"
+          >
+            No MIDI devices connected. Go to Devices tab to scan.
+          </div>
+          <div
+            :for={device <- @devices}
+            class="flex items-center gap-3 bg-gray-900 rounded-xl p-3 border border-gray-800"
+          >
             <div class={[
-              "w-3 h-3 rounded-full flex-shrink-0",
+              "w-2.5 h-2.5 rounded-full flex-shrink-0",
               if(Map.has_key?(@activity, device.port_id),
                 do: "bg-green-400 animate-pulse",
                 else: "bg-gray-600"
               )
             ]} />
-
             <div class="flex-1 min-w-0">
-              <p class="font-medium text-white truncate">{device.name}</p>
-              <p class="text-xs text-gray-400">Port: {device.port_id}</p>
-            </div>
-
-            <div class="flex items-center gap-2 flex-shrink-0">
-              <span class={type_badge_class(device.type)}>{type_label(device.type)}</span>
-              <span class={direction_badge_class(device.direction)}>{direction_label(device.direction)}</span>
-              <span class={status_badge_class(device.status)}>{status_label(device.status)}</span>
-            </div>
-
-            <div
-              :if={device.direction in [:input, :duplex]}
-              class="flex items-center gap-2 flex-shrink-0"
-            >
-              <span class="text-xs text-gray-400">Listen</span>
-              <input
-                type="checkbox"
-                class="toggle toggle-sm toggle-primary"
-                checked={MapSet.member?(@listening, device.port_id)}
-                phx-click="toggle_listen"
-                phx-value-port-id={device.port_id}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <%!-- Network MIDI --%>
-      <div class="space-y-4">
-        <div class="flex items-center justify-between">
-          <h2 class="text-lg font-semibold text-gray-300">Network MIDI Sessions</h2>
-          <button
-            class={["btn btn-sm btn-outline", @scanning && "loading"]}
-            phx-click="scan_network"
-            disabled={@scanning}
-          >
-            Scan Network
-          </button>
-        </div>
-
-        <div :if={@network_devices == []} class="text-gray-500 italic text-sm">
-          No network MIDI sessions discovered.
-        </div>
-
-        <div
-          :for={net_dev <- @network_devices}
-          class="card bg-base-200 shadow-md"
-        >
-          <div class="card-body flex-row items-center gap-4 p-4">
-            <div class="w-3 h-3 rounded-full flex-shrink-0 bg-blue-400" />
-
-            <div class="flex-1 min-w-0">
-              <p class="font-medium text-white truncate">{net_dev.name}</p>
-              <p class="text-xs text-gray-400">
-                {Map.get(net_dev, :host, "unknown")}:{Map.get(net_dev, :port, "?")}
+              <p class="text-sm font-medium text-white truncate">{device.name}</p>
+              <p class="text-xs text-gray-500">
+                {type_label(device.type)} · {direction_label(device.direction)}
               </p>
             </div>
-
-            <span class="badge badge-info badge-sm">Network</span>
-            <span class={status_badge_class(net_dev.status)}>{status_label(net_dev.status)}</span>
+            <span class={status_badge_class(device.status)}>{status_label(device.status)}</span>
+          </div>
+        </div>
+        <%!-- Device selector (for learn) --%>
+        <div :if={@devices != []} class="flex items-center gap-3 flex-wrap">
+          <label class="text-sm text-gray-400 flex-shrink-0">Learn Device:</label>
+          <form phx-change="select_device" class="flex-1 max-w-xs">
+            <select
+              class="select select-bordered select-sm w-full"
+              name="device"
+            >
+              <option value="">Select device...</option>
+              <option :for={d <- @devices} value={d.name} selected={@selected_device == d.name}>
+                {d.name}
+              </option>
+            </select>
+          </form>
+          <div :if={@learn_mode} class="flex items-center gap-2 text-sm">
+            <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse inline-block" />
+            <span class="text-yellow-400">Listening for: {format_action(@selected_action)}</span>
+            <button class="btn btn-xs btn-warning" phx-click="cancel_learn">Cancel</button>
+          </div>
+          <div :if={@learned_type && !@learn_mode} class="flex items-center gap-2 text-sm">
+            <span class="badge badge-ghost badge-sm">{format_midi_type(@learned_type)}</span>
+            <span class="text-gray-300">CH {@learned_channel} #{@learned_number}</span>
+            <button :if={@selected_action} class="btn btn-xs btn-primary" phx-click="save_mapping">
+              Save
+            </button>
+          </div>
+        </div>
+        <%!-- Controller Mapping Grid --%>
+        <div class="space-y-4">
+          <h3 class="text-sm font-semibold text-gray-200 uppercase tracking-wider">
+            Controller Mapping
+          </h3>
+          <%= for {cat, cat_label, cat_actions} <- actions_by_category() do %>
+            <div class="space-y-0.5">
+              <div class="flex items-center gap-2 px-1 mb-1">
+                <span class={category_badge_class(cat)}>{cat_label}</span>
+              </div>
+              <div class="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden divide-y divide-gray-800/40">
+                <%= for action <- cat_actions do %>
+                  <% mapping = mapping_for_action(@mappings, action) %>
+                  <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-800/30 transition-colors">
+                    <div class="w-36 flex-shrink-0">
+                      <span class="text-sm text-white">{format_action(action)}</span>
+                    </div>
+                    <div class="flex-1 flex items-center gap-2 min-w-0 text-xs">
+                      <span :if={mapping} class="text-gray-300 truncate">{mapping.device_name}</span>
+                      <span :if={mapping} class="badge badge-ghost badge-sm flex-shrink-0">
+                        {format_midi_type(mapping.midi_type)}
+                      </span>
+                      <span :if={mapping} class="text-gray-400 flex-shrink-0">
+                        CH {mapping.channel} #{mapping.number}
+                      </span>
+                      <span :if={!mapping} class="text-gray-600 italic">unmapped</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        class={"btn btn-xs " <>
+                          if(@learn_mode && @selected_action == action,
+                            do: "btn-warning animate-pulse",
+                            else: "btn-outline btn-accent"
+                          )}
+                        phx-click="start_learn_action"
+                        phx-value-action={action}
+                        disabled={is_nil(@selected_device) ||
+                          (@learn_mode && @selected_action != action)}
+                      >
+                        {cond do
+                          @learn_mode && @selected_action == action -> "Listening..."
+                          mapping -> "Remap"
+                          true -> "Learn"
+                        end}
+                      </button>
+                      <button
+                        :if={mapping}
+                        class="btn btn-ghost btn-xs text-error"
+                        phx-click="delete_mapping"
+                        phx-value-id={mapping.id}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+        <%!-- CC / Note Heatmap --%>
+        <div class="space-y-4">
+          <h3 class="text-sm font-semibold text-gray-200 uppercase tracking-wider">
+            CC / Note Map (0–127)
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <%!-- CC Map --%>
+            <div class="space-y-2">
+              <p class="text-xs text-gray-500 font-mono">CC Numbers</p>
+              <div class="grid gap-0.5" style="grid-template-columns: repeat(16, minmax(0, 1fr));">
+                <%= for n <- 0..127 do %>
+                  <% cat = number_category(@mappings, :cc, n) %>
+                  <div
+                    class={"w-full aspect-square rounded-[2px] cursor-default transition-colors " <>
+                      category_cell_class(cat)}
+                    title={"CC #{n}#{if cat, do: " (#{category_label(cat)})", else: ""}"}
+                  />
+                <% end %>
+              </div>
+            </div>
+            <%!-- Note Map --%>
+            <div class="space-y-2">
+              <p class="text-xs text-gray-500 font-mono">Note Numbers</p>
+              <div class="grid gap-0.5" style="grid-template-columns: repeat(16, minmax(0, 1fr));">
+                <%= for n <- 0..127 do %>
+                  <% cat = number_category(@mappings, :note_on, n) %>
+                  <div
+                    class={"w-full aspect-square rounded-[2px] cursor-default transition-colors " <>
+                      category_cell_class(cat)}
+                    title={"Note #{n}#{if cat, do: " (#{category_label(cat)})", else: ""}"}
+                  />
+                <% end %>
+              </div>
+            </div>
+          </div>
+          <%!-- Legend --%>
+          <div class="flex items-center gap-4 flex-wrap">
+            <%= for {cat, label} <- [
+                  {:transport, "Transport"},
+                  {:dj, "DJ"},
+                  {:pads, "Pads"},
+                  {:stems, "Stems"},
+                  {nil, "Unused"}
+                ] do %>
+              <div class="flex items-center gap-1.5">
+                <div class={"w-3 h-3 rounded-[2px] " <> category_cell_class(cat)} />
+                <span class="text-xs text-gray-400">{label}</span>
+              </div>
+            <% end %>
           </div>
         </div>
       </div>
-
-      <%!-- MIDI Mapping Editor --%>
-      <div class="space-y-4">
-        <h2 class="text-lg font-semibold text-gray-300">MIDI Mapping Editor</h2>
-
-        <div :if={@mapping_flash} class="alert alert-info text-sm">
-          {@mapping_flash}
-        </div>
-
-        <%!-- Preset Selector --%>
-        <div class="flex items-center gap-3">
-          <label class="text-sm text-gray-400">Load Preset:</label>
-          <button class="btn btn-sm btn-outline" phx-click="load_preset" phx-value-preset="generic">
+      <%!-- Mappings Tab --%>
+      <div :if={@selected_tab == "mappings"} class="space-y-6">
+        <div :if={@mapping_flash} class="alert alert-info text-sm">{@mapping_flash}</div>
+        <%!-- Preset Loader --%>
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="text-sm text-gray-400">Load Preset:</span>
+          <button
+            class={["btn btn-sm btn-outline", @selected_preset == "generic" && "btn-active"]}
+            phx-click="load_preset"
+            phx-value-preset="generic"
+          >
             Generic
           </button>
-          <button class="btn btn-sm btn-outline" phx-click="load_preset" phx-value-preset="mpc">
+          <button
+            class={["btn btn-sm btn-outline", @selected_preset == "mpc" && "btn-active"]}
+            phx-click="load_preset"
+            phx-value-preset="mpc"
+          >
             MPC
           </button>
         </div>
-
-        <%!-- Mapping Form --%>
+        <%!-- New Mapping Form --%>
         <div class="card bg-base-200 shadow-md">
           <div class="card-body p-4 space-y-4">
             <h3 class="font-medium text-white">New Mapping</h3>
-
             <div class="flex flex-wrap items-end gap-4">
-              <%!-- Device dropdown --%>
               <div class="form-control">
                 <label class="label"><span class="label-text text-gray-400">Device</span></label>
-                <select
-                  class="select select-bordered select-sm"
-                  phx-change="select_device"
-                  name="device"
-                >
-                  <option value="">Select device...</option>
-                  <option
-                    :for={device <- @devices}
-                    value={device.name}
-                    selected={@selected_device == device.name}
+                <form phx-change="select_device">
+                  <select
+                    class="select select-bordered select-sm"
+                    name="device"
                   >
-                    {device.name}
-                  </option>
-                </select>
+                    <option value="">Select device...</option>
+                    <option :for={d <- @devices} value={d.name} selected={@selected_device == d.name}>
+                      {d.name}
+                    </option>
+                  </select>
+                </form>
               </div>
-
-              <%!-- Action dropdown --%>
               <div class="form-control">
                 <label class="label"><span class="label-text text-gray-400">Action</span></label>
-                <select
-                  class="select select-bordered select-sm"
-                  phx-change="select_action"
-                  name="action"
-                >
-                  <option value="">Select action...</option>
-                  <option
-                    :for={action <- Mapping.actions()}
-                    value={action}
-                    selected={@selected_action == action}
+                <form phx-change="select_action">
+                  <select
+                    class="select select-bordered select-sm"
+                    name="action"
                   >
-                    {format_action(action)}
-                  </option>
-                </select>
+                    <option value="">Select action...</option>
+                    <%= for {_cat, cat_label, cat_actions} <- actions_by_category() do %>
+                      <optgroup label={cat_label}>
+                        <%= for action <- cat_actions do %>
+                          <option value={action} selected={@selected_action == action}>
+                            {format_action(action)}
+                          </option>
+                        <% end %>
+                      </optgroup>
+                    <% end %>
+                  </select>
+                </form>
               </div>
-
-              <%!-- Learn button --%>
               <div class="form-control">
                 <button
                   :if={!@learn_mode}
@@ -465,15 +643,11 @@ defmodule SoundForgeWeb.MidiLive do
                   Listening... Cancel
                 </button>
               </div>
-
-              <%!-- Learned values display --%>
               <div :if={@learned_type} class="flex items-center gap-2 text-sm text-gray-300">
                 <span class="badge badge-ghost badge-sm">{format_midi_type(@learned_type)}</span>
                 <span>CH {@learned_channel}</span>
                 <span>#{@learned_number}</span>
               </div>
-
-              <%!-- Save button --%>
               <button
                 :if={@learned_type && @selected_action && @selected_device}
                 class="btn btn-sm btn-primary"
@@ -484,24 +658,29 @@ defmodule SoundForgeWeb.MidiLive do
             </div>
           </div>
         </div>
-
-        <%!-- Current Mappings Table --%>
+        <%!-- Mappings Table --%>
         <div :if={@mappings != []} class="overflow-x-auto">
           <table class="table table-sm">
             <thead>
               <tr>
+                <th class="text-gray-400">Category</th>
                 <th class="text-gray-400">Action</th>
                 <th class="text-gray-400">Device</th>
                 <th class="text-gray-400">Type</th>
-                <th class="text-gray-400">Channel</th>
-                <th class="text-gray-400">Number</th>
-                <th class="text-gray-400"></th>
+                <th class="text-gray-400">CH</th>
+                <th class="text-gray-400">#</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               <tr :for={mapping <- @mappings} class="hover">
+                <td>
+                  <span class={category_badge_class(action_category(mapping.action))}>
+                    {category_label(action_category(mapping.action))}
+                  </span>
+                </td>
                 <td class="text-white">{format_action(mapping.action)}</td>
-                <td class="text-gray-300">{mapping.device_name}</td>
+                <td class="text-gray-300 text-xs max-w-[140px] truncate">{mapping.device_name}</td>
                 <td>
                   <span class="badge badge-ghost badge-sm">{format_midi_type(mapping.midi_type)}</span>
                 </td>
@@ -520,9 +699,153 @@ defmodule SoundForgeWeb.MidiLive do
             </tbody>
           </table>
         </div>
-
         <div :if={@mappings == []} class="text-gray-500 italic text-sm">
           No mappings configured. Use the editor above or load a preset.
+        </div>
+      </div>
+      <%!-- Monitor Tab --%>
+      <div :if={@selected_tab == "monitor"} class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-semibold text-gray-200">MIDI Activity Monitor</h3>
+          <div class="flex items-center gap-2">
+            <button
+              class={"btn btn-sm " <> if(@monitor_listening, do: "btn-error", else: "btn-success")}
+              phx-click="toggle_monitor_listen"
+            >
+              {if @monitor_listening, do: "Stop", else: "Start Monitoring"}
+            </button>
+            <button
+              :if={@midi_monitor != []}
+              class="btn btn-sm btn-ghost"
+              phx-click="clear_monitor"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+        <div
+          :if={!@monitor_listening && @midi_monitor == []}
+          class="text-center py-12 text-gray-500 text-sm"
+        >
+          <p class="mb-2">No MIDI activity recorded.</p>
+          <p>Click "Start Monitoring" to capture messages from connected input devices.</p>
+        </div>
+        <div
+          :if={@monitor_listening && @midi_monitor == []}
+          class="flex items-center gap-2 py-4 text-sm text-green-400"
+        >
+          <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block flex-shrink-0" />
+          Listening for MIDI input... send messages from your controller.
+        </div>
+        <div
+          :if={@midi_monitor != []}
+          class="bg-gray-950 rounded-xl border border-gray-800 overflow-hidden"
+        >
+          <div class="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-900/50">
+            <span class="text-xs text-gray-400 font-mono">TYPE</span>
+            <span class="text-xs text-gray-400 font-mono">CH</span>
+            <span class="text-xs text-gray-400 font-mono">#</span>
+            <span class="text-xs text-gray-400 font-mono flex-1 ml-4">VALUE</span>
+            <span class="text-xs text-gray-400 font-mono">PORT</span>
+          </div>
+          <div class="overflow-y-auto max-h-96 divide-y divide-gray-800/30">
+            <div
+              :for={entry <- @midi_monitor}
+              class="flex items-center gap-3 px-4 py-1.5 font-mono text-xs hover:bg-gray-900/50 transition-colors"
+            >
+              <span class={"badge badge-sm flex-shrink-0 " <> monitor_type_class(entry.type)}>
+                {format_midi_type(entry.type)}
+              </span>
+              <span class="text-gray-400 w-8 text-center flex-shrink-0">{entry.channel}</span>
+              <span class="text-gray-300 w-8 text-center flex-shrink-0">{entry.number}</span>
+              <div class="flex-1 flex items-center gap-2 min-w-0">
+                <div class="flex-1 bg-gray-800 rounded-full h-1 overflow-hidden">
+                  <div
+                    class="h-full bg-cyan-500 rounded-full"
+                    style={"width: #{round((entry.value || 0) / 127 * 100)}%"}
+                  />
+                </div>
+                <span class="text-gray-500 w-8 text-right flex-shrink-0">{entry.value || 0}</span>
+              </div>
+              <span class="text-gray-700 text-[10px] truncate max-w-[80px] flex-shrink-0">
+                {entry.port_id}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <%!-- Devices Tab --%>
+      <div :if={@selected_tab == "devices"} class="space-y-6">
+        <%!-- Connected Devices --%>
+        <div class="space-y-3">
+          <h3 class="text-base font-semibold text-gray-200">Connected Devices</h3>
+          <div :if={@devices == []} class="text-gray-500 italic text-sm">
+            No MIDI devices connected.
+          </div>
+          <div :for={device <- @devices} class="card bg-base-200 shadow-md">
+            <div class="card-body flex-row items-center gap-4 p-4">
+              <div class={[
+                "w-3 h-3 rounded-full flex-shrink-0",
+                if(Map.has_key?(@activity, device.port_id),
+                  do: "bg-green-400 animate-pulse",
+                  else: "bg-gray-600"
+                )
+              ]} />
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-white truncate">{device.name}</p>
+                <p class="text-xs text-gray-400">Port: {device.port_id}</p>
+              </div>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <span class={type_badge_class(device.type)}>{type_label(device.type)}</span>
+                <span class={direction_badge_class(device.direction)}>
+                  {direction_label(device.direction)}
+                </span>
+                <span class={status_badge_class(device.status)}>{status_label(device.status)}</span>
+              </div>
+              <div
+                :if={device.direction in [:input, :duplex]}
+                class="flex items-center gap-2 flex-shrink-0"
+              >
+                <span class="text-xs text-gray-400">Listen</span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={MapSet.member?(@listening, device.port_id)}
+                  phx-click="toggle_listen"
+                  phx-value-port-id={device.port_id}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <%!-- Network MIDI --%>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-semibold text-gray-200">Network MIDI Sessions</h3>
+            <button
+              class={["btn btn-sm btn-outline", @scanning && "loading"]}
+              phx-click="scan_network"
+              disabled={@scanning}
+            >
+              Scan Network
+            </button>
+          </div>
+          <div :if={@network_devices == []} class="text-gray-500 italic text-sm">
+            No network MIDI sessions discovered.
+          </div>
+          <div :for={net_dev <- @network_devices} class="card bg-base-200 shadow-md">
+            <div class="card-body flex-row items-center gap-4 p-4">
+              <div class="w-3 h-3 rounded-full flex-shrink-0 bg-blue-400" />
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-white truncate">{net_dev.name}</p>
+                <p class="text-xs text-gray-400">
+                  {Map.get(net_dev, :host, "unknown")}:{Map.get(net_dev, :port, "?")}
+                </p>
+              </div>
+              <span class="badge badge-info badge-sm">Network</span>
+              <span class={status_badge_class(net_dev.status)}>{status_label(net_dev.status)}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -531,7 +854,7 @@ defmodule SoundForgeWeb.MidiLive do
 
   # -- Private Helpers --
 
-  defp resolve_user_id(%{id: id}, _session) when is_binary(id), do: id
+  defp resolve_user_id(%{id: id}, _session) when is_integer(id), do: id
 
   defp resolve_user_id(_, session) do
     with token when is_binary(token) <- session["user_token"],
@@ -624,4 +947,87 @@ defmodule SoundForgeWeb.MidiLive do
   defp status_badge_class(:available), do: "badge badge-sm badge-success"
   defp status_badge_class(:disconnected), do: "badge badge-sm badge-error"
   defp status_badge_class(_), do: "badge badge-sm badge-ghost"
+
+  # -- Comprehensive MIDI Settings Helpers --
+
+  defp actions_by_category do
+    [
+      {:transport, "Transport", [:play, :stop, :next_track, :prev_track, :seek, :bpm_tap]},
+      {:dj, "DJ", [:dj_play, :dj_cue, :dj_crossfader, :dj_loop_toggle, :dj_loop_size, :dj_pitch]},
+      {:pads, "Pads",
+       [:pad_trigger, :pad_volume, :pad_pitch, :pad_velocity, :pad_master_volume]},
+      {:stems, "Stems", [:stem_solo, :stem_mute, :stem_volume]}
+    ]
+  end
+
+  defp action_category(action)
+       when action in [:play, :stop, :next_track, :prev_track, :seek, :bpm_tap],
+       do: :transport
+
+  defp action_category(action)
+       when action in [:dj_play, :dj_cue, :dj_crossfader, :dj_loop_toggle, :dj_loop_size,
+                       :dj_pitch],
+       do: :dj
+
+  defp action_category(action)
+       when action in [:pad_trigger, :pad_volume, :pad_pitch, :pad_velocity, :pad_master_volume],
+       do: :pads
+
+  defp action_category(action) when action in [:stem_solo, :stem_mute, :stem_volume], do: :stems
+  defp action_category(_), do: :other
+
+  defp category_label(:transport), do: "Transport"
+  defp category_label(:dj), do: "DJ"
+  defp category_label(:pads), do: "Pads"
+  defp category_label(:stems), do: "Stems"
+  defp category_label(_), do: "Other"
+
+  defp category_badge_class(:transport), do: "badge badge-sm bg-blue-700 border-0 text-white"
+  defp category_badge_class(:dj), do: "badge badge-sm bg-cyan-700 border-0 text-white"
+  defp category_badge_class(:pads), do: "badge badge-sm bg-purple-700 border-0 text-white"
+  defp category_badge_class(:stems), do: "badge badge-sm bg-green-700 border-0 text-white"
+  defp category_badge_class(_), do: "badge badge-sm badge-ghost"
+
+  defp category_cell_class(nil), do: "bg-gray-800 hover:bg-gray-700"
+  defp category_cell_class(:transport), do: "bg-blue-700/80 hover:bg-blue-600"
+  defp category_cell_class(:dj), do: "bg-cyan-700/80 hover:bg-cyan-600"
+  defp category_cell_class(:pads), do: "bg-purple-700/80 hover:bg-purple-600"
+  defp category_cell_class(:stems), do: "bg-green-700/80 hover:bg-green-600"
+  defp category_cell_class(_), do: "bg-gray-700"
+
+  defp mapping_for_action(mappings, action) do
+    Enum.find(mappings, &(&1.action == action))
+  end
+
+  defp number_category(mappings, midi_type, number) do
+    case Enum.find(mappings, &(&1.midi_type == midi_type && &1.number == number)) do
+      nil -> nil
+      mapping -> action_category(mapping.action)
+    end
+  end
+
+  defp build_monitor_entry(port_id, message) do
+    type = Map.get(message, :type, :unknown)
+    channel = Map.get(message, :channel, 0)
+    data = Map.get(message, :data, %{})
+
+    number =
+      Map.get(data, :number, Map.get(data, :controller, Map.get(data, :note, 0))) || 0
+
+    value = Map.get(data, :value, Map.get(data, :velocity, 0)) || 0
+
+    %{
+      port_id: port_id,
+      type: type,
+      channel: channel,
+      number: number,
+      value: value,
+      time: System.monotonic_time(:millisecond)
+    }
+  end
+
+  defp monitor_type_class(:cc), do: "badge-warning"
+  defp monitor_type_class(:note_on), do: "badge-success"
+  defp monitor_type_class(:note_off), do: "badge-error"
+  defp monitor_type_class(_), do: "badge-ghost"
 end

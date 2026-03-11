@@ -33,6 +33,8 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:track, nil)
       |> assign(:stems, [])
       |> assign(:analysis, nil)
+      |> assign(:midi_result, nil)
+      |> assign(:chord_result, nil)
       |> assign(:sort_by, :newest)
       |> assign(:view_mode, :grid)
       |> assign(:filters, %{status: "all", artist: "all"})
@@ -83,6 +85,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:debug_log_namespaces, MapSet.new())
       |> assign(:midi_devices, [])
       |> assign(:midi_bpm, nil)
+      |> assign(:last_bpm_ms, System.monotonic_time(:millisecond))
       |> assign(:midi_transport, :stopped)
       |> assign(:midi_log, [])
       |> assign(:trace_jobs, [])
@@ -170,7 +173,9 @@ defmodule SoundForgeWeb.DashboardLive do
        |> assign(:live_action, :show)
        |> assign(:track, track)
        |> assign(:stems, track.stems)
-       |> assign(:analysis, analysis)}
+       |> assign(:analysis, analysis)
+       |> assign(:midi_result, Music.get_midi_result_for_track(id))
+       |> assign(:chord_result, Music.get_chord_result_for_track(id))}
     else
       {:noreply,
        socket
@@ -776,6 +781,42 @@ defmodule SoundForgeWeb.DashboardLive do
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not start analysis")}
+    end
+  end
+
+  @impl true
+  def handle_event("convert_to_midi", %{"id" => id}, socket) do
+    with {:ok, track} <- fetch_owned_track(socket, id),
+         {:ok, file_path} <- Music.get_download_path_validated(track.id) do
+      %{track_id: track.id, file_path: file_path}
+      |> SoundForge.Jobs.AudioToMidiWorker.new()
+      |> Oban.insert()
+
+      {:noreply, put_flash(socket, :info, "Converting #{track.title} to MIDI...")}
+    else
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Track not found")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Download the track first")}
+    end
+  end
+
+  @impl true
+  def handle_event("detect_chords", %{"id" => id}, socket) do
+    with {:ok, track} <- fetch_owned_track(socket, id),
+         {:ok, file_path} <- Music.get_download_path_validated(track.id) do
+      %{track_id: track.id, file_path: file_path}
+      |> SoundForge.Jobs.ChordDetectionWorker.new()
+      |> Oban.insert()
+
+      {:noreply, put_flash(socket, :info, "Detecting chords in #{track.title}...")}
+    else
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Track not found")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Download the track first")}
     end
   end
 
@@ -1711,6 +1752,18 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
+  @impl true
+  def handle_event("force_reset_pipeline", %{"track-id" => track_id}, socket) do
+    cancelled_count = Music.cancel_stuck_oban_jobs(track_id)
+    Music.fail_stuck_processing_jobs(track_id)
+    pipelines = Map.delete(socket.assigns.pipelines, track_id)
+
+    {:noreply,
+     socket
+     |> assign(:pipelines, pipelines)
+     |> put_flash(:info, "Pipeline reset (#{cancelled_count} job(s) cancelled). Use Retry to restart stages.")}
+  end
+
   # Catch-all for events bubbled from child components (e.g. AudioPlayer time_update)
   @impl true
   def handle_event(_event, _params, socket) do
@@ -1912,11 +1965,41 @@ defmodule SoundForgeWeb.DashboardLive do
         |> assign(:track, track)
         |> assign(:stems, track.stems)
         |> assign(:analysis, List.first(track.analysis_results))
+        |> assign(:midi_result, Music.get_midi_result_for_track(track_id))
+        |> assign(:chord_result, Music.get_chord_result_for_track(track_id))
       else
         socket
       end
 
     {:noreply, assign(socket, :pipelines, pipelines)}
+  end
+
+  # MIDI conversion complete - reload midi_result
+  @impl true
+  def handle_info({:midi_conversion_complete, track_id}, socket) do
+    socket =
+      if socket.assigns.live_action == :show &&
+           socket.assigns.track && socket.assigns.track.id == track_id do
+        assign(socket, :midi_result, Music.get_midi_result_for_track(track_id))
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  # Chord detection complete - reload chord_result
+  @impl true
+  def handle_info({:chord_detection_complete, track_id}, socket) do
+    socket =
+      if socket.assigns.live_action == :show &&
+           socket.assigns.track && socket.assigns.track.id == track_id do
+        assign(socket, :chord_result, Music.get_chord_result_for_track(track_id))
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   # Pipeline complete - reload the track to get fresh data
@@ -2028,19 +2111,26 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   def handle_info({:debug_log, event}, socket) do
-    logs = [event | socket.assigns.debug_logs] |> Enum.take(@max_debug_logs)
+    # Only update assigns when debug panel is open. LogBroadcaster fires on every
+    # Logger event (including Oban/Ecto SQL queries at 30+ Hz). Updating assigns
+    # unconditionally floods the WebSocket with diffs and crashes the view.
+    if socket.assigns.debug_panel_open do
+      logs = [event | socket.assigns.debug_logs] |> Enum.take(@max_debug_logs)
 
-    namespaces =
-      if event.namespace do
-        MapSet.put(socket.assigns.debug_log_namespaces, event.namespace)
-      else
-        socket.assigns.debug_log_namespaces
-      end
+      namespaces =
+        if event.namespace do
+          MapSet.put(socket.assigns.debug_log_namespaces, event.namespace)
+        else
+          socket.assigns.debug_log_namespaces
+        end
 
-    {:noreply,
-     socket
-     |> assign(:debug_logs, logs)
-     |> assign(:debug_log_namespaces, namespaces)}
+      {:noreply,
+       socket
+       |> assign(:debug_logs, logs)
+       |> assign(:debug_log_namespaces, namespaces)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -2150,23 +2240,36 @@ defmodule SoundForgeWeb.DashboardLive do
      |> append_midi_log(log_entry)}
   end
 
+  # Throttle BPM updates to 2 Hz max and only when value changes by ≥0.5 BPM.
+  # MIDI clock (0xF8) fires at 24 PPQN — ~54 Hz at 134 BPM. Without throttling
+  # this causes a LiveView diff on every tick even when the BPM reading is stable.
+  # send_update to DjTabComponent is intentionally OMITTED here — every send_update
+  # causes a component re-render diff even when assigns don't change, which floods
+  # the WebSocket. MIDI sync pitch is handled by the component subscribing via
+  # its own PubSub route (see dj_tab_component.ex subscribe_midi_clock/1).
+  # BPM display in AppHeader updates at most once per 5s with ≥1 BPM change.
+  # The else-branch does NOT assign last_bpm_ms — doing so causes a re-render on
+  # every beat even when midi_bpm hasn't changed, flooding the WebSocket with
+  # {10:, 17:} diffs at MIDI clock rate (~2 Hz). last_bpm_ms is only reset when
+  # we actually update midi_bpm, effectively rate-limiting to 0.2 Hz.
+  @bpm_update_interval_ms 5_000
+
   @impl true
-  def handle_info({:bpm_update, bpm} = msg, socket) do
-    socket = assign(socket, :midi_bpm, bpm)
+  def handle_info({:bpm_update, bpm}, socket) do
+    now = System.monotonic_time(:millisecond)
+    last_ms = socket.assigns.last_bpm_ms
+    current_bpm = socket.assigns.midi_bpm
+    time_ok = now - last_ms >= @bpm_update_interval_ms
+    value_changed = current_bpm == nil or abs(bpm - current_bpm) >= 1.0
 
-    socket =
-      if socket.assigns.nav_tab == :dj do
-        send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-          id: "dj-tab",
-          midi_event: msg
-        )
-
-        socket
-      else
-        socket
-      end
-
-    {:noreply, socket}
+    if time_ok and value_changed do
+      {:noreply,
+       socket
+       |> assign(:midi_bpm, bpm)
+       |> assign(:last_bpm_ms, now)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -2182,6 +2285,18 @@ defmodule SoundForgeWeb.DashboardLive do
       send_update(SoundForgeWeb.Live.Components.DjTabComponent,
         id: "dj-tab",
         midi_event: msg
+      )
+    end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:virtual_controller, :trigger_cue, params}, socket) do
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab",
+        virtual_controller: {:trigger_cue, params}
       )
     end
 
@@ -2424,10 +2539,10 @@ defmodule SoundForgeWeb.DashboardLive do
       end)
   end
 
-  def radar_features(analysis) do
+  def radar_features(analysis, chord_result \\ nil) do
     features = analysis.features || %{}
 
-    %{
+    base = %{
       tempo: analysis.tempo,
       energy: analysis.energy,
       spectral_centroid: analysis.spectral_centroid,
@@ -2436,6 +2551,17 @@ defmodule SoundForgeWeb.DashboardLive do
       spectral_bandwidth: get_in(features, ["spectral", "bandwidth_mean"]),
       spectral_flatness: get_in(features, ["spectral", "flatness_mean"])
     }
+
+    # Add harmonic complexity from chord data if available
+    if chord_result && is_list(chord_result.chords) && length(chord_result.chords) > 0 do
+      # Harmonic complexity: unique chord count / total chords (higher = more complex)
+      unique_chords = chord_result.chords |> Enum.map(& &1["chord"]) |> Enum.uniq() |> length()
+      total_chords = length(chord_result.chords)
+      complexity = unique_chords / max(total_chords, 1)
+      Map.put(base, :harmonic_complexity, complexity)
+    else
+      base
+    end
   end
 
   def beats_with_tempo(analysis) do

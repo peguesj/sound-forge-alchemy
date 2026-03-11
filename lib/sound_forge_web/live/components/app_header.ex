@@ -165,29 +165,23 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                       {if @midi_transport == :playing, do: "Playing", else: "Stopped"}
                     </span>
                   </div>
-                  <span
-                    :if={@midi_bpm}
-                    class="text-[11px] font-mono text-purple-300"
-                  >
-                    {Float.round(@midi_bpm * 1.0, 1)} BPM
+                  <span class={["text-[11px] font-mono text-purple-300", if(!@midi_bpm, do: "hidden", else: "")]}>
+                    {if @midi_bpm, do: Float.round(@midi_bpm * 1.0, 1), else: ""} BPM
                   </span>
                 </div>
                 <!-- Footer Link -->
                 <div class="border-t border-gray-700 px-4 py-2.5">
-                  <a
-                    href="/settings"
+                  <.link
+                    navigate="/midi"
                     class="block w-full text-center text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium"
                   >
                     MIDI Settings
-                  </a>
+                  </.link>
                 </div>
               </div>
             </div>
-            <span
-              :if={@midi_bpm}
-              class="px-2 py-1 rounded-md text-xs font-mono bg-purple-900/40 text-purple-300 border border-purple-800/50"
-            >
-              {Float.round(@midi_bpm * 1.0, 1)} BPM
+            <span class={["px-2 py-1 rounded-md text-xs font-mono bg-purple-900/40 text-purple-300 border border-purple-800/50", if(!@midi_bpm, do: "hidden", else: "")]}>
+              {if @midi_bpm, do: Float.round(@midi_bpm * 1.0, 1), else: ""} BPM
             </span>
           </div>
           <.live_component

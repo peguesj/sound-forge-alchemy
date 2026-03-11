@@ -156,10 +156,15 @@ defmodule SoundForge.MIDI.DeviceManager do
   end
 
   defp port_to_device(port) do
+    direction = parse_direction(port)
+    num = to_string(Map.get(port, :port_id) || Map.get(port, :num, ""))
+
     %{
-      port_id: to_string(Map.get(port, :port_id) || Map.get(port, :num, "")),
+      # Composite key prevents input/output ports from colliding in ETS when
+      # they share the same numeric index (common on macOS Core MIDI).
+      port_id: "#{direction}:#{num}",
       name: to_string(Map.get(port, :name, "Unknown")),
-      direction: parse_direction(port),
+      direction: direction,
       type: parse_type(port),
       status: :connected,
       connected_at: DateTime.utc_now()

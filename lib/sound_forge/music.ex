@@ -569,8 +569,40 @@ defmodule SoundForge.Music do
 
   Raises `Ecto.NoResultsError` if the Processing job does not exist.
   """
+  @spec get_processing_job(String.t()) :: ProcessingJob.t() | nil
+  def get_processing_job(id), do: Repo.get(ProcessingJob, id)
+
   @spec get_processing_job!(String.t()) :: ProcessingJob.t()
   def get_processing_job!(id), do: Repo.get!(ProcessingJob, id)
+
+  @doc "Cancel all non-completed Oban jobs for a track. Returns the count cancelled."
+  @spec cancel_stuck_oban_jobs(String.t()) :: non_neg_integer()
+  def cancel_stuck_oban_jobs(track_id) do
+    import Ecto.Query
+
+    query =
+      Oban.Job
+      |> where([j], fragment("?->>'track_id' = ?", j.args, ^track_id))
+      |> where([j], j.state in ["executing", "available", "scheduled", "retryable"])
+
+    case Oban.cancel_all_jobs(Oban, query) do
+      {count, _} -> count
+      _ -> 0
+    end
+  end
+
+  @doc "Mark stuck processing jobs for a track as failed so they can be retried."
+  @spec fail_stuck_processing_jobs(String.t()) :: {non_neg_integer(), nil}
+  def fail_stuck_processing_jobs(track_id) do
+    import Ecto.Query
+
+    Repo.update_all(
+      from(pj in ProcessingJob,
+        where: pj.track_id == ^track_id and pj.status in [:processing, :queued]
+      ),
+      set: [status: :failed, error: "Force reset by user", updated_at: DateTime.utc_now()]
+    )
+  end
 
   @doc """
   Creates a processing job.
@@ -722,5 +754,65 @@ defmodule SoundForge.Music do
     %AnalysisResult{}
     |> AnalysisResult.changeset(attrs)
     |> Repo.insert()
+  end
+
+  # ----- MIDI Results -----
+
+  alias SoundForge.Music.MidiResult
+
+  @doc """
+  Gets the MIDI result for a track, or nil if none exists.
+  """
+  def get_midi_result_for_track(track_id) do
+    Repo.get_by(MidiResult, track_id: track_id)
+  end
+
+  @doc """
+  Creates or replaces a MIDI result for a track.
+  """
+  def upsert_midi_result(attrs) do
+    track_id = attrs[:track_id] || attrs["track_id"]
+
+    case get_midi_result_for_track(track_id) do
+      nil ->
+        %MidiResult{}
+        |> MidiResult.changeset(attrs)
+        |> Repo.insert()
+
+      existing ->
+        existing
+        |> MidiResult.changeset(attrs)
+        |> Repo.update()
+    end
+  end
+
+  # ----- Chord Results -----
+
+  alias SoundForge.Music.ChordResult
+
+  @doc """
+  Gets the chord result for a track, or nil if none exists.
+  """
+  def get_chord_result_for_track(track_id) do
+    Repo.get_by(ChordResult, track_id: track_id)
+  end
+
+  @doc """
+  Creates or replaces a chord result for a track.
+  """
+  def upsert_chord_result(attrs) do
+    track_id = attrs[:track_id] || attrs["track_id"]
+
+    case get_chord_result_for_track(track_id) do
+      nil ->
+        %ChordResult{}
+        |> ChordResult.changeset(attrs)
+        |> Repo.insert()
+
+      existing ->
+        existing
+        |> ChordResult.changeset(attrs)
+        |> Repo.update()
+    end
   end
 end

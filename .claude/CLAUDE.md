@@ -7,6 +7,18 @@ Sound Forge Alchemy (SFA) is an audio stem separation and analysis tool built wi
 **Domain**: Audio engineering / music production tooling.
 **Origin**: Ported from a Node.js/TypeScript microservices architecture to a single Phoenix OTP release.
 
+## Competitive Intelligence
+
+**Primary competitor**: Samplab (v2.4.6, Electron + VST3/AU plugin, cloud-only AI)
+**Full analysis**: `.claude/COMPETITIVE_ANALYSIS_SAMPLAB.md`
+
+### Key Strategic Gaps (from 2026-03-05 analysis)
+- **P0**: No DAW plugin (VST3/AU/CLAP) -- Samplab lives inside DAWs, SFA lives in browser
+- **P0**: No note-level editing in polyphonic audio (Samplab's core value prop)
+- **P1**: No audio-to-MIDI conversion, chord detection, piano roll, or audio warping
+- **SFA advantages**: Local Demucs processing (offline capable), multiple separation engines, Spotify integration, DJ/DAW modes, MIDI hardware, multi-LLM agents, admin dashboard, 707 tests
+- **Samplab vulnerability**: 100% cloud-dependent (no local ML models bundled)
+
 ## Tech Stack
 
 - **Elixir 1.15+** / **Phoenix 1.8** / **LiveView 1.1**
@@ -635,6 +647,85 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - [x] **CP-56**: Project memory with environment references (Phase 4b)
 - After CP-56: All documentation authoritative
 
+### Feature: BigLoopy(TM) (feat/bigloopy)
+
+#### Wave 1 - Foundation (Schemas + Context)
+- [x] **CP-57**: AlchemySet unified schema + migration (US-201)
+- [x] **CP-58**: BigLoopyJob + BigLoopyTrackJob schemas + migrations (US-202)
+- [x] **CP-59**: BigLoopy context CRUD module (US-203)
+- After CP-59: `mix compile --warnings-as-errors` PASS, AlchemySet and BigLoopyJob tables created
+
+#### Wave 2 - AI Layer + Python Core
+- [x] **CP-60**: RecipeParser AI module -- prompt to BigLoopyRecipe (US-204)
+- [x] **CP-61**: OmegaChop AI stem routing module (US-205)
+- [x] **CP-62**: loop_extractor.py Python script + Elixir Port wrapper (US-206)
+- [x] **CP-63**: PackageBuilder module + BigLoopyBroadcaster (US-207)
+- After CP-63: `mix compile --warnings-as-errors` PASS, AI parsing and loop extraction operational
+
+#### Wave 3 - Oban Workers + Business Logic
+- [x] **CP-64**: BigLoopyOrchestratorWorker Oban worker (US-208)
+- [x] **CP-65**: BigLoopyTrackWorker Oban worker (US-209)
+- [x] **CP-66**: PerformanceSet logic + Oban queue WORKER_MODE config (US-210)
+- After CP-66: `mix compile --warnings-as-errors` PASS, full job pipeline runnable end-to-end
+
+#### Wave 4 - UI Layer
+- [x] **CP-67**: BigLoopyLive LiveView -- main feature page (US-211)
+- [x] **CP-68**: BigLoopyProgress real-time component + PerformanceSetView (US-212)
+- [x] **CP-69**: BigLoopy ZIP download endpoint + router + navigation (US-213)
+- After CP-69: `mix compile --warnings-as-errors` PASS, full UI functional
+
+#### Wave 5 - DJ Integration
+- [x] **CP-70**: DJ deck integration -- load PerformanceSet slots (US-214)
+- After CP-70: `mix compile --warnings-as-errors` PASS, all 14 stories complete
+
+### Feature: Brazilian Funk 130BPM Sample Pack Acquisition Pipeline (worktree-fix-spotify-optional)
+
+#### Wave 1 - Foundation (Scripts + Schemas + Context)
+- [x] **CP-71**: Copy acquisition scripts to priv/sample_acquisition/ and create Mix task (US-001)
+- [x] **CP-72**: Create SamplePack and SampleFile Ecto schemas with migration (US-002)
+- [x] **CP-73**: Create SoundForge.SampleLibrary context with CRUD and import_from_manifest/1 (US-003)
+- After CP-73: `mix compile --warnings-as-errors` PASS, sample_packs and sample_files tables created
+
+#### Wave 2 - Workers + Search
+- [x] **CP-74**: Create ManifestImportWorker Oban worker for background manifest ingestion (US-004)
+- [x] **CP-75**: Add SampleLibrary search and filter functions for category, BPM, key, full-text (US-005)
+- After CP-75: `mix compile --warnings-as-errors` PASS, import worker and search functional
+
+#### Wave 3 - UI
+- [x] **CP-76**: Create SampleLibraryLive LiveView at /library with streams, search, and filters (US-006)
+- [x] **CP-77**: Add SamplePreviewHook for in-browser MP3/WAV audio preview in library (US-007)
+- [x] **CP-78**: Add Sample Library tab to AdminLive with import trigger and status display (US-008)
+- After CP-78: `mix compile --warnings-as-errors` PASS, all 8 stories complete
+
+### Phase 10: Competitive Response -- Audio-to-MIDI, Chord Detection, Piano Roll, Audio Warping
+#### Wave 1 (independent -- Python modules, Ecto schemas, JS hooks)
+- [ ] **CP-79**: Add basic-pitch Python dependency and integration module (US-301)
+- [ ] **CP-80**: Add chord detection Python module using librosa chroma (US-302)
+- [ ] **CP-83**: Create MidiResult and ChordResult Ecto schemas and migrations (US-305)
+- [ ] **CP-86**: Create PianoRoll JS hook for note visualization (US-308)
+- [ ] **CP-87**: Create ChordProgression JS hook for chord timeline (US-309)
+- [ ] **CP-89**: Add pyrubberband Python dependency for time-stretching (US-311)
+- After Wave 1: `mix compile --warnings-as-errors` PASS
+
+#### Wave 2 (Erlang Port GenServers + MIDI export)
+- [ ] **CP-81**: Create AudioToMidi Erlang Port wrapper GenServer (US-303)
+- [ ] **CP-82**: Create ChordDetector Erlang Port wrapper GenServer (US-304)
+- [ ] **CP-85**: Add MIDI file export endpoint and download (US-307)
+- [ ] **CP-90**: Create AudioWarp Erlang Port wrapper GenServer (US-312)
+- After Wave 2: `mix compile --warnings-as-errors` PASS
+
+#### Wave 3 (Oban workers)
+- [ ] **CP-84**: Create AudioToMidiWorker and ChordDetectionWorker Oban jobs (US-306)
+- [ ] **CP-91**: Create AudioWarpWorker Oban job for background warping (US-313)
+- After Wave 3: `mix compile --warnings-as-errors` PASS
+
+#### Wave 4 (UI integration + settings + enhancements)
+- [ ] **CP-88**: Integrate MIDI and chord views into track detail (US-310)
+- [ ] **CP-92**: Add warp controls to DJ and DAW tabs (US-314)
+- [ ] **CP-93**: Add pipeline triggers for MIDI and chord detection to settings (US-315)
+- [ ] **CP-94**: Add chord detection data to AnalysisRadar and DJ auto-cue (US-316)
+- After CP-94: `mix compile --warnings-as-errors` PASS, all 16 stories complete
+
 ## Agentic Complexity Tree View Requirement
 
 When any request involves agentic complexity (UPM, Formation, agent deployment), ALWAYS display a `tree`-style hierarchical view of the planned structure BEFORE execution. This applies to /upm build, /formation deploy, /deploy:agents-v2, /ralph story mapping, /plane-pm issue creation, and any todo/task list with concurrent work. No exceptions.
@@ -846,3 +937,11 @@ A PreToolUse hook in `.claude/settings.json` warns when editing files on `releas
 - **Project ID**: `6f35c181-4a86-476d-bb2a-fba869f68918`
 - **Workspace**: lgtm
 - **URL**: https://plane.lgtm.build/lgtm/projects/6f35c181-4a86-476d-bb2a-fba869f68918/
+
+## CCEM APM Integration
+
+- **APM Dashboard**: http://localhost:3031
+- **APM Config**: /Users/jeremiah/Developer/sfa/apm/apm_config.json
+- **APM Port**: 3031
+- **Skills Path**: ~/.claude/skills/
+- **APM Log**: ~/Developer/ccem/apm/hooks/apm_server.log

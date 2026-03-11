@@ -156,12 +156,20 @@ defmodule SoundForge.MIDI.Dispatcher do
   end
 
   defp find_midiex_port(port_id) do
+    # port_id may be "input:N" composite key from DeviceManager; strip direction prefix
+    # before matching against Midiex port num.
+    num_str =
+      case String.split(to_string(port_id), ":", parts: 2) do
+        [_direction, num] -> num
+        _ -> to_string(port_id)
+      end
+
     try do
       Midiex.ports(:input)
       |> List.wrap()
       |> Enum.find(fn port ->
-        to_string(Map.get(port, :num, "")) == to_string(port_id) or
-          to_string(Map.get(port, :port_id, "")) == to_string(port_id)
+        to_string(Map.get(port, :num, "")) == num_str or
+          to_string(Map.get(port, :port_id, "")) == num_str
       end)
     rescue
       _e -> nil
@@ -169,7 +177,9 @@ defmodule SoundForge.MIDI.Dispatcher do
   end
 
   defp extract_port_id(port) when is_map(port) do
-    to_string(Map.get(port, :num, Map.get(port, :port_id, "")))
+    # Emit composite "input:N" key so PubSub topics align with DeviceManager port_ids.
+    num = to_string(Map.get(port, :num, Map.get(port, :port_id, "")))
+    "input:#{num}"
   end
 
   defp extract_port_id(port), do: to_string(port)

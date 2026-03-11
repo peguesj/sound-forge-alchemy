@@ -125,8 +125,8 @@ defmodule SoundForge.MIDI.Profiles.MPC do
   - 4 Q-Link knob mappings for stem volume control
   - 3 transport button mappings (play, stop, rec/bpm_tap)
   """
-  @spec default_mappings(model(), binary()) :: [map()]
-  def default_mappings(model, user_id) when is_atom(model) and is_binary(user_id) do
+  @spec default_mappings(model(), integer() | binary()) :: [map()]
+  def default_mappings(model, user_id) when is_atom(model) and (is_integer(user_id) or is_binary(user_id)) do
     device_name = Map.fetch!(@models, model)
 
     pad_mappings(user_id, device_name) ++

@@ -47,6 +47,8 @@ import DjDeck from "./hooks/dj_deck"
 import JogWheel from "./hooks/jog_wheel"
 import ChromaticPads from "./hooks/chromatic_pads"
 import TransportBar from "./hooks/transport_bar"
+import PianoRoll from "./hooks/piano_roll"
+import ChordProgression from "./hooks/chord_progression"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const Hooks = {
@@ -54,7 +56,7 @@ const Hooks = {
   DebugLogScroll, JobTraceGraph,
   AnalysisRadar, AnalysisChroma, AnalysisBeats,
   AnalysisMFCC, AnalysisSpectral, AnalysisStructure, AnalysisEnergyCurve,
-  ResizeObserverHook, SwipeHook, StemMixerHook, PadAssignHook, DawEditor, DawPreview, DjDeck, JogWheel, ChromaticPads, TransportBar,
+  ResizeObserverHook, SwipeHook, StemMixerHook, PadAssignHook, DawEditor, DawPreview, DjDeck, JogWheel, ChromaticPads, TransportBar, PianoRoll, ChordProgression,
   ...colocatedHooks
 }
 const liveSocket = new LiveSocket("/live", Socket, {

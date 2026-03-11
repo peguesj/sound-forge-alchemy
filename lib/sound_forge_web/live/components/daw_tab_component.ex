@@ -246,7 +246,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
     end
   end
 
-  @valid_operations ~w(crop trim fade_in fade_out split gain)a
+  @valid_operations ~w(crop trim fade_in fade_out split gain pitch_shift time_stretch)a
 
   @impl true
   def handle_event("select_operation", %{"type" => type}, socket) do
@@ -535,7 +535,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 <div class="w-px h-5 bg-gray-700 mx-1"></div>
                 <span class="text-xs text-gray-500 mr-2">Tool:</span>
                 <button
-                  :for={op <- [:crop, :trim, :fade_in, :fade_out, :split, :gain]}
+                  :for={op <- [:crop, :trim, :fade_in, :fade_out, :split, :gain, :pitch_shift, :time_stretch]}
                   phx-click="select_operation"
                   phx-target={@myself}
                   phx-value-type={op}
@@ -611,7 +611,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 </span>
                 <div class="ml-auto flex items-center gap-1">
                   <button
-                    :for={op <- [:crop, :trim, :fade_in, :fade_out, :split, :gain]}
+                    :for={op <- [:crop, :trim, :fade_in, :fade_out, :split, :gain, :pitch_shift, :time_stretch]}
                     phx-click="apply_operation"
                     phx-target={@myself}
                     phx-value-stem_id={stem.id}
@@ -837,6 +837,8 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   defp default_params(:fade_out), do: %{"start_ms" => 0, "end_ms" => 3000, "duration_ms" => 3000}
   defp default_params(:split), do: %{"position_ms" => 5000, "position_sec" => 5.0}
   defp default_params(:gain), do: %{"start_ms" => 0, "end_ms" => 10000, "level" => 1.0}
+  defp default_params(:pitch_shift), do: %{"semitones" => 0}
+  defp default_params(:time_stretch), do: %{"tempo_factor" => 1.0}
 
   defp operation_label(:crop), do: "Crop"
   defp operation_label(:trim), do: "Trim"
@@ -844,6 +846,8 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   defp operation_label(:fade_out), do: "Fade Out"
   defp operation_label(:split), do: "Split"
   defp operation_label(:gain), do: "Gain"
+  defp operation_label(:pitch_shift), do: "Pitch"
+  defp operation_label(:time_stretch), do: "Stretch"
 
   defp operation_icon(:crop), do: "[ ]"
   defp operation_icon(:trim), do: ">|<"
@@ -851,6 +855,8 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   defp operation_icon(:fade_out), do: "\\/"
   defp operation_icon(:split), do: "| |"
   defp operation_icon(:gain), do: "+/-"
+  defp operation_icon(:pitch_shift), do: "^v"
+  defp operation_icon(:time_stretch), do: "<>"
 
   defp operation_button_active(:crop), do: "bg-blue-600 text-white"
   defp operation_button_active(:trim), do: "bg-red-600 text-white"
@@ -858,6 +864,8 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   defp operation_button_active(:fade_out), do: "bg-green-600 text-white"
   defp operation_button_active(:split), do: "bg-yellow-600 text-black"
   defp operation_button_active(:gain), do: "bg-orange-600 text-white"
+  defp operation_button_active(:pitch_shift), do: "bg-cyan-600 text-white"
+  defp operation_button_active(:time_stretch), do: "bg-teal-600 text-white"
 
   defp stem_color(stem_type) do
     case to_string(stem_type) do

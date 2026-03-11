@@ -89,6 +89,9 @@ defmodule SoundForge.Jobs.AnalysisWorker do
         Logger.info("Analysis complete")
         PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :analysis)
 
+        # Auto-trigger MIDI/chord detection if user settings enable it
+        maybe_auto_trigger_extensions(track_id, file_path)
+
         # Broadcast that the track is fully processed
         PipelineBroadcaster.broadcast_pipeline_complete(track_id)
 
@@ -100,6 +103,32 @@ defmodule SoundForge.Jobs.AnalysisWorker do
         Music.update_analysis_job(job, %{status: :failed, error: error_msg})
         PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :analysis)
         {:error, error_msg}
+    end
+  end
+
+  defp maybe_auto_trigger_extensions(track_id, file_path) do
+    case Music.get_track(track_id) do
+      {:ok, track} when not is_nil(track.user_id) ->
+        settings = SoundForge.Settings.get_user_settings(track.user_id)
+
+        if settings && settings.auto_midi_conversion do
+          %{track_id: track_id, file_path: file_path}
+          |> SoundForge.Jobs.AudioToMidiWorker.new()
+          |> Oban.insert()
+
+          Logger.info("Auto-triggered MIDI conversion for track #{track_id}")
+        end
+
+        if settings && settings.auto_chord_detection do
+          %{track_id: track_id, file_path: file_path}
+          |> SoundForge.Jobs.ChordDetectionWorker.new()
+          |> Oban.insert()
+
+          Logger.info("Auto-triggered chord detection for track #{track_id}")
+        end
+
+      _ ->
+        :ok
     end
   end
 

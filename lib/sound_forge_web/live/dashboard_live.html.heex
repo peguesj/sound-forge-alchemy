@@ -628,7 +628,7 @@
                   <div
                     id={"radar-#{@track.id}"}
                     phx-hook="AnalysisRadar"
-                    data-features={Jason.encode!(radar_features(@analysis))}
+                    data-features={Jason.encode!(radar_features(@analysis, @chord_result))}
                     class="bg-gray-800 rounded-lg p-4"
                   >
                     <h3 class="text-sm font-medium text-gray-400 mb-2">Audio Profile</h3>
@@ -747,7 +747,72 @@
                 <p>No analysis data yet.</p>
                 <p class="text-sm mt-1">Analysis runs automatically after stem separation.</p>
               </div>
-              
+
+<!-- MIDI Notes -->
+              <div class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                  <h2 class="text-lg font-semibold text-gray-300">MIDI Notes</h2>
+                  <div :if={@midi_result} class="flex gap-2">
+                    <.link
+                      href={~p"/export/midi/#{@track.id}"}
+                      class="text-sm bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Download MIDI
+                    </.link>
+                  </div>
+                </div>
+                <div :if={@midi_result} class="bg-gray-800 rounded-lg p-4">
+                  <p class="text-xs text-gray-500 mb-2">{length(@midi_result.notes)} notes detected</p>
+                  <div
+                    id={"piano-roll-#{@track.id}"}
+                    phx-hook="PianoRoll"
+                    data-notes={Jason.encode!(@midi_result.notes)}
+                    class="w-full"
+                  >
+                  </div>
+                </div>
+                <div :if={!@midi_result} class="bg-gray-800 rounded-lg p-6 text-center">
+                  <p class="text-gray-500 mb-3">No MIDI data yet.</p>
+                  <button
+                    phx-click="convert_to_midi"
+                    phx-value-id={@track.id}
+                    class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                  >
+                    Convert to MIDI
+                  </button>
+                </div>
+              </div>
+
+<!-- Chord Progression -->
+              <div class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                  <h2 class="text-lg font-semibold text-gray-300">Chords</h2>
+                </div>
+                <div :if={@chord_result} class="bg-gray-800 rounded-lg p-4">
+                  <p class="text-xs text-gray-500 mb-2">
+                    Key: <span class="text-purple-400 font-bold">{@chord_result.key}</span>
+                    &middot; {length(@chord_result.chords)} chords detected
+                  </p>
+                  <div
+                    id={"chord-prog-#{@track.id}"}
+                    phx-hook="ChordProgression"
+                    data-chords={Jason.encode!(%{chords: @chord_result.chords, key: @chord_result.key})}
+                    class="w-full"
+                  >
+                  </div>
+                </div>
+                <div :if={!@chord_result} class="bg-gray-800 rounded-lg p-6 text-center">
+                  <p class="text-gray-500 mb-3">No chord data yet.</p>
+                  <button
+                    phx-click="detect_chords"
+                    phx-value-id={@track.id}
+                    class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                  >
+                    Detect Chords
+                  </button>
+                </div>
+              </div>
+
 <!-- Stems -->
               <div :if={length(@stems) > 0} class="mb-8">
                 <div class="flex items-center justify-between mb-4">
@@ -2667,7 +2732,7 @@
     :if={@debug_mode}
     phx-click="toggle_debug_panel"
     class={[
-      "fixed bottom-20 right-6 z-40 p-3 rounded-full shadow-lg transition-all",
+      "fixed bottom-32 right-6 z-40 p-3 rounded-full shadow-lg transition-all",
       if(@debug_panel_open,
         do: "bg-purple-600 text-white",
         else: "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"

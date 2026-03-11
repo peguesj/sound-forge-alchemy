@@ -31,7 +31,9 @@ defmodule SoundForge.Jobs.AutoCueWorker do
     with {:ok, file_path} <- resolve_audio_path(track_id),
          :ok <- ensure_analysis_exists(track_id, file_path),
          {:ok, auto_cues} <- extract_auto_cues(file_path),
-         {:ok, cue_points} <- persist_cue_points(auto_cues, track_id, user_id) do
+         chord_cues = chord_boundary_cues(track_id),
+         merged_cues = merge_cues(auto_cues, chord_cues),
+         {:ok, cue_points} <- persist_cue_points(merged_cues, track_id, user_id) do
       broadcast_completion(track_id, cue_points)
       Logger.info("Auto-cue generation complete, created #{length(cue_points)} cue points")
       :ok
@@ -183,12 +185,56 @@ defmodule SoundForge.Jobs.AutoCueWorker do
     end
   end
 
+  # Generate cue points from chord boundaries (major chord changes)
+  defp chord_boundary_cues(track_id) do
+    case Music.get_chord_result_for_track(track_id) do
+      nil ->
+        []
+
+      chord_result when is_list(chord_result.chords) ->
+        chord_result.chords
+        |> Enum.chunk_every(2, 1, :discard)
+        |> Enum.filter(fn [prev, curr] ->
+          # Only create cue at chord changes (not repeated chords)
+          prev["chord"] != curr["chord"]
+        end)
+        |> Enum.map(fn [_prev, curr] ->
+          %{
+            "position_ms" => round(curr["start"] * 1000),
+            "label" => curr["chord"],
+            "color" => "#8b5cf6",
+            "cue_type" => "chord_change",
+            "confidence" => curr["confidence"] || 0.5
+          }
+        end)
+
+      _ ->
+        []
+    end
+  end
+
+  # Merge auto_cues and chord cues, deduplicating those within 500ms of each other
+  defp merge_cues(auto_cues, chord_cues) do
+    auto_positions = MapSet.new(auto_cues, & &1["position_ms"])
+
+    # Only add chord cues that aren't within 500ms of an existing auto cue
+    filtered_chord_cues =
+      Enum.reject(chord_cues, fn chord_cue ->
+        Enum.any?(auto_positions, fn pos ->
+          abs(pos - chord_cue["position_ms"]) < 500
+        end)
+      end)
+
+    auto_cues ++ filtered_chord_cues
+  end
+
   # Map Python marker types to CuePoint cue_type enum values.
   # The CuePoint schema supports :hot, :loop_in, :loop_out, :memory.
   # Auto-generated cues are stored as :memory type (persistent navigation markers).
   @spec map_cue_type(String.t() | nil) :: :hot | :loop_in | :loop_out | :memory
   defp map_cue_type("drop"), do: :hot
   defp map_cue_type("build_up"), do: :hot
+  defp map_cue_type("chord_change"), do: :memory
   defp map_cue_type(_), do: :memory
 
   defp broadcast_completion(track_id, cue_points) do

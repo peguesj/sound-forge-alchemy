@@ -77,6 +77,7 @@ defmodule SoundForgeWeb.Router do
     get "/export/stem/:id", ExportController, :download_stem
     get "/export/stems/:track_id", ExportController, :download_all_stems
     get "/export/analysis/:track_id", ExportController, :export_analysis
+    get "/export/midi/:track_id", ExportController, :export_midi
 
     # Spotify OAuth (initiate - requires auth)
     get "/auth/spotify", SpotifyOAuthController, :authorize
