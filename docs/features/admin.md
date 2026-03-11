@@ -1,7 +1,7 @@
 ---
 title: Admin
 parent: Features
-nav_order: 6
+nav_order: 7
 ---
 
 [Home](../index.md) > [Features](index.md) > Admin

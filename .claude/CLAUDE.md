@@ -16,7 +16,7 @@ Sound Forge Alchemy (SFA) is an audio stem separation and analysis tool built wi
 - **P0**: No DAW plugin (VST3/AU/CLAP) -- Samplab lives inside DAWs, SFA lives in browser
 - **P0**: No note-level editing in polyphonic audio (Samplab's core value prop)
 - **P1**: ~~No audio-to-MIDI conversion, chord detection, piano roll, or audio warping~~ (RESOLVED in v4.5.0)
-- **SFA advantages**: Local Demucs processing (offline capable), multiple separation engines, Spotify integration, DJ/DAW modes, MIDI hardware, multi-LLM agents, admin dashboard, 707 tests
+- **SFA advantages**: Local Demucs processing (offline capable), multiple separation engines, Spotify integration, DJ/DAW modes, MIDI hardware, multi-LLM agents, admin dashboard, 810+ tests
 - **Samplab vulnerability**: 100% cloud-dependent (no local ML models bundled)
 
 ## Tech Stack
@@ -696,6 +696,43 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - [x] **CP-77**: Add SamplePreviewHook for in-browser MP3/WAV audio preview in library (US-007)
 - [x] **CP-78**: Add Sample Library tab to AdminLive with import trigger and status display (US-008)
 - After CP-78: `mix compile --warnings-as-errors` PASS, all 8 stories complete
+
+### Phase 10: Competitive Response -- Audio-to-MIDI, Chord Detection, Piano Roll, Audio Warping (COMPLETE - v4.5.0)
+
+All 16 stories (US-301 through US-316) delivered. CP-79 through CP-94 complete.
+- basic-pitch audio-to-MIDI, librosa chroma chord detection, pyrubberband warping
+- MidiResult + ChordResult schemas, MidiFileWriter, piano roll + chord progression JS hooks
+- AudioToMidiPort, ChordDetectorPort, AudioWarpPort GenServers
+- AudioToMidiWorker, ChordDetectionWorker, AudioWarpWorker Oban jobs
+- MIDI file export endpoint, auto-pipeline settings, AnalysisRadar 7th axis, DJ auto-cue chord boundaries
+
+### Phase 11: DJ Enhancements + MIDI Fixes (COMPLETE - v4.6.0)
+
+#### DJ Enhancements
+- [x] Instantaneous playback via `JS.dispatch` -- eliminates delayed start
+- [x] AI cue point detection in `AutoCueWorker`
+- [x] Stem loop decks with per-stem independent loop points
+- [x] Crossfader curve selection (linear, constant power, sharp cut)
+- [x] SMPTE timecode transport for external DAW sync
+- [x] Virtual controller UI (on-screen jog wheels, pitch faders, transport)
+- [x] Chef AI integration in DJ tab (track selection, harmonic mixing, energy flow)
+- [x] DJ preset import/export
+
+#### MIDI Subsystem Fixes
+- [x] ETS composite port_id (`"input:N"` / `"output:N"`) -- fixes input/output collision
+- [x] Dispatcher added to supervision tree in `application.ex`
+- [x] `phx-change` selects wrapped in `<form>` elements
+- [x] `resolve_user_id/1` guard corrected to `when is_integer(id)`
+- [x] `Mapping` schema PK alignment (integer serial, not UUID)
+
+#### Performance Fixes
+- [x] `debug_log` WebSocket flood guard (was 30Hz uncapped)
+- [x] BPM display throttle (5-second interval)
+
+#### Database
+- [x] `midi_results` table for MIDI conversion output
+- [x] `chord_results` table for chord detection output
+- [x] `auto_midi_chord` user settings
 
 ## Agentic Complexity Tree View Requirement
 

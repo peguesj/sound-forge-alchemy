@@ -52,12 +52,18 @@ Both are accessed via tabs on the main dashboard at `/` (using `?tab=dj` and `?t
 ### Features
 
 - **Two decks (A and B)** — Each loads a downloaded track with full playback controls
+- **Instantaneous playback** — `JS.dispatch` triggers play events directly from the client, eliminating delayed start (see [Instantaneous Playback Architecture](#instantaneous-playback-architecture))
 - **BPM sync** — Pitch-shift one deck to match the other's tempo
 - **Loop controls** — Set loop start/end points; toggle active loop
+- **Stem loop decks** — Load individual stems into dedicated loop deck slots with independent loop points (see [Stem Loop Decks](#stem-loop-decks))
 - **EQ (3-band)** — High, mid, low frequency adjusters per deck
-- **Crossfader** — Blend between decks
-- **Cue points** — Set and jump to named cue markers
+- **Crossfader** — Blend between decks with selectable curves: linear, constant power, sharp cut (see [Crossfader and Curve Modes](#crossfader-and-curve-modes))
+- **AI cue points** — ML-powered drop, breakdown, and build-up detection in addition to manual cue markers (see [AI Cue Detection](#ai-cue-detection))
 - **Waveform display** — Scrolling waveform with playhead and beat grid
+- **SMPTE transport** — LTC timecode output for external DAW sync (see [Transport and Sync](#transport-and-sync))
+- **Virtual controller** — On-screen jog wheels, pitch faders, and transport buttons (see [Virtual Controller](#virtual-controller))
+- **Chef AI** — AI-assisted track selection, harmonic mixing, and energy flow planning (see [Chef AI Set Builder](#chef-ai-set-builder))
+- **Preset import/export** — Save and load controller mappings and deck configurations as named presets
 
 ### Keyboard Shortcuts
 
@@ -347,13 +353,14 @@ const DawPreview = {
 **Module:** `SoundForge.MIDI` (midiex)
 **Module:** `SoundForge.OSC`
 
-Both DJ decks and DAW controls can be mapped to MIDI hardware controllers:
+Both DJ decks and DAW controls can be mapped to MIDI hardware controllers. See the dedicated [MIDI Integration](midi.md) page for full details on device management, learn mode, mapping storage, and bug fixes.
 
 - **MIDI Learn** — Click a control and press a MIDI button/knob to assign
 - **Preset mappings** — Built-in mappings for popular controllers (Pioneer DDJ-200, Traktor Kontrol S2)
+- **Universal controller detection** — Planned auto-detect and preset application for new devices
 - **OSC** — Open Sound Control server for DAW integration (Ableton Link, TouchOSC)
 
-MIDI mappings are stored in `SoundForge.DJ.Presets` and persisted per user in the database.
+MIDI mappings are stored in `SoundForge.MIDI.Mappings` and persisted per user in the database.
 
 ---
 
@@ -372,6 +379,8 @@ MIDI mappings are stored in `SoundForge.DJ.Presets` and persisted per user in th
 
 - [Stem Separation](stem-separation.md)
 - [Audio Analysis](analysis.md)
+- [MIDI Integration](midi.md)
+- [Real-Time Patterns](../architecture/realtime-patterns.md)
 - [API: DAW Export](../api/rest.md#daw)
 - [WebSocket: Events](../api/websocket.md)
 
