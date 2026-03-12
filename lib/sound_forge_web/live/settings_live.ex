@@ -4,6 +4,8 @@ defmodule SoundForgeWeb.SettingsLive do
   """
   use SoundForgeWeb, :live_view
 
+  require Logger
+
   alias SoundForge.Settings
   alias SoundForge.Spotify.OAuth
   alias SoundForge.Accounts.UserSettings
@@ -479,7 +481,18 @@ defmodule SoundForgeWeb.SettingsLive do
   defp section_label(:ai_providers), do: "AI Providers"
 
   defp assign_provider_assigns(socket, user_id) do
-    providers = if user_id, do: Providers.list_providers(user_id), else: []
+    providers =
+      if user_id do
+        try do
+          Providers.list_providers(user_id)
+        rescue
+          e ->
+            Logger.warning("Failed to load LLM providers (migrations pending?): #{inspect(e)}")
+            []
+        end
+      else
+        []
+      end
 
     socket
     |> assign(:llm_providers, providers)

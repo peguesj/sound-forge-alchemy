@@ -8,6 +8,9 @@ defmodule SoundForge.DJ do
   """
 
   import Ecto.Query, warn: false
+
+  require Logger
+
   alias SoundForge.Repo
 
   alias SoundForge.DJ.CuePoint
@@ -254,13 +257,29 @@ defmodule SoundForge.DJ do
 
         cue_points =
           if session.track_id do
-            list_cue_points(session.track_id, user_id)
+            try do
+              list_cue_points(session.track_id, user_id)
+            rescue
+              e ->
+                Logger.warning(
+                  "Failed to load cue points for track #{session.track_id} (migrations pending?): #{inspect(e)}"
+                )
+
+                []
+            end
           else
             []
           end
 
         %{session: session, cue_points: cue_points}
     end
+  rescue
+    e ->
+      Logger.warning(
+        "Failed to load deck state for user=#{inspect(user_id)} deck=#{deck_number} (migrations pending?): #{inspect(e)}"
+      )
+
+      nil
   end
 
   # ---------------------------------------------------------------------------
