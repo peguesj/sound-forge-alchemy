@@ -2,4 +2,9 @@
 set -eu
 
 cd -P -- "$(dirname -- "$0")"
+
+echo "Running pending database migrations..."
+./sound_forge eval "SoundForge.Release.migrate()"
+
+echo "Starting Phoenix server..."
 PHX_SERVER=true exec ./sound_forge start

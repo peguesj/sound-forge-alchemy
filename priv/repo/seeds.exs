@@ -17,7 +17,8 @@ seed_users = [
   %{email: "demo-pro@soundforge.local", password: "demo123456!!", role: :pro},
   %{email: "demo-enterprise@soundforge.local", password: "demo123456!!", role: :enterprise},
   %{email: "admin@soundforge.local", password: "admin123456!!", role: :admin},
-  %{email: "super@soundforge.local", password: "super123456!!", role: :super_admin}
+  %{email: "super@soundforge.local", password: "super123456!!", role: :super_admin},
+  %{email: "platform@soundforge.local", password: "platform123456!!", role: :platform_admin}
 ]
 
 for attrs <- seed_users do

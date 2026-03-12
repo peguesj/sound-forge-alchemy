@@ -953,3 +953,13 @@ A PreToolUse hook in `.claude/settings.json` warns when editing files on `releas
 - **APM Port**: 3032
 - **Skills Path**: ~/.claude/skills/
 - **APM Log**: ~/Developer/ccem/apm/hooks/apm_server.log
+
+## Attribution Policy
+
+Never include "Generated with Claude Code", "Co-Authored-By: Claude", or any AI/Claude attribution in:
+- Pull request bodies or titles
+- Commit messages
+- Issue comments
+- Any externally submitted content (GitHub, GitLab, etc.)
+
+This is a hard rule with no exceptions.

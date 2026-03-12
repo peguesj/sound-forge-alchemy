@@ -151,6 +151,13 @@ defmodule SoundForgeWeb.Router do
       live_dashboard "/dashboard", metrics: SoundForgeWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+
+    scope "/dev", SoundForgeWeb do
+      pipe_through [:browser, :require_authenticated_user]
+
+      post "/impersonate/:user_id", ImpersonateController, :create
+      delete "/impersonate", ImpersonateController, :delete
+    end
   end
 
   ## Authentication routes

@@ -14,7 +14,7 @@ defmodule SoundForgeWeb.PrototypeLive do
   alias SoundForge.Admin
   alias SoundForge.Agents.{Context, Orchestrator}
 
-  @prototype_tabs ~w(components devtools uat llm_sandbox)a
+  @prototype_tabs ~w(components devtools uat llm_sandbox impersonate)a
 
   # ============================================================
   # Mount / Params
@@ -49,6 +49,8 @@ defmodule SoundForgeWeb.PrototypeLive do
           |> assign(:llm_input, "")
           |> assign(:llm_loading, false)
           |> assign(:llm_messages, [])
+          # Impersonate tab assigns
+          |> assign(:seed_users, [])
 
         {:ok, socket}
 
@@ -64,7 +66,7 @@ defmodule SoundForgeWeb.PrototypeLive do
   def handle_params(params, _uri, socket) do
     tab =
       case params["tab"] do
-        t when t in ~w(components devtools uat llm_sandbox) ->
+        t when t in ~w(components devtools uat llm_sandbox impersonate) ->
           String.to_existing_atom(t)
 
         _ ->
@@ -287,6 +289,78 @@ defmodule SoundForgeWeb.PrototypeLive do
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Impersonate tab --%>
+      <div :if={@tab == :impersonate} class="space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xl font-semibold">User Impersonation</h2>
+          <span class="badge badge-warning">Dev Only</span>
+        </div>
+
+        <div class="alert alert-info">
+          <span>
+            Currently logged in as <strong>{@current_scope.user.email}</strong>
+            (<span class="badge badge-sm">{@current_scope.role}</span>)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div :for={user <- @seed_users} class="card bg-base-100 shadow-md">
+            <div class="card-body">
+              <h3 class="card-title text-base">{user.email}</h3>
+              <div class="flex items-center gap-2">
+                <span class={"badge #{role_badge_class(user.role)}"}>{user.role}</span>
+                <span :if={user.id == @current_scope.user.id} class="badge badge-success badge-sm">
+                  Current
+                </span>
+              </div>
+              <p class="text-xs text-base-content/50 mt-1">ID: {user.id}</p>
+              <div class="card-actions justify-end mt-3">
+                <form
+                  :if={user.id != @current_scope.user.id}
+                  action={~p"/dev/impersonate/#{user.id}"}
+                  method="post"
+                >
+                  <input type="hidden" name="_csrf_token" value={Phoenix.Controller.get_csrf_token()} />
+                  <button type="submit" class="btn btn-sm btn-primary">
+                    Impersonate
+                  </button>
+                </form>
+                <span :if={user.id == @current_scope.user.id} class="btn btn-sm btn-disabled">
+                  Active
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-md p-6 mt-6">
+          <h3 class="font-semibold mb-3">Role Capabilities</h3>
+          <div class="overflow-x-auto">
+            <table class="table table-xs">
+              <thead>
+                <tr>
+                  <th>Feature</th>
+                  <th>user</th>
+                  <th>pro</th>
+                  <th>enterprise</th>
+                  <th>admin</th>
+                  <th>platform_admin</th>
+                  <th>super_admin</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={feature <- ~w(stem_separation lalalai_cloud midi_control full_analysis admin_dashboard platform_library)a}>
+                  <td class="font-mono text-xs">{feature}</td>
+                  <td :for={role <- ~w(user pro enterprise admin platform_admin super_admin)a}>
+                    {if SoundForge.Accounts.Scope.can_use_feature?(%SoundForge.Accounts.Scope{role: role}, feature), do: "Y", else: "-"}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -573,6 +647,28 @@ defmodule SoundForgeWeb.PrototypeLive do
     |> assign(:assigns_keys, assigns_keys)
   end
 
+  defp load_tab_data(socket, :impersonate) do
+    import Ecto.Query
+
+    seed_emails = [
+      "dev@soundforge.local",
+      "demo-free@soundforge.local",
+      "demo-pro@soundforge.local",
+      "demo-enterprise@soundforge.local",
+      "admin@soundforge.local",
+      "super@soundforge.local",
+      "platform@soundforge.local"
+    ]
+
+    users =
+      SoundForge.Accounts.User
+      |> where([u], u.email in ^seed_emails)
+      |> order_by([u], u.id)
+      |> SoundForge.Repo.all()
+
+    assign(socket, :seed_users, users)
+  end
+
   defp load_tab_data(socket, _tab), do: socket
 
   # ============================================================
@@ -597,6 +693,15 @@ defmodule SoundForgeWeb.PrototypeLive do
   defp tab_label(:devtools), do: "DevTools"
   defp tab_label(:uat), do: "UAT"
   defp tab_label(:llm_sandbox), do: "LLM Sandbox"
+  defp tab_label(:impersonate), do: "Impersonate"
+
+  defp role_badge_class(:user), do: "badge-ghost"
+  defp role_badge_class(:pro), do: "badge-secondary"
+  defp role_badge_class(:enterprise), do: "badge-accent"
+  defp role_badge_class(:admin), do: "badge-primary"
+  defp role_badge_class(:platform_admin), do: "badge-warning"
+  defp role_badge_class(:super_admin), do: "badge-error"
+  defp role_badge_class(_), do: "badge-ghost"
 
   defp msg_class(:user), do: "bg-primary text-primary-content"
   defp msg_class(:agent), do: "bg-base-200 text-base-content"
