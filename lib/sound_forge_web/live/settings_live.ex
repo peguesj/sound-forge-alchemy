@@ -70,6 +70,16 @@ defmodule SoundForgeWeb.SettingsLive do
      |> assign_form(changeset)}
   end
 
+  # Catch provider form params that arrive as "validate" (browser autofill)
+  def handle_event("validate", %{"provider" => params}, socket) do
+    handle_event("validate_provider", %{"provider" => params}, socket)
+  end
+
+  # Catch-all for unrecognized validate payloads (e.g. browser extensions)
+  def handle_event("validate", _params, socket) do
+    {:noreply, socket}
+  end
+
   def handle_event("save", %{"user_settings" => params}, socket) do
     user_id = socket.assigns.current_user_id
 

@@ -267,7 +267,13 @@ defmodule SoundForge.Audio.SpotDL do
         {:ok, stdout, stderr}
 
       {^port, {:exit_status, code}} ->
-        # Try to extract error from output
+        # Log full output for debugging — this is the only place we see Python errors
+        if acc != "" do
+          truncated = String.slice(acc, 0, 2000)
+          Logger.error("Python helper exited with code #{code}. Output:\n#{truncated}")
+        end
+
+        # Try to extract structured error from output
         error_msg = extract_error(acc) || "Process exited with code #{code}"
         {:error, error_msg}
     after
