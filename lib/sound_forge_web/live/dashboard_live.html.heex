@@ -658,7 +658,7 @@
                     <div class="flex items-center gap-3">
                       <%!-- Transient toggle (US-008) --%>
                       <label
-                        :if={is_list((@analysis.result || %{})["drum_events"]) and length((@analysis.result || %{})["drum_events"]) > 0}
+                        :if={is_list((@analysis.features || %{})["drum_events"]) and length((@analysis.features || %{})["drum_events"]) > 0}
                         class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer"
                       >
                         <input
@@ -672,7 +672,7 @@
                       </label>
                       <%!-- MIDI download (US-011) --%>
                       <a
-                        :if={is_list((@analysis.result || %{})["drum_events"]) and length((@analysis.result || %{})["drum_events"]) > 0}
+                        :if={is_list((@analysis.features || %{})["drum_events"]) and length((@analysis.features || %{})["drum_events"]) > 0}
                         href={"/files/midi/#{@track.id}"}
                         download={"#{@track.title || @track.id}.mid"}
                         class="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
@@ -692,20 +692,20 @@
                     data-bar-times={Jason.encode!(AnalysisHelpers.bar_times(@analysis))}
                     data-segments={Jason.encode!(AnalysisHelpers.structure_segments(@analysis))}
                     data-show-transients={to_string(Map.get(assigns, :show_transients, false))}
-                    data-drum-events={Jason.encode!((@analysis.result || %{})["drum_events"] || [])}
+                    data-drum-events={Jason.encode!((@analysis.features || %{})["drum_events"] || [])}
                   >
                   </div>
                 </div>
                 <%!-- Drum Sample Graph (US-014, XO-style) --%>
                 <div
-                  :if={is_list((@analysis.result || %{})["drum_events"]) and length((@analysis.result || %{})["drum_events"]) > 2}
+                  :if={is_list((@analysis.features || %{})["drum_events"]) and length((@analysis.features || %{})["drum_events"]) > 2}
                   class="bg-gray-800 rounded-lg p-4 mb-6"
                 >
                   <h3 class="text-sm font-medium text-gray-400 mb-2">Drum Event Map</h3>
                   <div
                     id={"drum-graph-#{@track.id}"}
                     phx-hook="DrumGraph"
-                    data-drum-events={Jason.encode!((@analysis.result || %{})["drum_events"] || [])}
+                    data-drum-events={Jason.encode!((@analysis.features || %{})["drum_events"] || [])}
                     class="w-full"
                     style="height: 200px;"
                   >
