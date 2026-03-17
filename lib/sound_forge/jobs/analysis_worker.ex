@@ -86,6 +86,22 @@ defmodule SoundForge.Jobs.AnalysisWorker do
           results: results
         })
 
+        # US-007: Update track with drum_categories and bpm derived from analysis
+        with track when not is_nil(track) <- Music.get_track(track_id) do
+          drum_events = results["drum_events"] || []
+          drum_categories = drum_events |> Enum.map(& &1["category"]) |> Enum.uniq()
+          bpm = results["tempo"]
+
+          update_attrs =
+            %{}
+            |> then(fn attrs -> if drum_categories != [], do: Map.put(attrs, :drum_categories, drum_categories), else: attrs end)
+            |> then(fn attrs -> if bpm, do: Map.put(attrs, :bpm, bpm), else: attrs end)
+
+          unless map_size(update_attrs) == 0 do
+            Music.update_track(track, update_attrs)
+          end
+        end
+
         Logger.info("Analysis complete")
         PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :analysis)
 

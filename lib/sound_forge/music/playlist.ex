@@ -27,6 +27,7 @@ defmodule SoundForge.Music.Playlist do
     field :spotify_url, :string
     field :cover_art_url, :string
     field :source, :string, default: "manual"
+    field :playlist_type, :string, default: "manual"
     field :user_id, :integer
 
     has_many :playlist_tracks, SoundForge.Music.PlaylistTrack
@@ -38,10 +39,11 @@ defmodule SoundForge.Music.Playlist do
   @doc false
   def changeset(playlist, attrs) do
     playlist
-    |> cast(attrs, [:name, :description, :spotify_id, :spotify_url, :cover_art_url, :source, :user_id])
+    |> cast(attrs, [:name, :description, :spotify_id, :spotify_url, :cover_art_url, :source, :playlist_type, :user_id])
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 500)
-    |> validate_inclusion(:source, ~w(spotify manual import))
+    |> validate_inclusion(:source, ~w(spotify splice manual import))
+    |> validate_inclusion(:playlist_type, ~w(manual loop_collection drum_kit))
     |> unique_constraint([:spotify_id, :user_id])
   end
 end

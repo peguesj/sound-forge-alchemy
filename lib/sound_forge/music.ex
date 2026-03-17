@@ -482,6 +482,68 @@ defmodule SoundForge.Music do
     |> Repo.all()
   end
 
+  @doc "Returns tracks filtered by source (spotify/splice/manual/import) for the given user."
+  @spec list_tracks_by_source(scope(), String.t(), keyword()) :: [Track.t()]
+  def list_tracks_by_source(%{user: %{id: user_id}}, source, opts \\ []) do
+    Track
+    |> where([t], t.user_id == ^user_id and t.source == ^source)
+    |> order_by([t], desc: t.inserted_at)
+    |> apply_pagination(opts)
+    |> Repo.all()
+  end
+
+  @doc "Returns tracks filtered by sample_type (full/loop/one_shot) for the given user."
+  @spec list_tracks_by_sample_type(scope(), String.t(), keyword()) :: [Track.t()]
+  def list_tracks_by_sample_type(%{user: %{id: user_id}}, sample_type, opts \\ []) do
+    Track
+    |> where([t], t.user_id == ^user_id and t.sample_type == ^sample_type)
+    |> order_by([t], desc: t.inserted_at)
+    |> apply_pagination(opts)
+    |> Repo.all()
+  end
+
+  @doc "Returns tracks filtered by source and sample_type for the given user."
+  @spec list_tracks_by_source_and_type(scope(), String.t(), String.t() | nil, keyword()) ::
+          [Track.t()]
+  def list_tracks_by_source_and_type(%{user: %{id: user_id}}, source, sample_type, opts \\ []) do
+    base =
+      Track
+      |> where([t], t.user_id == ^user_id and t.source == ^source)
+
+    base =
+      if sample_type do
+        where(base, [t], t.sample_type == ^sample_type)
+      else
+        base
+      end
+
+    base
+    |> order_by([t], desc: t.inserted_at)
+    |> apply_pagination(opts)
+    |> Repo.all()
+  end
+
+  @doc "Returns or creates a playlist for a given source and playlist_type pair."
+  @spec create_or_get_source_playlist(integer(), String.t(), String.t()) ::
+          {:ok, Playlist.t()} | {:error, Ecto.Changeset.t()}
+  def create_or_get_source_playlist(user_id, source, playlist_type) do
+    name = source_playlist_name(source, playlist_type)
+
+    case Repo.get_by(Playlist, user_id: user_id, source: source, playlist_type: playlist_type) do
+      %Playlist{} = playlist -> {:ok, playlist}
+      nil -> create_playlist(%{name: name, source: source, playlist_type: playlist_type, user_id: user_id})
+    end
+  end
+
+  defp source_playlist_name(source, "loop_collection"),
+    do: "#{String.capitalize(source)} Loops"
+
+  defp source_playlist_name(source, "drum_kit"),
+    do: "#{String.capitalize(source)} Drum Kits"
+
+  defp source_playlist_name(source, _),
+    do: "#{String.capitalize(source)} Samples"
+
   @doc "Returns distinct album names for the given user scope."
   @spec list_distinct_albums(scope()) :: [String.t()]
   def list_distinct_albums(%{user: %{id: user_id}}) do
@@ -814,5 +876,66 @@ defmodule SoundForge.Music do
         |> ChordResult.changeset(attrs)
         |> Repo.update()
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # DrumKit
+  # ---------------------------------------------------------------------------
+
+  alias SoundForge.Music.DrumKit
+
+  @doc "List all DrumKits for a user."
+  def list_drum_kits(user_id) do
+    DrumKit
+    |> where([dk], dk.user_id == ^user_id)
+    |> order_by([dk], desc: dk.inserted_at)
+    |> Repo.all()
+  end
+
+  @doc "Get a single DrumKit by id."
+  def get_drum_kit(id) do
+    Repo.get(DrumKit, id)
+  end
+
+  @doc "Create a DrumKit."
+  def create_drum_kit(attrs) do
+    %DrumKit{}
+    |> DrumKit.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc "Update a DrumKit."
+  def update_drum_kit(%DrumKit{} = drum_kit, attrs) do
+    drum_kit
+    |> DrumKit.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc "Delete a DrumKit."
+  def delete_drum_kit(%DrumKit{} = drum_kit) do
+    Repo.delete(drum_kit)
+  end
+
+  @doc """
+  Add or replace a slot in a DrumKit.
+  Slot is a map: %{slot: 0..15, track_id: id, label: string, note: midi_note}
+  """
+  def assign_kit_slot(%DrumKit{} = drum_kit, slot_index, track_id, label \\ nil, note \\ nil) do
+    existing = Enum.reject(drum_kit.slots, fn s -> Map.get(s, "slot") == slot_index end)
+
+    new_slot = %{
+      "slot" => slot_index,
+      "track_id" => track_id,
+      "label" => label,
+      "note" => note || (36 + slot_index)
+    }
+
+    update_drum_kit(drum_kit, %{slots: [new_slot | existing]})
+  end
+
+  @doc "Remove a slot from a DrumKit."
+  def remove_kit_slot(%DrumKit{} = drum_kit, slot_index) do
+    updated = Enum.reject(drum_kit.slots, fn s -> Map.get(s, "slot") == slot_index end)
+    update_drum_kit(drum_kit, %{slots: updated})
   end
 end

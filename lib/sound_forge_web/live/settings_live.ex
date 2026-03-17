@@ -13,7 +13,7 @@ defmodule SoundForgeWeb.SettingsLive do
   alias SoundForge.Audio.LalalAI
   alias SoundForge.LLM.{Providers, Provider, Client}
 
-  @sections ~w(spotify downloads youtube demucs cloud_separation analysis storage control_surfaces general advanced ai_providers)a
+  @sections ~w(spotify downloads youtube demucs cloud_separation analysis storage sources control_surfaces general advanced ai_providers)a
 
   @impl true
   def mount(_params, session, socket) do
@@ -223,6 +223,46 @@ defmodule SoundForgeWeb.SettingsLive do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  def handle_event("save_splice_path", %{"splice_library_path" => path}, socket) do
+    user_id = socket.assigns.current_user_id
+
+    if user_id do
+      case SoundForge.Settings.save_user_settings(user_id, %{splice_library_path: path}) do
+        {:ok, _} ->
+          SoundForge.Sources.SpliceScanner.reload_path()
+          {:noreply, put_flash(socket, :info, "Splice library path saved.")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to save Splice library path.")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("test_splice_path", params, socket) do
+    path = params["splice_library_path"] || "~/Splice/Sounds"
+    expanded = Path.expand(path)
+
+    result =
+      if File.dir?(expanded) do
+        count =
+          case File.ls(expanded) do
+            {:ok, files} -> Enum.count(files, fn f -> Path.extname(f) in ~w(.wav .mp3 .aif .aiff .flac) end)
+            _ -> 0
+          end
+
+        {:ok, "Path valid — found #{count} audio files at top level"}
+      else
+        {:error, "Path not found: #{expanded}"}
+      end
+
+    case result do
+      {:ok, msg} -> {:noreply, put_flash(socket, :info, msg)}
+      {:error, msg} -> {:noreply, put_flash(socket, :error, msg)}
     end
   end
 

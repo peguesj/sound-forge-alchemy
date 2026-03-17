@@ -1481,6 +1481,88 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   end
 
   @impl true
+  def handle_event("open_kit_browser", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    {:noreply, assign(socket, :kit_browser_deck, deck_number)}
+  end
+
+  @impl true
+  def handle_event("load_drum_kit", %{"deck" => deck_str, "kit_id" => kit_id}, socket) do
+    deck_number = String.to_integer(deck_str)
+
+    case SoundForge.Music.get_drum_kit(kit_id) do
+      nil ->
+        {:noreply, socket}
+
+      kit ->
+        # Assign each kit slot to the corresponding pad
+        updated =
+          Enum.reduce(kit.slots, socket, fn slot, acc ->
+            pad_idx = Map.get(slot, "slot", 0)
+            track_id = Map.get(slot, "track_id")
+            label = Map.get(slot, "label")
+
+            if track_id do
+              pads_key = :"deck_#{deck_number}_loop_pads"
+              pads = Map.get(acc.assigns, pads_key, [])
+
+              new_pad = %{
+                assigned: true,
+                track_id: track_id,
+                position_ms: 0,
+                label: label || "KIT #{pad_idx + 1}",
+                color: "#7c3aed"
+              }
+
+              new_pads =
+                List.update_at(pads, pad_idx, fn _ -> new_pad end)
+                |> then(fn ps ->
+                  if length(ps) <= pad_idx do
+                    ps ++ List.duplicate(%{assigned: false, position_ms: 0, label: nil, color: "#374151"}, pad_idx - length(ps) + 1)
+                  else
+                    ps
+                  end
+                end)
+
+              assign(acc, pads_key, new_pads)
+            else
+              acc
+            end
+          end)
+
+        {:noreply, assign(updated, :kit_browser_deck, nil)}
+    end
+  end
+
+  @impl true
+  def handle_event("drop_splice_on_pad", %{"deck" => deck_str, "pad" => pad_str, "track_id" => track_id}, socket) do
+    deck_number = String.to_integer(deck_str)
+    pad_idx = String.to_integer(pad_str)
+    pads_key = :"deck_#{deck_number}_loop_pads"
+    pads = Map.get(socket.assigns, pads_key, [])
+
+    track = SoundForge.Music.get_track(track_id)
+    label = if track, do: (track.title || Path.basename(track.spotify_url || "", ".wav")), else: "PAD #{pad_idx + 1}"
+
+    new_pad = %{
+      assigned: true,
+      track_id: String.to_integer(track_id),
+      position_ms: 0,
+      label: String.slice(label, 0, 12),
+      color: "#0e7490"
+    }
+
+    new_pads =
+      if length(pads) > pad_idx do
+        List.update_at(pads, pad_idx, fn _ -> new_pad end)
+      else
+        pads ++ List.duplicate(%{assigned: false, position_ms: 0, label: nil, color: "#374151"}, pad_idx - length(pads)) ++ [new_pad]
+      end
+
+    {:noreply, assign(socket, pads_key, new_pads)}
+  end
+
+  @impl true
   def handle_event("set_master_deck", %{"deck" => deck_str}, socket) do
     deck_number = String.to_integer(deck_str)
     current_master = socket.assigns.master_deck_number
@@ -4459,6 +4541,22 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       </p>
 
       <%= if @deck_type == "soundboard" do %>
+        <%!-- Soundboard header: Load Kit button (US-015) --%>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[9px] text-gray-500 uppercase tracking-wider">Pads</span>
+          <div class="flex items-center gap-1">
+            <span class="text-[8px] text-gray-600">drag Splice samples onto pads</span>
+            <button
+              phx-click="open_kit_browser"
+              phx-target={@myself}
+              phx-value-deck={@deck_number}
+              class="px-1.5 py-0.5 text-[8px] font-bold rounded bg-violet-900/50 text-violet-300 hover:bg-violet-800/60 border border-violet-700/40 transition-colors"
+              title="Load a saved DrumKit onto these pads"
+            >
+              LOAD KIT
+            </button>
+          </div>
+        </div>
         <%!-- Soundboard grid: 4×4 trigger pads with labels --%>
         <%
           snd_colors = ~w(#7c3aed #1d4ed8 #0e7490 #065f46 #92400e #b91c1c #be185d #6d28d9
@@ -4468,7 +4566,14 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           <%= for i <- 0..15 do %>
             <% pad = Enum.at(@loop_pads, rem(i, 8), %{assigned: false, position_ms: 0, label: nil, color: Enum.at(snd_colors, i, "#374151")}) %>
             <% is_active = rem(i, 8) in @active_pads %>
-            <div class="relative group/snd aspect-square">
+            <%!-- Pad: drag-and-drop Splice sample (US-015) --%>
+            <div
+              class="relative group/snd aspect-square"
+              id={"pad-drop-#{@deck_number}-#{i}"}
+              phx-hook="PadDropTarget"
+              data-deck={@deck_number}
+              data-pad={rem(i, 8)}
+            >
               <button
                 phx-click="trigger_loop_pad"
                 phx-target={@myself}

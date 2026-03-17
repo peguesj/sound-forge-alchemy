@@ -61,6 +61,7 @@ defmodule SoundForge.Application do
       SoundForge.Audio.Prefetch,
       SoundForge.Telemetry.ObanHandler,
       SoundForge.LLM.ModelRegistry,
+      SoundForge.Sources.SpliceScanner,
       SoundForgeWeb.Endpoint
     ]
   end

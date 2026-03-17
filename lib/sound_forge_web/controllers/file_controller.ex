@@ -1,10 +1,59 @@
 defmodule SoundForgeWeb.FileController do
   @moduledoc """
   Serves audio files from storage with path traversal protection.
+  Also serves on-demand generated MIDI files from drum event analysis.
   """
   use SoundForgeWeb, :controller
 
+  alias SoundForge.Audio.MidiExtractor
+  alias SoundForge.Music
   alias SoundForge.Storage
+
+  @doc """
+  Generate and serve a MIDI file for a track's drum events.
+  The .mid file is cached in /tmp/midi/ by track_id.
+  """
+  def serve_midi(conn, %{"track_id" => track_id}) do
+    midi_path = Path.join(System.tmp_dir!(), "midi/#{track_id}.mid")
+    File.mkdir_p!(Path.dirname(midi_path))
+
+    case maybe_generate_midi(track_id, midi_path) do
+      {:ok, path} ->
+        conn
+        |> put_resp_content_type("audio/midi")
+        |> put_resp_header("content-disposition", ~s(attachment; filename="#{track_id}.mid"))
+        |> put_resp_header("cache-control", "public, max-age=3600")
+        |> send_file(200, path)
+
+      {:error, :no_drum_events} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "No drum events found for track"})
+
+      {:error, reason} ->
+        conn |> put_status(:internal_server_error) |> json(%{error: inspect(reason)})
+    end
+  end
+
+  defp maybe_generate_midi(track_id, midi_path) do
+    if File.exists?(midi_path) do
+      {:ok, midi_path}
+    else
+      generate_midi(track_id, midi_path)
+    end
+  end
+
+  defp generate_midi(track_id, midi_path) do
+    with %{} = track <- Music.get_track(track_id),
+         result when not is_nil(result) <- Music.get_analysis_result_for_track(track_id),
+         drum_events when is_list(drum_events) and drum_events != [] <-
+           Map.get(result, :result, %{}) |> Map.get("drum_events", []) do
+      bpm = Map.get(result.result, "bpm") || track.bpm || 120.0
+      MidiExtractor.extract(drum_events, bpm, midi_path)
+    else
+      nil -> {:error, :no_drum_events}
+      [] -> {:error, :no_drum_events}
+      _ -> {:error, :track_not_found}
+    end
+  end
 
   def serve(conn, %{"path" => path_parts}) do
     # Join path parts and sanitize

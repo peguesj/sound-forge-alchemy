@@ -71,6 +71,7 @@ defmodule SoundForgeWeb.Router do
     live "/practice", PracticeLive, :index
     live "/daw/:track_id", DawLive, :index
     live "/dj", DjLive, :index
+    get "/files/midi/:track_id", FileController, :serve_midi
     get "/files/*path", FileController, :serve
 
     # Export routes

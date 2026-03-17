@@ -173,6 +173,52 @@ const AnalysisBeats = {
         .attr("font-size", "10px")
         .text(`${Math.round(tempo)} BPM`)
     }
+
+    // US-008: Transient markers overlay
+    const showTransients = this.el.dataset.showTransients === "true"
+    const drumEventsRaw = this.el.dataset.drumEvents
+    if (showTransients && drumEventsRaw) {
+      let drumEvents = []
+      try { drumEvents = JSON.parse(drumEventsRaw) } catch { /* noop */ }
+
+      const drumColors = {
+        kick: "#ef4444",
+        snare: "#eab308",
+        hihat: "#06b6d4",
+        clap: "#a855f7",
+        perc: "#6b7280"
+      }
+
+      const transientGroup = svg.append("g").attr("class", "transient-markers")
+
+      drumEvents.forEach(evt => {
+        const x = xScale(evt.time_s)
+        if (x < 0 || x > innerW) return
+
+        const color = drumColors[evt.category] || "#9ca3af"
+
+        // Vertical tick line
+        transientGroup.append("line")
+          .attr("x1", x).attr("x2", x)
+          .attr("y1", 0).attr("y2", innerH)
+          .attr("stroke", color)
+          .attr("stroke-width", 1)
+          .attr("stroke-opacity", 0.7)
+          .attr("stroke-dasharray", "2,2")
+
+        // Small circle at top
+        const dot = transientGroup.append("circle")
+          .attr("cx", x).attr("cy", 3)
+          .attr("r", 3)
+          .attr("fill", color)
+          .attr("fill-opacity", 0.85)
+          .attr("cursor", "pointer")
+
+        // Tooltip on hover
+        dot.append("title")
+          .text(`${evt.category} @ ${evt.time_s.toFixed(2)}s (${Math.round(evt.confidence * 100)}%)`)
+      })
+    }
   }
 }
 

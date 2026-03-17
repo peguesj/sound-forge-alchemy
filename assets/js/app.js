@@ -49,6 +49,9 @@ import ChromaticPads from "./hooks/chromatic_pads"
 import TransportBar from "./hooks/transport_bar"
 import PianoRoll from "./hooks/piano_roll"
 import ChordProgression from "./hooks/chord_progression"
+import DrumGraph from "./hooks/drum_graph"
+import PadDropTarget from "./hooks/pad_drop_target"
+import DraggableTrack from "./hooks/draggable_track"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const Hooks = {
@@ -56,6 +59,7 @@ const Hooks = {
   DebugLogScroll, JobTraceGraph,
   AnalysisRadar, AnalysisChroma, AnalysisBeats,
   AnalysisMFCC, AnalysisSpectral, AnalysisStructure, AnalysisEnergyCurve,
+  DrumGraph, PadDropTarget, DraggableTrack,
   ResizeObserverHook, SwipeHook, StemMixerHook, PadAssignHook, DawEditor, DawPreview, DjDeck, JogWheel, ChromaticPads, TransportBar, PianoRoll, ChordProgression,
   ...colocatedHooks
 }
