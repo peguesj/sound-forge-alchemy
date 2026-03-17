@@ -104,6 +104,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
      |> assign(:deck_4_pad_fade, "none")
      |> assign(:deck_3_active_pads, [])
      |> assign(:deck_4_active_pads, [])
+     |> assign(:alchemy_sets, [])
      |> assign(:dj_midi_learn_mode, false)
      |> assign(:dj_midi_learn_target, nil)
      |> assign(:saved_presets, [])
@@ -279,10 +280,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       tracks = list_user_tracks(assigns[:current_scope])
       user_id = assigns[:current_user_id]
       saved_presets = if user_id, do: PresetsContext.list_presets(user_id), else: []
+      alchemy_sets = if user_id, do: SoundForge.BigLoopy.list_alchemy_sets(user_id), else: []
 
       socket =
         socket
-        |> assign(tracks: tracks, initialized: true, saved_presets: saved_presets)
+        |> assign(tracks: tracks, initialized: true, saved_presets: saved_presets, alchemy_sets: alchemy_sets)
         |> restore_deck_from_db(user_id, 1)
         |> restore_deck_from_db(user_id, 2)
 
@@ -1460,6 +1462,48 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
 
     {:noreply, socket}
   end
+
+  @doc false
+  def handle_event(
+        "load_alchemy_set",
+        %{"deck" => deck_str, "alchemy_set_id" => set_id},
+        socket
+      )
+      when byte_size(set_id) > 0 do
+    deck_number = String.to_integer(deck_str)
+    pads_key = :"deck_#{deck_number}_loop_pads"
+
+    case SoundForge.BigLoopy.get_alchemy_set(set_id) do
+      nil ->
+        {:noreply, socket}
+
+      alchemy_set ->
+        loops = get_in(alchemy_set.performance_set, ["loops"]) || []
+
+        updated_pads =
+          loops
+          |> Enum.take(8)
+          |> Enum.with_index()
+          |> Enum.map(fn {loop, idx} ->
+            %{
+              assigned: true,
+              position_ms: 0,
+              label: Map.get(loop, "stem", "Loop #{idx + 1}"),
+              color: "#7c3aed",
+              loop_file: Map.get(loop, "path")
+            }
+          end)
+
+        pads = default_loop_pads()
+        merged = Enum.with_index(pads) |> Enum.map(fn {pad, i} ->
+          Enum.at(updated_pads, i, pad)
+        end)
+
+        {:noreply, assign(socket, pads_key, merged)}
+    end
+  end
+
+  def handle_event("load_alchemy_set", _params, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("set_pad_mode", %{"deck" => deck_str, "mode" => mode}, socket) do
@@ -2946,6 +2990,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             poly_voices={@deck_3_poly_voices}
             pad_fade={@deck_3_pad_fade}
             active_pads={@deck_3_active_pads}
+            alchemy_sets={@alchemy_sets}
             myself={@myself}
           />
           <.loop_deck_panel
@@ -2960,6 +3005,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             poly_voices={@deck_4_poly_voices}
             pad_fade={@deck_4_pad_fade}
             active_pads={@deck_4_active_pads}
+            alchemy_sets={@alchemy_sets}
             myself={@myself}
           />
         </div>
@@ -4506,6 +4552,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   attr :poly_voices, :integer, default: 1
   attr :pad_fade, :string, default: "none"
   attr :active_pads, :list, default: []
+  attr :alchemy_sets, :list, default: []
   attr :myself, :any, required: true
 
   defp loop_deck_panel(assigns) do
@@ -4884,6 +4931,19 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         </div>
       </div>
       <% end %>
+
+      <%!-- Load from Alchemy --%>
+      <div :if={@alchemy_sets != []} class="mt-2">
+        <form phx-change="load_alchemy_set" phx-target={@myself} phx-value-deck={@deck_number}>
+          <select name="alchemy_set_id"
+            class="w-full px-2 py-1 bg-gray-900 border border-violet-700/50 rounded text-[10px] text-violet-300 focus:outline-none focus:ring-1 focus:ring-violet-500">
+            <option value="">✦ Load from Alchemy...</option>
+            <%= for set <- @alchemy_sets, set.status == "complete" do %>
+              <option value={set.id}>{set.name} (#{length(set.source_track_ids)} tracks)</option>
+            <% end %>
+          </select>
+        </form>
+      </div>
 
       <%!-- Track Loader --%>
       <form phx-change="load_track" phx-target={@myself} phx-value-deck={@deck_number}>

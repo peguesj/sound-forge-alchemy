@@ -56,8 +56,8 @@ worker_mode = System.get_env("WORKER_MODE", "full")
 oban_queues =
   case worker_mode do
     "web" -> [download: 3, analysis: 2]
-    "gpu_worker" -> [processing: 2]
-    _ -> [download: 3, processing: 2, analysis: 2]
+    "gpu_worker" -> [processing: 2, big_loopy: 2]
+    _ -> [download: 3, processing: 2, analysis: 2, big_loopy: 2]
   end
 
 config :sound_forge, Oban, queues: oban_queues

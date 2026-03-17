@@ -3153,7 +3153,7 @@
 
 <%!-- Unified Transport Bar (local + Spotify, pill-tab switched) --%>
 <.live_component
-  :if={@nav_tab not in [:dj, :daw, :pads]}
+  :if={@nav_tab not in [:dj, :daw, :pads] and not @batch_mode}
   module={SoundForgeWeb.Live.Components.TransportBarComponent}
   id="transport-bar"
   nav_tab={@nav_tab}

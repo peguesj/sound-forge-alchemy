@@ -6,8 +6,10 @@ defmodule SoundForgeWeb.AdminLive do
   use SoundForgeWeb, :live_view
 
   alias SoundForge.Admin
+  alias SoundForge.SampleLibrary
+  alias SoundForge.Jobs.ManifestImportWorker
 
-  @admin_tabs ~w(overview users jobs system analytics audit llm)a
+  @admin_tabs ~w(overview users jobs system analytics audit llm sample_library)a
   @valid_roles ~w(user pro enterprise admin super_admin platform_admin)a
 
   @impl true
@@ -57,6 +59,9 @@ defmodule SoundForgeWeb.AdminLive do
       |> assign(:tracks_by_day, [])
       |> assign(:pipeline, %{})
       |> assign(:llm_stats, %{total: 0, enabled: 0, healthy: 0})
+      |> assign(:sample_packs, [])
+      |> assign(:import_pack_id, "")
+      |> assign(:import_manifest_path, "")
 
     {:ok, socket}
   end
@@ -65,7 +70,7 @@ defmodule SoundForgeWeb.AdminLive do
   def handle_params(params, _uri, socket) do
     tab =
       case params["tab"] do
-        tab when tab in ~w(overview users jobs system analytics audit llm) ->
+        tab when tab in ~w(overview users jobs system analytics audit llm sample_library) ->
           String.to_existing_atom(tab)
 
         _ ->
@@ -237,6 +242,24 @@ defmodule SoundForgeWeb.AdminLive do
     {:noreply, socket}
   end
 
+  # -- Sample Library Events --
+
+  def handle_event(
+        "trigger_import",
+        %{"pack_id" => pack_id, "manifest_path" => manifest_path},
+        socket
+      )
+      when byte_size(pack_id) > 0 and byte_size(manifest_path) > 0 do
+    {:ok, _job} =
+      Oban.insert(ManifestImportWorker.new(%{"pack_id" => pack_id, "manifest_path" => manifest_path}))
+
+    {:noreply, put_flash(socket, :info, "Import job enqueued for pack #{pack_id}")}
+  end
+
+  def handle_event("trigger_import", _params, socket) do
+    {:noreply, put_flash(socket, :error, "Pack ID and manifest path are required")}
+  end
+
   # -- Audit Events --
 
   def handle_event("filter_audit_action", %{"action" => action}, socket) do
@@ -295,6 +318,10 @@ defmodule SoundForgeWeb.AdminLive do
 
   defp load_tab_data(%{assigns: %{tab: :llm}} = socket) do
     assign(socket, :llm_stats, Admin.llm_stats())
+  end
+
+  defp load_tab_data(%{assigns: %{tab: :sample_library}} = socket) do
+    assign(socket, :sample_packs, SampleLibrary.list_all_packs())
   end
 
   defp load_tab_data(socket), do: socket
@@ -762,6 +789,73 @@ defmodule SoundForgeWeb.AdminLive do
           </div>
         </div>
       </div>
+
+      <%!-- Sample Library Tab --%>
+      <div :if={@tab == :sample_library} class="space-y-6">
+        <div class="card bg-base-100 shadow-md">
+          <div class="card-body">
+            <h2 class="card-title text-lg">All Sample Packs</h2>
+            <div class="overflow-x-auto">
+              <table class="table table-sm w-full">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Owner</th>
+                    <th>Source</th>
+                    <th>Category</th>
+                    <th>Files</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for pack <- @sample_packs do %>
+                    <tr>
+                      <td class="font-medium"><%= pack.name %></td>
+                      <td class="text-sm text-base-content/70"><%= pack.user && pack.user.email || "—" %></td>
+                      <td class="text-sm"><%= pack.source %></td>
+                      <td class="text-sm"><%= pack.category || "—" %></td>
+                      <td class="text-sm"><%= pack.total_files %></td>
+                      <td>
+                        <span class={[
+                          "badge badge-sm",
+                          pack.status == "ready" && "badge-success",
+                          pack.status == "importing" && "badge-info",
+                          pack.status == "error" && "badge-error",
+                          pack.status == "pending" && "badge-ghost"
+                        ]}>
+                          <%= pack.status %>
+                        </span>
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-md">
+          <div class="card-body">
+            <h2 class="card-title text-lg">Trigger Import</h2>
+            <p class="text-sm text-base-content/60 mb-4">
+              Enqueue a background import job for an existing SamplePack from a manifest JSON file.
+            </p>
+            <form phx-submit="trigger_import" class="flex flex-col gap-3 max-w-lg">
+              <div class="form-control">
+                <label class="label"><span class="label-text">Pack ID (UUID)</span></label>
+                <input type="text" name="pack_id" placeholder="e.g. abc123..." class="input input-bordered input-sm" required />
+              </div>
+              <div class="form-control">
+                <label class="label"><span class="label-text">Manifest Path (absolute)</span></label>
+                <input type="text" name="manifest_path" placeholder="/path/to/manifest.json" class="input input-bordered input-sm" required />
+              </div>
+              <div class="card-actions">
+                <button type="submit" class="btn btn-primary btn-sm">Enqueue Import</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
     </div>
     """
@@ -827,6 +921,7 @@ defmodule SoundForgeWeb.AdminLive do
   defp tab_label(:analytics), do: "Analytics"
   defp tab_label(:audit), do: "Audit Log"
   defp tab_label(:llm), do: "LLM"
+  defp tab_label(:sample_library), do: "Sample Library"
 
   defp role_badge_class(:super_admin), do: "select-error"
   defp role_badge_class(:platform_admin), do: "select-warning"

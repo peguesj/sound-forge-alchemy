@@ -964,3 +964,37 @@ Never include "Generated with Claude Code", "Co-Authored-By: Claude", or any AI/
 - Any externally submitted content (GitHub, GitLab, etc.)
 
 This is a hard rule with no exceptions.
+
+### Feature: BigLoopy Loop-Based Alchemy + Sample Library (feature/bigloopy-samplelib-backlog)
+
+#### Wave 1 — Data Layer (8 concurrent stories)
+- [x] **CP-57**: AlchemySet unified schema + migration (US-B01)
+- [x] **CP-58**: BigLoopyJob + BigLoopyTrackJob schemas (US-B02)
+- [x] **CP-59**: BigLoopy context CRUD module (US-B03)
+- [x] **CP-60**: loop_extractor.py + Elixir Port wrapper (US-B04)
+- [x] **CP-61**: RecipeParser AI module (US-B05)
+- [x] **CP-71**: Copy acquisition scripts to priv/sample_acquisition/ (US-S01)
+- [x] **CP-72**: SamplePack and SampleFile Ecto schemas with migration (US-S02)
+- [x] **CP-73**: SoundForge.SampleLibrary context with CRUD and import_from_manifest (US-S03)
+- [x] **CP-74**: ManifestImportWorker Oban worker (US-S04)
+- [x] **CP-79**: Fix duplicate player bars on GitHub issue #16 (US-BUG01)
+- After Wave 1: `mix ecto.migrate` passes, `mix compile --warnings-as-errors` PASS
+
+#### Wave 2 — Workers + Backend (5 concurrent stories)
+- [x] **CP-62**: OmegaChop AI stem routing module (US-B06)
+- [x] **CP-63**: PackageBuilder + BigLoopyBroadcaster (US-B07)
+- [x] **CP-64**: BigLoopyOrchestratorWorker (US-B08)
+- [x] **CP-65**: BigLoopyTrackWorker (US-B09)
+- [x] **CP-66**: PerformanceSet logic + WORKER_MODE queues (US-B10)
+- [x] **CP-75**: SampleLibrary search and filter functions (US-S05)
+- [x] **CP-78**: Sample Library tab in AdminLive with import trigger (US-S08)
+- After Wave 2: `mix compile --warnings-as-errors` PASS, all workers registered in application.ex
+
+#### Wave 3 — LiveViews + UI + Integration (6 concurrent stories)
+- [ ] **CP-67**: BigLoopyLive LiveView at /alchemy (US-B11)
+- [ ] **CP-68**: BigLoopyProgress + PerformanceSetView components (US-B12)
+- [ ] **CP-69**: Download endpoint + router + nav (US-B13)
+- [ ] **CP-70**: DJ deck PerformanceSet integration (US-B14)
+- [x] **CP-76**: SampleLibraryLive LiveView at /samples (US-S06)
+- [x] **CP-77**: SamplePreviewHook for in-browser audio preview (US-S07)
+- After Wave 3: `mix compile --warnings-as-errors` PASS, both /alchemy and /library routes live
