@@ -545,6 +545,8 @@ defmodule SoundForgeWeb.SettingsLive do
   defp section_label(:cloud_separation), do: "Cloud Separation"
   defp section_label(:analysis), do: "Analysis"
   defp section_label(:storage), do: "Storage"
+  defp section_label(:sources), do: "Sources"
+  defp section_label(:control_surfaces), do: "Control Surfaces"
   defp section_label(:general), do: "General"
   defp section_label(:advanced), do: "Advanced"
   defp section_label(:ai_providers), do: "AI Providers"
