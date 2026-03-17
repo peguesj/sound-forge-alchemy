@@ -28,9 +28,6 @@ defmodule SoundForge.Audio.MidiExtractor do
     "perc" => 37
   }
 
-  # MIDI channel 9 (0-indexed) = channel 10 in 1-indexed (GM drums)
-  @drum_channel 9
-
   @doc """
   Extract a MIDI file from drum events + BPM and write to the given output path.
 
@@ -102,16 +99,7 @@ defmodule SoundForge.Audio.MidiExtractor do
       |> Enum.reduce({<<>>, 0}, fn {tick, tick_events}, {acc, prev_tick} ->
         delta = tick - prev_tick
 
-        # Note ON events for all notes at this tick
-        note_ons =
-          Enum.reduce(tick_events, <<>>, fn {_tick, note}, on_acc ->
-            # Note On: channel 9 (drum), velocity 100
-            on_acc <>
-              encode_varlen(0) <>
-              <<0x99, note :: 8, 100 :: 8>>
-          end)
-
-        # Note OFF events (delta = 1/32 note worth of ticks after note on)
+        # Note OFF events (delta = 0 after note on, using note_ons_with_first_delta below)
         note_offs =
           Enum.reduce(tick_events, <<>>, fn {_, note}, off_acc ->
             off_acc <>
@@ -121,8 +109,7 @@ defmodule SoundForge.Audio.MidiExtractor do
 
         new_acc =
           acc <>
-            # First note on gets the full delta, rest get 0
-            encode_varlen(delta) <>
+            # First note on gets the full delta, subsequent simultaneous notes get 0
             note_ons_with_first_delta(tick_events, delta) <>
             note_offs
 

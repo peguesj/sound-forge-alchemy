@@ -63,6 +63,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:show_lalalai_modal, false)
       |> assign(:show_midi_settings_modal, false)
       |> assign(:refreshing_midi, false)
+      |> assign(:show_transients, false)
       |> assign(:lalalai_modal_expanded, false)
       |> assign(:lalalai_modal_key_input, "")
       |> assign(:lalalai_modal_testing, false)
@@ -1289,6 +1290,10 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
      |> stream(:tracks, tracks, reset: true)}
+  end
+
+  def handle_event("toggle_transients", _params, socket) do
+    {:noreply, assign(socket, :show_transients, !socket.assigns.show_transients)}
   end
 
   @impl true

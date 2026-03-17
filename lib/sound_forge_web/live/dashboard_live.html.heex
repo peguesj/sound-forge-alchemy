@@ -651,14 +651,65 @@
                 <!-- Beat Timeline (full width) -->
                 <div
                   :if={is_map((@analysis.features || %{})["beats"])}
-                  id={"beats-#{@track.id}"}
-                  phx-hook="AnalysisBeats"
-                  data-beats={Jason.encode!(beats_with_tempo(@analysis))}
-                  data-bar-times={Jason.encode!(AnalysisHelpers.bar_times(@analysis))}
-                  data-segments={Jason.encode!(AnalysisHelpers.structure_segments(@analysis))}
                   class="bg-gray-800 rounded-lg p-4 mb-6"
                 >
-                  <h3 class="text-sm font-medium text-gray-400 mb-2">Beat Timeline</h3>
+                  <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-medium text-gray-400">Beat Timeline</h3>
+                    <div class="flex items-center gap-3">
+                      <%!-- Transient toggle (US-008) --%>
+                      <label
+                        :if={is_list((@analysis.result || %{})["drum_events"]) and length((@analysis.result || %{})["drum_events"]) > 0}
+                        class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          phx-click="toggle_transients"
+                          phx-value-track-id={@track.id}
+                          checked={Map.get(assigns, :show_transients, false)}
+                          class="rounded"
+                        />
+                        Drum transients
+                      </label>
+                      <%!-- MIDI download (US-011) --%>
+                      <a
+                        :if={is_list((@analysis.result || %{})["drum_events"]) and length((@analysis.result || %{})["drum_events"]) > 0}
+                        href={"/files/midi/#{@track.id}"}
+                        download={"#{@track.title || @track.id}.mid"}
+                        class="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                        title="Download drum MIDI extracted from transient analysis"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        MIDI
+                      </a>
+                    </div>
+                  </div>
+                  <div
+                    id={"beats-#{@track.id}"}
+                    phx-hook="AnalysisBeats"
+                    data-beats={Jason.encode!(beats_with_tempo(@analysis))}
+                    data-bar-times={Jason.encode!(AnalysisHelpers.bar_times(@analysis))}
+                    data-segments={Jason.encode!(AnalysisHelpers.structure_segments(@analysis))}
+                    data-show-transients={to_string(Map.get(assigns, :show_transients, false))}
+                    data-drum-events={Jason.encode!((@analysis.result || %{})["drum_events"] || [])}
+                  >
+                  </div>
+                </div>
+                <%!-- Drum Sample Graph (US-014, XO-style) --%>
+                <div
+                  :if={is_list((@analysis.result || %{})["drum_events"]) and length((@analysis.result || %{})["drum_events"]) > 2}
+                  class="bg-gray-800 rounded-lg p-4 mb-6"
+                >
+                  <h3 class="text-sm font-medium text-gray-400 mb-2">Drum Event Map</h3>
+                  <div
+                    id={"drum-graph-#{@track.id}"}
+                    phx-hook="DrumGraph"
+                    data-drum-events={Jason.encode!((@analysis.result || %{})["drum_events"] || [])}
+                    class="w-full"
+                    style="height: 200px;"
+                  >
+                  </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <!-- MFCC Bars -->
@@ -1237,6 +1288,10 @@
                 <div
                   id={dom_id}
                   class="bg-gray-800 rounded-lg p-4 hover:bg-gray-750 transition-colors border border-gray-700 hover:border-purple-500/50 relative group"
+                  draggable={to_string(track.source == "splice")}
+                  data-track-id={track.id}
+                  data-source={track.source || "spotify"}
+                  phx-hook={if track.source == "splice", do: "DraggableTrack", else: nil}
                 >
                   <input
                     :if={@batch_mode}
