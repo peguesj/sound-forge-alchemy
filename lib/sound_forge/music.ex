@@ -817,4 +817,65 @@ defmodule SoundForge.Music do
     |> AnalysisResult.changeset(attrs)
     |> Repo.insert()
   end
+
+  # ---------------------------------------------------------------------------
+  # DrumKit
+  # ---------------------------------------------------------------------------
+
+  alias SoundForge.Music.DrumKit
+
+  @doc "List all DrumKits for a user."
+  def list_drum_kits(user_id) do
+    DrumKit
+    |> where([dk], dk.user_id == ^user_id)
+    |> order_by([dk], desc: dk.inserted_at)
+    |> Repo.all()
+  end
+
+  @doc "Get a single DrumKit by id."
+  def get_drum_kit(id) do
+    Repo.get(DrumKit, id)
+  end
+
+  @doc "Create a DrumKit."
+  def create_drum_kit(attrs) do
+    %DrumKit{}
+    |> DrumKit.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc "Update a DrumKit."
+  def update_drum_kit(%DrumKit{} = drum_kit, attrs) do
+    drum_kit
+    |> DrumKit.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc "Delete a DrumKit."
+  def delete_drum_kit(%DrumKit{} = drum_kit) do
+    Repo.delete(drum_kit)
+  end
+
+  @doc """
+  Add or replace a slot in a DrumKit.
+  Slot is a map: %{slot: 0..15, track_id: id, label: string, note: midi_note}
+  """
+  def assign_kit_slot(%DrumKit{} = drum_kit, slot_index, track_id, label \\ nil, note \\ nil) do
+    existing = Enum.reject(drum_kit.slots, fn s -> Map.get(s, "slot") == slot_index end)
+
+    new_slot = %{
+      "slot" => slot_index,
+      "track_id" => track_id,
+      "label" => label,
+      "note" => note || (36 + slot_index)
+    }
+
+    update_drum_kit(drum_kit, %{slots: [new_slot | existing]})
+  end
+
+  @doc "Remove a slot from a DrumKit."
+  def remove_kit_slot(%DrumKit{} = drum_kit, slot_index) do
+    updated = Enum.reject(drum_kit.slots, fn s -> Map.get(s, "slot") == slot_index end)
+    update_drum_kit(drum_kit, %{slots: updated})
+  end
 end

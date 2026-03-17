@@ -111,19 +111,23 @@ defmodule SoundForge.Jobs.AutoCueWorker do
   defp extract_auto_cues(file_path) do
     Logger.info("Extracting auto cues from #{file_path}")
 
+    # US-009: Request drum_events alongside auto_cues so we can boost
+    # cue point confidence at kick/snare downbeats
     result =
       try do
         {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_analyzer()
-        AnalyzerPort.analyze(file_path, ["auto_cues"], server: port_pid)
+        AnalyzerPort.analyze(file_path, ["auto_cues", "transients", "drum_events"], server: port_pid)
       catch
         :exit, reason ->
           {:error, "Port process crashed: #{inspect(reason)}"}
       end
 
     case result do
-      {:ok, %{"auto_cues" => cues}} when is_list(cues) ->
-        Logger.info("Extracted #{length(cues)} auto cue candidates")
-        {:ok, cues}
+      {:ok, %{"auto_cues" => cues} = results} when is_list(cues) ->
+        drum_events = Map.get(results, "drum_events", [])
+        boosted = boost_cues_with_drum_context(cues, drum_events)
+        Logger.info("Extracted #{length(boosted)} auto cue candidates (#{length(drum_events)} drum events as context)")
+        {:ok, boosted}
 
       {:ok, _results} ->
         Logger.warning("Python analyzer returned no auto_cues key")
@@ -132,6 +136,33 @@ defmodule SoundForge.Jobs.AutoCueWorker do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  # US-009: Boost confidence of cue points that align with drum downbeats
+  defp boost_cues_with_drum_context(cues, []), do: cues
+
+  defp boost_cues_with_drum_context(cues, drum_events) do
+    # Keep top 16 drum events by confidence, preferring kick/snare
+    downbeats =
+      drum_events
+      |> Enum.filter(fn e -> e["category"] in ["kick", "snare"] end)
+      |> Enum.sort_by(& -(&1["confidence"] || 0))
+      |> Enum.take(16)
+      |> Enum.map(& &1["time_s"])
+
+    Enum.map(cues, fn cue ->
+      position_s = (cue["position_ms"] || 0) / 1000.0
+
+      # Check if any downbeat is within 100ms of this cue
+      near_downbeat? = Enum.any?(downbeats, fn t -> abs(t - position_s) < 0.1 end)
+
+      if near_downbeat? do
+        current_confidence = cue["confidence"] || 0.5
+        Map.put(cue, "confidence", min(1.0, current_confidence + 0.15))
+      else
+        cue
+      end
+    end)
   end
 
   @spec persist_cue_points(list(map()), String.t(), integer() | String.t()) ::
