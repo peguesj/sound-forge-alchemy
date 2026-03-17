@@ -15,8 +15,8 @@ Sound Forge Alchemy (SFA) is an audio stem separation and analysis tool built wi
 ### Key Strategic Gaps (from 2026-03-05 analysis)
 - **P0**: No DAW plugin (VST3/AU/CLAP) -- Samplab lives inside DAWs, SFA lives in browser
 - **P0**: No note-level editing in polyphonic audio (Samplab's core value prop)
-- **P1**: No audio-to-MIDI conversion, chord detection, piano roll, or audio warping
-- **SFA advantages**: Local Demucs processing (offline capable), multiple separation engines, Spotify integration, DJ/DAW modes, MIDI hardware, multi-LLM agents, admin dashboard, 707 tests
+- **P1**: ~~No audio-to-MIDI conversion, chord detection, piano roll, or audio warping~~ (RESOLVED in v4.5.0)
+- **SFA advantages**: Local Demucs processing (offline capable), multiple separation engines, Spotify integration, DJ/DAW modes, MIDI hardware, multi-LLM agents, admin dashboard, 810+ tests
 - **Samplab vulnerability**: 100% cloud-dependent (no local ML models bundled)
 
 ## Tech Stack
@@ -238,7 +238,7 @@ Follow this sequence:
 ### Dev Server Management
 - **Script**: `.claude/hooks/dev_server_mgmt.sh`
 - **Trigger**: PreToolUse hook on `Bash|Task` (configured in `.claude/settings.json`)
-- **Behavior**: Detects server status on port 4000. If stopped, starts it. If stalled (process exists but not responding to HTTP), restarts it. If running, writes PID to state file.
+- **Behavior**: Detects server status on port 5000. If stopped, starts it. If stalled (process exists but not responding to HTTP), restarts it. If running, writes PID to state file.
 - **State file**: `.claude/hooks/data/dev_server.json` -- JSON with `pid`, `port`, `status`, `updated_at`, `log_file`. Readable by external tools and TTY sessions.
 - **Cooldown**: 30 seconds between checks to avoid excessive overhead.
 - **Skill**: `/dev-server-mgmt` -- manages server lifecycle (status, start, stop, restart, pid, logs, ensure).
@@ -697,34 +697,42 @@ Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivat
 - [x] **CP-78**: Add Sample Library tab to AdminLive with import trigger and status display (US-008)
 - After CP-78: `mix compile --warnings-as-errors` PASS, all 8 stories complete
 
-### Phase 10: Competitive Response -- Audio-to-MIDI, Chord Detection, Piano Roll, Audio Warping
-#### Wave 1 (independent -- Python modules, Ecto schemas, JS hooks)
-- [ ] **CP-79**: Add basic-pitch Python dependency and integration module (US-301)
-- [ ] **CP-80**: Add chord detection Python module using librosa chroma (US-302)
-- [ ] **CP-83**: Create MidiResult and ChordResult Ecto schemas and migrations (US-305)
-- [ ] **CP-86**: Create PianoRoll JS hook for note visualization (US-308)
-- [ ] **CP-87**: Create ChordProgression JS hook for chord timeline (US-309)
-- [ ] **CP-89**: Add pyrubberband Python dependency for time-stretching (US-311)
-- After Wave 1: `mix compile --warnings-as-errors` PASS
+### Phase 10: Competitive Response -- Audio-to-MIDI, Chord Detection, Piano Roll, Audio Warping (COMPLETE - v4.5.0)
 
-#### Wave 2 (Erlang Port GenServers + MIDI export)
-- [ ] **CP-81**: Create AudioToMidi Erlang Port wrapper GenServer (US-303)
-- [ ] **CP-82**: Create ChordDetector Erlang Port wrapper GenServer (US-304)
-- [ ] **CP-85**: Add MIDI file export endpoint and download (US-307)
-- [ ] **CP-90**: Create AudioWarp Erlang Port wrapper GenServer (US-312)
-- After Wave 2: `mix compile --warnings-as-errors` PASS
+All 16 stories (US-301 through US-316) delivered. CP-79 through CP-94 complete.
+- basic-pitch audio-to-MIDI, librosa chroma chord detection, pyrubberband warping
+- MidiResult + ChordResult schemas, MidiFileWriter, piano roll + chord progression JS hooks
+- AudioToMidiPort, ChordDetectorPort, AudioWarpPort GenServers
+- AudioToMidiWorker, ChordDetectionWorker, AudioWarpWorker Oban jobs
+- MIDI file export endpoint, auto-pipeline settings, AnalysisRadar 7th axis, DJ auto-cue chord boundaries
 
-#### Wave 3 (Oban workers)
-- [ ] **CP-84**: Create AudioToMidiWorker and ChordDetectionWorker Oban jobs (US-306)
-- [ ] **CP-91**: Create AudioWarpWorker Oban job for background warping (US-313)
-- After Wave 3: `mix compile --warnings-as-errors` PASS
+### Phase 11: DJ Enhancements + MIDI Fixes (COMPLETE - v4.6.0)
 
-#### Wave 4 (UI integration + settings + enhancements)
-- [ ] **CP-88**: Integrate MIDI and chord views into track detail (US-310)
-- [ ] **CP-92**: Add warp controls to DJ and DAW tabs (US-314)
-- [ ] **CP-93**: Add pipeline triggers for MIDI and chord detection to settings (US-315)
-- [ ] **CP-94**: Add chord detection data to AnalysisRadar and DJ auto-cue (US-316)
-- After CP-94: `mix compile --warnings-as-errors` PASS, all 16 stories complete
+#### DJ Enhancements
+- [x] Instantaneous playback via `JS.dispatch` -- eliminates delayed start
+- [x] AI cue point detection in `AutoCueWorker`
+- [x] Stem loop decks with per-stem independent loop points
+- [x] Crossfader curve selection (linear, constant power, sharp cut)
+- [x] SMPTE timecode transport for external DAW sync
+- [x] Virtual controller UI (on-screen jog wheels, pitch faders, transport)
+- [x] Chef AI integration in DJ tab (track selection, harmonic mixing, energy flow)
+- [x] DJ preset import/export
+
+#### MIDI Subsystem Fixes
+- [x] ETS composite port_id (`"input:N"` / `"output:N"`) -- fixes input/output collision
+- [x] Dispatcher added to supervision tree in `application.ex`
+- [x] `phx-change` selects wrapped in `<form>` elements
+- [x] `resolve_user_id/1` guard corrected to `when is_integer(id)`
+- [x] `Mapping` schema PK alignment (integer serial, not UUID)
+
+#### Performance Fixes
+- [x] `debug_log` WebSocket flood guard (was 30Hz uncapped)
+- [x] BPM display throttle (5-second interval)
+
+#### Database
+- [x] `midi_results` table for MIDI conversion output
+- [x] `chord_results` table for chord detection output
+- [x] `auto_midi_chord` user settings
 
 ## Agentic Complexity Tree View Requirement
 
@@ -940,8 +948,18 @@ A PreToolUse hook in `.claude/settings.json` warns when editing files on `releas
 
 ## CCEM APM Integration
 
-- **APM Dashboard**: http://localhost:3031
+- **APM Dashboard**: http://localhost:3032
 - **APM Config**: /Users/jeremiah/Developer/sfa/apm/apm_config.json
-- **APM Port**: 3031
+- **APM Port**: 3032
 - **Skills Path**: ~/.claude/skills/
 - **APM Log**: ~/Developer/ccem/apm/hooks/apm_server.log
+
+## Attribution Policy
+
+Never include "Generated with Claude Code", "Co-Authored-By: Claude", or any AI/Claude attribution in:
+- Pull request bodies or titles
+- Commit messages
+- Issue comments
+- Any externally submitted content (GitHub, GitLab, etc.)
+
+This is a hard rule with no exceptions.

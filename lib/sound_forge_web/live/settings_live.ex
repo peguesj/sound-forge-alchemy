@@ -4,6 +4,8 @@ defmodule SoundForgeWeb.SettingsLive do
   """
   use SoundForgeWeb, :live_view
 
+  require Logger
+
   alias SoundForge.Settings
   alias SoundForge.Spotify.OAuth
   alias SoundForge.Accounts.UserSettings
@@ -26,6 +28,14 @@ defmodule SoundForgeWeb.SettingsLive do
       socket
       |> assign(:page_title, "Settings")
       |> assign(:current_user_id, user_id)
+      |> assign(:current_scope, socket.assigns[:current_scope])
+      |> assign(:nav_tab, :library)
+      |> assign(:nav_context, :all_tracks)
+      |> assign(:midi_devices, [])
+      |> assign(:midi_bpm, nil)
+      |> assign(:midi_transport, :stopped)
+      |> assign(:pipelines, %{})
+      |> assign(:refreshing_midi, false)
       |> assign(:section, :spotify)
       |> assign(:settings, settings)
       |> assign(:defaults, defaults)
@@ -66,6 +76,27 @@ defmodule SoundForgeWeb.SettingsLive do
      socket
      |> assign(:form_dirty, dirty)
      |> assign_form(changeset)}
+  end
+
+  # Catch provider form params that arrive as "validate" (browser autofill)
+  def handle_event("validate", %{"provider" => params}, socket) do
+    handle_event("validate_provider", %{"provider" => params}, socket)
+  end
+
+  # Catch-all for unrecognized validate payloads (e.g. browser extensions)
+  def handle_event("validate", _params, socket) do
+    {:noreply, socket}
+  end
+
+  # AppHeader events
+  def handle_event("show_midi_settings", _params, socket) do
+    {:noreply, push_patch(socket, to: ~p"/settings?section=control_surfaces")}
+  end
+
+  def handle_event("close_midi_settings", _params, socket), do: {:noreply, socket}
+
+  def handle_event("refresh_midi_devices", _params, socket) do
+    {:noreply, assign(socket, :refreshing_midi, false)}
   end
 
   def handle_event("save", %{"user_settings" => params}, socket) do
@@ -479,7 +510,18 @@ defmodule SoundForgeWeb.SettingsLive do
   defp section_label(:ai_providers), do: "AI Providers"
 
   defp assign_provider_assigns(socket, user_id) do
-    providers = if user_id, do: Providers.list_providers(user_id), else: []
+    providers =
+      if user_id do
+        try do
+          Providers.list_providers(user_id)
+        rescue
+          e ->
+            Logger.warning("Failed to load LLM providers (migrations pending?): #{inspect(e)}")
+            []
+        end
+      else
+        []
+      end
 
     socket
     |> assign(:llm_providers, providers)

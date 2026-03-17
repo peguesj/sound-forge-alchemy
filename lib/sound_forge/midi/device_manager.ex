@@ -73,12 +73,32 @@ defmodule SoundForge.MIDI.DeviceManager do
   @impl true
   def init(_opts) do
     table = :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
-    devices = discover_devices()
+
+    devices =
+      try do
+        discover_devices()
+      rescue
+        e ->
+          Logger.warning(
+            "MIDI device discovery failed during init (no hardware?): #{inspect(e)}"
+          )
+
+          []
+      catch
+        kind, reason ->
+          Logger.warning(
+            "MIDI NIF init error (#{kind}): #{inspect(reason)} -- " <>
+              "running without MIDI hardware support"
+          )
+
+          []
+      end
+
     store_devices(devices)
 
     schedule_poll()
 
-    {:ok, %{table: table}}
+    {:ok, %{table: table, midi_available: devices != []}}
   end
 
   @impl true
@@ -104,6 +124,9 @@ defmodule SoundForge.MIDI.DeviceManager do
     rescue
       _e ->
         Logger.debug("Midiex.hotplug/0 unavailable")
+    catch
+      _kind, _reason ->
+        Logger.debug("Midiex.hotplug/0 NIF unavailable")
     end
 
     current_devices = discover_devices()
@@ -151,6 +174,10 @@ defmodule SoundForge.MIDI.DeviceManager do
     rescue
       _e ->
         Logger.debug("Midiex.ports/0 unavailable")
+        []
+    catch
+      _kind, _reason ->
+        Logger.debug("Midiex.ports/0 NIF unavailable")
         []
     end
   end

@@ -5,18 +5,17 @@
   Skip to content
 </a>
 <div id="main-content" data-theme="dark" class="min-h-screen bg-gray-950 text-white">
-  <!-- Header -->
-  <header class="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-4" role="banner">
-    <div class="flex items-center justify-between">
-      <.link
-        navigate={~p"/"}
-        class="text-2xl font-bold text-purple-400 hover:text-purple-300 transition-colors"
-      >
-        Sound Forge Alchemy
-      </.link>
-      <span class="text-sm text-gray-500">Settings</span>
-    </div>
-  </header>
+  <SoundForgeWeb.Live.Components.AppHeader.app_header
+    current_scope={@current_scope}
+    current_user_id={@current_user_id}
+    nav_tab={@nav_tab}
+    nav_context={@nav_context}
+    midi_devices={@midi_devices}
+    midi_bpm={@midi_bpm}
+    midi_transport={@midi_transport}
+    pipelines={@pipelines}
+    refreshing_midi={@refreshing_midi}
+  />
   
 <!-- Flash Messages -->
   <div
@@ -78,7 +77,7 @@
     <!-- Sidebar -->
     <nav class="w-full md:w-48 md:shrink-0" aria-label="Settings sections">
       <ul class="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0">
-        <li :for={section <- ~w(spotify downloads youtube demucs cloud_separation analysis storage general advanced ai_providers)a}>
+        <li :for={section <- ~w(spotify downloads youtube demucs cloud_separation analysis storage library control_surfaces general advanced ai_providers)a}>
           <button
             phx-click="switch_section"
             phx-value-section={section}
@@ -817,7 +816,187 @@
             min="1"
           />
         </div>
-        
+
+<!-- Library Section -->
+        <div :if={@section == :library} class="space-y-6">
+          <div class="flex items-center justify-between">
+            <h2
+              id="section-heading-library"
+              tabindex="-1"
+              class="text-lg font-semibold text-white"
+            >
+              Library Management
+            </h2>
+            <button
+              type="button"
+              phx-click="refresh_library_stats"
+              class="text-xs text-gray-500 hover:text-gray-300"
+            >
+              Refresh stats
+            </button>
+          </div>
+
+          <%!-- Storage Stats Card --%>
+          <div class="rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+            <h3 class="text-sm font-medium text-gray-300 mb-3">Storage Overview</h3>
+            <div :if={@library_stats} class="grid grid-cols-3 gap-4">
+              <div class="text-center">
+                <p class="text-2xl font-mono font-semibold text-white">{@library_stats.file_count}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Files</p>
+              </div>
+              <div class="text-center">
+                <p class="text-2xl font-mono font-semibold text-white">{@library_stats.total_size_mb} MB</p>
+                <p class="text-xs text-gray-500 mt-0.5">Total Size</p>
+              </div>
+              <div class="text-center">
+                <p class="text-lg font-mono font-medium text-gray-400 truncate" title={@library_stats.base_path}>
+                  {Path.basename(@library_stats.base_path)}
+                </p>
+                <p class="text-xs text-gray-500 mt-0.5">Base Path</p>
+              </div>
+            </div>
+            <div :if={!@library_stats} class="text-sm text-gray-500 italic">
+              Loading stats...
+            </div>
+          </div>
+
+          <%!-- Scan Results --%>
+          <div :if={@library_scan_result} class="rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-medium text-gray-300">Last Scan Results</h3>
+              <span class="text-xs text-gray-500">
+                {Calendar.strftime(@library_scan_result.scanned_at, "%b %d %H:%M")}
+              </span>
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-400">Audio files</span>
+                <span class="font-mono">
+                  <span class="text-green-400">{@library_scan_result.audio.valid} ok</span>
+                  <span :if={@library_scan_result.audio.missing > 0} class="text-red-400 ml-2">
+                    {@library_scan_result.audio.missing} missing
+                  </span>
+                  <span class="text-gray-600 ml-1">/ {@library_scan_result.audio.total} total</span>
+                </span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-400">Stem files</span>
+                <span class="font-mono">
+                  <span class="text-green-400">{@library_scan_result.stems.valid} ok</span>
+                  <span :if={@library_scan_result.stems.missing > 0} class="text-red-400 ml-2">
+                    {@library_scan_result.stems.missing} missing
+                  </span>
+                  <span class="text-gray-600 ml-1">/ {@library_scan_result.stems.total} total</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Actions --%>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              phx-click="rescan_library"
+              disabled={@library_scanning}
+              class={[
+                "flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                if(@library_scanning,
+                  do: "bg-purple-900/40 text-purple-400 cursor-not-allowed",
+                  else: "bg-purple-700 hover:bg-purple-600 text-white"
+                )
+              ]}
+            >
+              <span :if={@library_scanning}>Scanning...</span>
+              <span :if={!@library_scanning}>Rescan Library</span>
+            </button>
+            <button
+              type="button"
+              phx-click="cleanup_orphaned_files"
+              class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-600 text-sm font-medium text-gray-300 hover:text-white hover:border-gray-400 transition-colors"
+            >
+              Cleanup Orphaned Files
+            </button>
+          </div>
+
+          <p class="text-xs text-gray-500">
+            Rescan checks that all downloaded audio files and separated stems still exist on disk.
+            Missing audio files are marked failed; run a redownload to restore them.
+            Cleanup removes files on disk not tracked in the database.
+          </p>
+
+          <%!-- Library Prefs (inside the form so they save with the rest of settings) --%>
+          <div class="space-y-4 pt-2 border-t border-gray-700">
+            <h3 class="text-sm font-medium text-gray-300 pt-2">Preferences</h3>
+            <.input
+              field={@form[:warn_on_missing_files]}
+              type="checkbox"
+              label="Show warnings for missing files"
+            />
+            <.input
+              field={@form[:auto_rescan_on_login]}
+              type="checkbox"
+              label="Automatically rescan library on login"
+            />
+          </div>
+        </div>
+
+<!-- Control Surfaces Section -->
+        <div :if={@section == :control_surfaces} class="space-y-6">
+          <div class="flex items-center justify-between">
+            <h2 id="section-heading-control_surfaces" tabindex="-1" class="text-lg font-semibold text-white">
+              Control Surfaces
+            </h2>
+          </div>
+          <div class="space-y-4">
+            <p class="text-sm text-gray-400">Configure MIDI controllers, OSC devices, and hardware control surfaces.</p>
+            <div class="bg-gray-900 rounded-lg p-4 space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-white">MIDI Devices</span>
+                <button
+                  phx-click="refresh_midi_devices"
+                  class="btn btn-xs btn-outline btn-primary"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div :if={@refreshing_midi} class="text-sm text-gray-400 animate-pulse">Scanning MIDI devices...</div>
+              <div :if={!@refreshing_midi && @midi_devices == []} class="text-sm text-gray-500 italic">
+                No MIDI devices detected. Connect a controller and click Refresh — or open the DJ tab to trigger browser MIDI detection.
+              </div>
+              <ul :if={@midi_devices != []} class="space-y-2">
+                <li :for={device <- @midi_devices} class="flex items-center gap-3 text-sm">
+                  <span class={"w-2 h-2 rounded-full flex-shrink-0 " <> if(is_map(device) && (device["source"] || Map.get(device, :source)) == "client", do: "bg-blue-400", else: "bg-emerald-400")}></span>
+                  <span class="text-white font-mono">{if is_map(device), do: (device["name"] || Map.get(device, :name, inspect(device))), else: inspect(device)}</span>
+                  <span :if={is_map(device) && (device["direction"] || Map.get(device, :direction)) not in [nil, ""]} class="text-[10px] text-gray-500 font-mono uppercase">
+                    {device["direction"] || Map.get(device, :direction)}
+                  </span>
+                  <span :if={is_map(device) && (device["source"] || Map.get(device, :source)) == "client"} class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-400 font-mono">
+                    browser
+                  </span>
+                  <span :if={is_map(device) && (device["source"] || Map.get(device, :source)) == "server"} class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 font-mono">
+                    server
+                  </span>
+                </li>
+              </ul>
+            </div>
+            <div class="bg-gray-900 rounded-lg p-4 space-y-3">
+              <span class="text-sm font-medium text-white">MIDI Learn</span>
+              <p class="text-sm text-gray-400">Use the LEARN button on the DJ tab to assign physical controller knobs, faders, and buttons to DJ controls.</p>
+              <a
+                class="btn btn-sm btn-outline btn-purple"
+                phx-click="navigate_to_dj"
+                href="/?tab=dj"
+              >
+                Open DJ Tab
+              </a>
+            </div>
+            <div :if={@midi_bpm} class="bg-gray-900 rounded-lg p-4">
+              <span class="text-sm text-gray-400">Last detected BPM: </span>
+              <span class="text-white font-mono">{@midi_bpm}</span>
+            </div>
+          </div>
+        </div>
+
 <!-- General Section -->
         <div :if={@section == :general} class="space-y-6">
           <div class="flex items-center justify-between">

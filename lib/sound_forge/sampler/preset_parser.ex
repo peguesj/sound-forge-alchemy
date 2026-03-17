@@ -112,6 +112,8 @@ defmodule SoundForge.Sampler.PresetParser do
     end
   rescue
     e -> {:error, "MPC XPM parse error: #{Exception.message(e)}"}
+  catch
+    :exit, reason -> {:error, "MPC XPM parse error: #{inspect(reason)}"}
   end
 
   # -- MPC PGM Parsing (Legacy Binary) --
@@ -277,12 +279,94 @@ defmodule SoundForge.Sampler.PresetParser do
         end
       end)
 
+    dj_layout = extract_touchosc_dj_layout(doc, controls)
+
     %{
       name: "TouchOSC Layout",
       format: :touchosc,
       pads: pads,
-      midi_mappings: midi_mappings
+      midi_mappings: midi_mappings,
+      dj_layout: dj_layout
     }
+  end
+
+  defp extract_touchosc_dj_layout(doc, controls) do
+    # Page structure
+    page_elems = find_elements(doc, :tabpage) ++ find_elements(doc, :page)
+
+    pages =
+      Enum.map(page_elems, fn page ->
+        page_name = get_attribute(page, :name) || ""
+        page_controls = find_elements(page, :control)
+
+        ctrl_data =
+          Enum.map(page_controls, fn c ->
+            %{
+              type: get_attribute(c, :type) || "",
+              label: get_attribute(c, :name) || "",
+              x: parse_float_str(get_attribute(c, :x)),
+              y: parse_float_str(get_attribute(c, :y)),
+              w: parse_float_str(get_attribute(c, :w)),
+              h: parse_float_str(get_attribute(c, :h)),
+              midi_type: get_attribute(c, :midi_type) || "",
+              midi_channel: parse_int(get_attribute(c, :midi_channel), 0),
+              midi_number: parse_int(get_attribute(c, :midi_number), 0)
+            }
+          end)
+
+        %{name: page_name, controls: ctrl_data}
+      end)
+
+    all_ctrl_data =
+      Enum.map(controls, fn c ->
+        %{
+          type: get_attribute(c, :type) || "",
+          label: get_attribute(c, :name) || "",
+          x: parse_float_str(get_attribute(c, :x)),
+          y: parse_float_str(get_attribute(c, :y)),
+          w: parse_float_str(get_attribute(c, :w)),
+          h: parse_float_str(get_attribute(c, :h)),
+          midi_type: get_attribute(c, :midi_type) || "",
+          midi_channel: parse_int(get_attribute(c, :midi_channel), 0),
+          midi_number: parse_int(get_attribute(c, :midi_number), 0)
+        }
+      end)
+
+    crossfader_control =
+      Enum.find(all_ctrl_data, fn c ->
+        String.contains?(String.downcase(c.label), "crossfader")
+      end)
+
+    deck_controls =
+      Enum.reduce(all_ctrl_data, %{deck1: [], deck2: []}, fn c, acc ->
+        label_lower = String.downcase(c.label)
+
+        cond do
+          String.starts_with?(label_lower, "deck1_") or
+            String.starts_with?(label_lower, "deck1 ") or
+              String.match?(label_lower, ~r/^d1[_\s]/) ->
+            Map.update!(acc, :deck1, &(&1 ++ [c]))
+
+          String.starts_with?(label_lower, "deck2_") or
+            String.starts_with?(label_lower, "deck2 ") or
+              String.match?(label_lower, ~r/^d2[_\s]/) ->
+            Map.update!(acc, :deck2, &(&1 ++ [c]))
+
+          true ->
+            acc
+        end
+      end)
+
+    %{pages: pages, crossfader_control: crossfader_control, deck_controls: deck_controls}
+  end
+
+  defp parse_float_str(nil), do: 0.0
+
+  defp parse_float_str(str) do
+    case Float.parse(to_string(str)) do
+      {f, _} -> f
+      :error -> 0.0
+    end
   end
 
   defp touchosc_midi_type("0"), do: :cc

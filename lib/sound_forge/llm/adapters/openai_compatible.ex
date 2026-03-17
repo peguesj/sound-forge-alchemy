@@ -36,12 +36,10 @@ defmodule SoundForge.LLM.Adapters.OpenAICompatible do
         normalize_messages(messages)
       end
 
-    body = %{
-      "model" => model,
-      "messages" => messages,
-      "max_tokens" => max_tokens,
-      "temperature" => temperature
-    }
+    body =
+      %{"model" => model, "messages" => messages}
+      |> put_token_limit(model, max_tokens)
+      |> maybe_put_temperature(model, temperature)
 
     case Req.post(url, json: body, headers: headers, receive_timeout: 120_000) do
       {:ok, %{status: status, body: resp_body}} when status in 200..299 ->
@@ -53,6 +51,23 @@ defmodule SoundForge.LLM.Adapters.OpenAICompatible do
       {:error, reason} ->
         {:error, {:request_failed, reason}}
     end
+  end
+
+  # o-series and GPT-5+ reasoning models use max_completion_tokens and don't support temperature
+  @reasoning_model_pattern ~r/^(o1|o1-mini|o1-preview|o3|o3-mini|o4|o4-mini|gpt-5)/i
+
+  defp reasoning_model?(model) when is_binary(model),
+    do: Regex.match?(@reasoning_model_pattern, model)
+
+  defp reasoning_model?(_), do: false
+
+  defp put_token_limit(body, model, max_tokens) do
+    key = if reasoning_model?(model), do: "max_completion_tokens", else: "max_tokens"
+    Map.put(body, key, max_tokens)
+  end
+
+  defp maybe_put_temperature(body, model, temperature) do
+    if reasoning_model?(model), do: body, else: Map.put(body, "temperature", temperature)
   end
 
   defp parse_openai_response(%{"choices" => [first | _]} = body) do

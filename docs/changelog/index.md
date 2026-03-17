@@ -11,6 +11,83 @@ Release history for Sound Forge Alchemy.
 
 ---
 
+## v4.6.0 — 2026-03-11
+
+**DJ Dual-Deck Instantaneous Playback and MIDI Fixes**
+
+- JS.dispatch + JS.push dual-path architecture for sub-frame DJ playback response
+- AI cue detection engine (26+ cues per track) with AutoCueWorker Oban job
+- Stem loop decks for per-stem loop control during live mixing
+- Crossfader curve modes: linear, constant power, sharp cut, slow fade
+- SMPTE/bar-beat transport display at 60fps
+- Master sync with phase-aligned pitch-lock between decks
+- Built-in metronome with headphone cue routing
+- Chef AI set builder for harmonic/energy-optimized track sequencing
+- Virtual controller (software MIDI surface in-browser)
+- Chromatic pads with auto-cue integration and velocity sensitivity
+- Controller preset import/export as JSON
+
+**MIDI Fixes:**
+- Fixed ETS key collision in DeviceManager -- composite `port_id` (`"input:N"` / `"output:N"`) replaces raw `num`
+- Added Dispatcher to supervision tree (was missing from `application.ex`)
+- Wrapped `phx-change` select elements in `<form>` tags (LiveView requirement)
+- Fixed `resolve_user_id` guard (changed from `is_binary` to `is_integer`)
+- Fixed Mapping schema PK mismatch (removed UUID override, uses integer serial)
+
+**WebSocket Optimization:**
+- Fixed 30Hz WebSocket flood -- `debug_log` handler guarded on `debug_panel_open`
+- BPM throttle handler with 5-second interval (local JS.dispatch + throttled server sync)
+
+**Bug Fixes:**
+- Fixed ArgumentError in `toggle_play` / `set_hot_cue` / `trigger_cue` -- `to_string` type normalization at handler boundary
+
+**Database:**
+- New `midi_results` table
+- New `chord_results` table
+- New `auto_midi_chord` user settings columns
+
+---
+
+## v4.5.0 — 2026-02-26
+
+**Audio-to-MIDI, Chord Detection, Piano Roll, Audio Warping**
+
+- Audio-to-MIDI conversion via basic-pitch
+- Chord detection via librosa chroma analysis
+- Piano roll visualization component
+- Audio warping via pyrubberband
+- Auto-pipeline extensions for MIDI and chord stages
+- 16 competitive response stories
+- 45 files changed, +4,731 lines
+
+---
+
+## v4.4.0 — 2026-02-25
+
+**Prototype Sandbox, DevTools Panel, Platform Admin Library**
+
+- /prototype sandbox (Components, DevTools, UAT, LLM tabs)
+- DevTools floating panel component
+- UAT fixture/scenario helpers (runtime env guard)
+- CombinedLibraryLive at /platform/library (platform_admin)
+- Accounts context (list_users, update_user_role)
+- Tracks context (list_all_tracks, paginated search)
+- 41-page GitHub Pages documentation site (Jekyll, just-the-docs dark theme)
+
+---
+
+## v4.3.0 — 2026-02-25
+
+**Multi-LLM Agentic System**
+
+- LLM adapter/routing layer with 6 specialist agents
+- Agent framework with Orchestrator dispatch
+- Chat UI for agent interaction
+- Health worker for provider monitoring
+- 707 tests passing
+
+---
+
 ## v4.1.0 — 2026-02-25
 
 **Azure Container Apps Production Deployment**

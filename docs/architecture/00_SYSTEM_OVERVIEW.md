@@ -251,10 +251,12 @@ flowchart TD
     Supervisor --> DNS
     Supervisor --> PubSub
     Supervisor --> Oban
+    Supervisor --> DeviceManager["SoundForge.MIDI.DeviceManager"]
+    Supervisor --> Dispatcher["SoundForge.MIDI.Dispatcher"]
     Supervisor --> Endpoint
 ```
 
-Note: `Audio.AnalyzerPort` and `Audio.DemucsPort` are not yet added to the supervision tree. They are currently started on-demand. Adding them as supervised children is planned for the next phase, at which point they will appear under `SoundForge.Supervisor`.
+Note: `Audio.AnalyzerPort` and `Audio.DemucsPort` are started on-demand by their respective workers. `SoundForge.MIDI.Dispatcher` and `SoundForge.MIDI.DeviceManager` are supervised children in the application tree (added in v4.6.0). The `PortSupervisor` manages `AudioToMidiPort`, `ChordDetectorPort`, and `AudioWarpPort` GenServers.
 
 ## Observability
 

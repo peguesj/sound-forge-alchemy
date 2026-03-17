@@ -59,6 +59,7 @@ const DjDeck = {
     this.handleEvent("set_loop", (payload) => this._setLoop(payload))
     this.handleEvent("set_cue_points", (payload) => this._setCuePoints(payload))
     this.handleEvent("seek_and_play", (payload) => this._seekAndPlay(payload))
+    this.handleEvent("loop_pad_trigger", (payload) => this._triggerLoopPad(payload))
     this.handleEvent("seek_deck", (payload) => this._handleSeekDeck(payload))
     this.handleEvent("set_time_factor", (payload) => this._setTimeFactor(payload))
     this.handleEvent("set_eq_kill", (payload) => this._setEqKill(payload))
@@ -67,6 +68,110 @@ const DjDeck = {
     this.handleEvent("set_filter", (payload) => this._setFilter(payload))
     this.handleEvent("set_pitch", (payload) => this._setPitch(payload))
     this.handleEvent("stem_loop_preview", (payload) => this._stemLoopPreview(payload))
+    this.handleEvent("set_master_volume", (payload) => this._setMasterVolume(payload))
+    this.handleEvent("set_eq_gain", (payload) => this._setEqGain(payload))
+    this.handleEvent("download_file", (payload) => this._downloadFile(payload))
+
+    // Grid mode, fraction, and rhythmic quantize
+    this.handleEvent("set_grid_mode", ({ deck, mode }) => {
+      const canvas = document.getElementById(`smpte-grid-deck-${deck}`)
+      if (canvas) canvas.dataset.gridMode = mode
+      this._renderSmpteGrid(deck, mode)
+    })
+    this.handleEvent("set_grid_fraction", ({ deck, fraction }) => {
+      const canvas = document.getElementById(`smpte-grid-deck-${deck}`)
+      if (canvas) {
+        canvas.dataset.gridFraction = fraction
+        const mode = canvas.dataset.gridMode || "bar"
+        this._renderSmpteGrid(deck, mode)
+      }
+    })
+    this.handleEvent("set_rhythmic_quantize", ({ deck, enabled }) => {
+      if (this.decks[deck]) this.decks[deck]._rhythmicQuantize = enabled
+    })
+
+    // DJ MIDI Learn
+    this._midiLearnActive = false
+    this._midiLearnTarget = null
+    this._midiLearnListener = null
+    // Pre-request MIDI access on first user interaction so requestMIDIAccess
+    // is always called within a user-gesture context (browsers block async calls
+    // from server-push handlers). We cache the MIDIAccess object here.
+    this._midiAccessPromise = null
+    this._cachedMidiAccess = null
+
+    const _enumerateMidiDevices = (access) => {
+      const inputs = []
+      const outputs = []
+      access.inputs.forEach(input => {
+        inputs.push({
+          id: input.id,
+          name: input.name || "Unknown Input",
+          manufacturer: input.manufacturer || "",
+          state: input.state,
+          type: "input",
+          source: "client"
+        })
+      })
+      access.outputs.forEach(output => {
+        outputs.push({
+          id: output.id,
+          name: output.name || "Unknown Output",
+          manufacturer: output.manufacturer || "",
+          state: output.state,
+          type: "output",
+          source: "client"
+        })
+      })
+      const all = [...inputs, ...outputs]
+      console.log(`[DjDeck] Client MIDI devices: ${inputs.length} inputs, ${outputs.length} outputs`)
+      this.pushEvent("client_midi_devices_updated", { devices: all })
+    }
+
+    const _requestMidi = () => {
+      if (!this._midiAccessPromise && navigator.requestMIDIAccess) {
+        this._midiAccessPromise = navigator.requestMIDIAccess({ sysex: false })
+          .then(access => {
+            this._cachedMidiAccess = access
+            console.log("[DjDeck] MIDI access pre-acquired:", access.inputs.size, "inputs")
+            // Report client MIDI devices to server immediately
+            _enumerateMidiDevices(access)
+            // Re-report on hot-plug / device state change
+            access.onstatechange = (event) => {
+              console.log(`[DjDeck] MIDI state change: ${event.port?.name} → ${event.port?.state}`)
+              _enumerateMidiDevices(access)
+            }
+            return access
+          })
+          .catch(err => {
+            console.warn("[DjDeck] MIDI pre-request failed:", err)
+            this.pushEvent("client_midi_devices_updated", { devices: [], error: err.message })
+          })
+      }
+    }
+    // Acquire on first click (user gesture); also try immediately if context is already trusted
+    document.addEventListener("click", _requestMidi, { once: true, passive: true })
+    // Also attempt on mount — may succeed in browsers that auto-grant MIDI (Chromium flags, extensions)
+    if (navigator.requestMIDIAccess) {
+      navigator.permissions?.query({ name: "midi" }).then(result => {
+        if (result.state === "granted") _requestMidi()
+      }).catch(() => { /* permissions API not available */ })
+    }
+
+    this.handleEvent("enter_dj_midi_learn", ({ target } = {}) => {
+      this._midiLearnTarget = target || null
+      this._startMidiLearn()
+    })
+    this.handleEvent("exit_dj_midi_learn", () => {
+      this._midiLearnActive = false
+      this._midiLearnTarget = null
+      this._stopMidiLearnListener()
+    })
+    this.handleEvent("dj_learn_assignment_saved", ({ action }) => {
+      console.log(`[DjDeck] MIDI Learn: saved mapping for ${action}`)
+      // Stay in learn mode, ready for next assignment
+      this._startMidiLearn()
+    })
 
     // Instant client-side audio actions — fired via JS.dispatch() before the
     // server round-trip completes. Eliminates the phx-click → server → push_event
@@ -75,6 +180,53 @@ const DjDeck = {
     this._onDjSeek = (e) => this._seekAndPlay({ deck: e.detail.deck, position: e.detail.position })
     this.el.addEventListener("dj:play", this._onDjPlay)
     this.el.addEventListener("dj:seek", this._onDjSeek)
+
+    // Phoenix LiveView morphdom can eject sibling elements (non-component children
+    // of the LiveComponent root) to the parent container during component updates.
+    // Re-adopt any ejected siblings back into this element after each render.
+    this._reattachEjected()
+  },
+
+  updated() {
+    this._reattachEjected()
+  },
+
+  /**
+   * After a Phoenix LiveView component update, morphdom may eject inner divs
+   * from this hook element to its parent container. This method scans for
+   * any such ejected siblings and re-inserts them back into this element.
+   *
+   * Ejected elements are identified by having `data-phx-loc` attributes
+   * (Phoenix template location markers) but NOT having `data-phx-component`
+   * (which would mark them as separate LiveComponents with their own lifecycle).
+   *
+   * LiveComponents (e.g. VirtualController) are intentionally left at the
+   * parent level — only plain ejected divs are re-adopted.
+   */
+  _reattachEjected() {
+    const parent = this.el.parentElement
+    if (!parent) return
+
+    // Collect direct children of parent that are NOT this element,
+    // NOT LiveComponents (data-phx-component), and have data-phx-loc
+    // indicating they were rendered as part of this component's template.
+    const toAdopt = []
+    for (const sibling of Array.from(parent.children)) {
+      if (sibling === this.el) continue
+      if (sibling.hasAttribute('data-phx-component')) continue  // separate LiveComponent
+      if (sibling.hasAttribute('data-phx-loc') && !sibling.hasAttribute('data-phx-view')) {
+        // This element has a template location but isn't a LiveView root —
+        // it's an ejected inner div from this component's render.
+        toAdopt.push(sibling)
+      }
+    }
+
+    if (toAdopt.length > 0) {
+      console.log(`[DjDeck] Re-adopting ${toAdopt.length} ejected element(s) back into dj-tab`)
+      for (const el of toAdopt) {
+        this.el.appendChild(el)
+      }
+    }
   },
 
   /**
@@ -287,6 +439,9 @@ const DjDeck = {
         this._renderBeatGrid(deck)
       }
 
+      // Render SMPTE grid canvas overlay
+      this._refreshSmpteGrid(deck)
+
       // If loop was already set before waveform was ready, render it now
       if (deckState.loop && deckState.loop.loop_end_ms) {
         this._renderLoopRegion(deck)
@@ -343,7 +498,13 @@ const DjDeck = {
     }
 
     if (playing) {
-      this._startDeck(deck)
+      const delay = this._rhythmicQuantizeDelay(deck, deckState.pauseOffset)
+      if (delay > 8) {
+        console.log(`[DjDeck] Deck ${deck}: rhythmic quantize delay ${delay.toFixed(0)}ms`)
+        setTimeout(() => this._startDeck(deck), delay)
+      } else {
+        this._startDeck(deck)
+      }
     } else {
       this._pauseDeck(deck)
     }
@@ -623,6 +784,60 @@ const DjDeck = {
   },
 
   /**
+   * Trigger a loop pad: seek to position, optionally set a loop region, apply fade.
+   * Supports modes: oneshot (play through once), loop (loop region), gate (play while held).
+   */
+  async _triggerLoopPad({ deck, pad, position, loop_end, mode, fade }) {
+    const deckState = this.decks[deck]
+    if (!deckState || !deckState.audioContext) return
+
+    console.log(`[DjDeck] Loop pad ${pad} on deck ${deck}: mode=${mode} pos=${position?.toFixed(2)}s`)
+
+    if (deckState.audioContext.state === 'suspended') {
+      try { await deckState.audioContext.resume() } catch (_) {}
+    }
+
+    this._seekDeck(deck, position)
+
+    if (mode === 'loop' && loop_end != null) {
+      // Arm a loop region
+      const loopStart = Math.round(position * 1000)
+      const loopEnd = Math.round(loop_end * 1000)
+      deckState.loopStartMs = loopStart
+      deckState.loopEndMs = loopEnd
+      deckState.loopActive = true
+    } else if (mode === 'oneshot') {
+      // Disable any active loop so it plays through
+      deckState.loopActive = false
+    }
+    // gate mode: server tracks active_pads; no special JS handling needed beyond seek
+
+    if (!deckState.isPlaying) {
+      this._startDeck(deck)
+    }
+
+    // Apply fade envelope if requested
+    if (fade && fade !== 'none') {
+      const gainNode = deckState.gainNode
+      if (gainNode) {
+        const ctx = deckState.audioContext
+        const now = ctx.currentTime
+        const fadeDuration = 0.25 // 250ms
+        if (fade === 'in') {
+          gainNode.gain.setValueAtTime(0, now)
+          gainNode.gain.linearRampToValueAtTime(deckState._targetGain || 1, now + fadeDuration)
+        } else if (fade === 'out') {
+          gainNode.gain.setValueAtTime(deckState._targetGain || 1, now)
+          gainNode.gain.linearRampToValueAtTime(0, now + fadeDuration)
+        } else if (fade === 'cross') {
+          gainNode.gain.setValueAtTime(0, now)
+          gainNode.gain.linearRampToValueAtTime(deckState._targetGain || 1, now + fadeDuration / 2)
+        }
+      }
+    }
+  },
+
+  /**
    * Seek to a position WITHOUT starting playback (loop arm, cue set, etc.).
    * @param {Object} payload - { deck: number, position: number (seconds) }
    */
@@ -675,6 +890,50 @@ const DjDeck = {
     if (!node) return
     node.gain.setValueAtTime(active ? KILL_GAIN : 0, deckState.audioContext.currentTime)
     console.log(`[DjDeck] Deck ${deck}: EQ ${band} kill=${active}`)
+  },
+
+  /**
+   * Set master volume for all loaded decks.
+   * @param {Object} payload - { value: 0-100 }
+   */
+  _setMasterVolume({ value }) {
+    const gainValue = Math.max(0, Math.min(100, value)) / 100
+    Object.values(this.decks).forEach(deckState => {
+      if (deckState && deckState.masterGain) {
+        deckState.masterGain.gain.setValueAtTime(gainValue, deckState.audioContext.currentTime)
+      }
+    })
+    console.log(`[DjDeck] Master volume: ${value}%`)
+  },
+
+  /**
+   * Set EQ gain for a specific deck and band.
+   * @param {Object} payload - { deck, band: "low"|"mid"|"high", gain: -12..12 dB }
+   */
+  _setEqGain({ deck, band, gain }) {
+    const deckState = this.decks[deck]
+    if (!deckState) return
+    const node = band === "low" ? deckState.eqLow : band === "mid" ? deckState.eqMid : deckState.eqHigh
+    if (!node) return
+    node.gain.setValueAtTime(gain, deckState.audioContext.currentTime)
+    console.log(`[DjDeck] Deck ${deck}: EQ ${band} gain=${gain}dB`)
+  },
+
+  /**
+   * Trigger a browser file download.
+   * @param {Object} payload - { filename, content, mime }
+   */
+  _downloadFile({ filename, content, mime }) {
+    const blob = new Blob([content], { type: mime || "application/octet-stream" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    console.log(`[DjDeck] Downloaded: ${filename}`)
   },
 
   // -- Stem Solo / Mute --
@@ -1045,6 +1304,267 @@ const DjDeck = {
       this._previewContext.close().catch(() => {})
       this._previewContext = null
     }
+    this._stopMidiLearnListener()
+  },
+
+  // ---------------------------------------------------------------------------
+  // SMPTE Grid Canvas Overlay
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Format seconds to SMPTE HH:MM:SS timecode.
+   */
+  _toSmpte(seconds) {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    const s = Math.floor(seconds % 60)
+    const pad = (n) => String(n).padStart(2, "0")
+    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
+  },
+
+  /**
+   * Render the SMPTE grid canvas overlay above the waveform.
+   * @param {number} deck
+   * @param {string} mode - "bar" | "beat" | "sub" | "smart"
+   */
+  _renderSmpteGrid(deck, mode) {
+    const canvas = document.getElementById(`smpte-grid-deck-${deck}`)
+    if (!canvas) return
+
+    const deckState = this.decks[deck]
+    const beatTimes = deckState ? (deckState.beatTimes || []) : []
+    const duration = deckState ? (deckState.duration || 0) : 0
+    const fraction = canvas.dataset.gridFraction || "1/4"
+    const showSmpte = canvas.dataset.showSmpte === "true"
+
+    const ctx2d = canvas.getContext("2d")
+    const W = canvas.offsetWidth || canvas.width
+    const H = canvas.height || 28
+
+    canvas.width = W
+    canvas.height = H
+
+    ctx2d.clearRect(0, 0, W, H)
+
+    // Helper: format to SMPTE and draw on bar line
+    const drawSmpteLabel = (time, x, alpha) => {
+      const label = this._toSmpte(time)
+      ctx2d.fillStyle = `rgba(${r},${g},${b},${Math.min(alpha * 1.4, 0.85)})`
+      ctx2d.font = "7px monospace"
+      ctx2d.fillText(label, x + 2, 8)
+    }
+
+    if (beatTimes.length < 2 || duration === 0) {
+      // No beat data yet — render simple time ruler with SMPTE labels
+      const deckColorFallback = deck === 1 ? [34, 211, 238] : [251, 146, 60]
+      const [rf, gf, bf] = deckColorFallback
+      ctx2d.font = "7px monospace"
+      for (let t = 0; t <= duration; t += 5) {
+        const x = (t / duration) * W
+        ctx2d.strokeStyle = `rgba(${rf},${gf},${bf},0.2)`
+        ctx2d.lineWidth = 1
+        ctx2d.beginPath()
+        ctx2d.moveTo(x, 0)
+        ctx2d.lineTo(x, H)
+        ctx2d.stroke()
+        ctx2d.fillStyle = `rgba(${rf},${gf},${bf},0.4)`
+        ctx2d.fillText(this._toSmpte(t), x + 2, 8)
+      }
+      return
+    }
+
+    const deckColor = deck === 1 ? [34, 211, 238] : [251, 146, 60]
+    const [r, g, b] = deckColor
+
+    // Parse fraction (1/1=1, 1/2=2, 1/4=4, 1/8=8, 1/16=16, 1/32=32)
+    const fractionDivisor = fraction.includes("/") ? parseInt(fraction.split("/")[1]) : 4
+
+    // Compute bar times (every 4th beat) from beat_times
+    const barTimes = beatTimes.filter((_, i) => i % 4 === 0)
+
+    // Pixel density: only label if enough space between lines
+    const minLabelSpacing = 45
+
+    const drawLine = (time, alpha, heightRatio, label) => {
+      const x = Math.round((time / duration) * W)
+      if (x < 0 || x > W) return
+      ctx2d.strokeStyle = `rgba(${r},${g},${b},${alpha})`
+      ctx2d.lineWidth = 1
+      ctx2d.beginPath()
+      ctx2d.moveTo(x, H * (1 - heightRatio))
+      ctx2d.lineTo(x, H)
+      ctx2d.stroke()
+      if (label) {
+        ctx2d.fillStyle = `rgba(${r},${g},${b},${Math.min(alpha * 1.5, 0.9)})`
+        ctx2d.font = "7px monospace"
+        ctx2d.fillText(label, x + 2, H - 2)
+      }
+    }
+
+    if (mode === "bar" || mode === "smart") {
+      let lastLabelX = -999
+      barTimes.forEach((t, barIdx) => {
+        const x = Math.round((t / duration) * W)
+        drawLine(t, 0.7, 1.0, `${barIdx + 1}`)
+        // SMPTE timestamp on bar lines (if show-smpte or smart mode, and spacing allows)
+        if ((showSmpte || mode === "smart") && (x - lastLabelX) >= minLabelSpacing) {
+          drawSmpteLabel(t, x, 0.55)
+          lastLabelX = x
+        }
+      })
+    }
+
+    if (mode === "beat" || mode === "sub" || mode === "smart") {
+      let lastLabelX = -999
+      beatTimes.forEach((t, beatIdx) => {
+        const isDownbeat = beatIdx % 4 === 0
+        if (isDownbeat && (mode === "bar" || mode === "smart")) return
+        const x = Math.round((t / duration) * W)
+        drawLine(t, 0.3, 0.6, null)
+        // SMPTE on every beat if show-smpte and space allows
+        if (showSmpte && (x - lastLabelX) >= minLabelSpacing) {
+          drawSmpteLabel(t, x, 0.3)
+          lastLabelX = x
+        }
+      })
+    }
+
+    if (mode === "sub" || fractionDivisor >= 8) {
+      // Sub-beat lines based on the selected fraction
+      const divs = fractionDivisor <= 4 ? 4 : fractionDivisor
+      for (let i = 0; i < beatTimes.length - 1; i++) {
+        const t0 = beatTimes[i]
+        const t1 = beatTimes[i + 1]
+        const beatDur = t1 - t0
+        const subDivs = Math.max(1, divs / 4)
+        for (let s = 1; s < subDivs; s++) {
+          drawLine(t0 + (beatDur * s / subDivs), 0.1, 0.25, null)
+        }
+      }
+    }
+  },
+
+  /**
+   * Re-render SMPTE grid after beat data is loaded for a deck.
+   */
+  _refreshSmpteGrid(deck) {
+    const canvas = document.getElementById(`smpte-grid-deck-${deck}`)
+    const mode = canvas ? (canvas.dataset.gridMode || "bar") : "bar"
+    this._renderSmpteGrid(deck, mode)
+  },
+
+  // ---------------------------------------------------------------------------
+  // Rhythmic Quantize: snap play start to next beat boundary
+  // ---------------------------------------------------------------------------
+
+  /**
+   * If rhythmic quantize is enabled for a deck, compute the delay (ms) until
+   * the next beat, then schedule the play start after that delay.
+   * @param {number} deck
+   * @param {number} currentPositionSec - current playback position in seconds
+   * @returns {number} delay in milliseconds (0 if quantize disabled or no beats)
+   */
+  _rhythmicQuantizeDelay(deck, currentPositionSec) {
+    const deckState = this.decks[deck]
+    if (!deckState || !deckState._rhythmicQuantize) return 0
+    const beats = deckState.beatTimes || []
+    if (beats.length === 0) return 0
+
+    // Find the next beat after current position
+    const nextBeat = beats.find(t => t > currentPositionSec)
+    if (!nextBeat) return 0
+
+    const delayMs = (nextBeat - currentPositionSec) * 1000
+    // Cap at 1 full bar (4 beats at current tempo) to avoid excessive wait
+    const beatInterval = deckState.tempo ? (60 / deckState.tempo * 1000) : 1000
+    return Math.min(delayMs, beatInterval * 4)
+  },
+
+  // ---------------------------------------------------------------------------
+  // DJ MIDI Learn Mode
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Start capturing the next incoming MIDI message for learn assignment.
+   */
+  async _startMidiLearn() {
+    this._midiLearnActive = true
+    this._stopMidiLearnListener()
+
+    if (!navigator.requestMIDIAccess) {
+      console.warn("[DjDeck] Web MIDI API not available")
+      return
+    }
+
+    try {
+      // Use cached MIDI access if available (avoids non-gesture context restriction).
+      // If not yet cached, request now (may fail in some browsers outside gesture context).
+      const midiAccess = this._cachedMidiAccess ||
+        await (this._midiAccessPromise ||
+          (this._midiAccessPromise = navigator.requestMIDIAccess({ sysex: false })
+            .then(a => { this._cachedMidiAccess = a; return a })))
+      this._midiLearnMidiAccess = midiAccess
+
+      this._midiLearnListener = (event) => {
+        if (!this._midiLearnActive) return
+
+        const [status, data1, data2] = event.data
+        const statusType = status & 0xF0
+        const channel = status & 0x0F
+
+        let midiType = null
+        let number = data1
+        let value = data2
+
+        if (statusType === 0x90 && value > 0) {
+          midiType = "note_on"
+        } else if (statusType === 0xB0) {
+          midiType = "cc"
+        } else {
+          return // ignore other message types
+        }
+
+        const deviceName = event.target?.name || "Unknown MIDI Device"
+
+        const target = this._midiLearnTarget || {}
+        const payload = {
+          device_name: deviceName,
+          midi_type: midiType,
+          channel: channel,
+          number: number,
+          action: target.action || "dj_play",
+          deck: target.deck || null,
+          slot: target.slot || null
+        }
+
+        console.log("[DjDeck] MIDI Learn captured:", payload)
+        this.pushEvent("dj_midi_learned", payload)
+      }
+
+      // Attach listener to all MIDI inputs
+      midiAccess.inputs.forEach(input => {
+        input.onmidimessage = this._midiLearnListener
+      })
+
+      console.log("[DjDeck] MIDI Learn: listening on", midiAccess.inputs.size, "inputs")
+    } catch (err) {
+      console.error("[DjDeck] MIDI Learn: failed to get MIDI access:", err)
+    }
+  },
+
+  /**
+   * Remove the MIDI learn message listener from all inputs.
+   */
+  _stopMidiLearnListener() {
+    if (this._midiLearnMidiAccess) {
+      this._midiLearnMidiAccess.inputs.forEach(input => {
+        if (input.onmidimessage === this._midiLearnListener) {
+          input.onmidimessage = null
+        }
+      })
+    }
+    this._midiLearnListener = null
+    this._midiLearnMidiAccess = null
   }
 }
 

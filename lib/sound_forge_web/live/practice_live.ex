@@ -15,6 +15,14 @@ defmodule SoundForgeWeb.PracticeLive do
       socket
       |> assign(:page_title, "Practice")
       |> assign(:current_user_id, user_id)
+      |> assign(:current_scope, socket.assigns[:current_scope])
+      |> assign(:nav_tab, :library)
+      |> assign(:nav_context, :all_tracks)
+      |> assign(:midi_devices, [])
+      |> assign(:midi_bpm, nil)
+      |> assign(:midi_transport, :stopped)
+      |> assign(:pipelines, %{})
+      |> assign(:refreshing_midi, false)
       |> assign(:stats, stats)
       |> assign(:sessions, sessions)
       |> assign(:importing, false)
@@ -59,9 +67,32 @@ defmodule SoundForgeWeb.PracticeLive do
   end
 
   @impl true
+  # AppHeader events
+  def handle_event("show_midi_settings", _params, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/settings?section=control_surfaces")}
+  end
+
+  def handle_event("close_midi_settings", _params, socket), do: {:noreply, socket}
+
+  def handle_event("refresh_midi_devices", _params, socket) do
+    {:noreply, assign(socket, :refreshing_midi, false)}
+  end
+
   def render(assigns) do
     ~H"""
-    <div class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <div class="min-h-screen bg-gray-950 text-white flex flex-col">
+      <SoundForgeWeb.Live.Components.AppHeader.app_header
+        current_scope={@current_scope}
+        current_user_id={@current_user_id}
+        nav_tab={@nav_tab}
+        nav_context={@nav_context}
+        midi_devices={@midi_devices}
+        midi_bpm={@midi_bpm}
+        midi_transport={@midi_transport}
+        pipelines={@pipelines}
+        refreshing_midi={@refreshing_midi}
+      />
+    <div class="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-white">Practice Dashboard</h1>
@@ -171,6 +202,7 @@ defmodule SoundForgeWeb.PracticeLive do
           </table>
         </div>
       </div>
+    </div>
     </div>
     """
   end

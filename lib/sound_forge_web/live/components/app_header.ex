@@ -13,6 +13,7 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
   attr :midi_bpm, :any, default: nil
   attr :midi_transport, :atom, default: :stopped
   attr :pipelines, :map, default: %{}
+  attr :refreshing_midi, :boolean, default: false
 
   def app_header(assigns) do
     ~H"""
@@ -169,14 +170,26 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                     {if @midi_bpm, do: Float.round(@midi_bpm * 1.0, 1), else: ""} BPM
                   </span>
                 </div>
-                <!-- Footer Link -->
-                <div class="border-t border-gray-700 px-4 py-2.5">
-                  <.link
-                    navigate="/midi"
-                    class="block w-full text-center text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium"
+                <!-- Footer Actions -->
+                <div class="border-t border-gray-700 px-4 py-2.5 flex items-center justify-between gap-2">
+                  <button
+                    phx-click="show_midi_settings"
+                    class="flex-1 text-center text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium"
                   >
                     MIDI Settings
-                  </.link>
+                  </button>
+                  <button
+                    phx-click="refresh_midi_devices"
+                    title="Refresh device list"
+                    class={[
+                      "flex items-center justify-center w-6 h-6 rounded text-gray-500 hover:text-gray-300 hover:bg-gray-700/60 transition-colors",
+                      if(Map.get(assigns, :refreshing_midi, false), do: "animate-spin", else: "")
+                    ]}
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>

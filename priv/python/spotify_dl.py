@@ -378,8 +378,12 @@ def search_youtube(query, duration_hint=None):
         "extract_flat": True,
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(search_query, download=False)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(search_query, download=False)
+    except Exception as e:
+        emit_error({"error": f"YouTube search failed: {e}"})
+        return None
 
     if not info or "entries" not in info:
         return None
@@ -441,8 +445,12 @@ def _download_from_youtube(query, duration_hint, args, output_template_default):
         "no_warnings": True,
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([yt_url])
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([yt_url])
+    except Exception as e:
+        emit_error({"error": f"yt-dlp download failed: {e}"})
+        sys.exit(1)
 
     if os.path.exists(output_path):
         file_size = os.path.getsize(output_path)

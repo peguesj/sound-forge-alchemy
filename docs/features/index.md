@@ -34,7 +34,13 @@ The analysis module runs a Python/librosa pipeline over downloaded tracks and st
 
 ### [DJ Deck](dj-daw.md)
 
-The DJ Deck is a browser-native two-deck mixer implemented as a Phoenix LiveComponent. Each deck loads a downloaded track through the Web Audio API and exposes individual-stem channel controls. Users can crossfade between decks, adjust tempo independently per deck, cue tracks, and apply low/mid/high EQ. The deck is accessible from the main dashboard via the `?tab=dj` query parameter. A Spotify SDK toggle lets users audition tracks that have not yet been downloaded.
+The DJ Deck is a browser-native two-deck mixer implemented as a Phoenix LiveComponent with instantaneous playback via a `JS.dispatch` + `JS.push` dual-path architecture. Each deck loads a downloaded track through the Web Audio API and exposes individual-stem channel controls. Features include AI cue detection (26+ cues per track), stem loop decks, crossfader with multiple curve modes, SMPTE/bar-beat transport, master sync, metronome, Chef AI set builder, virtual controller, and chromatic pads. A Spotify SDK toggle lets users audition tracks that have not yet been downloaded.
+
+---
+
+### [MIDI Integration](midi.md)
+
+Hardware MIDI controller support built on the Midiex NIF library. Includes a MIDI Learn mode for binding physical controls to software actions, device management with automatic port scanning, and mapping persistence in PostgreSQL. Supports popular controllers (Pioneer DDJ, Akai MPC, Traktor Kontrol) with planned universal auto-detection.
 
 ---
 
@@ -71,6 +77,7 @@ Platform Admin is a restricted cross-tenant view available exclusively to users 
 | [Stem Separation — Cloud (lalal.ai)](stem-separation.md#lalalai) | Production | `LALALAI_API_KEY` |
 | [Audio Analysis](analysis.md) | Production | Python 3.10+, librosa |
 | [DJ Deck](dj-daw.md) | Production | Downloaded track or Spotify SDK |
+| [MIDI Integration](midi.md) | Production | Midiex, connected MIDI controller |
 | [DAW Preview](dj-daw.md#daw-preview) | Production | Completed stem separation |
 | [AI Agents](ai-agents.md) | Production | LLM API key configured in admin |
 | [Admin Portal](admin.md) | Production | `admin` role or higher |

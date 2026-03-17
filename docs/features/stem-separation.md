@@ -89,7 +89,11 @@ Demucs port operations timeout after **5 minutes** (`300_000` ms). Large files o
 
 ### Valid Models
 
-The DemucsPort validates against `~w(htdemucs htdemucs_ft mdx_extra)`. The `htdemucs_6s` model is in the configuration module but must be added to the port's valid list before use.
+The DemucsPort validates against `~w(htdemucs htdemucs_ft htdemucs_6s mdx_extra)`. All four models are available for selection in the Settings page.
+
+### 6-Stem Model (htdemucs_6s)
+
+The `htdemucs_6s` model produces six stems instead of four, adding `:guitar` and `:piano` to the standard vocals/drums/bass/other set. The processing pipeline and storage layout are identical -- the two additional stems are written as `guitar.wav` and `piano.wav` alongside the standard four.
 
 ---
 

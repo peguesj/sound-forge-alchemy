@@ -18,8 +18,8 @@ config :sound_forge, SoundForge.Repo,
 # to bundle .js and .css sources.
 config :sound_forge, SoundForgeWeb.Endpoint,
   # Bound to 0.0.0.0 so the server is reachable from all interfaces (LAN, Docker, etc.)
-  # Port is always 4000 — use PORT env var only for production overrides.
-  http: [ip: {0, 0, 0, 0}, port: 4000],
+  # Port 5000 — secondary port to avoid conflicts with LiteLLM proxy on 4000.
+  http: [ip: {0, 0, 0, 0}, port: 5000],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,

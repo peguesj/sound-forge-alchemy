@@ -93,7 +93,7 @@ const ChromaticPads = {
   async initWebMIDI() {
     if (!navigator.requestMIDIAccess) {
       console.info("ChromaticPads: Web MIDI API not available in this browser");
-      this.pushEvent("midi_status", { available: false, devices: [] });
+      this.pushEventTo(this.el, "midi_status", { available: false, devices: [] });
       return;
     }
 
@@ -109,13 +109,13 @@ const ChromaticPads = {
         this.setupMIDIInputs();
       };
 
-      this.pushEvent("midi_status", {
+      this.pushEventTo(this.el, "midi_status", {
         available: true,
         devices: this.getMIDIDeviceList()
       });
     } catch (err) {
       console.warn("ChromaticPads: Web MIDI access denied:", err);
-      this.pushEvent("midi_status", { available: false, devices: [] });
+      this.pushEventTo(this.el, "midi_status", { available: false, devices: [] });
     }
   },
 
@@ -136,7 +136,7 @@ const ChromaticPads = {
     }
 
     // Notify server of device list update
-    this.pushEvent("midi_devices_updated", {
+    this.pushEventTo(this.el, "midi_devices_updated", {
       devices: this.getMIDIDeviceList()
     });
   },
@@ -201,14 +201,14 @@ const ChromaticPads = {
 
     // Update MIDI activity indicator
     this.lastMidiActivity = Date.now();
-    this.pushEvent("midi_activity", { type: midiType, channel, number, value });
+    this.pushEventTo(this.el, "midi_activity", { type: midiType, channel, number, value });
 
     // MIDI Learn mode: capture the message and send to server
     if (this.midiLearnMode && this.midiLearnTarget) {
       // Only capture note_on and cc for learn mode
       if (midiType === "note_on" || midiType === "cc") {
         const deviceName = event.target ? (event.target.name || "Web MIDI") : "Web MIDI";
-        this.pushEvent("midi_learned", {
+        this.pushEventTo(this.el, "midi_learned", {
           device_name: deviceName,
           midi_type: midiType,
           channel: channel,
@@ -254,32 +254,32 @@ const ChromaticPads = {
           end_time: padEl.dataset.padEndTime
         };
         this.triggerPad(padId, opts);
-        this.pushEvent("pad_triggered", { pad_id: padId });
+        this.pushEventTo(this.el, "pad_triggered", { pad_id: padId });
         break;
       }
 
       case "pad_volume": {
         const volume = Math.round(value / 127 * 100);
-        this.pushEvent("update_pad_volume", { "pad-id": padId, value: String(volume) });
+        this.pushEventTo(this.el, "update_pad_volume", { "pad-id": padId, value: String(volume) });
         break;
       }
 
       case "pad_pitch": {
         // Map 0-127 CC to -24..+24 semitones
         const pitch = Math.round(value / 127 * 48 - 24);
-        this.pushEvent("update_pad_pitch", { "pad-id": padId, value: String(pitch) });
+        this.pushEventTo(this.el, "update_pad_pitch", { "pad-id": padId, value: String(pitch) });
         break;
       }
 
       case "pad_velocity": {
         const vel = Math.round(value / 127 * 100);
-        this.pushEvent("update_pad_velocity", { "pad-id": padId, value: String(vel) });
+        this.pushEventTo(this.el, "update_pad_velocity", { "pad-id": padId, value: String(vel) });
         break;
       }
 
       case "pad_master_volume": {
         const masterVol = Math.round(value / 127 * 100);
-        this.pushEvent("set_master_volume", { value: String(masterVol) });
+        this.pushEventTo(this.el, "set_master_volume", { value: String(masterVol) });
         break;
       }
 
@@ -374,7 +374,7 @@ const ChromaticPads = {
           end_time: padEl.dataset.padEndTime
         };
         this.triggerPad(padId, opts);
-        this.pushEvent("pad_triggered", { pad_id: padId });
+        this.pushEventTo(this.el, "pad_triggered", { pad_id: padId });
       };
 
       // Remove existing listeners to avoid duplicates
@@ -450,7 +450,7 @@ const ChromaticPads = {
         pad.classList.remove("ring-2", "ring-purple-500");
         const stemId = e.dataTransfer.getData("text/plain");
         if (stemId) {
-          this.pushEvent("assign_stem", {
+          this.pushEventTo(this.el, "assign_stem", {
             pad_id: pad.dataset.padDrop,
             stem_id: stemId
           });

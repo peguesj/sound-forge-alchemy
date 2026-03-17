@@ -153,6 +153,7 @@ flowchart TD
 - [Agent System](agents.md)
 - [LLM Providers](llm-providers.md)
 - [Database Schema](database.md)
+- [Real-Time Patterns](realtime-patterns.md)
 
 ---
 
