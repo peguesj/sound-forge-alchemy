@@ -14,6 +14,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   alias SoundForge.Music
   alias SoundForge.DJ
   alias SoundForge.DJ.{Chef, Presets, Timecode}
+  alias SoundForge.DJ.PresetsContext
+  alias SoundForge.DJ.Layouts.Rekordbox
   alias SoundForge.MIDI.Mappings
   alias SoundForge.Audio.Prefetch
 
@@ -62,10 +64,20 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
      |> assign(:initialized, false)
      |> assign(:browser_open, false)
      |> assign(:browser_search, "")
+     |> assign(:master_volume, 85)
+     |> assign(:presets_panel_open, false)
+     |> assign(:saved_presets, [])
+     |> assign(:preset_name_input, "")
+     |> assign(:rekordbox_import_result, nil)
      |> allow_upload(:preset_file,
        accept: ~w(.tsi .touchosc),
        max_entries: 1,
        max_file_size: 5_000_000
+     )
+     |> allow_upload(:rekordbox_file,
+       accept: ~w(.xml),
+       max_entries: 1,
+       max_file_size: 10_000_000
      )}
   end
 
@@ -226,10 +238,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     if not socket.assigns.initialized do
       tracks = list_user_tracks(assigns[:current_scope])
       user_id = assigns[:current_user_id]
+      saved_presets = if user_id, do: PresetsContext.list_presets(user_id), else: []
 
       socket =
         socket
-        |> assign(tracks: tracks, initialized: true)
+        |> assign(tracks: tracks, initialized: true, saved_presets: saved_presets)
         |> restore_deck_from_db(user_id, 1)
         |> restore_deck_from_db(user_id, 2)
 
@@ -242,7 +255,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   # -- Events --
 
   @impl true
-  def handle_event("load_track", %{"deck" => deck_str, "track_id" => track_id}, socket) do
+  def handle_event("load_track", %{"deck" => deck_str, "track-id" => track_id}, socket) do
     deck_number = String.to_integer(deck_str)
     user_id = socket.assigns[:current_user_id]
 
@@ -1476,6 +1489,234 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     {:noreply, assign(socket, :preset_section_open, !socket.assigns.preset_section_open)}
   end
 
+  # -- Master Volume (US-012) --
+
+  @impl true
+  def handle_event("set_master_volume", %{"value" => value_str}, socket) do
+    value = value_str |> String.to_integer() |> max(0) |> min(100)
+
+    {:noreply,
+     socket
+     |> assign(:master_volume, value)
+     |> push_event("set_master_volume", %{value: value})}
+  end
+
+  @impl true
+  def handle_event(
+        "set_eq_gain_deck_" <> deck_band,
+        %{"deck" => deck_str, "band" => band, "gain" => gain_str},
+        socket
+      ) do
+    _ = deck_band
+    deck = String.to_integer(deck_str)
+
+    case Float.parse(gain_str) do
+      {gain, _} ->
+        {:noreply, push_event(socket, "set_eq_gain", %{deck: deck, band: band, gain: gain})}
+
+      :error ->
+        {:noreply, socket}
+    end
+  end
+
+  # -- Saved Presets Panel (US-009) --
+
+  @impl true
+  def handle_event("toggle_presets_panel", _params, socket) do
+    {:noreply, assign(socket, :presets_panel_open, !socket.assigns.presets_panel_open)}
+  end
+
+  @impl true
+  def handle_event("preset_name_change", %{"value" => value}, socket) do
+    {:noreply, assign(socket, :preset_name_input, value)}
+  end
+
+  @impl true
+  def handle_event("save_preset", _params, socket) do
+    name = String.trim(socket.assigns.preset_name_input)
+    user_id = socket.assigns[:current_user_id]
+
+    if name != "" && user_id do
+      case PresetsContext.save_current_layout(name, socket.assigns) do
+        {:ok, _preset} ->
+          saved_presets = PresetsContext.list_presets(user_id)
+
+          {:noreply,
+           socket
+           |> assign(:saved_presets, saved_presets)
+           |> assign(:preset_name_input, "")
+           |> put_flash(:info, "Preset \"#{name}\" saved")}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to save preset")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("load_preset", %{"id" => preset_id}, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    case PresetsContext.load_layout(preset_id, user_id) do
+      {:ok, new_assigns} ->
+        socket =
+          socket
+          |> assign(new_assigns)
+          |> put_flash(:info, "Preset loaded")
+
+        socket =
+          Enum.reduce([{:deck_1, 1}, {:deck_2, 2}], socket, fn {deck_key, deck_num}, acc ->
+            deck = Map.get(acc.assigns, deck_key)
+
+            if deck && deck.track && deck.audio_urls != [] do
+              push_event(acc, "load_deck_audio", %{
+                deck: deck_num,
+                urls: deck.audio_urls
+              })
+            else
+              acc
+            end
+          end)
+
+        {:noreply, socket}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Preset not found")}
+
+      {:error, :invalid_layout} ->
+        {:noreply, put_flash(socket, :error, "Preset layout is invalid")}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_preset", %{"id" => preset_id}, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    case PresetsContext.delete_preset(preset_id, user_id) do
+      :ok ->
+        saved_presets = PresetsContext.list_presets(user_id)
+        {:noreply, assign(socket, :saved_presets, saved_presets)}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Preset not found")}
+    end
+  end
+
+  # -- JSON Export (US-011) --
+
+  @impl true
+  def handle_event("export_preset", _params, socket) do
+    layout_json = PresetsContext.build_layout_json(socket.assigns)
+    json_string = Jason.encode!(layout_json, pretty: true)
+    timestamp = DateTime.utc_now() |> Calendar.strftime("%Y%m%d%H%M%S")
+    filename = "sfa-layout-#{timestamp}.json"
+
+    {:noreply, push_event(socket, "download_file", %{filename: filename, content: json_string, mime: "application/json"})}
+  end
+
+  # -- Rekordbox XML Import (US-010) --
+
+  @impl true
+  def handle_event("validate_rekordbox", _params, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_event("import_rekordbox", _params, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    results =
+      consume_uploaded_entries(socket, :rekordbox_file, fn %{path: path}, _entry ->
+        binary = File.read!(path)
+        Rekordbox.parse(binary)
+      end)
+
+    case results do
+      [{:ok, %{tracks: rb_tracks, playlists: rb_playlists}}] ->
+        {matched_count, total_count, cues_created} =
+          Enum.reduce(rb_tracks, {0, 0, 0}, fn rb_track, {matched, total, cues} ->
+            total = total + 1
+            name = rb_track[:name] || ""
+            artist = rb_track[:artist] || ""
+
+            db_tracks =
+              if name != "" do
+                results = Music.search_tracks(name)
+
+                # Prefer exact artist match; fall back to title-only match
+                artist_lower = String.downcase(artist)
+
+                exact = Enum.filter(results, fn t ->
+                  String.downcase(t.artist || "") == artist_lower
+                end)
+
+                if exact != [], do: exact, else: results
+              else
+                []
+              end
+
+            case db_tracks do
+              [] ->
+                {matched, total, cues}
+
+              [db_track | _] ->
+                new_cues =
+                  rb_track[:cue_points]
+                  |> Enum.filter(fn c -> c.type_atom in [:hot_cue, :memory_cue] end)
+                  |> Enum.reduce(0, fn cue, count ->
+                    case DJ.create_cue_point(%{
+                           track_id: db_track.id,
+                           user_id: user_id,
+                           position_ms: cue.start_ms,
+                           label: cue.name || "",
+                           cue_type: cue.type_atom,
+                           color: "#8b5cf6"
+                         }) do
+                      {:ok, _} -> count + 1
+                      {:error, _} -> count
+                    end
+                  end)
+
+                {matched + 1, total, cues + new_cues}
+            end
+          end)
+
+        # Pre-fill chef_prompt with first playlist name if currently empty
+        first_playlist_name =
+          case rb_playlists do
+            [%{name: name} | _] when name != "" -> name
+            _ -> nil
+          end
+
+        socket =
+          socket
+          |> assign(:rekordbox_import_result, %{
+            matched_tracks: matched_count,
+            total_tracks: total_count,
+            cues_created: cues_created
+          })
+          |> put_flash(
+            :info,
+            "Imported #{cues_created} cues from #{matched_count}/#{total_count} tracks"
+          )
+
+        socket =
+          if first_playlist_name && String.trim(socket.assigns.chef_prompt) == "" do
+            assign(socket, :chef_prompt, first_playlist_name)
+          else
+            socket
+          end
+
+        {:noreply, socket}
+
+      [{:error, reason}] ->
+        {:noreply, put_flash(socket, :error, "Rekordbox import failed: #{inspect(reason)}")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "No file uploaded")}
+    end
+  end
+
   @impl true
   def handle_event("validate_preset", _params, socket), do: {:noreply, socket}
 
@@ -1496,7 +1737,22 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       end)
 
     case results do
-      [{:ok, mapping_attrs}] ->
+      [{:ok, %{mappings: mapping_attrs}}] ->
+        count =
+          Enum.count(mapping_attrs, fn attrs ->
+            case Mappings.create_mapping(attrs) do
+              {:ok, _} -> true
+              {:error, _} -> false
+            end
+          end)
+
+        {:noreply,
+         socket
+         |> assign(:preset_section_open, false)
+         |> put_flash(:info, "Imported #{count} mapping(s) from preset")}
+
+      [{:ok, mapping_attrs}] when is_list(mapping_attrs) ->
+        # Backward-compat: plain list
         count =
           Enum.count(mapping_attrs, fn attrs ->
             case Mappings.create_mapping(attrs) do
@@ -1826,7 +2082,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               q == "" || String.contains?(String.downcase(t.title || ""), q) || String.contains?(String.downcase(t.artist || ""), q)
             end) do %>
               <div
-                phx-click="pick_track"
+                phx-click="load_track"
                 phx-value-track-id={track.id}
                 phx-value-deck="1"
                 phx-target={@myself}
@@ -1844,43 +2100,128 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           </div>
         </div>
 
-        <%!-- Main Decks (A/B) --%>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <%!-- Main Decks (A/B) + Center Mixer Strip --%>
+        <div class="flex flex-col md:flex-row gap-4 md:gap-0 items-start">
           <%!-- DECK 1 (A) --%>
-          <.deck_panel
-            deck_number={1}
-            deck={@deck_1}
-            tracks={@tracks}
-            volume={@deck_1_volume}
-            cue_points={@deck_1_cue_points}
-            detecting_cues={@detecting_cues_deck_1}
-            midi_sync={@deck_1.midi_sync}
-            structure={@deck_1.structure || %{}}
-            loop_points={@deck_1.loop_points || []}
-            bar_times={@deck_1.bar_times || []}
-            arrangement_markers={@deck_1.arrangement_markers || []}
-            stem_loops={@deck_1_stem_loops}
-            stem_loops_open={@deck_1_stem_loops_open}
-            myself={@myself}
-          />
+          <div class="flex-1 min-w-0">
+            <.deck_panel
+              deck_number={1}
+              deck={@deck_1}
+              tracks={@tracks}
+              volume={@deck_1_volume}
+              cue_points={@deck_1_cue_points}
+              detecting_cues={@detecting_cues_deck_1}
+              midi_sync={@deck_1.midi_sync}
+              structure={@deck_1.structure || %{}}
+              loop_points={@deck_1.loop_points || []}
+              bar_times={@deck_1.bar_times || []}
+              arrangement_markers={@deck_1.arrangement_markers || []}
+              stem_loops={@deck_1_stem_loops}
+              stem_loops_open={@deck_1_stem_loops_open}
+              myself={@myself}
+              show_eq={false}
+            />
+          </div>
+
+          <%!-- Center Mixer Strip --%>
+          <div class="flex-shrink-0 w-full md:w-28 flex flex-row md:flex-col items-stretch gap-2 md:gap-0 px-2 md:pt-4">
+            <%!-- D1 EQ Column --%>
+            <div class="flex-1 md:flex-none flex flex-row md:flex-col items-center gap-1 md:gap-0.5 md:mb-2">
+              <span class="text-[9px] text-cyan-500 font-bold uppercase tracking-widest md:mb-1 flex-shrink-0 md:text-center w-6 md:w-full">D1</span>
+              <%= for {band, label} <- [{"high", "HI"}, {"mid", "MID"}, {"low", "LO"}] do %>
+                <div class="flex-1 md:flex-none flex flex-col items-center gap-0.5 md:mb-1">
+                  <span class="text-[8px] text-gray-600 uppercase leading-none">{label}</span>
+                  <form phx-change={"set_eq_gain_deck_1_" <> band} phx-target={@myself}>
+                    <input type="hidden" name="deck" value="1" />
+                    <input type="hidden" name="band" value={band} />
+                    <input
+                      type="range" name="gain"
+                      min="-12" max="12" step="1" value="0"
+                      orient="vertical"
+                      class="h-16 md:h-20 w-2 appearance-none cursor-pointer accent-cyan-500 writing-mode-vertical"
+                      style="writing-mode: vertical-lr; direction: rtl;"
+                    />
+                  </form>
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- Master Volume --%>
+            <div class="flex-shrink-0 flex flex-col items-center gap-1 md:mb-2 py-1 md:py-0">
+              <span class="text-[9px] text-purple-400 font-bold uppercase tracking-widest">MASTER</span>
+              <form phx-change="set_master_volume" phx-target={@myself} class="flex flex-col items-center">
+                <input
+                  type="range" name="value"
+                  min="0" max="100" step="1" value={@master_volume}
+                  orient="vertical"
+                  class="h-16 md:h-24 w-2 appearance-none cursor-pointer accent-purple-500"
+                  style="writing-mode: vertical-lr; direction: rtl;"
+                />
+                <span class="text-[9px] text-gray-500 font-mono mt-0.5">{@master_volume}%</span>
+              </form>
+            </div>
+
+            <%!-- Crossfader --%>
+            <div class="flex-1 md:flex-none flex flex-col items-center gap-1 md:mb-1">
+              <span class="text-[9px] text-gray-500 uppercase tracking-wider">XFADE</span>
+              <form phx-change="crossfader" phx-target={@myself} class="w-full">
+                <input
+                  type="range"
+                  min="-100" max="100" step="1"
+                  value={@crossfader}
+                  name="value"
+                  aria-label="Crossfader"
+                  class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                />
+                <div class="flex justify-between mt-0.5 px-0.5">
+                  <span class="text-[8px] text-gray-600">A</span>
+                  <span class="text-[8px] text-gray-600">B</span>
+                </div>
+              </form>
+            </div>
+
+            <%!-- D2 EQ Column --%>
+            <div class="flex-1 md:flex-none flex flex-row md:flex-col items-center gap-1 md:gap-0.5 md:mb-2">
+              <span class="text-[9px] text-orange-500 font-bold uppercase tracking-widest md:mb-1 flex-shrink-0 md:text-center w-6 md:w-full">D2</span>
+              <%= for {band, label} <- [{"high", "HI"}, {"mid", "MID"}, {"low", "LO"}] do %>
+                <div class="flex-1 md:flex-none flex flex-col items-center gap-0.5 md:mb-1">
+                  <span class="text-[8px] text-gray-600 uppercase leading-none">{label}</span>
+                  <form phx-change={"set_eq_gain_deck_2_" <> band} phx-target={@myself}>
+                    <input type="hidden" name="deck" value="2" />
+                    <input type="hidden" name="band" value={band} />
+                    <input
+                      type="range" name="gain"
+                      min="-12" max="12" step="1" value="0"
+                      orient="vertical"
+                      class="h-16 md:h-20 w-2 appearance-none cursor-pointer accent-orange-500"
+                      style="writing-mode: vertical-lr; direction: rtl;"
+                    />
+                  </form>
+                </div>
+              <% end %>
+            </div>
+          </div>
 
           <%!-- DECK 2 (B) --%>
-          <.deck_panel
-            deck_number={2}
-            deck={@deck_2}
-            tracks={@tracks}
-            volume={@deck_2_volume}
-            cue_points={@deck_2_cue_points}
-            detecting_cues={@detecting_cues_deck_2}
-            midi_sync={@deck_2.midi_sync}
-            structure={@deck_2.structure || %{}}
-            loop_points={@deck_2.loop_points || []}
-            bar_times={@deck_2.bar_times || []}
-            arrangement_markers={@deck_2.arrangement_markers || []}
-            stem_loops={@deck_2_stem_loops}
-            stem_loops_open={@deck_2_stem_loops_open}
-            myself={@myself}
-          />
+          <div class="flex-1 min-w-0">
+            <.deck_panel
+              deck_number={2}
+              deck={@deck_2}
+              tracks={@tracks}
+              volume={@deck_2_volume}
+              cue_points={@deck_2_cue_points}
+              detecting_cues={@detecting_cues_deck_2}
+              midi_sync={@deck_2.midi_sync}
+              structure={@deck_2.structure || %{}}
+              loop_points={@deck_2.loop_points || []}
+              bar_times={@deck_2.bar_times || []}
+              arrangement_markers={@deck_2.arrangement_markers || []}
+              stem_loops={@deck_2_stem_loops}
+              stem_loops_open={@deck_2_stem_loops_open}
+              myself={@myself}
+              show_eq={false}
+            />
+          </div>
         </div>
 
         <%!-- Loop Track Decks (C/D) - Simplified loop-focused decks --%>
@@ -1907,58 +2248,31 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           />
         </div>
 
-        <%!-- Crossfader --%>
-        <div class="mt-6 bg-gray-900 rounded-xl p-4">
-          <div class="flex items-center gap-4">
-            <span class="text-sm font-semibold text-cyan-400 w-16 text-center">DECK 1</span>
-            <div class="flex-1 flex flex-col items-center">
-              <label class="text-xs text-gray-500 mb-2 uppercase tracking-wider">Crossfader</label>
-              <input
-                type="range"
-                min="-100"
-                max="100"
-                value={@crossfader}
-                phx-change="crossfader"
+        <%!-- Crossfader Curve + Master Sync (compact, below center strip) --%>
+        <div class="mt-4 bg-gray-900 rounded-xl p-3">
+          <div class="flex items-center flex-wrap gap-3 justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-500 uppercase tracking-wider">Curve</span>
+              <button
+                :for={curve <- [{"linear", "Lin"}, {"equal_power", "EQ-P"}, {"sharp", "Sharp"}]}
+                phx-click="set_crossfader_curve"
                 phx-target={@myself}
-                name="value"
-                aria-label="Crossfader"
-                class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
-              />
-              <div class="flex justify-between w-full mt-1">
-                <span class="text-xs text-gray-600">A</span>
-                <span class="text-xs text-gray-600">|</span>
-                <span class="text-xs text-gray-600">B</span>
-              </div>
-              <span class="text-xs text-gray-600 mt-1">Z / X to nudge</span>
+                phx-value-curve={elem(curve, 0)}
+                class={"px-2 py-1 text-xs rounded font-medium transition-colors " <>
+                  if(@crossfader_curve == elem(curve, 0),
+                    do: "bg-purple-600 text-white",
+                    else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                  )}
+              >
+                {elem(curve, 1)}
+              </button>
             </div>
-            <span class="text-sm font-semibold text-orange-400 w-16 text-center">DECK 2</span>
-          </div>
-
-          <%!-- Crossfader Curve Selector --%>
-          <div class="flex items-center justify-center gap-3 mt-3 pt-3 border-t border-gray-700/50">
-            <span class="text-xs text-gray-500 uppercase tracking-wider mr-2">Curve</span>
-            <button
-              :for={curve <- [{"linear", "Linear"}, {"equal_power", "Equal Power"}, {"sharp", "Sharp"}]}
-              phx-click="set_crossfader_curve"
-              phx-target={@myself}
-              phx-value-curve={elem(curve, 0)}
-              class={"px-3 py-1 text-xs rounded-md font-medium transition-colors " <>
-                if(@crossfader_curve == elem(curve, 0),
-                  do: "bg-purple-600 text-white",
-                  else: "bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-300"
-                )}
-            >
-              {elem(curve, 1)}
-            </button>
-          </div>
-
-          <%!-- Master Sync --%>
-          <div class="flex items-center justify-center mt-3 pt-3 border-t border-gray-700/50">
+            <span class="text-xs text-gray-600 hidden md:inline">Z / X to nudge crossfader</span>
             <button
               phx-click="master_sync"
               phx-target={@myself}
               disabled={is_nil(@deck_1.track) || is_nil(@deck_2.track) || @deck_1.tempo_bpm <= 0 || @deck_2.tempo_bpm <= 0}
-              class={"px-6 py-2 text-sm font-bold rounded-lg transition-colors " <>
+              class={"px-4 py-1.5 text-xs font-bold rounded-lg transition-colors " <>
                 if(is_nil(@deck_1.track) || is_nil(@deck_2.track) || @deck_1.tempo_bpm <= 0 || @deck_2.tempo_bpm <= 0,
                   do: "bg-gray-700 text-gray-600 cursor-not-allowed",
                   else: "bg-yellow-600 text-white hover:bg-yellow-500 ring-1 ring-yellow-400/30"
@@ -2099,64 +2413,182 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           </div>
         </div>
 
-        <%!-- Import Preset Section --%>
-        <div class="mt-4 bg-gray-900 rounded-xl border border-gray-700/50">
+        <%!-- Saved Presets Panel (US-009/010/011) --%>
+        <div class="mt-4 bg-gray-900 rounded-xl border border-indigo-700/30">
           <button
-            phx-click="toggle_preset_section"
+            phx-click="toggle_presets_panel"
             phx-target={@myself}
-            class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+            class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-indigo-300 hover:text-indigo-200 transition-colors"
           >
             <span class="flex items-center gap-2">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
-              Import Preset
+              Presets
+              <span :if={length(@saved_presets) > 0} class="text-xs bg-indigo-700/40 text-indigo-300 px-1.5 py-0.5 rounded-full">
+                {length(@saved_presets)}
+              </span>
             </span>
-            <svg
-              class={"w-4 h-4 transition-transform " <> if(@preset_section_open, do: "rotate-180", else: "")}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
+            <div class="flex items-center gap-2">
+              <button
+                phx-click="export_preset"
+                phx-target={@myself}
+                type="button"
+                class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded transition-colors"
+              >
+                Export JSON
+              </button>
+              <svg
+                class={"w-4 h-4 transition-transform " <> if(@presets_panel_open, do: "rotate-180", else: "")}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </button>
 
-          <div :if={@preset_section_open} class="px-4 pb-4 border-t border-gray-700/50">
-            <p class="text-xs text-gray-500 mt-3 mb-3">
-              Upload a Traktor .tsi or TouchOSC .touchosc preset file to import MIDI/OSC mappings.
-            </p>
-            <form phx-submit="upload_preset" phx-change="validate_preset" phx-target={@myself}>
-              <div class="flex items-center gap-3">
-                <div class="flex-1">
-                  <.live_file_input upload={@uploads.preset_file} class="
-                    block w-full text-sm text-gray-400
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-lg file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-purple-600 file:text-white
-                    hover:file:bg-purple-500
-                    file:cursor-pointer
-                  " />
-                </div>
+          <div :if={@presets_panel_open} class="px-4 pb-4 border-t border-indigo-700/20">
+            <%!-- Save Current Layout Form --%>
+            <div class="mt-3 flex items-center gap-2">
+              <form phx-change="preset_name_change" phx-submit="save_preset" phx-target={@myself} class="flex-1 flex gap-2">
+                <input
+                  type="text"
+                  name="value"
+                  value={@preset_name_input}
+                  placeholder="Layout name..."
+                  class="flex-1 px-3 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                />
                 <button
                   type="submit"
-                  class="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-500 transition-colors disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
-                  disabled={@uploads.preset_file.entries == []}
+                  disabled={String.trim(@preset_name_input) == ""}
+                  class={"px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors " <>
+                    if(String.trim(@preset_name_input) == "",
+                      do: "bg-gray-700 text-gray-500 cursor-not-allowed",
+                      else: "bg-indigo-600 text-white hover:bg-indigo-500"
+                    )}
                 >
-                  Import
+                  Save Layout
+                </button>
+              </form>
+            </div>
+
+            <%!-- Saved Presets List --%>
+            <div :if={@saved_presets == []} class="mt-3 text-xs text-gray-600 text-center py-2">
+              No saved presets yet
+            </div>
+            <div :if={@saved_presets != []} class="mt-3 flex flex-col gap-1.5 max-h-48 overflow-y-auto">
+              <div
+                :for={preset <- @saved_presets}
+                class="flex items-center gap-2 px-3 py-2 bg-gray-800/60 rounded-lg border border-gray-700/30 hover:border-indigo-700/30 transition-colors"
+              >
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm text-gray-200 font-medium truncate">{preset.name}</p>
+                  <div class="flex items-center gap-1.5 mt-0.5">
+                    <span class={"text-[10px] px-1.5 py-0.5 rounded font-medium " <>
+                      case preset.source do
+                        "tsi" -> "bg-blue-700/40 text-blue-300"
+                        "touchosc" -> "bg-teal-700/40 text-teal-300"
+                        "rekordbox" -> "bg-red-700/40 text-red-300"
+                        _ -> "bg-gray-700/60 text-gray-400"
+                      end}>
+                      {preset.source}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  phx-click="load_preset"
+                  phx-target={@myself}
+                  phx-value-id={preset.id}
+                  type="button"
+                  class="text-xs bg-indigo-700/50 hover:bg-indigo-700 text-indigo-200 px-2 py-1 rounded transition-colors flex-shrink-0"
+                >
+                  Load
+                </button>
+                <button
+                  phx-click="delete_preset"
+                  phx-target={@myself}
+                  phx-value-id={preset.id}
+                  type="button"
+                  class="text-xs text-gray-600 hover:text-red-400 transition-colors flex-shrink-0"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
+            </div>
 
-              <%!-- Upload errors --%>
-              <div :for={entry <- @uploads.preset_file.entries} class="mt-2">
-                <div :for={err <- upload_errors(@uploads.preset_file, entry)} class="text-xs text-red-400">
-                  {upload_error_to_string(err)}
+            <%!-- Import MIDI Preset Section --%>
+            <div class="mt-4 pt-3 border-t border-gray-700/30">
+              <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Import MIDI Preset</p>
+              <form phx-submit="upload_preset" phx-change="validate_preset" phx-target={@myself}>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1">
+                    <.live_file_input upload={@uploads.preset_file} class="
+                      block w-full text-xs text-gray-400
+                      file:mr-3 file:py-1.5 file:px-3
+                      file:rounded file:border-0
+                      file:text-xs file:font-semibold
+                      file:bg-purple-700 file:text-white
+                      hover:file:bg-purple-600 file:cursor-pointer
+                    " />
+                  </div>
+                  <button
+                    type="submit"
+                    class="px-3 py-1.5 bg-purple-700 text-white text-xs font-medium rounded hover:bg-purple-600 transition-colors disabled:bg-gray-700 disabled:text-gray-500"
+                    disabled={@uploads.preset_file.entries == []}
+                  >
+                    Import
+                  </button>
                 </div>
+                <div :for={entry <- @uploads.preset_file.entries} class="mt-1">
+                  <div :for={err <- upload_errors(@uploads.preset_file, entry)} class="text-xs text-red-400">
+                    {upload_error_to_string(err)}
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <%!-- Rekordbox XML Import Section (US-010) --%>
+            <div class="mt-3 pt-3 border-t border-gray-700/30">
+              <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Import Rekordbox</p>
+              <form phx-submit="import_rekordbox" phx-change="validate_rekordbox" phx-target={@myself}>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1">
+                    <.live_file_input upload={@uploads.rekordbox_file} class="
+                      block w-full text-xs text-gray-400
+                      file:mr-3 file:py-1.5 file:px-3
+                      file:rounded file:border-0
+                      file:text-xs file:font-semibold
+                      file:bg-red-800 file:text-white
+                      hover:file:bg-red-700 file:cursor-pointer
+                    " />
+                  </div>
+                  <button
+                    type="submit"
+                    class="px-3 py-1.5 bg-red-800 text-white text-xs font-medium rounded hover:bg-red-700 transition-colors disabled:bg-gray-700 disabled:text-gray-500"
+                    disabled={@uploads.rekordbox_file.entries == []}
+                  >
+                    Import
+                  </button>
+                </div>
+                <div :for={entry <- @uploads.rekordbox_file.entries} class="mt-1">
+                  <div :for={err <- upload_errors(@uploads.rekordbox_file, entry)} class="text-xs text-red-400">
+                    {upload_error_to_string(err)}
+                  </div>
+                </div>
+              </form>
+              <div :if={@rekordbox_import_result} class="mt-2 text-xs text-green-400 bg-green-900/20 rounded px-2 py-1.5 border border-green-700/30">
+                Imported {@rekordbox_import_result.cues_created} cues from
+                {@rekordbox_import_result.matched_tracks}/{@rekordbox_import_result.total_tracks} tracks
               </div>
-            </form>
+            </div>
           </div>
+        </div>
+
+        <%!-- Import Preset Section (legacy toggle, kept for keyboard shortcut compat) --%>
+        <div class="hidden">
+          <button phx-click="toggle_preset_section" phx-target={@myself}></button>
         </div>
 
         <%!-- Virtual Controller --%>
@@ -2459,6 +2891,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   attr :stem_loops, :list, default: []
   attr :stem_loops_open, :boolean, default: false
   attr :myself, :any, required: true
+  attr :show_eq, :boolean, default: true
 
   defp deck_panel(assigns) do
     deck_color = if assigns.deck_number == 1, do: "cyan", else: "orange"
@@ -2970,7 +3403,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       </div>
 
       <%!-- EQ Kill Switches + Filter --%>
-      <div :if={@deck.track} class="mb-4 border border-gray-700/50 rounded-lg p-3">
+      <div :if={@show_eq && @deck.track} class="mb-4 border border-gray-700/50 rounded-lg p-3">
         <div class="flex items-center gap-3 mb-2">
           <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold w-8">EQ</span>
           <%= for band <- ["high", "mid", "low"] do %>

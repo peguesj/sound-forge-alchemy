@@ -41,7 +41,7 @@ defmodule SoundForge.DJ.Presets do
     "deck.loop_in" => {:dj_loop_toggle, %{}},
     "deck.loop_out" => {:dj_loop_toggle, %{}},
     "deck.loop_size" => {:dj_loop_size, %{}},
-    # Hot cues
+    # Hot cues (both underscore and dot-normalized forms)
     "deck.hotcue_1" => {:dj_cue, %{"slot" => "1"}},
     "deck.hotcue_2" => {:dj_cue, %{"slot" => "2"}},
     "deck.hotcue_3" => {:dj_cue, %{"slot" => "3"}},
@@ -49,34 +49,104 @@ defmodule SoundForge.DJ.Presets do
     "deck.hotcue_5" => {:dj_cue, %{"slot" => "5"}},
     "deck.hotcue_6" => {:dj_cue, %{"slot" => "6"}},
     "deck.hotcue_7" => {:dj_cue, %{"slot" => "7"}},
-    "deck.hotcue_8" => {:dj_cue, %{"slot" => "8"}}
+    "deck.hotcue_8" => {:dj_cue, %{"slot" => "8"}},
+    # Dot-normalized versions (normalize_traktor_control replaces _ with .)
+    "deck.hotcue.1" => {:dj_cue, %{"slot" => "1"}},
+    "deck.hotcue.2" => {:dj_cue, %{"slot" => "2"}},
+    "deck.hotcue.3" => {:dj_cue, %{"slot" => "3"}},
+    "deck.hotcue.4" => {:dj_cue, %{"slot" => "4"}},
+    "deck.hotcue.5" => {:dj_cue, %{"slot" => "5"}},
+    "deck.hotcue.6" => {:dj_cue, %{"slot" => "6"}},
+    "deck.hotcue.7" => {:dj_cue, %{"slot" => "7"}},
+    "deck.hotcue.8" => {:dj_cue, %{"slot" => "8"}}
   }
 
   @doc """
-  Parses a Traktor .tsi file (XML) and returns mapping attributes.
+  Parses a Traktor .tsi file (XML) and returns mapping attributes plus layout metadata.
 
   ## Parameters
     - `binary` - the raw file contents
     - `user_id` - the user to associate mappings with
 
   ## Returns
-    - `{:ok, [mapping_attrs]}` on success
+    - `{:ok, %{mappings: [mapping_attrs], layout: layout_map}}` on success
     - `{:error, reason}` on failure
+
+  Where `layout_map` is `%{name: string, device_type: string, deck_count: integer, template_metadata: map}`.
   """
-  @spec parse_tsi(binary(), binary()) :: {:ok, [mapping_attrs()]} | {:error, String.t()}
+  @spec parse_tsi(binary(), binary()) ::
+          {:ok, %{mappings: [mapping_attrs()], layout: map()}} | {:error, String.t()}
   def parse_tsi(binary, user_id) when is_binary(binary) and is_binary(user_id) do
     charlist = String.to_charlist(binary)
 
     case :xmerl_scan.string(charlist, quiet: true) do
       {doc, _rest} ->
         mappings = extract_tsi_mappings(doc, user_id)
-        {:ok, mappings}
+        layout = extract_tsi_layout(doc)
+        {:ok, %{mappings: mappings, layout: layout}}
 
       _ ->
         {:error, "Failed to parse TSI XML"}
     end
   rescue
     e -> {:error, "TSI parse error: #{Exception.message(e)}"}
+  catch
+    :exit, reason -> {:error, "TSI parse error: #{inspect(reason)}"}
+  end
+
+  defp extract_tsi_layout(doc) do
+    devices = xpath_elements(doc, ~c"//Device")
+
+    {name, device_type} =
+      case devices do
+        [device | _] ->
+          n = get_attribute(device, ~c"Name") || "Unknown Controller"
+          t = get_attribute(device, ~c"Type") || "Unknown"
+          {n, t}
+
+        [] ->
+          {"Unknown Controller", "Unknown"}
+      end
+
+    entries = xpath_elements(doc, ~c"//Entry")
+
+    deck_count =
+      entries
+      |> Enum.flat_map(fn entry ->
+        control_id =
+          to_string(
+            get_child_text(entry, ~c"ControlId") || get_child_text(entry, ~c"Name") || ""
+          )
+
+        deck_attr =
+          to_string(
+            get_child_text(entry, ~c"Deck") || get_child_text(entry, ~c"Assignment") || ""
+          )
+
+        id_lower = String.downcase(control_id)
+
+        cond do
+          deck_attr in ["A", "a", "1"] -> [1]
+          deck_attr in ["B", "b", "2"] -> [2]
+          deck_attr in ["C", "c", "3"] -> [3]
+          deck_attr in ["D", "d", "4"] -> [4]
+          String.contains?(id_lower, "deck.1") or String.contains?(id_lower, "deck_a") -> [1]
+          String.contains?(id_lower, "deck.2") or String.contains?(id_lower, "deck_b") -> [2]
+          String.contains?(id_lower, "deck.3") or String.contains?(id_lower, "deck_c") -> [3]
+          String.contains?(id_lower, "deck.4") or String.contains?(id_lower, "deck_d") -> [4]
+          true -> []
+        end
+      end)
+      |> Enum.uniq()
+      |> length()
+      |> max(2)
+
+    %{
+      name: name,
+      device_type: device_type,
+      deck_count: deck_count,
+      template_metadata: %{"device_name" => name, "device_type" => device_type}
+    }
   end
 
   defp extract_tsi_mappings(doc, user_id) do
@@ -205,17 +275,21 @@ defmodule SoundForge.DJ.Presets do
   }
 
   @doc """
-  Parses a TouchOSC .touchosc file (ZIP containing index.xml) and returns mapping attributes.
+  Parses a TouchOSC .touchosc file (ZIP containing index.xml) and returns mapping attributes
+  plus DJ layout metadata.
 
   ## Parameters
     - `binary` - the raw file contents
     - `user_id` - the user to associate mappings with
 
   ## Returns
-    - `{:ok, [mapping_attrs]}` on success
+    - `{:ok, %{mappings: [mapping_attrs], layout: layout_map}}` on success
     - `{:error, reason}` on failure
+
+  Where `layout_map` is `%{pages: [...], crossfader_control: map | nil, deck_controls: %{deck1: [...], deck2: [...]}}`.
   """
-  @spec parse_touchosc(binary(), binary()) :: {:ok, [mapping_attrs()]} | {:error, String.t()}
+  @spec parse_touchosc(binary(), binary()) ::
+          {:ok, %{mappings: [mapping_attrs()], layout: map()}} | {:error, String.t()}
   def parse_touchosc(binary, user_id) when is_binary(binary) and is_binary(user_id) do
     case :zip.unzip(binary, [:memory]) do
       {:ok, files} ->
@@ -227,7 +301,8 @@ defmodule SoundForge.DJ.Presets do
             case :xmerl_scan.string(charlist, quiet: true) do
               {doc, _rest} ->
                 mappings = extract_touchosc_mappings(doc, user_id)
-                {:ok, mappings}
+                layout = extract_touchosc_dj_layout(doc)
+                {:ok, %{mappings: mappings, layout: layout}}
 
               _ ->
                 {:error, "Failed to parse TouchOSC index.xml"}
@@ -242,6 +317,8 @@ defmodule SoundForge.DJ.Presets do
     end
   rescue
     e -> {:error, "TouchOSC parse error: #{Exception.message(e)}"}
+  catch
+    :exit, reason -> {:error, "TouchOSC parse error: #{inspect(reason)}"}
   end
 
   defp find_index_xml(files) do
@@ -252,6 +329,88 @@ defmodule SoundForge.DJ.Presets do
       {_name, content} when is_binary(content) -> {:ok, content}
       {_name, content} when is_list(content) -> {:ok, :erlang.list_to_binary(content)}
       nil -> {:error, "index.xml not found in TouchOSC archive"}
+    end
+  end
+
+  defp extract_touchosc_dj_layout(doc) do
+    # Extract page/tab structure
+    page_elems =
+      xpath_elements(doc, ~c"//tabpage") ++ xpath_elements(doc, ~c"//page")
+
+    pages =
+      Enum.map(page_elems, fn page ->
+        page_name = get_attribute(page, ~c"name") || ""
+        page_controls = find_elements(page, :control)
+
+        controls =
+          Enum.map(page_controls, fn c ->
+            %{
+              type: get_attribute(c, ~c"type") || "",
+              label: get_attribute(c, ~c"name") || "",
+              x: parse_float_attr(get_attribute(c, ~c"x")),
+              y: parse_float_attr(get_attribute(c, ~c"y")),
+              w: parse_float_attr(get_attribute(c, ~c"w")),
+              h: parse_float_attr(get_attribute(c, ~c"h")),
+              midi_type: get_attribute(c, ~c"midi_type") || "",
+              midi_channel: parse_int(get_attribute(c, ~c"midi_channel"), 0),
+              midi_number: parse_int(get_attribute(c, ~c"midi_number"), 0)
+            }
+          end)
+
+        %{name: page_name, controls: controls}
+      end)
+
+    # Flatten all controls for crossfader + deck grouping
+    all_controls =
+      xpath_elements(doc, ~c"//control")
+      |> Enum.map(fn c ->
+        %{
+          type: get_attribute(c, ~c"type") || "",
+          label: get_attribute(c, ~c"name") || "",
+          x: parse_float_attr(get_attribute(c, ~c"x")),
+          y: parse_float_attr(get_attribute(c, ~c"y")),
+          w: parse_float_attr(get_attribute(c, ~c"w")),
+          h: parse_float_attr(get_attribute(c, ~c"h")),
+          midi_type: get_attribute(c, ~c"midi_type") || "",
+          midi_channel: parse_int(get_attribute(c, ~c"midi_channel"), 0),
+          midi_number: parse_int(get_attribute(c, ~c"midi_number"), 0)
+        }
+      end)
+
+    crossfader_control =
+      Enum.find(all_controls, fn c ->
+        String.contains?(String.downcase(c.label), "crossfader")
+      end)
+
+    deck_controls =
+      Enum.reduce(all_controls, %{deck1: [], deck2: []}, fn c, acc ->
+        label_lower = String.downcase(c.label)
+
+        cond do
+          String.starts_with?(label_lower, "deck1_") or
+            String.starts_with?(label_lower, "deck1 ") or
+              String.match?(label_lower, ~r/^d1[_\s]/) ->
+            Map.update!(acc, :deck1, &(&1 ++ [c]))
+
+          String.starts_with?(label_lower, "deck2_") or
+            String.starts_with?(label_lower, "deck2 ") or
+              String.match?(label_lower, ~r/^d2[_\s]/) ->
+            Map.update!(acc, :deck2, &(&1 ++ [c]))
+
+          true ->
+            acc
+        end
+      end)
+
+    %{pages: pages, crossfader_control: crossfader_control, deck_controls: deck_controls}
+  end
+
+  defp parse_float_attr(nil), do: 0.0
+
+  defp parse_float_attr(str) do
+    case Float.parse(to_string(str)) do
+      {f, _} -> f
+      :error -> 0.0
     end
   end
 
@@ -387,8 +546,13 @@ defmodule SoundForge.DJ.Presets do
   defp xpath_elements(doc, tag_name) do
     tag_atom =
       case tag_name do
-        name when is_list(name) -> List.to_atom(name)
-        name when is_atom(name) -> name
+        name when is_list(name) ->
+          # Strip XPath-like "//" prefix for descendant search
+          clean = name |> to_string() |> String.replace(~r{^//}, "") |> String.to_atom()
+          clean
+
+        name when is_atom(name) ->
+          name
       end
 
     find_elements(doc, tag_atom)

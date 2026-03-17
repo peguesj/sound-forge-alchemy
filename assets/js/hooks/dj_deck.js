@@ -67,6 +67,9 @@ const DjDeck = {
     this.handleEvent("set_filter", (payload) => this._setFilter(payload))
     this.handleEvent("set_pitch", (payload) => this._setPitch(payload))
     this.handleEvent("stem_loop_preview", (payload) => this._stemLoopPreview(payload))
+    this.handleEvent("set_master_volume", (payload) => this._setMasterVolume(payload))
+    this.handleEvent("set_eq_gain", (payload) => this._setEqGain(payload))
+    this.handleEvent("download_file", (payload) => this._downloadFile(payload))
 
     // Instant client-side audio actions — fired via JS.dispatch() before the
     // server round-trip completes. Eliminates the phx-click → server → push_event
@@ -675,6 +678,50 @@ const DjDeck = {
     if (!node) return
     node.gain.setValueAtTime(active ? KILL_GAIN : 0, deckState.audioContext.currentTime)
     console.log(`[DjDeck] Deck ${deck}: EQ ${band} kill=${active}`)
+  },
+
+  /**
+   * Set master volume for all loaded decks.
+   * @param {Object} payload - { value: 0-100 }
+   */
+  _setMasterVolume({ value }) {
+    const gainValue = Math.max(0, Math.min(100, value)) / 100
+    Object.values(this.decks).forEach(deckState => {
+      if (deckState && deckState.masterGain) {
+        deckState.masterGain.gain.setValueAtTime(gainValue, deckState.audioContext.currentTime)
+      }
+    })
+    console.log(`[DjDeck] Master volume: ${value}%`)
+  },
+
+  /**
+   * Set EQ gain for a specific deck and band.
+   * @param {Object} payload - { deck, band: "low"|"mid"|"high", gain: -12..12 dB }
+   */
+  _setEqGain({ deck, band, gain }) {
+    const deckState = this.decks[deck]
+    if (!deckState) return
+    const node = band === "low" ? deckState.eqLow : band === "mid" ? deckState.eqMid : deckState.eqHigh
+    if (!node) return
+    node.gain.setValueAtTime(gain, deckState.audioContext.currentTime)
+    console.log(`[DjDeck] Deck ${deck}: EQ ${band} gain=${gain}dB`)
+  },
+
+  /**
+   * Trigger a browser file download.
+   * @param {Object} payload - { filename, content, mime }
+   */
+  _downloadFile({ filename, content, mime }) {
+    const blob = new Blob([content], { type: mime || "application/octet-stream" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    console.log(`[DjDeck] Downloaded: ${filename}`)
   },
 
   // -- Stem Solo / Mute --
