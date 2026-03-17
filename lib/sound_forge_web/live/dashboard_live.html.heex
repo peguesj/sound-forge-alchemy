@@ -82,7 +82,7 @@
       <%= if @nav_tab == :dj do %>
         <.live_component
           module={SoundForgeWeb.Live.Components.DjTabComponent}
-          id="dj-tab"
+          id="dj-tab-root"
           current_scope={@current_scope}
           current_user_id={@current_user_id}
         />
@@ -3040,6 +3040,7 @@
   spotify_playback={@spotify_playback}
   spotify_linked={@spotify_linked}
   spotify_premium={@spotify_premium}
+  spotify_alchemy_playing={@spotify_alchemy_playing}
 />
 
 <%!-- AI Assistant Chat (floating, bottom-right) --%>

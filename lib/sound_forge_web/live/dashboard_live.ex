@@ -48,6 +48,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:spotify_playback, nil)
       |> assign(:spotify_linked, spotify_linked?(current_user_id))
       |> assign(:spotify_premium, true)
+      |> assign(:spotify_alchemy_playing, false)
       |> assign(:nav_tab, :library)
       |> assign(:nav_context, :all_tracks)
       |> assign(:browse_filter, nil)
@@ -663,6 +664,49 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, socket}
   end
 
+  def handle_event("client_midi_devices_updated", %{"devices" => client_devices}, socket) do
+    # Normalize server devices (atom-keyed maps) to string-keyed maps tagged source=server.
+    server_devices =
+      safe_list_midi_devices()
+      |> Enum.map(fn d ->
+        %{
+          "name" => to_string(d.name || "Unknown"),
+          "type" => to_string(d.type || ""),
+          "direction" => to_string(d.direction || ""),
+          "port_id" => to_string(d.port_id || ""),
+          "status" => to_string(d.status || "connected"),
+          "source" => "server"
+        }
+      end)
+
+    # Client devices arrive as string-keyed maps from the Web MIDI API.
+    tagged_client =
+      (client_devices || [])
+      |> Enum.map(fn d ->
+        %{
+          "name" => d["name"] || "Unknown",
+          "type" => d["type"] || "",
+          "direction" => d["type"] || "",
+          "port_id" => d["id"] || "",
+          "status" => d["state"] || "connected",
+          "manufacturer" => d["manufacturer"] || "",
+          "source" => "client"
+        }
+      end)
+
+    # Merge: prefer client devices (they reflect what the browser sees). Dedup by name+direction.
+    client_keys = MapSet.new(tagged_client, &{&1["name"], &1["direction"]})
+
+    server_only =
+      Enum.reject(server_devices, fn d ->
+        MapSet.member?(client_keys, {d["name"], d["direction"]})
+      end)
+
+    all_devices = tagged_client ++ server_only
+
+    {:noreply, assign(socket, :midi_devices, all_devices)}
+  end
+
   def handle_event("test_lalalai_connection", _params, socket) do
     user_id = socket.assigns[:current_user_id]
     key = LalalAI.api_key_for_user(user_id)
@@ -949,10 +993,9 @@ defmodule SoundForgeWeb.DashboardLive do
 
     case SoundForge.Spotify.OAuth.get_valid_access_token(user_id) do
       {:ok, token} ->
-        # Push a refreshed token (JS hook will skip re-init if already connected)
-        # then push the play event
         {:noreply,
          socket
+         |> assign(:spotify_alchemy_playing, true)
          |> push_event("spotify_token", %{token: token})
          |> push_event("spotify_play", %{uri: uri})}
 
@@ -974,7 +1017,10 @@ defmodule SoundForgeWeb.DashboardLive do
       artist_name: params["artist_name"],
       album_art_url: params["album_art_url"],
       position_ms: params["position_ms"] || 0,
-      duration_ms: params["duration_ms"] || 0
+      duration_ms: params["duration_ms"] || 0,
+      track_uri: params["track_uri"],
+      context_type: params["context_type"],
+      context_uri: params["context_uri"]
     }
 
     {:noreply, assign(socket, :spotify_playback, playback)}
@@ -1121,7 +1167,7 @@ defmodule SoundForgeWeb.DashboardLive do
 
   def handle_event("keydown", params, %{assigns: %{nav_tab: :dj}} = socket) do
     send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-      id: "dj-tab",
+      id: "dj-tab-root",
       keydown: params
     )
 
@@ -2042,6 +2088,10 @@ defmodule SoundForgeWeb.DashboardLive do
 
   # Spotify control messages from SpotifyPlayer component
   @impl true
+  def handle_info({:initiate_spotify_play, uri}, socket) do
+    handle_event("play_spotify", %{"uri" => uri}, socket)
+  end
+
   def handle_info(:spotify_pause, socket) do
     {:noreply, push_event(socket, "spotify_pause", %{})}
   end
@@ -2097,7 +2147,7 @@ defmodule SoundForgeWeb.DashboardLive do
       ) do
     if socket.assigns.nav_tab == :dj do
       send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-        id: "dj-tab",
+        id: "dj-tab-root",
         auto_cues_complete: payload
       )
     end
@@ -2121,7 +2171,7 @@ defmodule SoundForgeWeb.DashboardLive do
       ) do
     if socket.assigns.nav_tab == :dj do
       send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-        id: "dj-tab",
+        id: "dj-tab-root",
         chef_progress: payload
       )
     end
@@ -2136,7 +2186,7 @@ defmodule SoundForgeWeb.DashboardLive do
       ) do
     if socket.assigns.nav_tab == :dj do
       send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-        id: "dj-tab",
+        id: "dj-tab-root",
         chef_complete: payload
       )
     end
@@ -2153,7 +2203,7 @@ defmodule SoundForgeWeb.DashboardLive do
       ) do
     if socket.assigns.nav_tab == :dj do
       send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-        id: "dj-tab",
+        id: "dj-tab-root",
         chef_failed: payload
       )
     end
@@ -2230,7 +2280,7 @@ defmodule SoundForgeWeb.DashboardLive do
 
     if socket.assigns.nav_tab == :dj do
       send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-        id: "dj-tab",
+        id: "dj-tab-root",
         midi_event: msg
       )
     end
@@ -2242,7 +2292,7 @@ defmodule SoundForgeWeb.DashboardLive do
   def handle_info({:virtual_controller, :trigger_cue, params}, socket) do
     if socket.assigns.nav_tab == :dj do
       send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-        id: "dj-tab",
+        id: "dj-tab-root",
         virtual_controller: {:trigger_cue, params}
       )
     end

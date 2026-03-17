@@ -13,7 +13,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
 
   alias SoundForge.Music
   alias SoundForge.DJ
-  alias SoundForge.DJ.{Chef, Presets, Timecode}
+  alias SoundForge.DJ.{Chef, Presets, Timecode, CueSets}
   alias SoundForge.DJ.PresetsContext
   alias SoundForge.DJ.Layouts.Rekordbox
   alias SoundForge.MIDI.Mappings
@@ -61,11 +61,51 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
      |> assign(:chef_progress_message, nil)
      |> assign(:chef_recipe, nil)
      |> assign(:chef_error, nil)
+     |> assign(:deck_1_chef_type, "hot_cue_set")
+     |> assign(:deck_2_chef_type, "hot_cue_set")
+     |> assign(:deck_1_cue_sort, "confidence")
+     |> assign(:deck_2_cue_sort, "confidence")
+     |> assign(:deck_1_cue_page, 1)
+     |> assign(:deck_2_cue_page, 1)
+     |> assign(:deck_1_cue_per_page, 8)
+     |> assign(:deck_2_cue_per_page, 8)
+     |> assign(:deck_1_chef_sets, [])
+     |> assign(:deck_2_chef_sets, [])
      |> assign(:initialized, false)
      |> assign(:browser_open, false)
      |> assign(:browser_search, "")
      |> assign(:master_volume, 85)
      |> assign(:presets_panel_open, false)
+     |> assign(:deck_1_grid_mode, "bar")
+     |> assign(:deck_2_grid_mode, "bar")
+     |> assign(:deck_1_grid_fraction, "1/4")
+     |> assign(:deck_2_grid_fraction, "1/4")
+     |> assign(:deck_1_leading_stem, "drums")
+     |> assign(:deck_2_leading_stem, "drums")
+     |> assign(:deck_1_rhythmic_quantize, false)
+     |> assign(:deck_2_rhythmic_quantize, false)
+     |> assign(:deck_1_deck_type, "full")
+     |> assign(:deck_2_deck_type, "full")
+     |> assign(:deck_3_deck_type, "loop")
+     |> assign(:deck_4_deck_type, "loop")
+     |> assign(:master_deck_number, nil)
+     |> assign(:deck_1_key_lock, false)
+     |> assign(:deck_2_key_lock, false)
+     |> assign(:deck_3_key_lock, false)
+     |> assign(:deck_4_key_lock, false)
+     |> assign(:crossfader_split, false)
+     |> assign(:deck_3_loop_pads, default_loop_pads())
+     |> assign(:deck_4_loop_pads, default_loop_pads())
+     |> assign(:deck_3_pad_mode, "loop")
+     |> assign(:deck_4_pad_mode, "loop")
+     |> assign(:deck_3_poly_voices, 1)
+     |> assign(:deck_4_poly_voices, 1)
+     |> assign(:deck_3_pad_fade, "none")
+     |> assign(:deck_4_pad_fade, "none")
+     |> assign(:deck_3_active_pads, [])
+     |> assign(:deck_4_active_pads, [])
+     |> assign(:dj_midi_learn_mode, false)
+     |> assign(:dj_midi_learn_target, nil)
      |> assign(:saved_presets, [])
      |> assign(:preset_name_input, "")
      |> assign(:rekordbox_import_result, nil)
@@ -1157,9 +1197,10 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     deck = Map.get(socket.assigns, deck_key)
     user_id = socket.assigns[:current_user_id]
     detecting_key = detecting_cues_key(deck_number)
+    leading_stem = Map.get(socket.assigns, :"deck_#{deck_number}_leading_stem", "drums")
 
     if deck.track && user_id do
-      case DJ.generate_auto_cues(deck.track.id, user_id) do
+      case DJ.generate_auto_cues(deck.track.id, user_id, leading_stem: leading_stem) do
         {:ok, _job} ->
           # Subscribe to the track's PubSub topic for completion broadcast
           SoundForgeWeb.Endpoint.subscribe("tracks:#{deck.track.id}")
@@ -1256,7 +1297,9 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       # Refresh cue points list (keeps manual cues, removes auto ones)
       cue_points = DJ.list_cue_points(deck.track.id, user_id)
 
-      case DJ.generate_auto_cues(deck.track.id, user_id) do
+      leading_stem = Map.get(socket.assigns, :"deck_#{deck_number}_leading_stem", "drums")
+
+      case DJ.generate_auto_cues(deck.track.id, user_id, leading_stem: leading_stem) do
         {:ok, _job} ->
           SoundForgeWeb.Endpoint.subscribe("tracks:#{deck.track.id}")
 
@@ -1280,6 +1323,389 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     else
       {:noreply, socket}
     end
+  end
+
+  # -- Grid / Leading Stem / Rhythmic Quantize --
+
+  @impl true
+  def handle_event("set_grid_mode", %{"deck" => deck_str, "mode" => mode}, socket) do
+    deck_number = String.to_integer(deck_str)
+    grid_mode_key = :"deck_#{deck_number}_grid_mode"
+
+    {:noreply,
+     socket
+     |> assign(grid_mode_key, mode)
+     |> push_event("set_grid_mode", %{deck: deck_number, mode: mode})}
+  end
+
+  @impl true
+  def handle_event("set_grid_fraction", %{"deck" => deck_str, "fraction" => fraction}, socket) do
+    deck_number = String.to_integer(deck_str)
+    key = :"deck_#{deck_number}_grid_fraction"
+
+    {:noreply,
+     socket
+     |> assign(key, fraction)
+     |> push_event("set_grid_fraction", %{deck: deck_number, fraction: fraction})}
+  end
+
+  @impl true
+  def handle_event("set_deck_type", %{"deck" => deck_str, "deck_type" => deck_type}, socket) do
+    deck_number = String.to_integer(deck_str)
+    key = :"deck_#{deck_number}_deck_type"
+    {:noreply, assign(socket, key, deck_type)}
+  end
+
+  # -- Loop Deck Pad Handlers --
+
+  @impl true
+  def handle_event("trigger_loop_pad", %{"deck" => deck_str, "pad" => pad_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    pad_index = String.to_integer(pad_str)
+    pads_key = :"deck_#{deck_number}_loop_pads"
+    active_key = :"deck_#{deck_number}_active_pads"
+    mode_key = :"deck_#{deck_number}_pad_mode"
+    poly_key = :"deck_#{deck_number}_poly_voices"
+    deck_key = deck_assign_key(deck_number)
+
+    pads = Map.get(socket.assigns, pads_key, default_loop_pads())
+    pad = Enum.at(pads, pad_index)
+    mode = Map.get(socket.assigns, mode_key, "loop")
+    poly = Map.get(socket.assigns, poly_key, 1)
+    deck = Map.get(socket.assigns, deck_key)
+    active_pads = Map.get(socket.assigns, active_key, [])
+
+    if pad && pad.assigned && deck && deck.track do
+      position_sec = pad.position_ms / 1000.0
+
+      # Enforce polyphony: deactivate oldest pads if at voice limit
+      new_active =
+        if pad_index in active_pads do
+          List.delete(active_pads, pad_index)
+        else
+          capped = if length(active_pads) >= poly, do: tl(active_pads), else: active_pads
+          capped ++ [pad_index]
+        end
+
+      socket =
+        socket
+        |> assign(active_key, new_active)
+        |> push_event("loop_pad_trigger", %{
+          deck: deck_number,
+          pad: pad_index,
+          position: position_sec,
+          loop_end: pad.end_ms && pad.end_ms / 1000.0,
+          mode: mode,
+          fade: Map.get(socket.assigns, :"deck_#{deck_number}_pad_fade", "none")
+        })
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("assign_loop_pad", %{"deck" => deck_str, "pad" => pad_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    pad_index = String.to_integer(pad_str)
+    deck_key = deck_assign_key(deck_number)
+    pads_key = :"deck_#{deck_number}_loop_pads"
+    deck = Map.get(socket.assigns, deck_key)
+
+    if deck && deck.track do
+      position_ms = trunc(deck.position * 1000)
+      # Default loop end = 4 beats ahead
+      bpm = if deck.tempo_bpm > 0, do: deck.tempo_bpm, else: 120.0
+      beat_ms = trunc(60_000 / bpm)
+      end_ms = position_ms + beat_ms * 4
+
+      pads = Map.get(socket.assigns, pads_key, default_loop_pads())
+      pad_colors = ~w(#7c3aed #2563eb #0891b2 #059669 #d97706 #dc2626 #db2777 #6d28d9)
+      color = Enum.at(pad_colors, rem(pad_index, length(pad_colors)), "#7c3aed")
+
+      updated_pads =
+        List.update_at(pads, pad_index, fn _pad ->
+          %{
+            assigned: true,
+            position_ms: position_ms,
+            end_ms: end_ms,
+            label: "#{format_ms(position_ms)}",
+            color: color
+          }
+        end)
+
+      {:noreply, assign(socket, pads_key, updated_pads)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("clear_loop_pad", %{"deck" => deck_str, "pad" => pad_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    pad_index = String.to_integer(pad_str)
+    pads_key = :"deck_#{deck_number}_loop_pads"
+    active_key = :"deck_#{deck_number}_active_pads"
+
+    pads = Map.get(socket.assigns, pads_key, default_loop_pads())
+    updated = List.update_at(pads, pad_index, fn _ -> empty_pad() end)
+    active = Map.get(socket.assigns, active_key, [])
+    new_active = List.delete(active, pad_index)
+
+    socket =
+      socket
+      |> assign(pads_key, updated)
+      |> assign(active_key, new_active)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("set_pad_mode", %{"deck" => deck_str, "mode" => mode}, socket) do
+    deck_number = String.to_integer(deck_str)
+    {:noreply, assign(socket, :"deck_#{deck_number}_pad_mode", mode)}
+  end
+
+  @impl true
+  def handle_event("set_pad_poly", %{"deck" => deck_str, "voices" => voices_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    voices = String.to_integer(voices_str)
+    {:noreply, assign(socket, :"deck_#{deck_number}_poly_voices", voices)}
+  end
+
+  @impl true
+  def handle_event("set_pad_fade", %{"deck" => deck_str, "fade" => fade}, socket) do
+    deck_number = String.to_integer(deck_str)
+    {:noreply, assign(socket, :"deck_#{deck_number}_pad_fade", fade)}
+  end
+
+  @impl true
+  def handle_event("set_master_deck", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    current_master = socket.assigns.master_deck_number
+
+    new_master = if current_master == deck_number, do: nil, else: deck_number
+    {:noreply, assign(socket, :master_deck_number, new_master)}
+  end
+
+  @impl true
+  def handle_event("toggle_key_lock", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    key = :"deck_#{deck_number}_key_lock"
+    {:noreply, assign(socket, key, !Map.get(socket.assigns, key, false))}
+  end
+
+  @impl true
+  def handle_event("toggle_crossfader_split", _params, socket) do
+    {:noreply, assign(socket, :crossfader_split, !socket.assigns.crossfader_split)}
+  end
+
+  # -- Chef Cue Set Handlers --
+
+  @impl true
+  def handle_event("set_chef_type", %{"deck" => deck_str, "chef_type" => chef_type}, socket) do
+    deck_number = String.to_integer(deck_str)
+    {:noreply, assign(socket, :"deck_#{deck_number}_chef_type", chef_type)}
+  end
+
+  @impl true
+  def handle_event("set_cue_sort", %{"deck" => deck_str, "sort" => sort}, socket) do
+    deck_number = String.to_integer(deck_str)
+    {:noreply,
+     socket
+     |> assign(:"deck_#{deck_number}_cue_sort", sort)
+     |> assign(:"deck_#{deck_number}_cue_page", 1)}
+  end
+
+  @impl true
+  def handle_event("cue_page", %{"deck" => deck_str, "page" => page_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    page = String.to_integer(page_str)
+    {:noreply, assign(socket, :"deck_#{deck_number}_cue_page", max(1, page))}
+  end
+
+  @impl true
+  def handle_event("generate_chef_set", %{"deck" => deck_str} = params, socket) do
+    deck_number = String.to_integer(deck_str)
+    deck = Map.get(socket.assigns, :"deck_#{deck_number}")
+    user_id = socket.assigns[:current_user_id]
+    chef_type = Map.get(params, "chef_type", Map.get(socket.assigns, :"deck_#{deck_number}_chef_type", "hot_cue_set"))
+
+    if deck && deck.track && user_id do
+      leading_stem = Map.get(socket.assigns, :"deck_#{deck_number}_leading_stem", "drums")
+
+      case CueSets.generate_chef_set(deck.track.id, user_id,
+             type: chef_type,
+             leading_stem: leading_stem,
+             name: "Chef #{chef_type} #{Date.utc_today()}"
+           ) do
+        {:ok, _job} ->
+          {:noreply,
+           socket
+           |> assign(:"detecting_cues_deck_#{deck_number}", true)
+           |> put_flash(:info, "Chef is generating #{chef_type} for Deck #{deck_letter(deck_number)}...")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Chef generation failed")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Load a track first")}
+    end
+  end
+
+  @impl true
+  def handle_event("load_chef_set", %{"deck" => deck_str, "set_id" => set_id}, socket) do
+    deck_number = String.to_integer(deck_str)
+    user_id = socket.assigns[:current_user_id]
+
+    case CueSets.get_chef_set(set_id, user_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Chef set not found")}
+
+      chef_set ->
+        items = CueSets.list_chef_set_items(chef_set.id, per_page: 100)
+        cue_key = :"deck_#{deck_number}_cue_points"
+        existing = Map.get(socket.assigns, cue_key, [])
+
+        new_cues =
+          Enum.map(items.items, fn item ->
+            %{
+              id: item.id,
+              position_ms: item.position_ms,
+              label: item.label || "C",
+              cue_type: :hot,
+              auto_generated: true,
+              confidence: item.confidence || 1.0,
+              color: item.color || "#6366f1"
+            }
+          end)
+
+        merged = (Enum.reject(existing, & &1.auto_generated) ++ new_cues)
+
+        {:noreply,
+         socket
+         |> assign(cue_key, merged)
+         |> push_event("set_cue_points", %{deck: deck_number, cue_points: encode_cue_points(merged)})
+         |> put_flash(:info, "Loaded Chef set: #{chef_set.name}")}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_chef_set", %{"set_id" => set_id}, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    case CueSets.delete_chef_set(set_id, user_id) do
+      {:ok, _} ->
+        track_1_id = socket.assigns.deck_1.track && socket.assigns.deck_1.track.id
+        track_2_id = socket.assigns.deck_2.track && socket.assigns.deck_2.track.id
+        sets_1 = if track_1_id, do: CueSets.list_chef_sets(user_id, track_1_id), else: []
+        sets_2 = if track_2_id, do: CueSets.list_chef_sets(user_id, track_2_id), else: []
+        {:noreply,
+         socket
+         |> assign(:deck_1_chef_sets, sets_1)
+         |> assign(:deck_2_chef_sets, sets_2)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete Chef set")}
+    end
+  end
+
+  @impl true
+  def handle_event("set_leading_stem", %{"deck" => deck_str, "stem" => stem}, socket) do
+    deck_number = String.to_integer(deck_str)
+    {:noreply, assign(socket, :"deck_#{deck_number}_leading_stem", stem)}
+  end
+
+  @impl true
+  def handle_event("toggle_rhythmic_quantize", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    rq_key = :"deck_#{deck_number}_rhythmic_quantize"
+    new_val = !Map.get(socket.assigns, rq_key, false)
+
+    {:noreply,
+     socket
+     |> assign(rq_key, new_val)
+     |> push_event("set_rhythmic_quantize", %{deck: deck_number, enabled: new_val})}
+  end
+
+  # -- DJ MIDI Learn Mode --
+
+  @impl true
+  def handle_event("toggle_dj_midi_learn", _params, socket) do
+    new_mode = !socket.assigns.dj_midi_learn_mode
+
+    if new_mode do
+      {:noreply,
+       socket
+       |> assign(:dj_midi_learn_mode, true)
+       |> assign(:dj_midi_learn_target, nil)
+       |> push_event("enter_dj_midi_learn", %{})}
+    else
+      {:noreply,
+       socket
+       |> assign(:dj_midi_learn_mode, false)
+       |> assign(:dj_midi_learn_target, nil)
+       |> push_event("exit_dj_midi_learn", %{})}
+    end
+  end
+
+  @impl true
+  def handle_event("dj_learn_control", params, socket) do
+    target = %{
+      "action" => params["action"],
+      "deck" => params["deck"],
+      "slot" => params["slot"]
+    }
+
+    {:noreply,
+     socket
+     |> assign(:dj_midi_learn_target, target)
+     |> push_event("enter_dj_midi_learn", %{target: target})}
+  end
+
+  @impl true
+  def handle_event(
+        "dj_midi_learned",
+        %{
+          "device_name" => device_name,
+          "midi_type" => midi_type_str,
+          "channel" => channel,
+          "number" => number,
+          "action" => action_str
+        } = params,
+        socket
+      ) do
+    user_id = socket.assigns[:current_user_id]
+
+    if user_id do
+      midi_type = String.to_existing_atom(midi_type_str)
+      action = String.to_existing_atom(action_str)
+
+      mapping_params =
+        %{}
+        |> then(fn p -> if params["deck"], do: Map.put(p, "deck", params["deck"]), else: p end)
+        |> then(fn p -> if params["slot"], do: Map.put(p, "slot", params["slot"]), else: p end)
+
+      attrs = %{
+        user_id: user_id,
+        device_name: device_name,
+        midi_type: midi_type,
+        channel: channel,
+        number: number,
+        action: action,
+        params: mapping_params,
+        source: "dj_learn"
+      }
+
+      SoundForge.MIDI.Mappings.upsert_dj_mapping(attrs)
+    end
+
+    # Stay in learn mode, clear target so next control can be assigned
+    {:noreply,
+     socket
+     |> assign(:dj_midi_learn_target, nil)
+     |> push_event("dj_learn_assignment_saved", %{action: action_str})}
   end
 
   # -- Chef Controls --
@@ -2039,12 +2465,15 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   def render(assigns) do
     ~H"""
     <div
-      id="dj-tab"
-      phx-hook="DjDeck"
-      class="p-4 md:p-6 pb-10"
+      id="dj-tab-root"
       phx-target={@myself}
     >
-      <div class="max-w-7xl mx-auto">
+      <div
+        id="dj-tab"
+        phx-hook="DjDeck"
+        class="p-4 md:p-6 pb-10"
+      >
+      <div class="w-full max-w-7xl mx-auto overflow-x-hidden">
         <%!-- Track Browser Toggle --%>
         <div class="flex items-center mb-4">
           <button
@@ -2100,8 +2529,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           </div>
         </div>
 
-        <%!-- Master + Crossfader strip (above deck row) --%>
-        <div class="flex justify-center items-end gap-10 pb-4 mb-1">
+        <%!-- Master Volume Strip (top center) --%>
+        <div class="flex justify-center pb-3 mb-1">
           <div class="flex flex-col items-center gap-1">
             <span class="text-[9px] text-purple-400 font-bold uppercase tracking-widest">MASTER</span>
             <form phx-change="set_master_volume" phx-target={@myself}>
@@ -2112,28 +2541,10 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                 max={100}
                 step={1}
                 value={@master_volume}
-                size={44}
+                size={40}
               />
             </form>
             <span class="text-[9px] text-gray-500 font-mono">{@master_volume}%</span>
-          </div>
-          <div class="flex flex-col items-center gap-1">
-            <span class="text-[9px] text-gray-400 uppercase tracking-widest">XFADE</span>
-            <form phx-change="crossfader" phx-target={@myself}>
-              <.dial_knob
-                id="crossfader-knob"
-                name="value"
-                min={-100}
-                max={100}
-                step={1}
-                value={@crossfader}
-                size={44}
-              />
-            </form>
-            <div class="flex justify-between w-11 mt-0.5">
-              <span class="text-[8px] text-gray-600">A</span>
-              <span class="text-[8px] text-gray-600">B</span>
-            </div>
           </div>
         </div>
 
@@ -2157,49 +2568,243 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               stem_loops_open={@deck_1_stem_loops_open}
               myself={@myself}
               show_eq={false}
+              grid_mode={@deck_1_grid_mode}
+              grid_fraction={@deck_1_grid_fraction}
+              leading_stem={@deck_1_leading_stem}
+              rhythmic_quantize={@deck_1_rhythmic_quantize}
+              midi_learn_mode={@dj_midi_learn_mode}
+              midi_learn_target={@dj_midi_learn_target}
+              deck_type={@deck_1_deck_type}
+              is_master={@master_deck_number == 1}
+              key_lock={@deck_1_key_lock}
+              chef_type={@deck_1_chef_type}
+              cue_sort={@deck_1_cue_sort}
+              cue_page={@deck_1_cue_page}
+              cue_per_page={@deck_1_cue_per_page}
+              chef_sets={@deck_1_chef_sets}
             />
           </div>
 
-          <%!-- D1 EQ column (inline, right of Deck 1) --%>
-          <div class="flex-shrink-0 flex flex-col items-center gap-1.5 pt-2 px-2 border-x border-gray-800/60">
-            <span class="text-[9px] text-cyan-500 font-bold uppercase tracking-widest">D1</span>
-            <%= for {band, label} <- [{"high", "HI"}, {"mid", "MID"}, {"low", "LO"}] do %>
-              <form phx-change={"set_eq_gain_deck_1_" <> band} phx-target={@myself}>
-                <input type="hidden" name="deck" value="1" />
-                <input type="hidden" name="band" value={band} />
-                <.dial_knob
-                  id={"d1-eq-" <> band}
-                  name="gain"
-                  min={-12}
-                  max={12}
-                  step={1}
-                  value={0}
-                  size={32}
-                  label={label}
-                />
-              </form>
-            <% end %>
-          </div>
+          <%!-- Center Mixer Column: EQ + Pitch + Stems + Volume Faders + Crossfader --%>
+          <%!-- Structured as: [D1 col | D2 col] side by side, crossfader full-width below --%>
+          <div class="flex-shrink-0 flex flex-col border-x border-gray-800/60">
+            <%!-- D1 + D2 side by side --%>
+            <div class="flex">
+              <%!-- Deck A (D1) column --%>
+              <div class="flex flex-col items-center gap-1 pt-2 px-2 border-r border-gray-800/40 min-w-[60px]">
+                <span class="text-[9px] text-cyan-500 font-bold uppercase tracking-widest">A</span>
+                <%!-- EQ Knobs --%>
+                <%= for {band, label} <- [{"high", "HI"}, {"mid", "MID"}, {"low", "LO"}] do %>
+                  <form phx-change={"set_eq_gain_deck_1_" <> band} phx-target={@myself}>
+                    <input type="hidden" name="deck" value="1" />
+                    <input type="hidden" name="band" value={band} />
+                    <.dial_knob id={"d1-eq-" <> band} name="gain"
+                      min={-12} max={12} step={1} value={0} size={32} label={label} />
+                  </form>
+                <% end %>
+                <%!-- Pitch Knob --%>
+                <div class="flex flex-col items-center gap-0.5 mt-1">
+                  <span class={"text-[7px] font-mono font-bold " <>
+                    cond do
+                      @deck_1.pitch_adjust > 0 -> "text-green-400"
+                      @deck_1.pitch_adjust < 0 -> "text-red-400"
+                      true -> "text-gray-600"
+                    end}>
+                    {format_pitch(@deck_1.pitch_adjust)}
+                  </span>
+                  <form phx-change="set_pitch" phx-target={@myself} phx-value-deck="1">
+                    <.dial_knob id="d1-pitch" name="value"
+                      min={-80} max={80} step={1}
+                      value={trunc(@deck_1.pitch_adjust * 10)}
+                      size={32} label="PITCH" />
+                  </form>
+                  <button phx-click="pitch_reset" phx-target={@myself} phx-value-deck="1"
+                    disabled={@deck_1.pitch_adjust == 0.0}
+                    class={"px-1 py-0.5 text-[7px] font-bold rounded transition-colors " <>
+                      if(@deck_1.pitch_adjust == 0.0,
+                        do: "bg-gray-800 text-gray-700 cursor-not-allowed",
+                        else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                      )}>RST</button>
+                </div>
+                <%!-- Stem M/S for Deck A --%>
+                <% d1_stems = Enum.map(@deck_1.stems || [], &Atom.to_string(&1.stem_type)) %>
+                <div :if={length(d1_stems) > 0} class="flex flex-col gap-0.5 mt-1 w-full">
+                  <%= for stem_type <- d1_stems do %>
+                    <% state = Map.get(@deck_1.stem_states, stem_type, "on") %>
+                    <div class="flex items-center gap-0.5 w-full">
+                      <button phx-click="toggle_stem_state" phx-target={@myself}
+                        phx-value-deck="1" phx-value-stem={stem_type} phx-value-mode="solo"
+                        class={"w-4 h-4 text-[7px] font-bold rounded transition-colors " <>
+                          if(state == "solo", do: "bg-yellow-500 text-black", else: "bg-gray-700 text-gray-600 hover:bg-gray-600")}
+                        title={"Solo #{stem_type} (A)"}>S</button>
+                      <div class={"flex-1 text-[7px] font-bold text-center py-0.5 rounded truncate " <>
+                        case state do
+                          "mute" -> "bg-gray-800 text-gray-600 line-through"
+                          "solo" -> "bg-yellow-900/20 text-yellow-400"
+                          _ -> "bg-gray-800/40 text-gray-400"
+                        end}
+                        style={"background-color: #{if state == "on", do: stem_color_hex(stem_type) <> "22", else: ""}"}
+                      >{String.slice(stem_type, 0, 3)}</div>
+                      <button phx-click="toggle_stem_state" phx-target={@myself}
+                        phx-value-deck="1" phx-value-stem={stem_type} phx-value-mode="mute"
+                        class={"w-4 h-4 text-[7px] font-bold rounded transition-colors " <>
+                          if(state == "mute", do: "bg-red-700 text-white", else: "bg-gray-700 text-gray-600 hover:bg-gray-600")}
+                        title={"Mute #{stem_type} (A)"}>M</button>
+                    </div>
+                  <% end %>
+                </div>
+                <%!-- Deck A Volume Fader (vertical) --%>
+                <div class="flex flex-col items-center gap-0.5 mt-2 pt-2 border-t border-gray-700/30 w-full">
+                  <span class="text-[7px] text-gray-600 uppercase">VOL</span>
+                  <form phx-change="set_deck_volume" phx-target={@myself} phx-value-deck="1">
+                    <div class="relative flex items-center justify-center" style="height: 80px; width: 20px;">
+                      <%!-- Track --%>
+                      <div class="absolute w-1.5 rounded-full bg-gray-700" style="top: 2px; bottom: 2px;"></div>
+                      <%!-- Fill --%>
+                      <div class="absolute w-1.5 rounded-full bg-cyan-600/50"
+                        style={"bottom: 2px; height: #{@deck_1_volume * 0.76}px;"}></div>
+                      <input type="range" name="level" min="0" max="100" value={@deck_1_volume}
+                        class="absolute cursor-pointer appearance-none bg-transparent accent-cyan-500"
+                        style="writing-mode: vertical-lr; direction: rtl; width: 80px; height: 20px;
+                          transform: rotate(90deg); transform-origin: center;"
+                        aria-label="Deck A volume" />
+                      <%!-- Cap indicator --%>
+                      <div class="absolute w-4 h-3 bg-gray-200 rounded-sm shadow border border-gray-400 pointer-events-none"
+                        style={"bottom: #{2 + @deck_1_volume * 0.76 - 6}px;"}>
+                      </div>
+                    </div>
+                  </form>
+                  <span class="text-[7px] text-cyan-500 font-mono">{@deck_1_volume}</span>
+                </div>
+              </div>
 
-          <%!-- D2 EQ column (inline, left of Deck 2) --%>
-          <div class="flex-shrink-0 flex flex-col items-center gap-1.5 pt-2 px-2 border-x border-gray-800/60">
-            <span class="text-[9px] text-orange-500 font-bold uppercase tracking-widest">D2</span>
-            <%= for {band, label} <- [{"high", "HI"}, {"mid", "MID"}, {"low", "LO"}] do %>
-              <form phx-change={"set_eq_gain_deck_2_" <> band} phx-target={@myself}>
-                <input type="hidden" name="deck" value="2" />
-                <input type="hidden" name="band" value={band} />
-                <.dial_knob
-                  id={"d2-eq-" <> band}
-                  name="gain"
-                  min={-12}
-                  max={12}
-                  step={1}
-                  value={0}
-                  size={32}
-                  label={label}
-                />
+              <%!-- Deck B (D2) column --%>
+              <div class="flex flex-col items-center gap-1 pt-2 px-2 min-w-[60px]">
+                <span class="text-[9px] text-orange-500 font-bold uppercase tracking-widest">B</span>
+                <%!-- EQ Knobs --%>
+                <%= for {band, label} <- [{"high", "HI"}, {"mid", "MID"}, {"low", "LO"}] do %>
+                  <form phx-change={"set_eq_gain_deck_2_" <> band} phx-target={@myself}>
+                    <input type="hidden" name="deck" value="2" />
+                    <input type="hidden" name="band" value={band} />
+                    <.dial_knob id={"d2-eq-" <> band} name="gain"
+                      min={-12} max={12} step={1} value={0} size={32} label={label} />
+                  </form>
+                <% end %>
+                <%!-- Pitch Knob --%>
+                <div class="flex flex-col items-center gap-0.5 mt-1">
+                  <span class={"text-[7px] font-mono font-bold " <>
+                    cond do
+                      @deck_2.pitch_adjust > 0 -> "text-green-400"
+                      @deck_2.pitch_adjust < 0 -> "text-red-400"
+                      true -> "text-gray-600"
+                    end}>
+                    {format_pitch(@deck_2.pitch_adjust)}
+                  </span>
+                  <form phx-change="set_pitch" phx-target={@myself} phx-value-deck="2">
+                    <.dial_knob id="d2-pitch" name="value"
+                      min={-80} max={80} step={1}
+                      value={trunc(@deck_2.pitch_adjust * 10)}
+                      size={32} label="PITCH" />
+                  </form>
+                  <button phx-click="pitch_reset" phx-target={@myself} phx-value-deck="2"
+                    disabled={@deck_2.pitch_adjust == 0.0}
+                    class={"px-1 py-0.5 text-[7px] font-bold rounded transition-colors " <>
+                      if(@deck_2.pitch_adjust == 0.0,
+                        do: "bg-gray-800 text-gray-700 cursor-not-allowed",
+                        else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                      )}>RST</button>
+                </div>
+                <%!-- Stem M/S for Deck B --%>
+                <% d2_stems = Enum.map(@deck_2.stems || [], &Atom.to_string(&1.stem_type)) %>
+                <div :if={length(d2_stems) > 0} class="flex flex-col gap-0.5 mt-1 w-full">
+                  <%= for stem_type <- d2_stems do %>
+                    <% state = Map.get(@deck_2.stem_states, stem_type, "on") %>
+                    <div class="flex items-center gap-0.5 w-full">
+                      <button phx-click="toggle_stem_state" phx-target={@myself}
+                        phx-value-deck="2" phx-value-stem={stem_type} phx-value-mode="solo"
+                        class={"w-4 h-4 text-[7px] font-bold rounded transition-colors " <>
+                          if(state == "solo", do: "bg-yellow-500 text-black", else: "bg-gray-700 text-gray-600 hover:bg-gray-600")}
+                        title={"Solo #{stem_type} (B)"}>S</button>
+                      <div class={"flex-1 text-[7px] font-bold text-center py-0.5 rounded truncate " <>
+                        case state do
+                          "mute" -> "bg-gray-800 text-gray-600 line-through"
+                          "solo" -> "bg-yellow-900/20 text-yellow-400"
+                          _ -> "bg-gray-800/40 text-gray-400"
+                        end}
+                        style={"background-color: #{if state == "on", do: stem_color_hex(stem_type) <> "22", else: ""}"}
+                      >{String.slice(stem_type, 0, 3)}</div>
+                      <button phx-click="toggle_stem_state" phx-target={@myself}
+                        phx-value-deck="2" phx-value-stem={stem_type} phx-value-mode="mute"
+                        class={"w-4 h-4 text-[7px] font-bold rounded transition-colors " <>
+                          if(state == "mute", do: "bg-red-700 text-white", else: "bg-gray-700 text-gray-600 hover:bg-gray-600")}
+                        title={"Mute #{stem_type} (B)"}>M</button>
+                    </div>
+                  <% end %>
+                </div>
+                <%!-- Deck B Volume Fader (vertical) --%>
+                <div class="flex flex-col items-center gap-0.5 mt-2 pt-2 border-t border-gray-700/30 w-full">
+                  <span class="text-[7px] text-gray-600 uppercase">VOL</span>
+                  <form phx-change="set_deck_volume" phx-target={@myself} phx-value-deck="2">
+                    <div class="relative flex items-center justify-center" style="height: 80px; width: 20px;">
+                      <div class="absolute w-1.5 rounded-full bg-gray-700" style="top: 2px; bottom: 2px;"></div>
+                      <div class="absolute w-1.5 rounded-full bg-orange-600/50"
+                        style={"bottom: 2px; height: #{@deck_2_volume * 0.76}px;"}></div>
+                      <input type="range" name="level" min="0" max="100" value={@deck_2_volume}
+                        class="absolute cursor-pointer appearance-none bg-transparent accent-orange-500"
+                        style="writing-mode: vertical-lr; direction: rtl; width: 80px; height: 20px;
+                          transform: rotate(90deg); transform-origin: center;"
+                        aria-label="Deck B volume" />
+                      <div class="absolute w-4 h-3 bg-gray-200 rounded-sm shadow border border-gray-400 pointer-events-none"
+                        style={"bottom: #{2 + @deck_2_volume * 0.76 - 6}px;"}>
+                      </div>
+                    </div>
+                  </form>
+                  <span class="text-[7px] text-orange-500 font-mono">{@deck_2_volume}</span>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Crossfader (full width of center block, below volume faders) --%>
+            <div class="flex flex-col items-center gap-1 px-2 pt-2 pb-2 border-t border-gray-700/40 mt-1">
+              <div class="flex items-center gap-2 w-full justify-center mb-0.5">
+                <span class="text-[8px] text-gray-500 uppercase tracking-widest">XFADER</span>
+                <button
+                  phx-click="toggle_crossfader_split"
+                  phx-target={@myself}
+                  class={"px-1 py-0.5 text-[7px] font-bold rounded transition-colors " <>
+                    if(@crossfader_split,
+                      do: "bg-amber-600/80 text-white ring-1 ring-amber-400/50",
+                      else: "bg-gray-700 text-gray-500 hover:bg-gray-600"
+                    )}
+                  title="Split crossfader: A/C ↔ B/D"
+                >SPLIT</button>
+              </div>
+              <form phx-change="crossfader" phx-target={@myself} class="w-full">
+                <div class="relative flex items-center w-full" style="min-width: 100px;">
+                  <span class="text-[8px] text-cyan-500 mr-1">A</span>
+                  <div class="relative flex-1 flex items-center h-6">
+                    <%!-- Fader track --%>
+                    <div class="absolute inset-x-0 my-auto h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <div class="absolute inset-y-0 bg-gradient-to-r from-cyan-600/40 to-orange-600/40 rounded-full w-full opacity-60"></div>
+                    </div>
+                    <%!-- Fader cap (positioned by value) --%>
+                    <div class="absolute w-4 h-6 bg-gray-300 rounded shadow-md border border-gray-400 pointer-events-none"
+                      style={"left: calc(#{((@crossfader + 100) / 200) * 100}% - 8px);"}>
+                    </div>
+                    <input type="range" name="value"
+                      min="-100" max="100" step="1" value={@crossfader}
+                      class="absolute inset-0 w-full opacity-0 cursor-pointer h-6"
+                      aria-label="Crossfader" />
+                  </div>
+                  <span class="text-[8px] text-orange-500 ml-1">B</span>
+                </div>
               </form>
-            <% end %>
+              <div class="flex justify-between w-full mt-0.5">
+                <span class="text-[7px] text-gray-600">A{if @crossfader_split, do: "/C", else: ""}</span>
+                <span class="text-[8px] text-gray-500 font-mono">{@crossfader}</span>
+                <span class="text-[7px] text-gray-600">B{if @crossfader_split, do: "/D", else: ""}</span>
+              </div>
+            </div>
           </div>
 
           <%!-- DECK 2 (B) --%>
@@ -2220,6 +2825,20 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               stem_loops_open={@deck_2_stem_loops_open}
               myself={@myself}
               show_eq={false}
+              grid_mode={@deck_2_grid_mode}
+              grid_fraction={@deck_2_grid_fraction}
+              leading_stem={@deck_2_leading_stem}
+              rhythmic_quantize={@deck_2_rhythmic_quantize}
+              midi_learn_mode={@dj_midi_learn_mode}
+              midi_learn_target={@dj_midi_learn_target}
+              deck_type={@deck_2_deck_type}
+              is_master={@master_deck_number == 2}
+              key_lock={@deck_2_key_lock}
+              chef_type={@deck_2_chef_type}
+              cue_sort={@deck_2_cue_sort}
+              cue_page={@deck_2_cue_page}
+              cue_per_page={@deck_2_cue_per_page}
+              chef_sets={@deck_2_chef_sets}
             />
           </div>
         </div>
@@ -2236,6 +2855,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             tracks={@tracks}
             volume={@deck_3_volume}
             cue_points={@deck_3_cue_points}
+            deck_type={@deck_3_deck_type}
+            loop_pads={@deck_3_loop_pads}
+            pad_mode={@deck_3_pad_mode}
+            poly_voices={@deck_3_poly_voices}
+            pad_fade={@deck_3_pad_fade}
+            active_pads={@deck_3_active_pads}
             myself={@myself}
           />
           <.loop_deck_panel
@@ -2244,6 +2869,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             tracks={@tracks}
             volume={@deck_4_volume}
             cue_points={@deck_4_cue_points}
+            deck_type={@deck_4_deck_type}
+            loop_pads={@deck_4_loop_pads}
+            pad_mode={@deck_4_pad_mode}
+            poly_voices={@deck_4_poly_voices}
+            pad_fade={@deck_4_pad_fade}
+            active_pads={@deck_4_active_pads}
             myself={@myself}
           />
         </div>
@@ -2586,19 +3217,20 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           </div>
         </div>
 
-        <%!-- Import Preset Section (legacy toggle, kept for keyboard shortcut compat) --%>
-        <div class="hidden">
-          <button phx-click="toggle_preset_section" phx-target={@myself}></button>
-        </div>
-
-        <%!-- Virtual Controller --%>
-        <.live_component
-          module={SoundForgeWeb.Live.Components.VirtualController}
-          id="virtual-controller"
-          deck_1_cue_points={@deck_1_cue_points}
-          deck_2_cue_points={@deck_2_cue_points}
-        />
       </div>
+
+      <%!-- Import Preset Section (legacy toggle, kept for keyboard shortcut compat) --%>
+      <div class="hidden">
+        <button phx-click="toggle_preset_section" phx-target={@myself}></button>
+      </div>
+
+      <%!-- Virtual Controller --%>
+      <.live_component
+        module={SoundForgeWeb.Live.Components.VirtualController}
+        id="virtual-controller"
+        deck_1_cue_points={@deck_1_cue_points}
+        deck_2_cue_points={@deck_2_cue_points}
+      />
 
       <%!-- SMPTE + MIDI Clock Status Bar --%>
       <% d1_bar_beat = position_to_bar_beat(@deck_1.position, @deck_1.tempo_bpm) %>
@@ -2608,7 +3240,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
           <%!-- Deck 1 info --%>
           <div class="flex items-center gap-2 min-w-0">
-            <span class="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest flex-shrink-0">DECK 1</span>
+            <span class="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest flex-shrink-0">DECK A</span>
             <span class="text-[10px] font-mono text-gray-300 truncate max-w-[120px]">
               {if @deck_1.track, do: @deck_1.track.title, else: "No Track"}
             </span>
@@ -2673,9 +3305,10 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             <span class="text-[10px] font-mono text-gray-300 truncate max-w-[120px]">
               {if @deck_2.track, do: @deck_2.track.title, else: "No Track"}
             </span>
-            <span class="text-[10px] font-mono font-bold text-orange-400 uppercase tracking-widest flex-shrink-0">DECK 2</span>
+            <span class="text-[10px] font-mono font-bold text-orange-400 uppercase tracking-widest flex-shrink-0">DECK B</span>
           </div>
         </div>
+      </div>
       </div>
     </div>
     """
@@ -2734,7 +3367,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <%!-- Deck 1 Tracks --%>
         <div class="bg-gray-900/60 rounded-lg p-3 border border-cyan-700/20">
-          <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">Deck 1</h4>
+          <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">Deck A</h4>
           <div class="space-y-2">
             <div
               :for={assignment <- @deck_1_tracks}
@@ -2770,7 +3403,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
 
         <%!-- Deck 2 Tracks --%>
         <div class="bg-gray-900/60 rounded-lg p-3 border border-orange-700/20">
-          <h4 class="text-xs font-bold text-orange-400 uppercase tracking-wider mb-2">Deck 2</h4>
+          <h4 class="text-xs font-bold text-orange-400 uppercase tracking-wider mb-2">Deck B</h4>
           <div class="space-y-2">
             <div
               :for={assignment <- @deck_2_tracks}
@@ -2916,6 +3549,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           max={@max}
           step={@step}
           value={@value}
+          tabindex="-1"
           class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           style="margin: 0; padding: 0;"
           oninput={"(function(i){var r=(-135+270*((i.value-i.min)/(i.max-i.min)));document.getElementById('#{@id}').querySelector('.djknob-ind').style.transform='rotate('+r+'deg)'})(this)"}
@@ -2943,6 +3577,20 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   attr :stem_loops_open, :boolean, default: false
   attr :myself, :any, required: true
   attr :show_eq, :boolean, default: true
+  attr :grid_mode, :string, default: "bar"
+  attr :grid_fraction, :string, default: "1/4"
+  attr :leading_stem, :string, default: "drums"
+  attr :rhythmic_quantize, :boolean, default: false
+  attr :midi_learn_mode, :boolean, default: false
+  attr :midi_learn_target, :any, default: nil
+  attr :deck_type, :string, default: "full"
+  attr :is_master, :boolean, default: false
+  attr :key_lock, :boolean, default: false
+  attr :chef_type, :string, default: "hot_cue_set"
+  attr :cue_sort, :string, default: "confidence"
+  attr :cue_page, :integer, default: 1
+  attr :cue_per_page, :integer, default: 8
+  attr :chef_sets, :list, default: []
 
   defp deck_panel(assigns) do
     deck_color = if assigns.deck_number == 1, do: "cyan", else: "orange"
@@ -2951,16 +3599,73 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     ~H"""
     <div class={"bg-gray-900 rounded-xl p-4 border border-gray-700/50 " <>
       if(@deck.playing, do: "ring-1 ring-#{@deck_color}-500/30", else: "")}>
-      <%!-- Deck Label --%>
-      <div class="flex items-center justify-between mb-3">
-        <span class={"text-sm font-bold tracking-wider " <>
-          if(@deck_number == 1, do: "text-cyan-400", else: "text-orange-400")}>
-          DECK {@deck_number}
-        </span>
-        <span class={"text-xs px-2 py-0.5 rounded-full " <>
-          if(@deck.playing, do: "bg-green-500/20 text-green-400", else: "bg-gray-700 text-gray-500")}>
-          {if @deck.playing, do: "PLAYING", else: "STOPPED"}
-        </span>
+      <%!-- Deck Header: Label + Type Selector + Status + MASTER/SYNC/KEY --%>
+      <div class="flex items-center justify-between mb-2 flex-wrap gap-1">
+        <div class="flex items-center gap-2">
+          <span class={"text-sm font-bold tracking-wider " <>
+            if(@deck_number == 1, do: "text-cyan-400", else: "text-orange-400")}>
+            DECK {deck_letter(@deck_number)}
+          </span>
+          <%!-- Deck Type Selector --%>
+          <form phx-change="set_deck_type" phx-target={@myself}>
+            <input type="hidden" name="deck" value={@deck_number} />
+            <select name="deck_type"
+              class="bg-gray-800 text-gray-400 text-[8px] rounded px-1 py-0.5 border border-gray-700/50 cursor-pointer"
+              title="Deck type">
+              <option value="full" selected={@deck_type == "full"}>FULL</option>
+              <option value="loop" selected={@deck_type == "loop"}>LOOP</option>
+              <option value="soundboard" selected={@deck_type == "soundboard"}>SND</option>
+            </select>
+          </form>
+        </div>
+        <div class="flex items-center gap-1">
+          <%!-- MASTER button --%>
+          <button
+            phx-click="set_master_deck"
+            phx-target={@myself}
+            phx-value-deck={@deck_number}
+            class={"px-1.5 py-0.5 text-[8px] font-bold rounded transition-colors " <>
+              if(@is_master,
+                do: "bg-amber-500 text-black ring-1 ring-amber-300",
+                else: "bg-gray-700 text-gray-500 hover:bg-gray-600"
+              )}
+            title="Designate this deck as master (sets tempo reference)"
+          >
+            MST
+          </button>
+          <%!-- SYNC button --%>
+          <button
+            phx-click="toggle_midi_sync"
+            phx-target={@myself}
+            phx-value-deck={@deck_number}
+            class={"px-1.5 py-0.5 text-[8px] font-bold rounded transition-colors " <>
+              if(@midi_sync,
+                do: "bg-green-600 text-white ring-1 ring-green-400/50",
+                else: "bg-gray-700 text-gray-500 hover:bg-gray-600"
+              )}
+            title="Sync this deck's tempo to master"
+          >
+            SYNC
+          </button>
+          <%!-- KEY lock button --%>
+          <button
+            phx-click="toggle_key_lock"
+            phx-target={@myself}
+            phx-value-deck={@deck_number}
+            class={"px-1.5 py-0.5 text-[8px] font-bold rounded transition-colors " <>
+              if(@key_lock,
+                do: "bg-violet-600 text-white ring-1 ring-violet-400/50",
+                else: "bg-gray-700 text-gray-500 hover:bg-gray-600"
+              )}
+            title="Key Lock: maintain musical key when tempo changes"
+          >
+            ♪
+          </button>
+          <span class={"text-[9px] px-1.5 py-0.5 rounded-full " <>
+            if(@deck.playing, do: "bg-green-500/20 text-green-400", else: "bg-gray-700 text-gray-600")}>
+            {if @deck.playing, do: "▶", else: "■"}
+          </span>
+        </div>
       </div>
 
       <%!-- Track Title --%>
@@ -2982,12 +3687,88 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         </span>
       </div>
 
+      <%!-- Grid Controls + Leading Stem + Rhythmic Quantize --%>
+      <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+        <%!-- Grid Mode Dropdown --%>
+        <div class="flex items-center gap-1">
+          <span class="text-[9px] text-gray-600 uppercase tracking-wider">Grid</span>
+          <form phx-change="set_grid_mode" phx-target={@myself}>
+            <input type="hidden" name="deck" value={@deck_number} />
+            <select
+              name="mode"
+              class="bg-gray-800 text-gray-300 text-[8px] rounded px-1 py-0.5 border border-gray-700/50 cursor-pointer"
+              title="Grid overlay mode"
+            >
+              <%= for {val, lbl} <- [{"bar", "BAR"}, {"beat", "BEAT"}, {"sub", "SUB"}, {"smart", "SMART"}] do %>
+                <option value={val} selected={@grid_mode == val}>{lbl}</option>
+              <% end %>
+            </select>
+          </form>
+          <%!-- Fraction/interval dropdown --%>
+          <form phx-change="set_grid_fraction" phx-target={@myself}>
+            <input type="hidden" name="deck" value={@deck_number} />
+            <select
+              name="fraction"
+              class="bg-gray-800 text-gray-300 text-[8px] rounded px-1 py-0.5 border border-gray-700/50 cursor-pointer"
+              title="Grid interval / fraction"
+            >
+              <%= for {val, lbl} <- [{"1/1", "1/1"}, {"1/2", "1/2"}, {"1/4", "1/4"}, {"1/8", "1/8"}, {"1/16", "1/16"}, {"1/32", "1/32"}] do %>
+                <option value={val} selected={(@grid_fraction || "1/4") == val}>{lbl}</option>
+              <% end %>
+            </select>
+          </form>
+        </div>
+
+        <%!-- Leading Stem Selector --%>
+        <div class="flex items-center gap-1">
+          <span class="text-[9px] text-gray-600 uppercase tracking-wider">Stem</span>
+          <form phx-change="set_leading_stem" phx-target={@myself}>
+            <input type="hidden" name="deck" value={@deck_number} />
+            <select
+              name="stem"
+              class="bg-gray-800 text-gray-300 text-[8px] rounded px-1 py-0.5 border border-gray-700/50 cursor-pointer"
+            >
+              <%= for {val, lbl} <- [{"drums", "Drums"}, {"bass", "Bass"}, {"vocals", "Vocals"}, {"other", "Other"}, {"auto", "Auto"}] do %>
+                <option value={val} selected={@leading_stem == val}>{lbl}</option>
+              <% end %>
+            </select>
+          </form>
+        </div>
+
+        <%!-- Rhythmic Quantize --%>
+        <button
+          phx-click="toggle_rhythmic_quantize"
+          phx-target={@myself}
+          phx-value-deck={@deck_number}
+          class={"px-1.5 py-0.5 text-[8px] font-bold rounded transition-colors " <>
+            if(@rhythmic_quantize,
+              do: "bg-purple-700 text-white ring-1 ring-purple-400/40",
+              else: "bg-gray-800 text-gray-500 hover:bg-gray-700 hover:text-gray-300"
+            )}
+          title="Rhythmic Quantize: snap play start to next beat"
+        >
+          QUANT
+        </button>
+      </div>
+
+      <%!-- SMPTE Grid Canvas (rendered by JS hook above the waveform) --%>
+      <canvas
+        id={"smpte-grid-deck-#{@deck_number}"}
+        phx-update="ignore"
+        class="w-full rounded-t border-x border-t border-gray-700/30 bg-gray-950/80"
+        style="height: 28px; display: block;"
+        data-deck={@deck_number}
+        data-grid-mode={@grid_mode}
+        data-grid-fraction={@grid_fraction}
+        data-show-smpte="true"
+      ></canvas>
+
       <%!-- WaveSurfer Waveform --%>
       <div class="relative mb-4">
         <div
           id={"waveform-deck-#{@deck_number}"}
           phx-update="ignore"
-          class="rounded bg-gray-800 border border-gray-700/30 overflow-hidden"
+          class="rounded-b bg-gray-800 border border-gray-700/30 overflow-hidden"
           style="min-height: 110px;"
           data-deck={@deck_number}
         >
@@ -3061,54 +3842,81 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           <% end %>
         </div>
 
-        <%!-- Auto-Generated Cues Section - Compact 8-slot grid --%>
-        <% auto_cues = Enum.filter(@cue_points, & &1.auto_generated) %>
-        <% top_8 = auto_cues |> Enum.sort_by(& &1.confidence, :desc) |> Enum.take(8) |> Enum.sort_by(& &1.position_ms) %>
+        <%!-- Chef Cue System --%>
+        <%
+          auto_cues = Enum.filter(@cue_points, & &1.auto_generated)
+          sorted_cues = case @cue_sort do
+            "position" -> Enum.sort_by(auto_cues, & &1.position_ms)
+            "intelligent" -> Enum.sort_by(auto_cues, &{&1.sort_order || 999, -((&1.confidence || 0.0) * 100 |> trunc)})
+            _ -> Enum.sort_by(auto_cues, & -(&1.confidence || 0.0))
+          end
+          total_cues = length(sorted_cues)
+          total_pages = max(1, ceil(total_cues / @cue_per_page))
+          page_cues = sorted_cues |> Enum.drop((@cue_page - 1) * @cue_per_page) |> Enum.take(@cue_per_page)
+        %>
         <div class="mt-2 pt-2 border-t border-gray-700/30">
-          <div class="flex items-center justify-between mb-1.5">
-            <span class="flex items-center gap-1 text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-              <svg class="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+          <%!-- Chef header + controls --%>
+          <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+            <span class="flex items-center gap-1 text-[10px] text-amber-400 uppercase tracking-wider font-bold">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2z" />
               </svg>
-              AI Cues
-              <span :if={length(auto_cues) > 8} class="text-gray-600 font-normal normal-case">
-                (top 8/{length(auto_cues)})
+              Chef
+              <span :if={total_cues > 0} class="text-gray-500 font-normal normal-case">
+                ({total_cues})
               </span>
             </span>
-            <%= if @detecting_cues do %>
-              <svg class="w-3 h-3 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            <% else %>
-              <%= if length(auto_cues) > 0 do %>
-                <button
-                  phx-click="regenerate_auto_cues"
-                  phx-target={@myself}
-                  phx-value-deck={@deck_number}
-                  class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-gray-700 text-gray-500 hover:bg-amber-600 hover:text-white transition-colors"
-                  title="Regenerate auto cues"
-                >
-                  REGEN
-                </button>
+            <div class="flex items-center gap-1 flex-wrap">
+              <%!-- Chef type dropdown --%>
+              <form phx-change="set_chef_type" phx-target={@myself}>
+                <input type="hidden" name="deck" value={@deck_number} />
+                <select name="chef_type"
+                  class="bg-gray-800 text-gray-400 text-[8px] rounded px-1 py-0.5 border border-gray-700/50 cursor-pointer">
+                  <option value="cue_set" selected={@chef_type == "cue_set"}>Cue Set</option>
+                  <option value="loop_set" selected={@chef_type == "loop_set"}>Loop Set</option>
+                  <option value="hot_cue_set" selected={@chef_type == "hot_cue_set"}>Hot Cues</option>
+                </select>
+              </form>
+              <%!-- Sort dropdown --%>
+              <form phx-change="set_cue_sort" phx-target={@myself}>
+                <input type="hidden" name="deck" value={@deck_number} />
+                <select name="sort"
+                  class="bg-gray-800 text-gray-400 text-[8px] rounded px-1 py-0.5 border border-gray-700/50 cursor-pointer">
+                  <option value="confidence" selected={@cue_sort == "confidence"}>Confidence</option>
+                  <option value="position" selected={@cue_sort == "position"}>Position</option>
+                  <option value="intelligent" selected={@cue_sort == "intelligent"}>Intelligent</option>
+                </select>
+              </form>
+              <%!-- Generate / Regen button --%>
+              <%= if @detecting_cues do %>
+                <svg class="w-3 h-3 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
               <% else %>
                 <button
-                  :if={@deck.track && !@detecting_cues}
-                  phx-click="auto_detect_cues"
+                  :if={@deck.track}
+                  phx-click="generate_chef_set"
                   phx-target={@myself}
                   phx-value-deck={@deck_number}
-                  class="px-2 py-0.5 text-[9px] font-bold rounded bg-amber-600 text-white hover:bg-amber-500 transition-colors"
+                  phx-value-chef_type={@chef_type}
+                  class={"px-1.5 py-0.5 text-[9px] font-bold rounded transition-colors " <>
+                    if(total_cues > 0,
+                      do: "bg-gray-700 text-gray-500 hover:bg-amber-600 hover:text-white",
+                      else: "bg-amber-600 text-white hover:bg-amber-500"
+                    )}
+                  title="Generate Chef cues with AI"
                 >
-                  DETECT
+                  {if total_cues > 0, do: "REGEN", else: "GENERATE"}
                 </button>
               <% end %>
-            <% end %>
+            </div>
           </div>
-          <%!-- Compact 8-slot chip grid: top cues color-coded by type --%>
-          <%!-- Primary click: seek to cue. Hover shows ⟲ loop button (cue→next cue). --%>
-          <%= if length(top_8) > 0 do %>
-            <div class="grid grid-cols-4 gap-1">
-              <%= for cue <- top_8 do %>
+
+          <%!-- Cue chips grid (paginated) --%>
+          <%= if length(page_cues) > 0 do %>
+            <div class="grid grid-cols-4 gap-1 mb-1">
+              <%= for cue <- page_cues do %>
                 <div class="relative group/chip">
                   <button
                     phx-click={
@@ -3116,35 +3924,79 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                         to: "#dj-tab",
                         detail: %{deck: @deck_number, position: cue.position_ms / 1000.0}
                       )
-                      |> JS.push("trigger_cue",
-                        value: %{deck: to_string(@deck_number), cue_id: cue.id},
-                        target: @myself
-                      )
                     }
                     class={"w-full px-1 py-1 text-[9px] font-mono rounded text-center transition-colors truncate leading-tight " <> auto_cue_chip_class(cue)}
-                    title={"#{cue.label || "Auto Cue"} · #{format_confidence(cue.confidence)} — click to seek, ⟲ to loop"}
+                    title={"#{cue.label || "Cue"} · #{format_confidence(cue.confidence)} — click to seek"}
                   >
                     {format_ms(cue.position_ms)}
                   </button>
-                  <%!-- Loop trigger: appears on hover, seeks + activates loop to next cue --%>
                   <button
                     phx-click="loop_from_cue"
                     phx-target={@myself}
                     phx-value-deck={@deck_number}
                     phx-value-cue_id={cue.id}
                     class="absolute top-0 right-0 opacity-0 group-hover/chip:opacity-100 w-3.5 h-3.5 flex items-center justify-center rounded-bl rounded-tr bg-purple-700 text-white text-[8px] transition-opacity"
-                    title="Loop from this cue to next"
-                  >
-                    ⟲
-                  </button>
+                    title="Loop from this cue"
+                  >⟲</button>
                 </div>
               <% end %>
             </div>
+            <%!-- Pagination --%>
+            <div :if={total_pages > 1} class="flex items-center justify-between mt-1">
+              <button
+                phx-click="cue_page"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                phx-value-page={@cue_page - 1}
+                disabled={@cue_page <= 1}
+                class={"px-1.5 py-0.5 text-[8px] font-bold rounded transition-colors " <>
+                  if(@cue_page <= 1,
+                    do: "bg-gray-800 text-gray-700 cursor-not-allowed",
+                    else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                  )}
+              >←</button>
+              <span class="text-[8px] text-gray-600 font-mono">
+                pg {@cue_page}/{total_pages} · {total_cues} cues
+              </span>
+              <button
+                phx-click="cue_page"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                phx-value-page={@cue_page + 1}
+                disabled={@cue_page >= total_pages}
+                class={"px-1.5 py-0.5 text-[8px] font-bold rounded transition-colors " <>
+                  if(@cue_page >= total_pages,
+                    do: "bg-gray-800 text-gray-700 cursor-not-allowed",
+                    else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                  )}
+              >→</button>
+            </div>
           <% else %>
             <p :if={!@detecting_cues && @deck.track} class="text-[10px] text-gray-600 italic text-center py-0.5">
-              No cues · click DETECT
+              No Chef cues · click GENERATE
             </p>
           <% end %>
+
+          <%!-- Saved Chef Sets --%>
+          <div :if={length(@chef_sets) > 0} class="mt-2 pt-1.5 border-t border-gray-700/20">
+            <span class="text-[9px] text-gray-600 uppercase tracking-wider block mb-1">Saved Sets</span>
+            <div class="space-y-0.5">
+              <%= for cs <- @chef_sets do %>
+                <div class="flex items-center gap-1 text-[9px]">
+                  <button phx-click="load_chef_set" phx-target={@myself}
+                    phx-value-deck={@deck_number} phx-value-set_id={cs.id}
+                    class="flex-1 text-left px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-amber-700/40 hover:text-amber-300 transition-colors truncate"
+                    title={"Load: #{cs.name}"}>
+                    {cs.name}
+                  </button>
+                  <button phx-click="delete_chef_set" phx-target={@myself}
+                    phx-value-set_id={cs.id}
+                    class="px-1 py-0.5 rounded bg-gray-800 text-gray-600 hover:bg-red-700/40 hover:text-red-400 transition-colors"
+                    title="Delete set">×</button>
+                </div>
+              <% end %>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -3198,6 +4050,19 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           MIDI SYNC
         </button>
 
+        <button
+          phx-click="toggle_dj_midi_learn"
+          phx-target={@myself}
+          class={"px-2 py-1 text-xs font-bold rounded transition-colors ml-1 " <>
+            if(@midi_learn_mode,
+              do: "bg-yellow-500 text-black ring-1 ring-yellow-300/60 animate-pulse",
+              else: "bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-300"
+            )}
+          title="DJ MIDI Learn: click to enable, then click a control to assign MIDI"
+        >
+          LEARN
+        </button>
+
         <%!-- Section Skip Buttons --%>
         <div :if={@structure["segments"]} class="flex items-center gap-0.5 ml-2">
           <button
@@ -3241,77 +4106,54 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         </div>
       </div>
 
-      <%!-- Pitch / Tempo Control --%>
-      <div class="mb-4 border border-gray-700/50 rounded-lg p-3">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Pitch</span>
-          <div class="flex items-center gap-2">
-            <span class={"text-xs font-mono font-bold " <>
-              cond do
-                @deck.pitch_adjust > 0 -> "text-green-400"
-                @deck.pitch_adjust < 0 -> "text-red-400"
-                true -> "text-gray-500"
-              end}>
-              {format_pitch(@deck.pitch_adjust)}
+      <%!-- MIDI Learn Panel (shown when learn mode is active) --%>
+      <%= if @midi_learn_mode do %>
+        <div class="mb-3 border border-yellow-600/50 rounded-lg p-3 bg-yellow-950/20">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-yellow-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <svg class="w-3 h-3 animate-pulse" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+              MIDI Learn Active
             </span>
             <button
-              phx-click="pitch_reset"
+              phx-click="toggle_dj_midi_learn"
               phx-target={@myself}
-              phx-value-deck={@deck_number}
-              disabled={@deck.pitch_adjust == 0.0}
-              class={"px-2 py-0.5 text-xs font-bold rounded transition-colors " <>
-                if(@deck.pitch_adjust == 0.0,
-                  do: "bg-gray-700 text-gray-600 cursor-not-allowed",
-                  else: "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                )}
+              class="px-2 py-0.5 text-[9px] font-bold rounded bg-gray-700 text-gray-400 hover:bg-red-700 hover:text-white transition-colors"
             >
-              RESET
+              DONE
             </button>
           </div>
-        </div>
-
-        <form phx-change="set_pitch" phx-target={@myself} phx-value-deck={@deck_number} class="mb-2">
-          <input
-            type="range"
-            min="-80"
-            max="80"
-            step="1"
-            value={trunc(@deck.pitch_adjust * 10)}
-            name="value"
-            aria-label={"Pitch adjust deck #{@deck_number}"}
-            class={"w-full h-1.5 rounded-lg appearance-none cursor-pointer " <>
-              if(@deck_number == 1, do: "accent-cyan-500", else: "accent-orange-500")}
-          />
-          <div class="flex justify-between mt-0.5">
-            <span class="text-xs text-gray-600">-8%</span>
-            <span class="text-xs text-gray-600">0</span>
-            <span class="text-xs text-gray-600">+8%</span>
+          <p class="text-[9px] text-gray-500 mb-2">
+            Click a control below to select it, then press/move a MIDI control. Stays active until DONE.
+          </p>
+          <%= if @midi_learn_target do %>
+            <div class="text-[9px] text-yellow-300 bg-yellow-900/30 rounded px-2 py-1 mb-2 font-mono">
+              Waiting for MIDI input → {@midi_learn_target["action"]}
+              <%= if @midi_learn_target["deck"] do %>deck {@midi_learn_target["deck"]}<% end %>
+              <%= if @midi_learn_target["slot"] do %>slot {@midi_learn_target["slot"]}<% end %>
+            </div>
+          <% end %>
+          <%!-- Assignable controls grid --%>
+          <div class="grid grid-cols-3 gap-1">
+            <%= for {action, label, deck, slot} <- dj_learn_controls(@deck_number) do %>
+              <% is_active = @midi_learn_target && @midi_learn_target["action"] == action && @midi_learn_target["deck"] == deck && @midi_learn_target["slot"] == slot %>
+              <button
+                phx-click="dj_learn_control"
+                phx-target={@myself}
+                phx-value-action={action}
+                phx-value-deck={deck}
+                phx-value-slot={slot}
+                class={"px-1.5 py-1 text-[8px] font-bold rounded transition-all " <>
+                  if(is_active,
+                    do: "bg-yellow-500 text-black ring-1 ring-yellow-300 animate-pulse",
+                    else: "bg-gray-700/80 text-gray-400 hover:bg-yellow-800/40 hover:text-yellow-300 border border-gray-600/30"
+                  )}
+              >
+                {label}
+              </button>
+            <% end %>
           </div>
-        </form>
-
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs text-gray-500 uppercase">Adj. BPM</span>
-            <span class={"text-sm font-bold font-mono " <>
-              if(@deck.tempo_bpm > 0, do: "text-yellow-400", else: "text-gray-600")}>
-              {format_adjusted_bpm(@deck.tempo_bpm, @deck.pitch_adjust)}
-            </span>
-          </div>
-          <button
-            phx-click="sync_deck"
-            phx-target={@myself}
-            phx-value-deck={@deck_number}
-            disabled={is_nil(@deck.track) || @deck.tempo_bpm <= 0}
-            class={"px-3 py-1 text-xs font-bold rounded transition-colors " <>
-              if(is_nil(@deck.track) || @deck.tempo_bpm <= 0,
-                do: "bg-gray-700 text-gray-600 cursor-not-allowed",
-                else: "bg-yellow-600 text-white hover:bg-yellow-500"
-              )}
-          >
-            SYNC
-          </button>
         </div>
-      </div>
+      <% end %>
 
       <%!-- Loop Controls --%>
       <div class="mb-4 border border-gray-700/50 rounded-lg p-3">
@@ -3532,84 +4374,6 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         </div>
       </div>
 
-      <%!-- Stem Solo / Mute Strip --%>
-      <% loaded_stems = if @deck.track, do: Enum.map(@deck.stems || [], &Atom.to_string(&1.stem_type)), else: [] %>
-      <div :if={length(loaded_stems) > 0} class="mb-4 border border-gray-700/50 rounded-lg p-3">
-        <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold block mb-2">Stems</span>
-        <div class="flex gap-1.5">
-          <%= for stem_type <- loaded_stems do %>
-            <% state = Map.get(@deck.stem_states, stem_type, "on") %>
-            <% stem_color = stem_color(stem_type) %>
-            <div class="flex-1 flex flex-col items-center gap-1">
-              <button
-                phx-click="toggle_stem_state"
-                phx-target={@myself}
-                phx-value-deck={@deck_number}
-                phx-value-stem={stem_type}
-                phx-value-mode="solo"
-                class={"w-full py-0.5 text-[9px] font-bold rounded text-center transition-colors " <>
-                  if(state == "solo",
-                    do: "bg-yellow-500 text-black ring-1 ring-yellow-300",
-                    else: "bg-gray-700 text-gray-500 hover:bg-gray-600"
-                  )}
-                title={"Solo #{stem_type}"}
-              >
-                S
-              </button>
-              <div
-                class={"w-full py-1 rounded text-[9px] font-bold text-center " <>
-                  case state do
-                    "mute" -> "bg-gray-800 text-gray-600 line-through"
-                    "solo" -> "text-white shadow-sm shadow-#{stem_color}-500/30"
-                    _ -> "bg-#{stem_color}-900/30 text-#{stem_color}-400"
-                  end}
-                style={if state == "solo", do: "background-color: #{stem_color_hex(stem_type)}33", else: ""}
-              >
-                {String.slice(stem_type, 0, 4)}
-              </div>
-              <button
-                phx-click="toggle_stem_state"
-                phx-target={@myself}
-                phx-value-deck={@deck_number}
-                phx-value-stem={stem_type}
-                phx-value-mode="mute"
-                class={"w-full py-0.5 text-[9px] font-bold rounded text-center transition-colors " <>
-                  if(state == "mute",
-                    do: "bg-red-700 text-white ring-1 ring-red-500",
-                    else: "bg-gray-700 text-gray-500 hover:bg-gray-600"
-                  )}
-                title={"Mute #{stem_type}"}
-              >
-                M
-              </button>
-            </div>
-          <% end %>
-        </div>
-      </div>
-
-      <%!-- Per-Deck Volume --%>
-      <div class="mt-3 border-t border-gray-700/50 pt-3">
-        <div class="flex items-center gap-3">
-          <label class="text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Volume</label>
-          <form phx-change="set_deck_volume" phx-target={@myself} phx-value-deck={@deck_number} class="flex-1 flex items-center gap-2">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={@volume}
-              name="level"
-              aria-label={"Deck #{@deck_number} volume"}
-              class={"w-full h-1.5 rounded-lg appearance-none cursor-pointer " <>
-                if(@deck_number == 1, do: "accent-cyan-500", else: "accent-orange-500")}
-            />
-          </form>
-          <span class={"text-sm font-mono font-bold w-10 text-right " <>
-            if(@deck_number == 1, do: "text-cyan-400", else: "text-orange-400")}>
-            {@volume}%
-          </span>
-        </div>
-      </div>
-
       <%!-- Track Loader --%>
       <div class="mt-3 border-t border-gray-700/50 pt-3">
         <label class="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Load Track</label>
@@ -3651,6 +4415,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   attr :tracks, :list, required: true
   attr :volume, :integer, required: true
   attr :cue_points, :list, required: true
+  attr :deck_type, :string, default: "loop"
+  attr :loop_pads, :list, default: []
+  attr :pad_mode, :string, default: "loop"
+  attr :poly_voices, :integer, default: 1
+  attr :pad_fade, :string, default: "none"
+  attr :active_pads, :list, default: []
   attr :myself, :any, required: true
 
   defp loop_deck_panel(assigns) do
@@ -3661,7 +4431,18 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     <div class={"bg-gray-900/80 rounded-xl p-3 border border-gray-700/40 " <>
       if(@deck.playing, do: "ring-1 ring-violet-500/30", else: "")}>
       <div class="flex items-center justify-between mb-2">
-        <span class="text-xs font-bold tracking-wider text-violet-400">LOOP {@deck_label}</span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold tracking-wider text-violet-400">DECK {@deck_label}</span>
+          <form phx-change="set_deck_type" phx-target={@myself}>
+            <input type="hidden" name="deck" value={to_string(@deck_number)} />
+            <select name="deck_type"
+              class="text-[9px] bg-gray-800 border border-gray-700/50 rounded px-1 py-0.5 text-gray-300 focus:outline-none focus:ring-1 focus:ring-violet-500/50 cursor-pointer">
+              <option value="full" selected={@deck_type == "full"}>FULL</option>
+              <option value="loop" selected={@deck_type == "loop"}>LOOP</option>
+              <option value="soundboard" selected={@deck_type == "soundboard"}>SND</option>
+            </select>
+          </form>
+        </div>
         <div class="flex items-center gap-2">
           <span :if={@deck.loop_active} class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 font-bold animate-pulse">
             LOOP
@@ -3674,9 +4455,76 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       </div>
 
       <p class="text-sm text-white font-medium truncate mb-2">
-        {if @deck.track, do: @deck.track.title, else: "Empty — load a loop track"}
+        {if @deck.track, do: @deck.track.title, else: if(@deck_type == "soundboard", do: "Empty — soundboard", else: "Empty — load a loop track")}
       </p>
 
+      <%= if @deck_type == "soundboard" do %>
+        <%!-- Soundboard grid: 4×4 trigger pads with labels --%>
+        <%
+          snd_colors = ~w(#7c3aed #1d4ed8 #0e7490 #065f46 #92400e #b91c1c #be185d #6d28d9
+                          #4f46e5 #0369a1 #0f766e #15803d #b45309 #c2410c #9f1239 #581c87)
+        %>
+        <div class="grid grid-cols-4 gap-1 mb-2">
+          <%= for i <- 0..15 do %>
+            <% pad = Enum.at(@loop_pads, rem(i, 8), %{assigned: false, position_ms: 0, label: nil, color: Enum.at(snd_colors, i, "#374151")}) %>
+            <% is_active = rem(i, 8) in @active_pads %>
+            <div class="relative group/snd aspect-square">
+              <button
+                phx-click="trigger_loop_pad"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                phx-value-pad={rem(i, 8)}
+                disabled={!pad.assigned}
+                class={"w-full h-full min-h-[36px] rounded text-[7px] font-bold transition-all active:scale-95 leading-tight " <>
+                  if(!pad.assigned,
+                    do: "border border-dashed border-gray-700/50 text-gray-700 cursor-not-allowed",
+                    else: if(is_active, do: "ring-2 ring-white/60 scale-95", else: "hover:brightness-125 shadow")
+                  )}
+                style={"background-color: #{pad.color}; #{if pad.assigned, do: "color: white;", else: ""}"}
+                title={if pad.assigned, do: pad.label || "Pad #{i + 1}", else: "Unassigned"}
+              >
+                {if pad.assigned, do: (pad.label || "#{i + 1}"), else: "#{i + 1}"}
+              </button>
+              <button
+                :if={!pad.assigned && @deck.track}
+                phx-click="assign_loop_pad"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                phx-value-pad={rem(i, 8)}
+                class="absolute inset-0 opacity-0 group-hover/snd:opacity-100 rounded flex items-center justify-center text-[7px] font-bold text-white transition-opacity"
+                style={"background-color: #{Enum.at(snd_colors, i, "#374151")}cc;"}
+              >
+                SET
+              </button>
+            </div>
+          <% end %>
+        </div>
+
+        <%!-- Soundboard playback mode strip --%>
+        <div class="flex items-center gap-1 mb-2">
+          <%= for {mode, lbl} <- [{"oneshot", "1-SHOT"}, {"loop", "LOOP"}, {"gate", "GATE"}] do %>
+            <button
+              phx-click="set_pad_mode" phx-target={@myself}
+              phx-value-deck={@deck_number} phx-value-mode={mode}
+              class={"flex-1 py-0.5 text-[8px] font-bold rounded transition-colors " <>
+                if(@pad_mode == mode, do: "bg-violet-600 text-white", else: "bg-gray-800 text-gray-500 hover:bg-gray-700")}
+            >
+              {lbl}
+            </button>
+          <% end %>
+          <div class="flex items-center gap-0.5 ml-auto">
+            <span class="text-[7px] text-gray-600">V</span>
+            <%= for v <- [1, 2, 4, 8] do %>
+              <button phx-click="set_pad_poly" phx-target={@myself}
+                phx-value-deck={@deck_number} phx-value-voices={v}
+                class={"w-5 h-5 text-[7px] font-mono rounded " <>
+                  if(@poly_voices == v, do: "bg-teal-700 text-white", else: "bg-gray-800 text-gray-500 hover:bg-gray-700")}>
+                {v}
+              </button>
+            <% end %>
+          </div>
+        </div>
+      <% else %>
       <%!-- Compact waveform --%>
       <div
         id={"waveform-deck-#{@deck_number}"}
@@ -3793,6 +4641,141 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           </div>
         <% end %>
       </div>
+      <% end %>
+
+      <%!-- Loop Pad Grid (MPC-style 4×2) — shown for loop deck type --%>
+      <%= if @deck_type != "soundboard" do %>
+      <div class="mb-2">
+        <%!-- Pad mode + poly + fade controls --%>
+        <div class="flex items-center gap-1 mb-1.5">
+          <%!-- Mode: one-shot / loop / gate --%>
+          <%= for {mode, lbl} <- [{"oneshot", "1-SHOT"}, {"loop", "LOOP"}, {"gate", "GATE"}] do %>
+            <button
+              phx-click="set_pad_mode"
+              phx-target={@myself}
+              phx-value-deck={@deck_number}
+              phx-value-mode={mode}
+              class={"flex-1 py-0.5 text-[8px] font-bold rounded transition-colors " <>
+                if(@pad_mode == mode,
+                  do: "bg-violet-600 text-white",
+                  else: "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                )}
+            >
+              {lbl}
+            </button>
+          <% end %>
+          <%!-- Poly voices --%>
+          <div class="flex items-center gap-0.5 ml-1">
+            <span class="text-[8px] text-gray-600 font-mono">V</span>
+            <%= for v <- [1, 2, 4] do %>
+              <button
+                phx-click="set_pad_poly"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                phx-value-voices={v}
+                class={"w-5 h-5 text-[8px] font-mono rounded transition-colors " <>
+                  if(@poly_voices == v,
+                    do: "bg-teal-700 text-white",
+                    else: "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                  )}
+              >
+                {v}
+              </button>
+            <% end %>
+          </div>
+          <%!-- Fade --%>
+          <div class="flex items-center gap-0.5 ml-1">
+            <%= for {fade, lbl} <- [{"none", "—"}, {"in", "FI"}, {"out", "FO"}, {"cross", "FX"}] do %>
+              <button
+                phx-click="set_pad_fade"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                phx-value-fade={fade}
+                class={"w-5 h-5 text-[7px] font-bold rounded transition-colors " <>
+                  if(@pad_fade == fade,
+                    do: "bg-amber-700 text-white",
+                    else: "bg-gray-800 text-gray-600 hover:bg-gray-700"
+                  )}
+                title={case fade do
+                  "none" -> "No fade"
+                  "in" -> "Fade in"
+                  "out" -> "Fade out"
+                  "cross" -> "Crossfade"
+                  _ -> fade
+                end}
+              >
+                {lbl}
+              </button>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- 4×2 Pad Grid --%>
+        <div class="grid grid-cols-4 gap-1">
+          <%= for {pad, idx} <- Enum.with_index(@loop_pads) do %>
+            <% is_active = idx in @active_pads %>
+            <div class="relative group/pad aspect-square">
+              <%!-- Main pad button --%>
+              <button
+                phx-click="trigger_loop_pad"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                phx-value-pad={idx}
+                disabled={is_nil(@deck.track)}
+                class={"w-full h-full min-h-[40px] rounded text-[8px] font-bold transition-all active:scale-95 " <>
+                  cond do
+                    is_nil(@deck.track) -> "bg-gray-900 border border-gray-800 text-gray-700 cursor-not-allowed"
+                    !pad.assigned -> "bg-gray-800/60 border border-gray-700/50 text-gray-600 hover:bg-gray-700 hover:border-gray-600"
+                    is_active -> "ring-2 ring-white/40 shadow-lg scale-95"
+                    true -> "hover:brightness-125 active:scale-95 shadow-sm"
+                  end}
+                style={if pad.assigned, do: "background-color: #{pad.color}; color: white;", else: ""}
+                title={if pad.assigned, do: "#{pad.label} — click to trigger#{if @pad_mode == "loop", do: " (loop)", else: ""}", else: "No assignment — click to assign current position"}
+              >
+                <%= if pad.assigned do %>
+                  <div class="flex flex-col items-center gap-0 leading-none">
+                    <span class="text-[9px] font-mono">{pad.label}</span>
+                    <span :if={@pad_mode == "loop"} class="text-[7px] opacity-70">↻</span>
+                    <span :if={@pad_mode == "oneshot"} class="text-[7px] opacity-70">▶</span>
+                    <span :if={@pad_mode == "gate"} class="text-[7px] opacity-70">▤</span>
+                  </div>
+                <% else %>
+                  <span class="text-gray-600">{idx + 1}</span>
+                <% end %>
+              </button>
+              <%!-- Assign overlay on hover (empty pad) --%>
+              <button
+                :if={!pad.assigned && @deck.track}
+                phx-click="assign_loop_pad"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                phx-value-pad={idx}
+                class="absolute inset-0 opacity-0 group-hover/pad:opacity-100 rounded bg-violet-600/80 text-white text-[8px] font-bold transition-opacity flex items-center justify-center"
+                title="Assign current position to pad #{idx + 1}"
+              >
+                SET
+              </button>
+              <%!-- Clear overlay on hover (assigned pad) --%>
+              <button
+                :if={pad.assigned}
+                phx-click="clear_loop_pad"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                phx-value-pad={idx}
+                class="absolute -top-1 -right-1 opacity-0 group-hover/pad:opacity-100 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-red-600 text-white text-[8px] font-bold transition-opacity shadow"
+                title="Clear pad #{idx + 1}"
+              >
+                ×
+              </button>
+            </div>
+          <% end %>
+        </div>
+        <div class="flex justify-between mt-0.5 px-0.5">
+          <span class="text-[7px] text-gray-700 font-mono">1–4</span>
+          <span class="text-[7px] text-gray-700 font-mono">5–8</span>
+        </div>
+      </div>
+      <% end %>
 
       <%!-- Track Loader --%>
       <form phx-change="load_track" phx-target={@myself} phx-value-deck={@deck_number}>
@@ -4058,6 +5041,14 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   end
 
   defp restore_deck_from_db(socket, _user_id, _deck_number), do: socket
+
+  defp empty_pad do
+    %{assigned: false, position_ms: 0, end_ms: nil, label: nil, color: "#374151"}
+  end
+
+  defp default_loop_pads do
+    Enum.map(0..7, fn _ -> empty_pad() end)
+  end
 
   defp empty_deck_state do
     %{
@@ -4512,4 +5503,34 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   defp humanize_chef_error(:no_analysed_tracks), do: "No analysed tracks found. Analyse some tracks first, then try again."
   defp humanize_chef_error(reason) when is_binary(reason), do: reason
   defp humanize_chef_error(reason), do: "Something went wrong: #{inspect(reason)}"
+
+  # Returns a list of {action, label, deck, slot} tuples for the MIDI learn panel.
+  # deck and slot are string values (passed as phx-value params) or nil.
+  defp dj_learn_controls(deck_number) do
+    d = to_string(deck_number)
+
+    [
+      {"dj_play", "Play/Pause", d, nil},
+      {"dj_pitch", "Pitch", d, nil},
+      {"dj_volume", "Volume", d, nil},
+      {"dj_sync", "Sync", d, nil},
+      {"dj_loop_toggle", "Loop", d, nil},
+      {"dj_loop_size", "Loop Size", d, nil},
+      {"dj_filter", "Filter", d, nil},
+      {"dj_eq_high", "EQ Hi", d, nil},
+      {"dj_eq_mid", "EQ Mid", d, nil},
+      {"dj_eq_low", "EQ Lo", d, nil},
+      {"dj_crossfader", "Crossfader", nil, nil},
+      {"dj_cue", "Cue 1", d, "1"},
+      {"dj_cue", "Cue 2", d, "2"},
+      {"dj_cue", "Cue 3", d, "3"},
+      {"dj_cue", "Cue 4", d, "4"}
+    ]
+  end
+  # Convert deck number (1-4) to letter (A-D) for display.
+  defp deck_letter(1), do: "A"
+  defp deck_letter(2), do: "B"
+  defp deck_letter(3), do: "C"
+  defp deck_letter(4), do: "D"
+  defp deck_letter(n), do: to_string(n)
 end
