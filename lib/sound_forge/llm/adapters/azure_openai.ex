@@ -4,7 +4,7 @@ defmodule SoundForge.LLM.Adapters.AzureOpenAI do
 
   alias SoundForge.LLM.Adapters.OpenAICompatible
 
-  @api_version "2024-02-01"
+  @api_version "2025-01-01-preview"
 
   @impl true
   def chat(provider, messages, opts \\ []) do
