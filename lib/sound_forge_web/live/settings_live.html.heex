@@ -5,18 +5,17 @@
   Skip to content
 </a>
 <div id="main-content" data-theme="dark" class="min-h-screen bg-gray-950 text-white">
-  <!-- Header -->
-  <header class="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-4" role="banner">
-    <div class="flex items-center justify-between">
-      <.link
-        navigate={~p"/"}
-        class="text-2xl font-bold text-purple-400 hover:text-purple-300 transition-colors"
-      >
-        Sound Forge Alchemy
-      </.link>
-      <span class="text-sm text-gray-500">Settings</span>
-    </div>
-  </header>
+  <SoundForgeWeb.Live.Components.AppHeader.app_header
+    current_scope={@current_scope}
+    current_user_id={@current_user_id}
+    nav_tab={@nav_tab}
+    nav_context={@nav_context}
+    midi_devices={@midi_devices}
+    midi_bpm={@midi_bpm}
+    midi_transport={@midi_transport}
+    pipelines={@pipelines}
+    refreshing_midi={@refreshing_midi}
+  />
   
 <!-- Flash Messages -->
   <div

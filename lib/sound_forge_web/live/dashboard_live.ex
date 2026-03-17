@@ -58,6 +58,8 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:selected_engine, "demucs")
       |> assign(:preview_mode, false)
       |> assign(:show_lalalai_modal, false)
+      |> assign(:show_midi_settings_modal, false)
+      |> assign(:refreshing_midi, false)
       |> assign(:lalalai_modal_expanded, false)
       |> assign(:lalalai_modal_key_input, "")
       |> assign(:lalalai_modal_testing, false)
@@ -644,6 +646,21 @@ defmodule SoundForgeWeb.DashboardLive do
 
   def handle_event("close_lalalai_modal", _params, socket) do
     {:noreply, assign(socket, :show_lalalai_modal, false)}
+  end
+
+  def handle_event("show_midi_settings", _params, socket) do
+    {:noreply, assign(socket, :show_midi_settings_modal, true)}
+  end
+
+  def handle_event("close_midi_settings", _params, socket) do
+    {:noreply, assign(socket, :show_midi_settings_modal, false)}
+  end
+
+  def handle_event("refresh_midi_devices", _params, socket) do
+    devices = safe_list_midi_devices()
+    socket = socket |> assign(:midi_devices, devices) |> assign(:refreshing_midi, true)
+    Process.send_after(self(), :stop_midi_refresh_spin, 600)
+    {:noreply, socket}
   end
 
   def handle_event("test_lalalai_connection", _params, socket) do
@@ -3379,6 +3396,19 @@ defmodule SoundForgeWeb.DashboardLive do
     end
 
     socket
+  end
+
+  def handle_info(:stop_midi_refresh_spin, socket) do
+    {:noreply, assign(socket, :refreshing_midi, false)}
+  end
+
+  def handle_info({:reset_midi_activity, component_id}, socket) do
+    send_update(SoundForgeWeb.Live.Components.ChromaticPadsComponent,
+      id: component_id,
+      midi_activity: false
+    )
+
+    {:noreply, socket}
   end
 
 end

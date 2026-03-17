@@ -30,7 +30,15 @@ defmodule SoundForgeWeb.MidiLive do
     socket =
       socket
       |> assign(:page_title, "MIDI Settings")
+      |> assign(:current_scope, socket.assigns[:current_scope])
       |> assign(:current_user_id, current_user_id)
+      |> assign(:nav_tab, :library)
+      |> assign(:nav_context, :all_tracks)
+      |> assign(:midi_devices, devices)
+      |> assign(:midi_bpm, nil)
+      |> assign(:midi_transport, :stopped)
+      |> assign(:pipelines, %{})
+      |> assign(:refreshing_midi, false)
       |> assign(:devices, devices)
       |> assign(:network_devices, network_devices)
       |> assign(:listening, MapSet.new())
@@ -358,8 +366,20 @@ defmodule SoundForgeWeb.MidiLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-5xl mx-auto p-6 space-y-6">
-      <%!-- Header --%>
+    <div id="midi-page" class="flex flex-col min-h-screen bg-gray-950 text-white">
+      <SoundForgeWeb.Live.Components.AppHeader.app_header
+        current_scope={@current_scope}
+        current_user_id={@current_user_id}
+        nav_tab={@nav_tab}
+        nav_context={@nav_context}
+        midi_devices={@midi_devices}
+        midi_bpm={@midi_bpm}
+        midi_transport={@midi_transport}
+        pipelines={@pipelines}
+        refreshing_midi={@refreshing_midi}
+      />
+    <div class="max-w-5xl mx-auto w-full p-6 space-y-6">
+      <%!-- Page Header --%>
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-white">MIDI Settings</h1>
         <div class="flex items-center gap-3">
@@ -848,6 +868,7 @@ defmodule SoundForgeWeb.MidiLive do
           </div>
         </div>
       </div>
+    </div>
     </div>
     """
   end

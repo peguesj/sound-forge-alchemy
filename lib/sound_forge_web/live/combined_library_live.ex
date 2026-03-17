@@ -24,9 +24,23 @@ defmodule SoundForgeWeb.CombinedLibraryLive do
 
     case check_platform_admin_access(socket) do
       :ok ->
+        current_user_id =
+          case socket.assigns[:current_scope] do
+            %{user: %{id: id}} -> id
+            _ -> nil
+          end
+
         socket =
           socket
           |> assign(:page_title, "Platform Library")
+          |> assign(:current_user_id, current_user_id)
+          |> assign(:nav_tab, :library)
+          |> assign(:nav_context, :all_tracks)
+          |> assign(:midi_devices, [])
+          |> assign(:midi_bpm, nil)
+          |> assign(:midi_transport, :stopped)
+          |> assign(:pipelines, %{})
+          |> assign(:refreshing_midi, false)
           |> assign(:search, "")
           |> assign(:page, 1)
           |> assign(:library, %{tracks: [], total: 0, page: 1, per_page: @per_page})
@@ -68,6 +82,17 @@ defmodule SoundForgeWeb.CombinedLibraryLive do
      )}
   end
 
+  # AppHeader events
+  def handle_event("show_midi_settings", _params, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/settings?section=control_surfaces")}
+  end
+
+  def handle_event("close_midi_settings", _params, socket), do: {:noreply, socket}
+
+  def handle_event("refresh_midi_devices", _params, socket) do
+    {:noreply, assign(socket, :refreshing_midi, false)}
+  end
+
   # ============================================================
   # Render
   # ============================================================
@@ -75,7 +100,19 @@ defmodule SoundForgeWeb.CombinedLibraryLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen bg-base-200 p-4 md:p-6">
+    <div class="min-h-screen bg-gray-950 text-white flex flex-col">
+      <SoundForgeWeb.Live.Components.AppHeader.app_header
+        current_scope={@current_scope}
+        current_user_id={@current_user_id}
+        nav_tab={@nav_tab}
+        nav_context={@nav_context}
+        midi_devices={@midi_devices}
+        midi_bpm={@midi_bpm}
+        midi_transport={@midi_transport}
+        pipelines={@pipelines}
+        refreshing_midi={@refreshing_midi}
+      />
+    <div class="flex-1 bg-base-200 p-4 md:p-6">
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-3xl font-bold">Platform Library</h1>
@@ -154,6 +191,7 @@ defmodule SoundForgeWeb.CombinedLibraryLive do
 
       <%!-- Pagination --%>
       <.pagination library={@library} search={@search} />
+    </div>
     </div>
     """
   end

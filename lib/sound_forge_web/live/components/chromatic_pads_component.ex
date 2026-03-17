@@ -56,6 +56,10 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
   end
 
   @impl true
+  def update(%{midi_activity: activity}, socket) when is_boolean(activity) do
+    {:ok, assign(socket, :midi_activity, activity)}
+  end
+
   def update(%{auto_cues_complete: _payload}, socket) do
     # Auto-cues completed for a track -- refresh available stems in case
     # new stems are now available from the same processing pipeline.
@@ -515,7 +519,7 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
                   {pad.label || "Pad #{idx + 1}"}
                 </span>
                 <span
-                  :if={pad.stem && pad.stem.stem_type}
+                  :if={match?(%SoundForge.Music.Stem{}, pad.stem) && pad.stem.stem_type}
                   class="text-[10px] text-white/60 mt-0.5 truncate max-w-[90%]"
                 >
                   {pad.stem.stem_type |> to_string() |> String.capitalize()}
@@ -1184,8 +1188,7 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
 
   def handle_event("midi_activity", _params, socket) do
     # Flash the MIDI activity indicator briefly.
-    # The JS side handles the transient visual flash; server-side just tracks
-    # that MIDI is actively receiving data.
+    Process.send_after(self(), {:reset_midi_activity, socket.assigns.id}, 2000)
     {:noreply, assign(socket, :midi_activity, true)}
   end
 

@@ -28,6 +28,14 @@ defmodule SoundForgeWeb.SettingsLive do
       socket
       |> assign(:page_title, "Settings")
       |> assign(:current_user_id, user_id)
+      |> assign(:current_scope, socket.assigns[:current_scope])
+      |> assign(:nav_tab, :library)
+      |> assign(:nav_context, :all_tracks)
+      |> assign(:midi_devices, [])
+      |> assign(:midi_bpm, nil)
+      |> assign(:midi_transport, :stopped)
+      |> assign(:pipelines, %{})
+      |> assign(:refreshing_midi, false)
       |> assign(:section, :spotify)
       |> assign(:settings, settings)
       |> assign(:defaults, defaults)
@@ -78,6 +86,17 @@ defmodule SoundForgeWeb.SettingsLive do
   # Catch-all for unrecognized validate payloads (e.g. browser extensions)
   def handle_event("validate", _params, socket) do
     {:noreply, socket}
+  end
+
+  # AppHeader events
+  def handle_event("show_midi_settings", _params, socket) do
+    {:noreply, push_patch(socket, to: ~p"/settings?section=control_surfaces")}
+  end
+
+  def handle_event("close_midi_settings", _params, socket), do: {:noreply, socket}
+
+  def handle_event("refresh_midi_devices", _params, socket) do
+    {:noreply, assign(socket, :refreshing_midi, false)}
   end
 
   def handle_event("save", %{"user_settings" => params}, socket) do
