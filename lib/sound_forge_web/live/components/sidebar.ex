@@ -12,6 +12,8 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
   attr :artists, :list, default: []
   attr :albums, :list, default: []
   attr :track_count, :integer, default: 0
+  attr :selected_source, :string, default: nil
+  attr :source_sample_type_filter, :string, default: nil
 
   def sidebar(assigns) do
     ~H"""
@@ -76,6 +78,57 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
           </ul>
         </div>
         
+    <!-- Sources section -->
+        <div class="px-4">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Sources</h3>
+          <ul class="space-y-0.5">
+            <li>
+              <button
+                phx-click="nav_source"
+                phx-value-source="splice"
+                class={sidebar_item_class(@nav_context == :source && @selected_source == "splice")}
+              >
+                <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                </svg>
+                <span class="truncate">Splice</span>
+              </button>
+            </li>
+          </ul>
+          <!-- Sample type sub-filters (shown when a source is selected) -->
+          <ul :if={@nav_context == :source && @selected_source != nil} class="mt-1 ml-3 space-y-0.5">
+            <li>
+              <button
+                phx-click="nav_source_type"
+                phx-value-sample_type=""
+                class={sidebar_item_class(@source_sample_type_filter == nil)}
+              >
+                <span class="truncate text-xs">All</span>
+              </button>
+            </li>
+            <li>
+              <button
+                phx-click="nav_source_type"
+                phx-value-sample_type="loop"
+                class={sidebar_item_class(@source_sample_type_filter == "loop")}
+              >
+                <span class="hero-arrow-path w-3.5 h-3.5 shrink-0"></span>
+                <span class="truncate text-xs">Loops</span>
+              </button>
+            </li>
+            <li>
+              <button
+                phx-click="nav_source_type"
+                phx-value-sample_type="one_shot"
+                class={sidebar_item_class(@source_sample_type_filter == "one_shot")}
+              >
+                <span class="hero-bolt w-3.5 h-3.5 shrink-0"></span>
+                <span class="truncate text-xs">One-Shots</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+
     <!-- Browse section -->
         <div class="px-4">
           <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Browse</h3>

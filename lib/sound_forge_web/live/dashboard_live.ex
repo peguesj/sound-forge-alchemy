@@ -54,6 +54,8 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:browse_filter, nil)
       |> assign(:playlists, list_playlists(scope))
       |> assign(:albums, list_albums(scope))
+      |> assign(:selected_source, nil)
+      |> assign(:source_sample_type_filter, nil)
       |> assign(:page, 1)
       |> assign(:per_page, per_page(current_user_id))
       |> assign(:selected_engine, "demucs")
@@ -1250,6 +1252,43 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:select_all, false)
      |> stream(:tracks, tracks, reset: true)
      |> push_patch(to: ~p"/")}
+  end
+
+  @impl true
+  def handle_event("nav_source", %{"source" => source}, socket) do
+    scope = socket.assigns[:current_scope]
+    tracks = Music.list_tracks_by_source_and_type(scope, source, nil)
+
+    {:noreply,
+     socket
+     |> assign(:nav_tab, :library)
+     |> assign(:nav_context, :source)
+     |> assign(:selected_source, source)
+     |> assign(:source_sample_type_filter, nil)
+     |> assign(:browse_filter, nil)
+     |> assign(:page, 1)
+     |> assign(:track_count, length(tracks))
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:select_all, false)
+     |> stream(:tracks, tracks, reset: true)
+     |> push_patch(to: ~p"/")}
+  end
+
+  @impl true
+  def handle_event("nav_source_type", %{"sample_type" => sample_type}, socket) do
+    scope = socket.assigns[:current_scope]
+    source = socket.assigns[:selected_source]
+    type_filter = if sample_type == "", do: nil, else: sample_type
+    tracks = Music.list_tracks_by_source_and_type(scope, source, type_filter)
+
+    {:noreply,
+     socket
+     |> assign(:source_sample_type_filter, type_filter)
+     |> assign(:page, 1)
+     |> assign(:track_count, length(tracks))
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:select_all, false)
+     |> stream(:tracks, tracks, reset: true)}
   end
 
   @impl true
