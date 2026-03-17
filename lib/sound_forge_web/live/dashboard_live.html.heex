@@ -9,6 +9,7 @@
     midi_bpm={@midi_bpm}
     midi_transport={@midi_transport}
     pipelines={@pipelines}
+    refreshing_midi={@refreshing_midi}
   />
   
 <!-- Toast Notifications -->
@@ -2757,15 +2758,7 @@
     </div>
   </div>
   
-<!-- Spotify Playback Bar (hidden in DJ/DAW/Pads) -->
-  <.live_component
-    :if={@nav_tab not in [:dj, :daw, :pads]}
-    module={SoundForgeWeb.Live.Components.SpotifyPlayer}
-    id="spotify-player"
-    spotify_playback={@spotify_playback}
-    spotify_linked={@spotify_linked}
-    spotify_premium={@spotify_premium}
-  />
+<%!-- SpotifyPlayer merged into TransportBarComponent (pill tabs: Local | Spotify) --%>
   <SoundForgeWeb.Live.Components.MobileNav.mobile_nav
     active_tab={@nav_tab}
     midi_device_count={length(@midi_devices)}
@@ -3036,7 +3029,7 @@
   </p>
 </div>
 
-<%!-- SMPTE Transport Bar (fixed bottom) -- hidden in DJ/DAW/Pads which have their own players --%>
+<%!-- Unified Transport Bar (local + Spotify, pill-tab switched) --%>
 <.live_component
   :if={@nav_tab not in [:dj, :daw, :pads]}
   module={SoundForgeWeb.Live.Components.TransportBarComponent}
@@ -3044,6 +3037,9 @@
   nav_tab={@nav_tab}
   track={@track}
   analysis={@analysis}
+  spotify_playback={@spotify_playback}
+  spotify_linked={@spotify_linked}
+  spotify_premium={@spotify_premium}
 />
 
 <%!-- AI Assistant Chat (floating, bottom-right) --%>
@@ -3053,5 +3049,106 @@
   current_user_id={@current_user_id}
   track_id={if @track, do: @track.id, else: nil}
 />
+
+<%!-- MIDI Settings Slide-Over Modal --%>
+<div
+  :if={@show_midi_settings_modal}
+  id="midi-settings-modal"
+  class="fixed inset-0 z-[70] flex"
+  role="dialog"
+  aria-modal="true"
+  aria-label="MIDI Settings"
+>
+  <%!-- Backdrop --%>
+  <div
+    class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+    phx-click="close_midi_settings"
+  ></div>
+
+  <%!-- Slide-over panel --%>
+  <div class="relative ml-auto flex h-full w-full max-w-sm flex-col bg-gray-900 border-l border-gray-700 shadow-2xl overflow-y-auto">
+    <!-- Panel Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+      <h2 class="text-sm font-semibold text-white">MIDI Status</h2>
+      <button
+        phx-click="close_midi_settings"
+        class="text-gray-500 hover:text-white transition-colors"
+        aria-label="Close"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Device List -->
+    <div class="px-5 py-4 space-y-3">
+      <p class="text-[10px] text-gray-500 uppercase tracking-wide font-medium">
+        Connected Devices ({length(@midi_devices)})
+      </p>
+      <div :if={length(@midi_devices) == 0} class="text-center py-6">
+        <svg class="w-8 h-8 mx-auto text-gray-700 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+        </svg>
+        <p class="text-sm text-gray-500">No MIDI devices connected.</p>
+        <p class="text-xs text-gray-600 mt-1">Connect a MIDI controller to get started.</p>
+      </div>
+      <div :for={device <- @midi_devices} class="flex items-center gap-3 px-3 py-2.5 bg-gray-800/60 rounded-lg">
+        <div class={[
+          "w-2 h-2 rounded-full shrink-0",
+          if(device.status == :connected, do: "bg-green-500", else: "bg-red-500")
+        ]}></div>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm text-gray-200 truncate">{device.name}</p>
+          <p class="text-xs text-gray-500">{device.direction} · {device.type}</p>
+        </div>
+        <span class={[
+          "text-[10px] font-medium px-1.5 py-0.5 rounded",
+          if(device.status == :connected, do: "bg-green-900/40 text-green-400", else: "bg-red-900/40 text-red-400")
+        ]}>
+          {if device.status == :connected, do: "Connected", else: "Disconnected"}
+        </span>
+      </div>
+    </div>
+
+    <!-- Transport & BPM -->
+    <div class="px-5 py-3 border-t border-gray-800">
+      <p class="text-[10px] text-gray-500 uppercase tracking-wide font-medium mb-3">Transport</p>
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
+          <div class={[
+            "w-2.5 h-2.5 rounded-full",
+            if(@midi_transport == :playing, do: "bg-green-500 animate-pulse", else: "bg-gray-600")
+          ]}></div>
+          <span class="text-sm text-gray-300">
+            {if @midi_transport == :playing, do: "Playing", else: "Stopped"}
+          </span>
+        </div>
+        <span :if={@midi_bpm} class="font-mono text-sm text-purple-300">
+          {Float.round(@midi_bpm * 1.0, 1)} BPM
+        </span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-auto px-5 py-4 border-t border-gray-800 space-y-2">
+      <button
+        phx-click="refresh_midi_devices"
+        class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm rounded-lg transition-colors"
+      >
+        <svg class={["w-4 h-4", if(@refreshing_midi, do: "animate-spin", else: "")]} fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Refresh Devices
+      </button>
+      <.link
+        navigate="/midi"
+        class="block w-full text-center px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded-lg transition-colors"
+      >
+        Open Full MIDI Settings
+      </.link>
+    </div>
+  </div>
+</div>
 
 </div>

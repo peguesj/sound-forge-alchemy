@@ -2100,8 +2100,45 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           </div>
         </div>
 
-        <%!-- Main Decks (A/B) + Center Mixer Strip --%>
-        <div class="flex flex-col md:flex-row gap-4 md:gap-0 items-start">
+        <%!-- Master + Crossfader strip (above deck row) --%>
+        <div class="flex justify-center items-end gap-10 pb-4 mb-1">
+          <div class="flex flex-col items-center gap-1">
+            <span class="text-[9px] text-purple-400 font-bold uppercase tracking-widest">MASTER</span>
+            <form phx-change="set_master_volume" phx-target={@myself}>
+              <.dial_knob
+                id="master-vol-knob"
+                name="value"
+                min={0}
+                max={100}
+                step={1}
+                value={@master_volume}
+                size={44}
+              />
+            </form>
+            <span class="text-[9px] text-gray-500 font-mono">{@master_volume}%</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <span class="text-[9px] text-gray-400 uppercase tracking-widest">XFADE</span>
+            <form phx-change="crossfader" phx-target={@myself}>
+              <.dial_knob
+                id="crossfader-knob"
+                name="value"
+                min={-100}
+                max={100}
+                step={1}
+                value={@crossfader}
+                size={44}
+              />
+            </form>
+            <div class="flex justify-between w-11 mt-0.5">
+              <span class="text-[8px] text-gray-600">A</span>
+              <span class="text-[8px] text-gray-600">B</span>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Main Decks (A/B) + Inline EQ columns --%>
+        <div class="flex flex-row gap-0 items-start">
           <%!-- DECK 1 (A) --%>
           <div class="flex-1 min-w-0">
             <.deck_panel
@@ -2123,83 +2160,46 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             />
           </div>
 
-          <%!-- Center Mixer Strip --%>
-          <div class="flex-shrink-0 w-full md:w-28 flex flex-row md:flex-col items-stretch gap-2 md:gap-0 px-2 md:pt-4">
-            <%!-- D1 EQ Column --%>
-            <div class="flex-1 md:flex-none flex flex-row md:flex-col items-center gap-1 md:gap-0.5 md:mb-2">
-              <span class="text-[9px] text-cyan-500 font-bold uppercase tracking-widest md:mb-1 flex-shrink-0 md:text-center w-6 md:w-full">D1</span>
-              <%= for {band, label} <- [{"high", "HI"}, {"mid", "MID"}, {"low", "LO"}] do %>
-                <div class="flex-1 md:flex-none flex flex-col items-center gap-0.5 md:mb-1">
-                  <span class="text-[8px] text-gray-600 uppercase leading-none">{label}</span>
-                  <form phx-change={"set_eq_gain_deck_1_" <> band} phx-target={@myself}>
-                    <input type="hidden" name="deck" value="1" />
-                    <input type="hidden" name="band" value={band} />
-                    <input
-                      type="range" name="gain"
-                      min="-12" max="12" step="1" value="0"
-                      orient="vertical"
-                      class="h-16 md:h-20 w-2 appearance-none cursor-pointer accent-cyan-500 writing-mode-vertical"
-                      style="writing-mode: vertical-lr; direction: rtl;"
-                    />
-                  </form>
-                </div>
-              <% end %>
-            </div>
-
-            <%!-- Master Volume --%>
-            <div class="flex-shrink-0 flex flex-col items-center gap-1 md:mb-2 py-1 md:py-0">
-              <span class="text-[9px] text-purple-400 font-bold uppercase tracking-widest">MASTER</span>
-              <form phx-change="set_master_volume" phx-target={@myself} class="flex flex-col items-center">
-                <input
-                  type="range" name="value"
-                  min="0" max="100" step="1" value={@master_volume}
-                  orient="vertical"
-                  class="h-16 md:h-24 w-2 appearance-none cursor-pointer accent-purple-500"
-                  style="writing-mode: vertical-lr; direction: rtl;"
+          <%!-- D1 EQ column (inline, right of Deck 1) --%>
+          <div class="flex-shrink-0 flex flex-col items-center gap-1.5 pt-2 px-2 border-x border-gray-800/60">
+            <span class="text-[9px] text-cyan-500 font-bold uppercase tracking-widest">D1</span>
+            <%= for {band, label} <- [{"high", "HI"}, {"mid", "MID"}, {"low", "LO"}] do %>
+              <form phx-change={"set_eq_gain_deck_1_" <> band} phx-target={@myself}>
+                <input type="hidden" name="deck" value="1" />
+                <input type="hidden" name="band" value={band} />
+                <.dial_knob
+                  id={"d1-eq-" <> band}
+                  name="gain"
+                  min={-12}
+                  max={12}
+                  step={1}
+                  value={0}
+                  size={32}
+                  label={label}
                 />
-                <span class="text-[9px] text-gray-500 font-mono mt-0.5">{@master_volume}%</span>
               </form>
-            </div>
+            <% end %>
+          </div>
 
-            <%!-- Crossfader --%>
-            <div class="flex-1 md:flex-none flex flex-col items-center gap-1 md:mb-1">
-              <span class="text-[9px] text-gray-500 uppercase tracking-wider">XFADE</span>
-              <form phx-change="crossfader" phx-target={@myself} class="w-full">
-                <input
-                  type="range"
-                  min="-100" max="100" step="1"
-                  value={@crossfader}
-                  name="value"
-                  aria-label="Crossfader"
-                  class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+          <%!-- D2 EQ column (inline, left of Deck 2) --%>
+          <div class="flex-shrink-0 flex flex-col items-center gap-1.5 pt-2 px-2 border-x border-gray-800/60">
+            <span class="text-[9px] text-orange-500 font-bold uppercase tracking-widest">D2</span>
+            <%= for {band, label} <- [{"high", "HI"}, {"mid", "MID"}, {"low", "LO"}] do %>
+              <form phx-change={"set_eq_gain_deck_2_" <> band} phx-target={@myself}>
+                <input type="hidden" name="deck" value="2" />
+                <input type="hidden" name="band" value={band} />
+                <.dial_knob
+                  id={"d2-eq-" <> band}
+                  name="gain"
+                  min={-12}
+                  max={12}
+                  step={1}
+                  value={0}
+                  size={32}
+                  label={label}
                 />
-                <div class="flex justify-between mt-0.5 px-0.5">
-                  <span class="text-[8px] text-gray-600">A</span>
-                  <span class="text-[8px] text-gray-600">B</span>
-                </div>
               </form>
-            </div>
-
-            <%!-- D2 EQ Column --%>
-            <div class="flex-1 md:flex-none flex flex-row md:flex-col items-center gap-1 md:gap-0.5 md:mb-2">
-              <span class="text-[9px] text-orange-500 font-bold uppercase tracking-widest md:mb-1 flex-shrink-0 md:text-center w-6 md:w-full">D2</span>
-              <%= for {band, label} <- [{"high", "HI"}, {"mid", "MID"}, {"low", "LO"}] do %>
-                <div class="flex-1 md:flex-none flex flex-col items-center gap-0.5 md:mb-1">
-                  <span class="text-[8px] text-gray-600 uppercase leading-none">{label}</span>
-                  <form phx-change={"set_eq_gain_deck_2_" <> band} phx-target={@myself}>
-                    <input type="hidden" name="deck" value="2" />
-                    <input type="hidden" name="band" value={band} />
-                    <input
-                      type="range" name="gain"
-                      min="-12" max="12" step="1" value="0"
-                      orient="vertical"
-                      class="h-16 md:h-20 w-2 appearance-none cursor-pointer accent-orange-500"
-                      style="writing-mode: vertical-lr; direction: rtl;"
-                    />
-                  </form>
-                </div>
-              <% end %>
-            </div>
+            <% end %>
           </div>
 
           <%!-- DECK 2 (B) --%>
@@ -2872,6 +2872,57 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     <span :if={@score} class={"text-[10px] font-bold px-1.5 py-0.5 rounded #{@bg} #{@text_color}"}>
       {trunc((@score || 0) * 100)}%
     </span>
+    """
+  end
+
+  # -- Dial Knob (rotary control) --
+
+  attr :id, :string, required: true
+  attr :name, :string, required: true
+  attr :min, :any, default: -12
+  attr :max, :any, default: 12
+  attr :step, :any, default: 1
+  attr :value, :any, default: 0
+  attr :size, :integer, default: 36
+  attr :label, :string, default: nil
+
+  defp dial_knob(assigns) do
+    size = assigns.size
+    half = div(size, 2)
+    range = max(assigns.max - assigns.min, 1) * 1.0
+    normalized = min(1.0, max(0.0, (assigns.value * 1.0 - assigns.min * 1.0) / range))
+    rotation = -135.0 + 270.0 * normalized
+
+    assigns =
+      assigns
+      |> assign(:half, half)
+      |> assign(:indicator_height, half - 4)
+      |> assign(:rotation, rotation)
+
+    ~H"""
+    <div id={@id} class="djknob flex flex-col items-center gap-0.5">
+      <div
+        class="relative rounded-full bg-gray-900 border border-gray-700 cursor-pointer"
+        style={"width: #{@size}px; height: #{@size}px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.7), 0 1px 0 rgba(255,255,255,0.04);"}
+      >
+        <div
+          class="djknob-ind absolute rounded-full pointer-events-none"
+          style={"background: rgba(255,255,255,0.85); width: 2px; height: #{@indicator_height}px; left: #{@half - 1}px; top: 4px; transform: rotate(#{@rotation}deg); transform-origin: center bottom;"}
+        ></div>
+        <input
+          type="range"
+          name={@name}
+          min={@min}
+          max={@max}
+          step={@step}
+          value={@value}
+          class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          style="margin: 0; padding: 0;"
+          oninput={"(function(i){var r=(-135+270*((i.value-i.min)/(i.max-i.min)));document.getElementById('#{@id}').querySelector('.djknob-ind').style.transform='rotate('+r+'deg)'})(this)"}
+        />
+      </div>
+      <span :if={@label} class="text-[8px] text-gray-500 uppercase leading-none">{@label}</span>
+    </div>
     """
   end
 

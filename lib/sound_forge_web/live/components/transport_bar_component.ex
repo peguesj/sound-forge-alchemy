@@ -42,7 +42,11 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
      |> assign(:active_deck, 1)
      |> assign(:zoom_level, 1.0)
      |> assign(:track_title, nil)
-     |> assign(:track_artist, nil)}
+     |> assign(:track_artist, nil)
+     |> assign(:playback_source, :local)
+     |> assign(:spotify_playback, nil)
+     |> assign(:spotify_linked, false)
+     |> assign(:spotify_premium, true)}
   end
 
   @impl true
@@ -77,6 +81,25 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
       else
         socket
       end
+
+    # Accept Spotify assigns
+    socket =
+      socket
+      |> then(fn s ->
+        if Map.has_key?(assigns, :spotify_linked),
+          do: assign(s, :spotify_linked, assigns[:spotify_linked]),
+          else: s
+      end)
+      |> then(fn s ->
+        if Map.has_key?(assigns, :spotify_premium),
+          do: assign(s, :spotify_premium, assigns[:spotify_premium] != false),
+          else: s
+      end)
+      |> then(fn s ->
+        if Map.has_key?(assigns, :spotify_playback),
+          do: assign(s, :spotify_playback, assigns[:spotify_playback]),
+          else: s
+      end)
 
     {:ok, socket}
   end
@@ -256,6 +279,40 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
     {:noreply, assign(socket, :bpm, bpm)}
   end
 
+  @impl true
+  def handle_event("set_playback_source", %{"source" => source}, socket)
+      when source in ["local", "spotify"] do
+    {:noreply, assign(socket, :playback_source, String.to_existing_atom(source))}
+  end
+
+  def handle_event("set_playback_source", _params, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_event("spotify_toggle_play", _params, socket) do
+    playback = socket.assigns.spotify_playback
+
+    if playback && playback.playing do
+      send(self(), :spotify_pause)
+    else
+      send(self(), :spotify_resume)
+    end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("spotify_seek_bar", %{"ratio" => ratio_str}, socket) do
+    playback = socket.assigns.spotify_playback
+
+    if playback do
+      ratio = parse_float(ratio_str)
+      position_ms = trunc(ratio * playback.duration_ms)
+      send(self(), {:spotify_seek, position_ms})
+    end
+
+    {:noreply, socket}
+  end
+
   # -- Template --
 
   @impl true
@@ -269,7 +326,39 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
       data-fps={@fps}
       class="fixed bottom-0 left-0 right-0 z-40 bg-gray-950 border-t border-gray-800 select-none"
     >
-      <div class="h-[72px] flex items-center px-4 gap-3">
+      <%!-- Spotify JS hook (hidden, SDK plumbing only) --%>
+      <div id="spotify-player" phx-hook="SpotifyPlayer" class="hidden"></div>
+
+      <%!-- Local | Spotify source pill tabs (shown when Spotify is linked) --%>
+      <div :if={@spotify_linked} class="flex justify-center border-b border-gray-800/50 py-0.5">
+        <div class="flex gap-0.5 bg-gray-900 rounded-full px-0.5 py-0.5">
+          <button
+            phx-click="set_playback_source"
+            phx-value-source="local"
+            phx-target={@myself}
+            class={"px-3 py-0.5 text-[10px] font-semibold rounded-full transition-colors " <>
+              if(@playback_source == :local,
+                do: "bg-green-700 text-white",
+                else: "text-gray-500 hover:text-gray-300")}
+          >
+            Local
+          </button>
+          <button
+            phx-click="set_playback_source"
+            phx-value-source="spotify"
+            phx-target={@myself}
+            class={"px-3 py-0.5 text-[10px] font-semibold rounded-full transition-colors " <>
+              if(@playback_source == :spotify,
+                do: "bg-[#1DB954] text-black",
+                else: "text-gray-500 hover:text-gray-300")}
+          >
+            Spotify
+          </button>
+        </div>
+      </div>
+
+      <%!-- Local transport controls --%>
+      <div :if={@playback_source == :local} class="h-[72px] flex items-center px-4 gap-3">
         <%!-- Track Info Section --%>
         <div class="flex items-center gap-3 min-w-[160px] max-w-[200px]">
           <div class="truncate">
@@ -527,6 +616,88 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
           <span class="text-[10px] text-gray-500 min-w-[24px] font-mono">{@master_volume}</span>
         </div>
       </div>
+
+      <%!-- Spotify playback controls --%>
+      <div :if={@playback_source == :spotify} class="h-[72px] flex items-center px-4 gap-4">
+        <%= if !@spotify_premium do %>
+          <div class="w-full flex items-center justify-center gap-2 text-sm text-gray-400">
+            <svg class="w-4 h-4 text-yellow-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+            </svg>
+            Spotify Premium required for Web Playback.
+          </div>
+        <% else %>
+          <%= if @spotify_playback do %>
+            <%!-- Album art --%>
+            <div class="shrink-0 relative w-10 h-10">
+              <div class="w-10 h-10 rounded bg-gray-800 flex items-center justify-center">
+                <svg class="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                </svg>
+              </div>
+              <img
+                :if={@spotify_playback.album_art_url}
+                src={@spotify_playback.album_art_url}
+                alt="Album art"
+                class="absolute inset-0 w-10 h-10 rounded object-cover"
+                onerror="this.style.display='none'"
+              />
+            </div>
+            <%!-- Track info --%>
+            <div class="min-w-0 w-40 shrink-0">
+              <p class="text-sm text-white truncate font-medium">
+                {@spotify_playback.track_name || "Unknown Track"}
+              </p>
+              <p class="text-xs text-gray-400 truncate">
+                {@spotify_playback.artist_name || "Unknown Artist"}
+              </p>
+            </div>
+            <%!-- Play/Pause --%>
+            <button
+              phx-click="spotify_toggle_play"
+              phx-target={@myself}
+              aria-label={if @spotify_playback.playing, do: "Pause", else: "Play"}
+              class="shrink-0 w-9 h-9 rounded-full bg-[#1DB954] hover:bg-[#1ed760] flex items-center justify-center transition-colors"
+            >
+              <svg :if={!@spotify_playback.playing} class="w-4 h-4 ml-0.5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              <svg :if={@spotify_playback.playing} class="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+              </svg>
+            </button>
+            <%!-- Progress --%>
+            <div class="flex-1 flex items-center gap-2 min-w-[120px]">
+              <span class="text-[10px] text-gray-500 font-mono min-w-[28px] text-right">
+                {format_spotify_ms(@spotify_playback.position_ms)}
+              </span>
+              <div
+                class="flex-1 bg-gray-700 rounded-full h-1.5 cursor-pointer group hover:h-2.5 transition-all"
+                phx-click="spotify_seek_bar"
+                phx-target={@myself}
+                phx-value-ratio={spotify_progress_ratio(@spotify_playback)}
+              >
+                <div
+                  class="h-full rounded-full bg-[#1DB954] transition-all"
+                  style={"width: #{spotify_progress_percent(@spotify_playback)}%"}
+                >
+                </div>
+              </div>
+              <span class="text-[10px] text-gray-500 font-mono min-w-[28px]">
+                {format_spotify_ms(@spotify_playback.duration_ms)}
+              </span>
+            </div>
+          <% else %>
+            <%!-- Idle state --%>
+            <div class="flex-1 flex items-center gap-3 text-gray-500">
+              <svg class="w-5 h-5 text-[#1DB954] shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+              </svg>
+              <span class="text-sm">No track playing via Spotify</span>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
     </div>
     """
   end
@@ -590,4 +761,22 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
 
   defp parse_float(n) when is_number(n), do: n / 1
   defp parse_float(_), do: 0.0
+
+  defp format_spotify_ms(nil), do: "0:00"
+
+  defp format_spotify_ms(ms) when is_number(ms) do
+    total = div(trunc(ms), 1000)
+    "#{div(total, 60)}:#{pad2(rem(total, 60))}"
+  end
+
+  defp format_spotify_ms(_), do: "0:00"
+
+  defp spotify_progress_ratio(%{position_ms: pos, duration_ms: dur})
+       when is_number(pos) and is_number(dur) and dur > 0,
+       do: Float.round(pos / dur, 4)
+
+  defp spotify_progress_ratio(_), do: 0.0
+
+  defp spotify_progress_percent(playback),
+    do: Float.round(spotify_progress_ratio(playback) * 100, 1)
 end
