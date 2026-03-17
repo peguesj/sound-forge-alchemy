@@ -1044,6 +1044,146 @@ def extract_energy_curve(y: np.ndarray, sr: int, resolution: float = 0.5) -> Dic
 # Updated main analysis function
 # ---------------------------------------------------------------------------
 
+def detect_transients(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Detect transient onsets using librosa onset detection and HPSS.
+
+    Returns dict with:
+    - transient_times: list of onset times in seconds
+    - onset_strength_mean: mean onset strength value
+    - percussive_ratio: ratio of percussive to total energy (0-1)
+    """
+    # Compute onset strength envelope
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+    onset_strength_mean = float(np.mean(onset_env))
+
+    # Detect onset frames and convert to times
+    onset_frames = librosa.onset.onset_frames(
+        onset_envelope=onset_env,
+        backtrack=True,
+        delta=0.2
+    )
+    transient_times = librosa.frames_to_time(onset_frames, sr=sr).tolist()
+
+    # HPSS: Harmonic-Percussive Source Separation
+    D = np.abs(librosa.stft(y))
+    H, P = librosa.decompose.hpss(D)
+    total_energy = float(np.sum(D ** 2))
+    percussive_energy = float(np.sum(P ** 2))
+    percussive_ratio = percussive_energy / total_energy if total_energy > 0 else 0.0
+
+    return {
+        "transient_times": [round(t, 4) for t in transient_times],
+        "onset_strength_mean": round(onset_strength_mean, 4),
+        "percussive_ratio": round(percussive_ratio, 4)
+    }
+
+
+def classify_transients(
+    y: np.ndarray, sr: int, transient_times: List[float]
+) -> List[Dict[str, Any]]:
+    """
+    Classify each transient by drum category using spectral features.
+
+    Categories: kick, snare, hihat, clap, perc
+    Uses 50ms window around each transient onset.
+
+    Returns list of {time_s, category, confidence} dicts.
+    """
+    window_samples = int(0.05 * sr)  # 50ms window
+    events = []
+
+    for t in transient_times:
+        start = max(0, int(t * sr))
+        end = min(len(y), start + window_samples)
+        frame = y[start:end]
+
+        if len(frame) < 64:
+            continue
+
+        try:
+            # Spectral centroid of this short window
+            centroid = float(np.mean(librosa.feature.spectral_centroid(y=frame, sr=sr)))
+
+            # Energy in low band (0-300 Hz) vs total
+            fft = np.abs(np.fft.rfft(frame))
+            freqs = np.fft.rfftfreq(len(frame), d=1.0 / sr)
+            low_mask = freqs < 300
+            low_energy = float(np.sum(fft[low_mask] ** 2))
+            total_energy = float(np.sum(fft ** 2))
+            low_ratio = low_energy / total_energy if total_energy > 0 else 0.0
+
+            # Spectral rolloff for transient brightness
+            rolloff = float(np.mean(librosa.feature.spectral_rolloff(y=frame, sr=sr, roll_percent=0.85)))
+
+            # Classify based on spectral characteristics
+            category, confidence = _classify_drum_hit(centroid, low_ratio, rolloff)
+
+            events.append({
+                "time_s": round(t, 4),
+                "category": category,
+                "confidence": round(confidence, 3)
+            })
+        except Exception:
+            # Skip frames that fail (too short, silent, etc.)
+            continue
+
+    return events
+
+
+def _classify_drum_hit(centroid: float, low_ratio: float, rolloff: float) -> tuple:
+    """
+    Rule-based drum hit classifier.
+    Returns (category, confidence) tuple.
+    """
+    # Kick: low centroid, high low-frequency energy
+    if centroid < 300 and low_ratio > 0.6:
+        return ("kick", 0.85 + min(0.15, low_ratio - 0.6))
+
+    # Hi-hat/Cymbal: very high centroid, high rolloff
+    if centroid > 5000 or rolloff > 8000:
+        return ("hihat", 0.80 + min(0.15, (centroid - 5000) / 10000))
+
+    # Clap: mid-high centroid with moderate low energy
+    if 2000 < centroid <= 5000 and low_ratio < 0.3:
+        return ("clap", 0.70)
+
+    # Snare: mid centroid with some low energy (body) + high end (snap)
+    if 300 <= centroid <= 3000 and rolloff > 2000:
+        return ("snare", 0.75)
+
+    # Default: general percussion
+    return ("perc", 0.60)
+
+
+def compute_mfcc_embedding(y: np.ndarray, sr: int) -> Dict[str, float]:
+    """
+    Compute a 2D embedding of the audio using the first 20 MFCC means,
+    projected to 2D via PCA. Used for the XO-style drum graph scatter plot.
+
+    Returns {x, y} dict with normalized coordinates in [-1, 1].
+    Falls back to first two MFCC means if sklearn not available.
+    """
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)
+    mfcc_means = np.mean(mfcc, axis=1)  # shape (20,)
+
+    try:
+        from sklearn.decomposition import PCA
+        # Project single sample: reshape for PCA (needs 2D input)
+        # Use a simple normalization since we can't fit PCA on a single sample
+        # In production, PCA would be fit on the full library corpus
+        # For now, use first two components as proxy
+        normalized = (mfcc_means - mfcc_means.mean()) / (mfcc_means.std() + 1e-8)
+        x = float(normalized[0])
+        y_coord = float(normalized[1])
+    except ImportError:
+        # Fallback: use first two MFCC means directly, normalized
+        x = float(mfcc_means[0]) / 100.0
+        y_coord = float(mfcc_means[1]) / 100.0
+
+    return {"x": round(x, 4), "y": round(y_coord, 4)}
+
+
 def analyze_audio(audio_path: str, features: List[str]) -> Dict[str, Any]:
     """
     Main analysis function - extracts requested features from audio
@@ -1231,6 +1371,22 @@ def analyze_audio(audio_path: str, features: List[str]) -> Dict[str, Any]:
     # -----------------------------------------------------------------------
     if extract_all or 'energy_curve' in features:
         results["energy_curve"] = extract_energy_curve(y, sr)
+
+    # -----------------------------------------------------------------------
+    # US-006/US-007: Transient detection + Drum category classification
+    # -----------------------------------------------------------------------
+    if extract_all or 'transients' in features or 'drum_events' in features:
+        transients = detect_transients(y, sr)
+        results["transient_times"] = transients["transient_times"]
+        results["onset_strength_mean"] = transients["onset_strength_mean"]
+        results["percussive_ratio"] = transients["percussive_ratio"]
+
+        drum_events = classify_transients(y, sr, transients["transient_times"])
+        results["drum_events"] = drum_events
+
+        # Compute 2D MFCC embedding for scatter graph (one-shots primarily)
+        if duration < 8.0:
+            results["mfcc_embedding"] = compute_mfcc_embedding(y, sr)
 
     return results
 

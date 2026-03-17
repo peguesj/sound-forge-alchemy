@@ -55,6 +55,9 @@ defmodule SoundForge.Accounts.UserSettings do
     field :lalalai_extraction_level, :string
     field :lalalai_output_format, :string
 
+    # Sources
+    field :splice_library_path, :string
+
     # Debug
     field :debug_mode, :boolean, default: false
 
@@ -84,6 +87,7 @@ defmodule SoundForge.Accounts.UserSettings do
     :lalalai_dereverb,
     :lalalai_extraction_level,
     :lalalai_output_format,
+    :splice_library_path,
     :debug_mode
   ]
 
@@ -116,7 +120,8 @@ defmodule SoundForge.Accounts.UserSettings do
     analysis: [:analysis_features, :analyzer_timeout],
     storage: [:storage_path, :max_file_age_days, :retention_days],
     cloud_separation: [:lalalai_api_key, :lalalai_splitter, :lalalai_dereverb, :lalalai_extraction_level, :lalalai_output_format],
-    general: [:tracks_per_page, :max_upload_size]
+    general: [:tracks_per_page, :max_upload_size],
+    sources: [:splice_library_path]
   }
 
   def section_fields, do: @section_fields

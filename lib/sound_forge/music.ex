@@ -482,6 +482,68 @@ defmodule SoundForge.Music do
     |> Repo.all()
   end
 
+  @doc "Returns tracks filtered by source (spotify/splice/manual/import) for the given user."
+  @spec list_tracks_by_source(scope(), String.t(), keyword()) :: [Track.t()]
+  def list_tracks_by_source(%{user: %{id: user_id}}, source, opts \\ []) do
+    Track
+    |> where([t], t.user_id == ^user_id and t.source == ^source)
+    |> order_by([t], desc: t.inserted_at)
+    |> apply_pagination(opts)
+    |> Repo.all()
+  end
+
+  @doc "Returns tracks filtered by sample_type (full/loop/one_shot) for the given user."
+  @spec list_tracks_by_sample_type(scope(), String.t(), keyword()) :: [Track.t()]
+  def list_tracks_by_sample_type(%{user: %{id: user_id}}, sample_type, opts \\ []) do
+    Track
+    |> where([t], t.user_id == ^user_id and t.sample_type == ^sample_type)
+    |> order_by([t], desc: t.inserted_at)
+    |> apply_pagination(opts)
+    |> Repo.all()
+  end
+
+  @doc "Returns tracks filtered by source and sample_type for the given user."
+  @spec list_tracks_by_source_and_type(scope(), String.t(), String.t() | nil, keyword()) ::
+          [Track.t()]
+  def list_tracks_by_source_and_type(%{user: %{id: user_id}}, source, sample_type, opts \\ []) do
+    base =
+      Track
+      |> where([t], t.user_id == ^user_id and t.source == ^source)
+
+    base =
+      if sample_type do
+        where(base, [t], t.sample_type == ^sample_type)
+      else
+        base
+      end
+
+    base
+    |> order_by([t], desc: t.inserted_at)
+    |> apply_pagination(opts)
+    |> Repo.all()
+  end
+
+  @doc "Returns or creates a playlist for a given source and playlist_type pair."
+  @spec create_or_get_source_playlist(integer(), String.t(), String.t()) ::
+          {:ok, Playlist.t()} | {:error, Ecto.Changeset.t()}
+  def create_or_get_source_playlist(user_id, source, playlist_type) do
+    name = source_playlist_name(source, playlist_type)
+
+    case Repo.get_by(Playlist, user_id: user_id, source: source, playlist_type: playlist_type) do
+      %Playlist{} = playlist -> {:ok, playlist}
+      nil -> create_playlist(%{name: name, source: source, playlist_type: playlist_type, user_id: user_id})
+    end
+  end
+
+  defp source_playlist_name(source, "loop_collection"),
+    do: "#{String.capitalize(source)} Loops"
+
+  defp source_playlist_name(source, "drum_kit"),
+    do: "#{String.capitalize(source)} Drum Kits"
+
+  defp source_playlist_name(source, _),
+    do: "#{String.capitalize(source)} Samples"
+
   @doc "Returns distinct album names for the given user scope."
   @spec list_distinct_albums(scope()) :: [String.t()]
   def list_distinct_albums(%{user: %{id: user_id}}) do
