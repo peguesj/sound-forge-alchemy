@@ -13,7 +13,7 @@ defmodule SoundForgeWeb.SettingsLive do
   alias SoundForge.Audio.LalalAI
   alias SoundForge.LLM.{Providers, Provider, Client}
 
-  @sections ~w(spotify downloads youtube demucs cloud_separation analysis storage sources control_surfaces general advanced ai_providers)a
+  @sections ~w(spotify downloads youtube demucs cloud_separation analysis storage sources library control_surfaces general advanced ai_providers)a
 
   @impl true
   def mount(_params, session, socket) do
@@ -48,6 +48,9 @@ defmodule SoundForgeWeb.SettingsLive do
       |> assign(:lalalai_test_result, nil)
       |> assign(:lalalai_quota, nil)
       |> assign(:form_dirty, false)
+      |> assign(:library_stats, nil)
+      |> assign(:library_scan_result, nil)
+      |> assign(:library_scanning, false)
       |> assign_form(changeset)
       |> assign_provider_assigns(user_id)
 
@@ -62,6 +65,20 @@ defmodule SoundForgeWeb.SettingsLive do
      socket
      |> assign(:section, String.to_existing_atom(section))
      |> push_event("focus_section_heading", %{section: section})}
+  end
+
+  def handle_event("refresh_library_stats", _params, socket) do
+    user_id = socket.assigns.current_user_id
+    stats = if user_id, do: build_library_stats(user_id), else: nil
+    {:noreply, assign(socket, :library_stats, stats)}
+  end
+
+  def handle_event("rescan_library", _params, socket) do
+    {:noreply, assign(socket, :library_scanning, true)}
+  end
+
+  def handle_event("cleanup_orphaned_files", _params, socket) do
+    {:noreply, put_flash(socket, :info, "Cleanup is not yet implemented.")}
   end
 
   def handle_event("validate", %{"user_settings" => params}, socket) do
@@ -500,6 +517,24 @@ defmodule SoundForgeWeb.SettingsLive do
     is_binary(System.find_executable("ffmpeg"))
   end
 
+  defp build_library_stats(_user_id) do
+    base = Application.get_env(:sound_forge, :uploads_path, "priv/static/uploads")
+    case File.stat(base) do
+      {:ok, _} ->
+        files =
+          Path.wildcard(Path.join([base, "**", "*.{mp3,wav,flac,ogg,m4a}"]))
+        total_bytes = Enum.reduce(files, 0, fn f, acc ->
+          case File.stat(f) do
+            {:ok, %{size: s}} -> acc + s
+            _ -> acc
+          end
+        end)
+        %{file_count: length(files), total_size_mb: Float.round(total_bytes / 1_048_576, 1), base_path: base}
+      _ ->
+        %{file_count: 0, total_size_mb: 0.0, base_path: base}
+    end
+  end
+
   defp lalalai_configured?(nil), do: LalalAI.configured?()
 
   defp lalalai_configured?(user_id) do
@@ -546,6 +581,7 @@ defmodule SoundForgeWeb.SettingsLive do
   defp section_label(:analysis), do: "Analysis"
   defp section_label(:storage), do: "Storage"
   defp section_label(:sources), do: "Sources"
+  defp section_label(:library), do: "Library"
   defp section_label(:control_surfaces), do: "Control Surfaces"
   defp section_label(:general), do: "General"
   defp section_label(:advanced), do: "Advanced"

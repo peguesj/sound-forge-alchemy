@@ -60,6 +60,10 @@ defmodule SoundForge.Accounts.UserSettings do
     # Sources
     field :splice_library_path, :string
 
+    # Library management
+    field :warn_on_missing_files, :boolean, default: true
+    field :auto_rescan_on_login, :boolean, default: false
+
     # Debug
     field :debug_mode, :boolean, default: false
 
@@ -92,6 +96,8 @@ defmodule SoundForge.Accounts.UserSettings do
     :lalalai_extraction_level,
     :lalalai_output_format,
     :splice_library_path,
+    :warn_on_missing_files,
+    :auto_rescan_on_login,
     :debug_mode
   ]
 
