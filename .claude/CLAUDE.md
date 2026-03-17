@@ -238,7 +238,8 @@ Follow this sequence:
 ### Dev Server Management
 - **Script**: `.claude/hooks/dev_server_mgmt.sh`
 - **Trigger**: PreToolUse hook on `Bash|Task` (configured in `.claude/settings.json`)
-- **Behavior**: Detects server status on port 5000. If stopped, starts it. If stalled (process exists but not responding to HTTP), restarts it. If running, writes PID to state file.
+- **Behavior**: Detects server status on port 4000. If stopped, starts it. If stalled (process exists but not responding to HTTP), restarts it. If running, writes PID to state file.
+- **Port**: 4000 (authoritative). Port 5000 is NEVER used — reserved by macOS ControlCenter (AirPlay).
 - **State file**: `.claude/hooks/data/dev_server.json` -- JSON with `pid`, `port`, `status`, `updated_at`, `log_file`. Readable by external tools and TTY sessions.
 - **Cooldown**: 30 seconds between checks to avoid excessive overhead.
 - **Skill**: `/dev-server-mgmt` -- manages server lifecycle (status, start, stop, restart, pid, logs, ensure).

@@ -1541,7 +1541,10 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     pads_key = :"deck_#{deck_number}_loop_pads"
     pads = Map.get(socket.assigns, pads_key, [])
 
-    track = SoundForge.Music.get_track(track_id)
+    track = case SoundForge.Music.get_track(track_id) do
+      {:ok, t} -> t
+      _ -> nil
+    end
     label = if track, do: (track.title || Path.basename(track.spotify_url || "", ".wav")), else: "PAD #{pad_idx + 1}"
 
     new_pad = %{
