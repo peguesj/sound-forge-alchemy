@@ -35,6 +35,14 @@ defmodule SoundForgeWeb.Live.BigLoopyLive do
     socket =
       socket
       |> assign(:current_user_id, user_id)
+      |> assign(:current_scope, socket.assigns[:current_scope])
+      |> assign(:nav_tab, :alchemy)
+      |> assign(:nav_context, :all_tracks)
+      |> assign(:midi_devices, [])
+      |> assign(:midi_bpm, nil)
+      |> assign(:midi_transport, :stopped)
+      |> assign(:pipelines, %{})
+      |> assign(:refreshing_midi, false)
       |> assign(:page_title, "BigLoopy — Alchemy")
       |> assign(:tracks, tracks)
       |> assign(:alchemy_sets, alchemy_sets)
@@ -45,6 +53,11 @@ defmodule SoundForgeWeb.Live.BigLoopyLive do
       |> assign(:error, nil)
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_event("nav_tab", %{"tab" => tab}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/?tab=#{tab}")}
   end
 
   @impl true
@@ -154,11 +167,20 @@ defmodule SoundForgeWeb.Live.BigLoopyLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-5xl mx-auto px-4 py-8 space-y-8">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">BigLoopy — Alchemy Pipeline</h1>
-        <.link navigate={~p"/"} class="btn btn-ghost btn-sm">← Dashboard</.link>
-      </div>
+    <div class="flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden">
+      <SoundForgeWeb.Live.Components.AppHeader.app_header
+        nav_tab={:alchemy}
+        nav_context={@nav_context}
+        current_scope={@current_scope}
+        current_user_id={@current_user_id}
+        midi_devices={@midi_devices}
+        midi_bpm={@midi_bpm}
+        midi_transport={@midi_transport}
+        pipelines={@pipelines}
+        refreshing_midi={@refreshing_midi}
+      />
+      <div class="flex-1 overflow-y-auto">
+      <div class="max-w-5xl mx-auto px-4 py-8 space-y-8">
 
       <%!-- Error --%>
       <div :if={@error} class="alert alert-error">
@@ -288,6 +310,13 @@ defmodule SoundForgeWeb.Live.BigLoopyLive do
           </div>
         </div>
       </div>
+    </div>
+      </div>
+      <.live_component
+        module={SoundForgeWeb.Live.Components.TransportBarComponent}
+        id="transport-bar"
+        nav_tab={:alchemy}
+      />
     </div>
     """
   end

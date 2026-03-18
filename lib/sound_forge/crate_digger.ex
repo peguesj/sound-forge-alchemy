@@ -50,6 +50,34 @@ defmodule SoundForge.CrateDigger do
     |> Repo.update()
   end
 
+  @doc "Delete a crate and all associated track configs (cascade)."
+  @spec delete_crate(Crate.t()) :: {:ok, Crate.t()} | {:error, Ecto.Changeset.t()}
+  def delete_crate(%Crate{} = crate) do
+    Repo.delete(crate)
+  end
+
+  @doc "Rename a crate."
+  @spec rename_crate(Crate.t(), String.t()) :: {:ok, Crate.t()} | {:error, Ecto.Changeset.t()}
+  def rename_crate(%Crate{} = crate, name) when is_binary(name) and name != "" do
+    update_crate(crate, %{name: String.trim(name)})
+  end
+
+  @doc """
+  Refresh a crate by re-fetching its playlist from Spotify.
+
+  Preserves existing `stem_config` and per-track `track_configs`.
+  Only `playlist_data` (track list) is updated.
+  """
+  @spec refresh_crate(Crate.t()) :: {:ok, Crate.t()} | {:error, term()}
+  def refresh_crate(%Crate{spotify_playlist_id: playlist_id} = crate) do
+    spotify_url = "https://open.spotify.com/playlist/#{playlist_id}"
+
+    with {:ok, playlist} <- Spotify.fetch_metadata(spotify_url),
+         {:ok, tracks} <- extract_tracks(playlist) do
+      update_crate(crate, %{playlist_data: tracks})
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # Playlist loading
   # ---------------------------------------------------------------------------

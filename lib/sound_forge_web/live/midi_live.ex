@@ -64,6 +64,11 @@ defmodule SoundForgeWeb.MidiLive do
   # -- Device events (existing) --
 
   @impl true
+  def handle_event("nav_tab", %{"tab" => tab}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/?tab=#{tab}")}
+  end
+
+  @impl true
   def handle_event("toggle_listen", %{"port-id" => port_id}, socket) do
     listening = socket.assigns.listening
 

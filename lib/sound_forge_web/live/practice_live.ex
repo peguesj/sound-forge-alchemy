@@ -32,6 +32,11 @@ defmodule SoundForgeWeb.PracticeLive do
   end
 
   @impl true
+  def handle_event("nav_tab", %{"tab" => tab}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/?tab=#{tab}")}
+  end
+
+  @impl true
   def handle_event("import_sessions", _params, socket) do
     socket = assign(socket, :importing, true)
     user_id = socket.assigns.current_user_id

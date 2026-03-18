@@ -3336,6 +3336,9 @@
   </p>
 </div>
 
+<%!-- Spotify SDK plumbing: always in DOM so the SDK connection survives tab switches --%>
+<div id="spotify-player-root" phx-hook="SpotifyPlayer" class="hidden"></div>
+
 <%!-- Unified Transport Bar (local + Spotify, pill-tab switched) --%>
 <.live_component
   :if={@nav_tab not in [:dj, :daw, :pads] and not @batch_mode}

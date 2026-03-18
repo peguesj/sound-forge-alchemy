@@ -29,6 +29,15 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       socket
       |> assign(:page_title, "Crate Digger — SFA")
       |> assign(:current_user, user)
+      |> assign(:current_scope, socket.assigns[:current_scope])
+      |> assign(:current_user_id, if(user, do: user.id, else: nil))
+      |> assign(:nav_tab, :crate)
+      |> assign(:nav_context, :all_tracks)
+      |> assign(:midi_devices, [])
+      |> assign(:midi_bpm, nil)
+      |> assign(:midi_transport, :stopped)
+      |> assign(:pipelines, %{})
+      |> assign(:refreshing_midi, false)
       |> assign(:crates, crates)
       |> assign(:active_crate, List.first(crates))
       |> assign(:playlist_url, "")
@@ -44,6 +53,15 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       |> assign(:section_open, %{whosampled: false, details: false, lyrics: false, analysis: false, stems: false})
       # Analysis for active inspector track
       |> assign(:inspector_analysis, nil)
+      # Crate management UI state
+      |> assign(:confirm_delete_crate_id, nil)
+      |> assign(:crate_refreshing_id, nil)
+      |> assign(:rename_crate_id, nil)
+      |> assign(:rename_crate_name, "")
+      # Track context menu
+      |> assign(:context_menu_track_idx, nil)
+      # Track filter
+      |> assign(:track_filter, "")
 
     {:ok, socket}
   end
@@ -244,12 +262,168 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   # Events — trigger analysis
   # ---------------------------------------------------------------------------
 
+  def handle_event("nav_tab", %{"tab" => tab}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/?tab=#{tab}")}
+  end
+
   def handle_event("trigger_analysis", %{"track_id" => track_id}, socket) do
     %{"track_id" => track_id}
     |> AnalysisWorker.new()
     |> Oban.insert()
 
     {:noreply, put_flash(socket, :info, "Analysis queued.")}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — crate management (delete, rename, refresh)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("delete_crate", %{"id" => id}, socket) do
+    {:noreply, assign(socket, :confirm_delete_crate_id, id)}
+  end
+
+  def handle_event("cancel_delete_crate", _params, socket) do
+    {:noreply, assign(socket, :confirm_delete_crate_id, nil)}
+  end
+
+  def handle_event("confirm_delete_crate", %{"id" => id}, socket) do
+    user = socket.assigns.current_user
+
+    case CrateDigger.get_crate(id) do
+      nil ->
+        {:noreply, assign(socket, :confirm_delete_crate_id, nil)}
+
+      crate ->
+        {:ok, _} = CrateDigger.delete_crate(crate)
+        crates = if user, do: CrateDigger.list_crates(user.id), else: []
+
+        socket =
+          socket
+          |> assign(:crates, crates)
+          |> assign(:active_crate, List.first(crates))
+          |> assign(:confirm_delete_crate_id, nil)
+          |> assign(:inspector_track, nil)
+          |> assign(:inspector_open, false)
+          |> put_flash(:info, "Crate deleted.")
+
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("start_rename_crate", %{"id" => id, "name" => name}, socket) do
+    {:noreply, socket |> assign(:rename_crate_id, id) |> assign(:rename_crate_name, name)}
+  end
+
+  def handle_event("update_rename_crate", %{"name" => name}, socket) do
+    {:noreply, assign(socket, :rename_crate_name, name)}
+  end
+
+  def handle_event("save_rename_crate", _params, socket) do
+    user = socket.assigns.current_user
+    crate_id = socket.assigns.rename_crate_id
+    new_name = socket.assigns.rename_crate_name
+
+    socket =
+      with id when not is_nil(id) <- crate_id,
+           crate when not is_nil(crate) <- CrateDigger.get_crate(id),
+           {:ok, updated} <- CrateDigger.rename_crate(crate, new_name) do
+        crates = if user, do: CrateDigger.list_crates(user.id), else: []
+
+        active =
+          if socket.assigns.active_crate && socket.assigns.active_crate.id == updated.id,
+            do: updated,
+            else: socket.assigns.active_crate
+
+        socket
+        |> assign(:crates, crates)
+        |> assign(:active_crate, active)
+        |> assign(:rename_crate_id, nil)
+        |> assign(:rename_crate_name, "")
+      else
+        _ -> socket |> assign(:rename_crate_id, nil) |> assign(:rename_crate_name, "")
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel_rename_crate", _params, socket) do
+    {:noreply, socket |> assign(:rename_crate_id, nil) |> assign(:rename_crate_name, "")}
+  end
+
+  def handle_event("refresh_crate", %{"id" => id}, socket) do
+    socket = assign(socket, :crate_refreshing_id, id)
+
+    crate = CrateDigger.get_crate(id)
+
+    socket =
+      if crate do
+        case CrateDigger.refresh_crate(crate) do
+          {:ok, updated} ->
+            user = socket.assigns.current_user
+            crates = if user, do: CrateDigger.list_crates(user.id), else: []
+
+            active =
+              if socket.assigns.active_crate && socket.assigns.active_crate.id == updated.id,
+                do: CrateDigger.get_crate(updated.id),
+                else: socket.assigns.active_crate
+
+            socket
+            |> assign(:crates, crates)
+            |> assign(:active_crate, active)
+            |> assign(:crate_refreshing_id, nil)
+            |> put_flash(:info, "Playlist refreshed.")
+
+          {:error, _} ->
+            socket
+            |> assign(:crate_refreshing_id, nil)
+            |> put_flash(:error, "Failed to refresh playlist. Check Spotify connection.")
+        end
+      else
+        assign(socket, :crate_refreshing_id, nil)
+      end
+
+    {:noreply, socket}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — track context menu
+  # ---------------------------------------------------------------------------
+
+  def handle_event("open_context_menu", %{"index" => idx_str}, socket) do
+    idx = String.to_integer(idx_str)
+    {:noreply, assign(socket, :context_menu_track_idx, idx)}
+  end
+
+  def handle_event("close_context_menu", _params, socket) do
+    {:noreply, assign(socket, :context_menu_track_idx, nil)}
+  end
+
+  def handle_event("redownload_track", %{"spotify_url" => spotify_url}, socket) do
+    user = socket.assigns.current_user
+
+    if user && socket.assigns.active_crate do
+      %{"track_url" => spotify_url, "quality" => "320k", "user_id" => user.id}
+      |> DownloadWorker.new()
+      |> Oban.insert()
+    end
+
+    {:noreply,
+     socket
+     |> assign(:context_menu_track_idx, nil)
+     |> put_flash(:info, "Track queued for re-download.")}
+  end
+
+  def handle_event("load_in_tab", %{"tab" => tab, "spotify_id" => spotify_id}, socket) do
+    # Navigate to dashboard tab — the active track hint is passed as query param
+    # DashboardLive reads ?preload_track= on mount to highlight/load the track
+    {:noreply,
+     socket
+     |> assign(:context_menu_track_idx, nil)
+     |> push_navigate(to: ~p"/?tab=#{tab}&preload_track=#{spotify_id}")}
+  end
+
+  def handle_event("filter_tracks", %{"query" => query}, socket) do
+    {:noreply, assign(socket, :track_filter, query)}
   end
 
   # ---------------------------------------------------------------------------
@@ -320,19 +494,17 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   def render(assigns) do
     ~H"""
     <div class="flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden">
-      <!-- Header -->
-      <header class="flex items-center gap-4 px-6 py-3 border-b border-gray-800 bg-gray-900/80 shrink-0">
-        <.link navigate={~p"/"} class="text-gray-500 hover:text-white transition-colors">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </.link>
-        <div class="flex items-center gap-2">
-          <%= vinyl_icon() %>
-          <h1 class="text-base font-semibold text-white">Crate Digger</h1>
-        </div>
-        <span class="text-xs text-gray-600">Learning-focused playlist player</span>
-      </header>
+      <SoundForgeWeb.Live.Components.AppHeader.app_header
+        nav_tab={:crate}
+        nav_context={@nav_context}
+        current_scope={@current_scope}
+        current_user_id={@current_user_id}
+        midi_devices={@midi_devices}
+        midi_bpm={@midi_bpm}
+        midi_transport={@midi_transport}
+        pipelines={@pipelines}
+        refreshing_midi={@refreshing_midi}
+      />
 
       <!-- Main layout -->
       <div class="flex flex-1 overflow-hidden relative">
@@ -369,24 +541,80 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
             </div>
 
             <ul class="space-y-0.5 px-2">
-              <li :for={crate <- @crates}>
-                <button
-                  phx-click="select_crate"
-                  phx-value-id={crate.id}
-                  class={[
-                    "w-full flex items-start gap-2 px-3 py-2 rounded text-left transition-colors text-xs",
-                    if(@active_crate && @active_crate.id == crate.id,
-                      do: "bg-purple-600/20 text-purple-300",
-                      else: "text-gray-400 hover:bg-gray-800 hover:text-white"
-                    )
-                  ]}
-                >
-                  <%= vinyl_icon_sm() %>
-                  <div class="flex-1 min-w-0">
-                    <p class="font-medium truncate">{crate.name}</p>
-                    <p class="text-gray-600 truncate">{length(crate.playlist_data || [])} tracks</p>
+              <li :for={crate <- @crates} class="group/crate">
+                <!-- Rename mode -->
+                <div :if={@rename_crate_id == crate.id} class="flex items-center gap-1 px-1 py-1">
+                  <form phx-submit="save_rename_crate" phx-change="update_rename_crate" class="flex-1 flex gap-1">
+                    <input
+                      type="text"
+                      name="name"
+                      value={@rename_crate_name}
+                      autofocus
+                      class="flex-1 min-w-0 px-2 py-1 text-xs bg-gray-800 border border-purple-500 rounded text-gray-200 focus:outline-none"
+                    />
+                    <button type="submit" class="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-500 rounded text-white shrink-0">✓</button>
+                  </form>
+                  <button phx-click="cancel_rename_crate" class="p-1 text-gray-500 hover:text-white transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+
+                <!-- Normal row -->
+                <div :if={@rename_crate_id != crate.id} class="flex items-center rounded">
+                  <button
+                    phx-click="select_crate"
+                    phx-value-id={crate.id}
+                    class={[
+                      "flex-1 flex items-start gap-2 px-2 py-2 rounded-l text-left transition-colors text-xs min-w-0",
+                      if(@active_crate && @active_crate.id == crate.id,
+                        do: "bg-purple-600/20 text-purple-300",
+                        else: "text-gray-400 hover:bg-gray-800 hover:text-white"
+                      )
+                    ]}
+                  >
+                    <%= vinyl_icon_sm() %>
+                    <div class="flex-1 min-w-0">
+                      <p class="font-medium truncate">{crate.name}</p>
+                      <p class="text-gray-600 truncate">{length(crate.playlist_data || [])} tracks</p>
+                    </div>
+                  </button>
+
+                  <!-- Action buttons (visible on hover) -->
+                  <div class="flex items-center gap-0 shrink-0 opacity-0 group-hover/crate:opacity-100 transition-opacity">
+                    <button
+                      phx-click="refresh_crate"
+                      phx-value-id={crate.id}
+                      title="Refresh from Spotify"
+                      disabled={@crate_refreshing_id == crate.id}
+                      class="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-gray-800 transition-colors disabled:opacity-40"
+                    >
+                      <svg class={["w-3 h-3", if(@crate_refreshing_id == crate.id, do: "animate-spin", else: "")]} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                      </svg>
+                    </button>
+                    <button
+                      phx-click="start_rename_crate"
+                      phx-value-id={crate.id}
+                      phx-value-name={crate.name}
+                      title="Rename"
+                      class="p-1.5 text-gray-500 hover:text-purple-400 hover:bg-gray-800 transition-colors"
+                    >
+                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                    </button>
+                    <button
+                      phx-click="delete_crate"
+                      phx-value-id={crate.id}
+                      title="Delete crate"
+                      class="p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-800 rounded-r transition-colors"
+                    >
+                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
                   </div>
-                </button>
+                </div>
               </li>
             </ul>
           </div>
@@ -417,8 +645,22 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
             </span>
           </div>
 
+          <!-- Track filter bar -->
+          <div :if={@active_crate && length(@active_crate.playlist_data || []) > 5} class="px-4 py-2 border-b border-gray-800 shrink-0">
+            <form phx-change="filter_tracks">
+              <input
+                type="text"
+                name="query"
+                value={@track_filter}
+                placeholder="Filter tracks…"
+                phx-debounce="150"
+                class="w-full px-3 py-1.5 text-xs bg-gray-800/80 border border-gray-700 rounded text-gray-200 placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors"
+              />
+            </form>
+          </div>
+
           <!-- Track list -->
-          <div class="flex-1 overflow-y-auto" id="crate-track-list">
+          <div class="flex-1 overflow-y-auto" id="crate-track-list" phx-click="close_context_menu">
             <!-- No active crate -->
             <div :if={is_nil(@active_crate)} class="flex flex-col items-center justify-center h-full text-center px-8">
               <%= vinyl_icon_lg() %>
@@ -441,22 +683,27 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
             <!-- Track rows -->
             <div :if={@active_crate && not @playlist_loading} class="divide-y divide-gray-800/50">
-              <div :if={@active_crate.playlist_data == []} class="flex flex-col items-center justify-center py-16 text-center px-8">
-                <p class="text-gray-500 text-sm">No tracks in this playlist</p>
+              <% filtered = filter_tracks(@active_crate.playlist_data || [], @track_filter) %>
+              <div :if={filtered == []} class="flex flex-col items-center justify-center py-16 text-center px-8">
+                <p class="text-gray-500 text-sm">
+                  <%= if @track_filter != "", do: "No tracks match "#{@track_filter}"", else: "No tracks in this playlist" %>
+                </p>
               </div>
 
-              <%= for {track, idx} <- Enum.with_index(@active_crate.playlist_data || []) do %>
-                <div
-                  class={[
-                    "flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-800/40 transition-colors group",
-                    if(@inspector_track && @inspector_track["spotify_id"] == track["spotify_id"],
-                      do: "bg-purple-900/20",
-                      else: ""
-                    )
-                  ]}
-                  phx-click="open_inspector"
-                  phx-value-index={idx}
-                >
+              <%= for {track, idx} <- Enum.with_index(filtered) do %>
+                <% original_idx = Enum.find_index(@active_crate.playlist_data || [], &(&1["spotify_id"] == track["spotify_id"])) || idx %>
+                <div class="relative group/track">
+                  <div
+                    class={[
+                      "flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-800/40 transition-colors",
+                      if(@inspector_track && @inspector_track["spotify_id"] == track["spotify_id"],
+                        do: "bg-purple-900/20",
+                        else: ""
+                      )
+                    ]}
+                    phx-click="open_inspector"
+                    phx-value-index={original_idx}
+                  >
                   <!-- Artwork -->
                   <div class="w-10 h-10 rounded bg-gray-800 shrink-0 overflow-hidden">
                     <%= if track["artwork_url"] do %>
@@ -476,14 +723,69 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                     <p class="text-xs text-gray-500 truncate">{track["artist"]}</p>
                   </div>
 
-                  <!-- Override badge + duration -->
+                  <!-- Override badge + duration + context menu trigger -->
                   <div class="flex items-center gap-2 shrink-0">
                     <span :if={has_override?(@active_crate, track["spotify_id"])} class="px-1.5 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400 font-medium">
                       override
                     </span>
-                    <!-- Analysis badge -->
                     <span :if={load_analysis(track["spotify_id"])} class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Analysis available"></span>
                     <span class="text-xs text-gray-600 tabular-nums">{format_duration(track["duration_ms"])}</span>
+                    <!-- Three-dot context menu button -->
+                    <button
+                      phx-click="open_context_menu"
+                      phx-value-index={original_idx}
+                      class="p-1 rounded opacity-0 group-hover/track:opacity-100 transition-opacity text-gray-500 hover:text-white hover:bg-gray-700"
+                      title="Track options"
+                      onclick="event.stopPropagation()"
+                    >
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  </div>
+
+                  <!-- Context menu dropdown -->
+                  <div
+                    :if={@context_menu_track_idx == original_idx}
+                    class="absolute right-2 top-full mt-0.5 z-50 w-52 bg-gray-800 rounded-lg shadow-2xl border border-gray-700 py-1"
+                    onclick="event.stopPropagation()"
+                  >
+                    <button phx-click="load_in_tab" phx-value-tab="daw" phx-value-spotify_id={track["spotify_id"]}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
+                      <svg class="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+                      Load in DAW
+                    </button>
+                    <button phx-click="load_in_tab" phx-value-tab="dj" phx-value-spotify_id={track["spotify_id"]}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
+                      <svg class="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3"/></svg>
+                      Load in DJ
+                    </button>
+                    <button phx-click="load_in_tab" phx-value-tab="pads" phx-value-spotify_id={track["spotify_id"]}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
+                      <svg class="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                      Load in Pads
+                    </button>
+                    <div class="border-t border-gray-700 my-1"></div>
+                    <button phx-click="load_into_sfa" phx-value-spotify_url={"https://open.spotify.com/track/#{track["spotify_id"]}"}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
+                      <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                      Download to Library
+                    </button>
+                    <button phx-click="redownload_track" phx-value-spotify_url={"https://open.spotify.com/track/#{track["spotify_id"]}"}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
+                      <svg class="w-3.5 h-3.5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                      Re-download
+                    </button>
+                    <a
+                      href={"https://open.spotify.com/track/#{track["spotify_id"]}"}
+                      target="_blank" rel="noopener"
+                      class="block px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors"
+                      phx-click="close_context_menu"
+                    >
+                      <svg class="w-3.5 h-3.5 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                      View on Spotify
+                    </a>
                   </div>
                 </div>
               <% end %>
@@ -715,6 +1017,35 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
           phx-click="close_inspector"
         ></div>
       </div>
+      <.live_component
+        module={SoundForgeWeb.Live.Components.TransportBarComponent}
+        id="transport-bar"
+        nav_tab={:crate}
+      />
+    </div>
+
+    <!-- Delete crate confirmation modal -->
+    <div :if={@confirm_delete_crate_id} class="fixed inset-0 z-50 flex items-center justify-center">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" phx-click="cancel_delete_crate"></div>
+      <div class="relative z-10 bg-gray-900 rounded-xl border border-gray-700 p-6 w-80 shadow-2xl">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </div>
+          <h3 class="text-sm font-semibold text-white">Delete Crate?</h3>
+        </div>
+        <p class="text-xs text-gray-400 mb-5">This permanently deletes the crate and all per-track stem overrides. This cannot be undone.</p>
+        <div class="flex gap-2 justify-end">
+          <button phx-click="cancel_delete_crate" class="px-4 py-2 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition-colors">
+            Cancel
+          </button>
+          <button phx-click="confirm_delete_crate" phx-value-id={@confirm_delete_crate_id} class="px-4 py-2 text-xs bg-red-600 hover:bg-red-500 rounded text-white font-medium transition-colors">
+            Delete
+          </button>
+        </div>
+      </div>
     </div>
     """
   end
@@ -728,6 +1059,19 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       nil -> []
       crate -> crate.playlist_data || []
     end
+  end
+
+  defp filter_tracks(tracks, ""), do: tracks
+
+  defp filter_tracks(tracks, query) when is_binary(query) do
+    q = String.downcase(String.trim(query))
+
+    Enum.filter(tracks, fn track ->
+      title = String.downcase(track["title"] || "")
+      artist = String.downcase(track["artist"] || "")
+      album = String.downcase(track["album"] || "")
+      String.contains?(title, q) or String.contains?(artist, q) or String.contains?(album, q)
+    end)
   end
 
   defp reload_crates(socket) do
