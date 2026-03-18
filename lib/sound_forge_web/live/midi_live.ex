@@ -81,6 +81,21 @@ defmodule SoundForgeWeb.MidiLive do
     {:noreply, assign(socket, :scanning, true)}
   end
 
+  def handle_event("refresh_devices", _params, socket) do
+    devices = DeviceManager.list_devices()
+    network_devices = NetworkDiscovery.list_network_devices()
+
+    {:noreply,
+     socket
+     |> assign(:devices, devices)
+     |> assign(:network_devices, network_devices)
+     |> assign(:refreshing_midi, true)
+     |> then(fn socket ->
+       Process.send_after(self(), :clear_refresh_flash, 1500)
+       socket
+     end)}
+  end
+
   # -- Mapping editor events --
 
   def handle_event("select_action", %{"action" => action}, socket) do
@@ -306,6 +321,10 @@ defmodule SoundForgeWeb.MidiLive do
     {:noreply, assign(socket, :network_devices, network_devices)}
   end
 
+  def handle_info(:clear_refresh_flash, socket) do
+    {:noreply, assign(socket, :refreshing_midi, false)}
+  end
+
   def handle_info({:midi_message, port_id, message}, socket) do
     # Monitor: accumulate messages when monitoring is enabled
     socket =
@@ -383,6 +402,32 @@ defmodule SoundForgeWeb.MidiLive do
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-white">MIDI Settings</h1>
         <div class="flex items-center gap-3">
+          <button
+            phx-click="refresh_devices"
+            class={[
+              "px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-1.5",
+              if(@refreshing_midi,
+                do: "bg-purple-600 text-white",
+                else: "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 border border-gray-700"
+              )
+            ]}
+            disabled={@refreshing_midi}
+          >
+            <svg
+              class={["w-4 h-4", @refreshing_midi && "animate-spin"]}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            <span>{if @refreshing_midi, do: "Refreshing...", else: "Refresh"}</span>
+          </button>
           <span class="text-sm text-gray-400">
             {device_count(@devices, @network_devices)} device{if device_count(@devices, @network_devices) != 1,
               do: "s"}

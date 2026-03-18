@@ -41,6 +41,9 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:artists, list_artists(scope))
       |> assign(:selected_ids, MapSet.new())
       |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
+     |> assign(:select_all_pages, false)
+      |> assign(:select_all_pages, false)
       |> assign(:batch_mode, false)
       |> assign(:batch_processing, false)
       |> assign(:batch_status, nil)
@@ -314,7 +317,10 @@ defmodule SoundForgeWeb.DashboardLive do
       {:noreply,
        socket
        |> assign(:selected_ids, MapSet.new())
-       |> assign(:select_all, false)}
+       |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
+     |> assign(:select_all_pages, false)
+       |> assign(:select_all_pages, false)}
     else
       # Select all track IDs on current page from the stream
       scope = socket.assigns[:current_scope]
@@ -330,8 +336,27 @@ defmodule SoundForgeWeb.DashboardLive do
       {:noreply,
        socket
        |> assign(:selected_ids, track_ids)
-       |> assign(:select_all, true)}
+       |> assign(:select_all, true)
+       |> assign(:select_all_pages, false)}
     end
+  end
+
+  @impl true
+  def handle_event("select_all_pages", _params, socket) do
+    scope = socket.assigns[:current_scope]
+    sort_by = socket.assigns.sort_by
+
+    # Select ALL track IDs across all pages
+    all_track_ids =
+      list_tracks(scope, sort_by: sort_by, page: 1, per_page: 10_000)
+      |> Enum.map(& &1.id)
+      |> MapSet.new()
+
+    {:noreply,
+     socket
+     |> assign(:selected_ids, all_track_ids)
+     |> assign(:select_all, true)
+     |> assign(:select_all_pages, true)}
   end
 
   @impl true
@@ -377,6 +402,7 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> put_flash(:info, "Analyzing #{count} tracks...")}
   end
 
@@ -397,6 +423,7 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> put_flash(:info, "Processing #{count} tracks...")}
   end
 
@@ -411,6 +438,7 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> put_flash(:info, "Deleted #{count} tracks")}
   end
 
@@ -426,6 +454,8 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:batch_mode, new_mode)
       |> assign(:selected_ids, MapSet.new())
       |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
+     |> assign(:select_all_pages, false)
 
     {:noreply, socket}
   end
@@ -475,6 +505,8 @@ defmodule SoundForgeWeb.DashboardLive do
          |> assign(:show_batch_modal, false)
          |> assign(:selected_ids, MapSet.new())
          |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
+     |> assign(:select_all_pages, false)
          |> put_flash(:info, "Batch processing started for \#{length(track_ids)} tracks")}
 
       {:error, :empty_batch} ->
@@ -938,6 +970,7 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> put_flash(:info, "Downloading #{downloaded} of #{count} selected tracks...")}
   end
 
@@ -1113,6 +1146,10 @@ defmodule SoundForgeWeb.DashboardLive do
   # -- Navigation --
 
   @impl true
+  def handle_event("nav_tab", %{"tab" => "home"}, socket) do
+    {:noreply, assign(socket, :nav_tab, :home)}
+  end
+
   def handle_event("nav_tab", %{"tab" => "library"}, socket) do
     socket =
       socket
@@ -1123,6 +1160,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:filters, %{status: "all", artist: "all"})
       |> assign(:selected_ids, MapSet.new())
       |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
 
     reload_tracks(socket, page: 1, filters: %{status: "all", artist: "all"})
   end
@@ -1134,7 +1172,8 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:nav_context, :artist)
      |> assign(:browse_filter, nil)
      |> assign(:selected_ids, MapSet.new())
-     |> assign(:select_all, false)}
+     |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)}
   end
 
   def handle_event("nav_tab", %{"tab" => "dj"}, socket) do
@@ -1273,6 +1312,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)
      |> push_patch(to: ~p"/")}
   end
@@ -1291,6 +1331,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)
      |> push_patch(to: ~p"/")}
   end
@@ -1311,6 +1352,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)
      |> push_patch(to: ~p"/")}
   end
@@ -1329,6 +1371,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)}
   end
 
@@ -1369,6 +1412,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)}
   end
 
@@ -1405,6 +1449,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)}
   end
 
@@ -1422,6 +1467,8 @@ defmodule SoundForgeWeb.DashboardLive do
          |> assign(:track_count, 0)
          |> assign(:selected_ids, MapSet.new())
          |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
+     |> assign(:select_all_pages, false)
          |> stream(:tracks, [], reset: true)}
 
       {:error, _} ->
@@ -3129,6 +3176,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:filters, filters)
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)}
   end
 

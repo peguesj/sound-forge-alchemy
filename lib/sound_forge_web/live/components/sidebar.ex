@@ -49,15 +49,18 @@ defmodule SoundForgeWeb.Live.Components.Sidebar do
         <div class="px-4">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Playlists</h3>
-            <button
-              phx-click="new_playlist"
-              class="text-gray-500 hover:text-purple-400 transition-colors"
-              aria-label="Create new playlist"
-            >
-              <span class="hero-plus w-4 h-4"></span>
-            </button>
+            <div class="flex items-center gap-1">
+              <span :if={length(@playlists) > 5} class="text-[10px] text-gray-600 tabular-nums">{length(@playlists)}</span>
+              <button
+                phx-click="new_playlist"
+                class="text-gray-500 hover:text-purple-400 transition-colors"
+                aria-label="Create new playlist"
+              >
+                <span class="hero-plus w-4 h-4"></span>
+              </button>
+            </div>
           </div>
-          <ul class="space-y-0.5">
+          <ul class={["space-y-0.5", if(length(@playlists) > 5, do: "max-h-[160px] overflow-y-auto pr-0.5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-700")]}>
             <li :if={@playlists == []} class="px-3 py-1.5 text-xs text-gray-600 italic">
               No playlists yet
             </li>

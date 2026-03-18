@@ -27,7 +27,18 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
             Sound Forge Alchemy
           </a>
           <span class="hidden sm:inline text-xs text-gray-600">v4.1.0</span>
-          <nav class="hidden md:flex items-center gap-1" aria-label="Main navigation">
+          <nav class="hidden md:flex items-center gap-0.5" aria-label="Main navigation">
+            <!-- Home -->
+            <button
+              phx-click="nav_tab"
+              phx-value-tab="home"
+              class={tab_class(@nav_tab == :home)}
+            >
+              <span class="hero-home w-4 h-4"></span>
+            </button>
+            <!-- Library separator -->
+            <span class="w-px h-4 bg-gray-700 mx-1"></span>
+            <!-- Library -->
             <button
               phx-click="nav_tab"
               phx-value-tab="library"
@@ -42,6 +53,9 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
             >
               <span class="hero-magnifying-glass w-4 h-4"></span> Browse
             </button>
+            <!-- Studio separator -->
+            <span class="w-px h-4 bg-gray-700 mx-1"></span>
+            <!-- Studio modules -->
             <button
               phx-click="nav_tab"
               phx-value-tab="daw"
@@ -73,6 +87,31 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
               </svg>
               Pads
             </button>
+            <!-- Tools separator -->
+            <span class="w-px h-4 bg-gray-700 mx-1"></span>
+            <!-- Standalone modules -->
+            <.link navigate="/alchemy" class={tab_class(@nav_tab == :alchemy)}>
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+              Alchemy
+            </.link>
+            <.link navigate="/crate" class={tab_class(@nav_tab == :crate)}>
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+              </svg>
+              Crate
+            </.link>
+            <.link navigate="/midi" class={tab_class(@nav_tab == :midi)}>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+              </svg>
+              MIDI
+            </.link>
+            <.link navigate="/practice" class={tab_class(@nav_tab == :practice)}>
+              <span class="hero-academic-cap w-4 h-4"></span>
+              Practice
+            </.link>
             <a
               :if={@current_scope && @current_scope.admin?}
               href="/admin"
