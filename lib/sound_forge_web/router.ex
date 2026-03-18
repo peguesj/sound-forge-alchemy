@@ -74,6 +74,7 @@ defmodule SoundForgeWeb.Router do
     live "/samples", Live.SampleLibraryLive, :index
     live "/alchemy", Live.BigLoopyLive, :index
     get "/alchemy/:id/download", BigLoopyController, :download
+    live "/crate", Live.CrateDiggerLive, :index
     get "/files/midi/:track_id", FileController, :serve_midi
     get "/files/*path", FileController, :serve
 
