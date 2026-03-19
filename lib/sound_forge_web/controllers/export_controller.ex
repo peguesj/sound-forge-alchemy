@@ -128,6 +128,15 @@ defmodule SoundForgeWeb.ExportController do
     end
   end
 
+  def export_osc_layout(conn, _params) do
+    xml = SoundForge.OSC.TouchOSCLayout.generate_xml()
+
+    conn
+    |> put_resp_content_type("application/xml")
+    |> put_resp_header("content-disposition", ~s(attachment; filename="sfa-touchosc.tosc"))
+    |> send_resp(200, xml)
+  end
+
   # Fetchers
 
   defp fetch_stem(id) do
