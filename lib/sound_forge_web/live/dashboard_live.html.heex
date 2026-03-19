@@ -878,6 +878,8 @@
                     Download All (ZIP)
                   </.link>
                 </div>
+                <%!-- TransportLocalAudio JS hook — persistent element for local Web Audio playback --%>
+                <div id="transport-local-audio" phx-hook="TransportLocalAudio" class="hidden"></div>
                 <%!-- AudioPlayerLive replaced by SMPTE TransportBarComponent (fixed bottom) --%>
                 <%!-- Per-stem controls (solo/mute/volume) remain in stem list below --%>
                 <!-- Individual stem downloads -->
@@ -1458,29 +1460,19 @@
                   checked={@select_all}
                   phx-click="toggle_select_all"
                   class="checkbox checkbox-sm checkbox-primary"
-                  aria-label="Select all tracks on this page"
+                  aria-label="Select all tracks"
                 />
                 <span class="text-sm text-gray-400">
-                  <%= if MapSet.size(@selected_ids) > 0 do %>
-                    {MapSet.size(@selected_ids)} selected
-                  <% else %>
-                    Select all
+                  <%= cond do %>
+                    <% MapSet.size(@selected_ids) > 0 && @select_all_pages -> %>
+                      All {@track_count} selected
+                    <% MapSet.size(@selected_ids) > 0 -> %>
+                      {MapSet.size(@selected_ids)} selected
+                    <% true -> %>
+                      All
                   <% end %>
                 </span>
               </label>
-              <%= if @select_all && !@select_all_pages && @track_count > @per_page do %>
-                <button
-                  phx-click="select_all_pages"
-                  class="text-xs text-purple-400 hover:text-purple-300 underline"
-                >
-                  Select all {@track_count} tracks
-                </button>
-              <% end %>
-              <%= if @select_all_pages do %>
-                <span class="text-xs text-green-400">
-                  All {@track_count} tracks selected
-                </span>
-              <% end %>
               <!-- Batch actions (visible when selection > 0) -->
               <div :if={MapSet.size(@selected_ids) > 0} class="flex items-center gap-2 ml-2">
                 <button
@@ -1513,8 +1505,8 @@
           </div>
           <!-- end sticky toolbar -->
 
-<!-- Track Library Container (scrollable wrapper) -->
-          <div class="flex-1 overflow-y-auto">
+<!-- Track Library Container -->
+          <div class="flex-1">
             <!-- Track Library (single stream container, view-mode conditional inner rendering) -->
             <div
               id="tracks"

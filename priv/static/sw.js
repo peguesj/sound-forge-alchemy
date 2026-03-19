@@ -33,11 +33,26 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
   // Network-first for HTML (LiveView needs fresh content)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => caches.match('/'))
     );
+    return;
+  }
+
+  // Skip service worker entirely for LiveView dynamic routes (always network)
+  if (
+    url.pathname.startsWith('/tracks/') ||
+    url.pathname.startsWith('/live/') ||
+    url.pathname.startsWith('/crate') ||
+    url.pathname.startsWith('/samples') ||
+    url.pathname.startsWith('/midi') ||
+    url.pathname.startsWith('/api/')
+  ) {
+    event.respondWith(fetch(event.request));
     return;
   }
 

@@ -63,6 +63,10 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       # Track filter
       |> assign(:track_filter, "")
 
+    if Phoenix.LiveView.connected?(socket) do
+      Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:actions")
+    end
+
     {:ok, socket}
   end
 
@@ -487,6 +491,110 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   end
 
   # ---------------------------------------------------------------------------
+  # MIDI action handlers — universal transport controls
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_info({:midi_action, :play, _params}, socket) do
+    # Play the currently inspected track, or select+push-play the first track
+    case socket.assigns.inspector_track do
+      nil ->
+        tracks = active_tracks(socket)
+
+        case tracks do
+          [first | _] ->
+            {:noreply,
+             socket
+             |> assign(:inspector_track, first)
+             |> assign(:inspector_open, true)
+             |> push_event("crate_play_track", %{spotify_id: first["spotify_id"]})}
+
+          [] ->
+            {:noreply, socket}
+        end
+
+      track ->
+        {:noreply, push_event(socket, "crate_play_track", %{spotify_id: track["spotify_id"]})}
+    end
+  end
+
+  def handle_info({:midi_action, :stop, _params}, socket) do
+    {:noreply, push_event(socket, "crate_stop_playback", %{})}
+  end
+
+  def handle_info({:midi_action, :next_track, _params}, socket) do
+    tracks = active_tracks(socket)
+    current = socket.assigns.inspector_track
+
+    next =
+      case current do
+        nil ->
+          List.first(tracks)
+
+        track ->
+          idx = Enum.find_index(tracks, fn t -> t["spotify_id"] == track["spotify_id"] end)
+
+          if idx && idx + 1 < length(tracks) do
+            Enum.at(tracks, idx + 1)
+          else
+            List.first(tracks)
+          end
+      end
+
+    case next do
+      nil ->
+        {:noreply, socket}
+
+      track ->
+        {:noreply,
+         socket
+         |> assign(:inspector_track, track)
+         |> push_event("crate_play_track", %{spotify_id: track["spotify_id"]})}
+    end
+  end
+
+  def handle_info({:midi_action, :prev_track, _params}, socket) do
+    tracks = active_tracks(socket)
+    current = socket.assigns.inspector_track
+
+    prev =
+      case current do
+        nil ->
+          List.last(tracks)
+
+        track ->
+          idx = Enum.find_index(tracks, fn t -> t["spotify_id"] == track["spotify_id"] end)
+
+          if idx && idx > 0 do
+            Enum.at(tracks, idx - 1)
+          else
+            List.last(tracks)
+          end
+      end
+
+    case prev do
+      nil ->
+        {:noreply, socket}
+
+      track ->
+        {:noreply,
+         socket
+         |> assign(:inspector_track, track)
+         |> push_event("crate_play_track", %{spotify_id: track["spotify_id"]})}
+    end
+  end
+
+  def handle_info({:midi_action, :bpm_tap, _params}, socket) do
+    # BPM tap is not applicable to CrateDigger — no-op
+    {:noreply, socket}
+  end
+
+  def handle_info({:midi_action, _action, _params}, socket) do
+    # All other MIDI actions not handled by CrateDigger
+    {:noreply, socket}
+  end
+
+  # ---------------------------------------------------------------------------
   # Render
   # ---------------------------------------------------------------------------
 
@@ -723,12 +831,23 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                     <p class="text-xs text-gray-500 truncate">{track["artist"]}</p>
                   </div>
 
-                  <!-- Override badge + duration + context menu trigger -->
+                  <!-- Override badge + BPM + key + duration + context menu trigger -->
+                  <% analysis = load_analysis(track["spotify_id"]) %>
                   <div class="flex items-center gap-2 shrink-0">
                     <span :if={has_override?(@active_crate, track["spotify_id"])} class="px-1.5 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400 font-medium">
                       override
                     </span>
-                    <span :if={load_analysis(track["spotify_id"])} class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Analysis available"></span>
+                    <%= if analysis && analysis.tempo do %>
+                      <span class="text-[10px] text-cyan-500 font-mono tabular-nums w-10 text-right" title="BPM">
+                        {Float.round(analysis.tempo * 1.0, 1)}
+                      </span>
+                    <% end %>
+                    <%= if analysis && analysis.key do %>
+                      <span class="text-[10px] text-purple-400 font-medium w-6 text-center" title="Key">
+                        {analysis.key}
+                      </span>
+                    <% end %>
+                    <span :if={analysis} class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Analysis available"></span>
                     <span class="text-xs text-gray-600 tabular-nums">{format_duration(track["duration_ms"])}</span>
                     <!-- Three-dot context menu button -->
                     <button

@@ -318,26 +318,22 @@ defmodule SoundForgeWeb.DashboardLive do
        socket
        |> assign(:selected_ids, MapSet.new())
        |> assign(:select_all, false)
-      |> assign(:select_all_pages, false)
-     |> assign(:select_all_pages, false)
        |> assign(:select_all_pages, false)}
     else
-      # Select all track IDs on current page from the stream
+      # Default: select ALL tracks across all pages
       scope = socket.assigns[:current_scope]
-      per_page = socket.assigns.per_page
       sort_by = socket.assigns.sort_by
-      page = socket.assigns.page
 
-      track_ids =
-        list_tracks(scope, sort_by: sort_by, page: page, per_page: per_page)
+      all_track_ids =
+        list_tracks(scope, sort_by: sort_by, page: 1, per_page: 10_000)
         |> Enum.map(& &1.id)
         |> MapSet.new()
 
       {:noreply,
        socket
-       |> assign(:selected_ids, track_ids)
+       |> assign(:selected_ids, all_track_ids)
        |> assign(:select_all, true)
-       |> assign(:select_all_pages, false)}
+       |> assign(:select_all_pages, true)}
     end
   end
 
@@ -2471,6 +2467,35 @@ defmodule SoundForgeWeb.DashboardLive do
       |> append_midi_log(log_entry)
 
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:midi_action, :play, _params}, socket) do
+    send_update(SoundForgeWeb.Live.Components.TransportBarComponent,
+      id: "transport-bar", midi_event: "transport_play")
+    log_entry = midi_log_entry("play -> TransportBar")
+    {:noreply, append_midi_log(socket, log_entry)}
+  end
+
+  def handle_info({:midi_action, :stop, _params}, socket) do
+    send_update(SoundForgeWeb.Live.Components.TransportBarComponent,
+      id: "transport-bar", midi_event: "transport_stop")
+    log_entry = midi_log_entry("stop -> TransportBar")
+    {:noreply, append_midi_log(socket, log_entry)}
+  end
+
+  def handle_info({:midi_action, :next_track, _params}, socket) do
+    send_update(SoundForgeWeb.Live.Components.TransportBarComponent,
+      id: "transport-bar", midi_event: "transport_next")
+    log_entry = midi_log_entry("next_track -> TransportBar")
+    {:noreply, append_midi_log(socket, log_entry)}
+  end
+
+  def handle_info({:midi_action, :prev_track, _params}, socket) do
+    send_update(SoundForgeWeb.Live.Components.TransportBarComponent,
+      id: "transport-bar", midi_event: "transport_prev")
+    log_entry = midi_log_entry("prev_track -> TransportBar")
+    {:noreply, append_midi_log(socket, log_entry)}
   end
 
   @impl true

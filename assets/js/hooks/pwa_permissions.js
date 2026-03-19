@@ -29,7 +29,10 @@ const PwaPermissions = {
 
   _reportMidiAvailability() {
     const available = !!navigator.requestMIDIAccess
-    this.pushEvent('pwa_midi_available', { available })
+    // Defer pushEvent to next tick to ensure LiveView socket is fully connected
+    setTimeout(() => {
+      this.pushEvent('pwa_midi_available', { available })
+    }, 0)
   },
 
   _requestMidiOnGesture() {
@@ -68,7 +71,10 @@ const PwaPermissions = {
       outputs.push({ id: output.id, name: output.name, state: output.state })
     })
 
-    this.pushEvent('pwa_midi_devices', { inputs, outputs, granted: true })
+    // Defer pushEvent to avoid race with LiveView socket connection
+    setTimeout(() => {
+      this.pushEvent('pwa_midi_devices', { inputs, outputs, granted: true })
+    }, 0)
   },
 
   // -------------------------------------------------------------------------
