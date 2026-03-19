@@ -29,9 +29,16 @@ const PwaPermissions = {
 
   _reportMidiAvailability() {
     const available = !!navigator.requestMIDIAccess
-    // Defer pushEvent to next tick to ensure LiveView socket is fully connected
+    // Defer to next tick. Guard with isConnected() before push. Pass no-op
+    // onReply so Phoenix chains .catch(()=>{}) internally, silencing any
+    // Promise rejection if the view disconnects in the narrow window between
+    // our check and pushHookEvent's own check.
     setTimeout(() => {
-      this.pushEvent('pwa_midi_available', { available })
+      try {
+        if (this.__view && this.__view().isConnected()) {
+          this.pushEvent('pwa_midi_available', { available }, () => {})
+        }
+      } catch (_) {}
     }, 0)
   },
 
@@ -53,7 +60,9 @@ const PwaPermissions = {
         })
         .catch(() => {
           // User denied MIDI access — not fatal
-          this.pushEvent('pwa_midi_permission', { granted: false })
+          if (this.__view && this.__view().isConnected()) {
+            this.pushEvent('pwa_midi_permission', { granted: false }, () => {})
+          }
         })
     }
 
@@ -71,9 +80,14 @@ const PwaPermissions = {
       outputs.push({ id: output.id, name: output.name, state: output.state })
     })
 
-    // Defer pushEvent to avoid race with LiveView socket connection
+    // Defer to next tick. Guard with isConnected() before push — same rationale.
+    // Pass no-op onReply to silence any race-condition Promise rejection.
     setTimeout(() => {
-      this.pushEvent('pwa_midi_devices', { inputs, outputs, granted: true })
+      try {
+        if (this.__view && this.__view().isConnected()) {
+          this.pushEvent('pwa_midi_devices', { inputs, outputs, granted: true }, () => {})
+        }
+      } catch (_) {}
     }, 0)
   },
 
@@ -88,37 +102,52 @@ const PwaPermissions = {
   },
 
   async _requestNotificationPermission() {
+    const safePush = (event, payload) => {
+      try {
+        if (this.__view && this.__view().isConnected()) {
+          this.pushEvent(event, payload, () => {})
+        }
+      } catch (_) {}
+    }
     if (!('Notification' in window)) {
-      this.pushEvent('pwa_notification_permission', { granted: false, reason: 'unsupported' })
+      safePush('pwa_notification_permission', { granted: false, reason: 'unsupported' })
       return
     }
 
     if (Notification.permission === 'granted') {
-      this.pushEvent('pwa_notification_permission', { granted: true, reason: 'already_granted' })
+      safePush('pwa_notification_permission', { granted: true, reason: 'already_granted' })
       this._subscribeToServiceWorkerPush()
       return
     }
 
     if (Notification.permission === 'denied') {
-      this.pushEvent('pwa_notification_permission', { granted: false, reason: 'denied' })
+      safePush('pwa_notification_permission', { granted: false, reason: 'denied' })
       return
     }
 
     try {
       const permission = await Notification.requestPermission()
       const granted = permission === 'granted'
-      this.pushEvent('pwa_notification_permission', { granted, reason: permission })
+      safePush('pwa_notification_permission', { granted, reason: permission })
 
       if (granted) {
         this._subscribeToServiceWorkerPush()
       }
     } catch {
-      this.pushEvent('pwa_notification_permission', { granted: false, reason: 'error' })
+      safePush('pwa_notification_permission', { granted: false, reason: 'error' })
     }
   },
 
   async _subscribeToServiceWorkerPush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+
+    const safePush = (event, payload) => {
+      try {
+        if (this.__view && this.__view().isConnected()) {
+          this.pushEvent(event, payload, () => {})
+        }
+      } catch (_) {}
+    }
 
     try {
       const registration = await navigator.serviceWorker.ready
@@ -126,7 +155,7 @@ const PwaPermissions = {
       // Check if already subscribed
       const existing = await registration.pushManager.getSubscription()
       if (existing) {
-        this.pushEvent('pwa_push_subscription', {
+        safePush('pwa_push_subscription', {
           endpoint: existing.endpoint,
           keys: {
             p256dh: btoa(String.fromCharCode(...new Uint8Array(existing.getKey('p256dh')))),
@@ -148,7 +177,7 @@ const PwaPermissions = {
         applicationServerKey: this._urlBase64ToUint8Array(vapid_public_key)
       })
 
-      this.pushEvent('pwa_push_subscription', {
+      safePush('pwa_push_subscription', {
         endpoint: subscription.endpoint,
         keys: {
           p256dh: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')))),

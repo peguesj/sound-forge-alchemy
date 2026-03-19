@@ -353,6 +353,9 @@ defmodule SoundForgeWeb.MidiLive do
     {:noreply, assign(socket, :midi_monitor, [])}
   end
 
+  # Catch-all: ignore unhandled events (e.g. pwa_midi_available from root layout hook)
+  def handle_event(_event, _params, socket), do: {:noreply, socket}
+
   # ---------------------------------------------------------------------------
   # PubSub info handlers
   # ---------------------------------------------------------------------------
