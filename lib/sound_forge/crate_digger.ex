@@ -226,6 +226,7 @@ defmodule SoundForge.CrateDigger do
           "album" => get_in(track, ["album", "name"]),
           "artwork_url" => get_in(track, ["album", "images", Access.at(0), "url"]),
           "duration_ms" => track["duration_ms"],
+          "preview_url" => track["preview_url"],
           "release_date" => get_in(track, ["album", "release_date"]),
           "explicit" => track["explicit"] || false,
           "popularity" => track["popularity"]

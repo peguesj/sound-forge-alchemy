@@ -62,6 +62,9 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       |> assign(:context_menu_track_idx, nil)
       # Track filter
       |> assign(:track_filter, "")
+      # Playback state
+      |> assign(:now_playing_id, nil)
+      |> assign(:playback_state, :idle)
 
     if Phoenix.LiveView.connected?(socket) do
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:actions")
@@ -430,6 +433,55 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
     {:noreply, assign(socket, :track_filter, query)}
   end
 
+  # ---------------------------------------------------------------------------
+  # Events — playback (preview)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("play_track_preview", %{"index" => idx_str}, socket) do
+    tracks = active_tracks(socket)
+    idx = String.to_integer(idx_str)
+    track = Enum.at(tracks, idx)
+
+    case track do
+      nil ->
+        {:noreply, socket}
+
+      t ->
+        preview_url = t["preview_url"]
+
+        socket =
+          socket
+          |> assign(:now_playing_id, t["spotify_id"])
+          |> assign(:playback_state, :playing)
+          |> push_event("crate_play_track", %{spotify_id: t["spotify_id"], preview_url: preview_url})
+
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("stop_preview", _params, socket) do
+    socket =
+      socket
+      |> assign(:now_playing_id, nil)
+      |> assign(:playback_state, :idle)
+      |> push_event("crate_stop_playback", %{})
+
+    {:noreply, socket}
+  end
+
+  # JS → server playback lifecycle events
+  def handle_event("crate_playback_started", %{"spotify_id" => spotify_id}, socket) do
+    {:noreply, socket |> assign(:now_playing_id, spotify_id) |> assign(:playback_state, :playing)}
+  end
+
+  def handle_event("crate_playback_ended", _params, socket) do
+    {:noreply, socket |> assign(:now_playing_id, nil) |> assign(:playback_state, :idle)}
+  end
+
+  def handle_event("crate_playback_error", _params, socket) do
+    {:noreply, socket |> assign(:now_playing_id, nil) |> assign(:playback_state, :idle)}
+  end
+
   # Catch-all: ignore unhandled events (e.g. pwa_midi_available from root layout hook)
   def handle_event(_event, _params, socket), do: {:noreply, socket}
 
@@ -510,14 +562,26 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
              socket
              |> assign(:inspector_track, first)
              |> assign(:inspector_open, true)
-             |> push_event("crate_play_track", %{spotify_id: first["spotify_id"]})}
+             |> assign(:now_playing_id, first["spotify_id"])
+             |> assign(:playback_state, :playing)
+             |> push_event("crate_play_track", %{
+               spotify_id: first["spotify_id"],
+               preview_url: first["preview_url"]
+             })}
 
           [] ->
             {:noreply, socket}
         end
 
       track ->
-        {:noreply, push_event(socket, "crate_play_track", %{spotify_id: track["spotify_id"]})}
+        {:noreply,
+         socket
+         |> assign(:now_playing_id, track["spotify_id"])
+         |> assign(:playback_state, :playing)
+         |> push_event("crate_play_track", %{
+           spotify_id: track["spotify_id"],
+           preview_url: track["preview_url"]
+         })}
     end
   end
 
@@ -552,7 +616,12 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
         {:noreply,
          socket
          |> assign(:inspector_track, track)
-         |> push_event("crate_play_track", %{spotify_id: track["spotify_id"]})}
+         |> assign(:now_playing_id, track["spotify_id"])
+         |> assign(:playback_state, :playing)
+         |> push_event("crate_play_track", %{
+           spotify_id: track["spotify_id"],
+           preview_url: track["preview_url"]
+         })}
     end
   end
 
@@ -583,7 +652,12 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
         {:noreply,
          socket
          |> assign(:inspector_track, track)
-         |> push_event("crate_play_track", %{spotify_id: track["spotify_id"]})}
+         |> assign(:now_playing_id, track["spotify_id"])
+         |> assign(:playback_state, :playing)
+         |> push_event("crate_play_track", %{
+           spotify_id: track["spotify_id"],
+           preview_url: track["preview_url"]
+         })}
     end
   end
 
@@ -605,6 +679,8 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   def render(assigns) do
     ~H"""
     <div class="flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden">
+      <!-- CratePlayback hook sentinel — manages Spotify 30s preview Audio element -->
+      <div id="crate-playback" phx-hook="CratePlayback" class="hidden"></div>
       <SoundForgeWeb.Live.Components.AppHeader.app_header
         nav_tab={:crate}
         nav_context={@nav_context}
@@ -834,6 +910,13 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                     <p class="text-xs text-gray-500 truncate">{track["artist"]}</p>
                   </div>
 
+                  <!-- Now-playing animated dot -->
+                  <span
+                    :if={@now_playing_id == track["spotify_id"] and @playback_state == :playing}
+                    class="w-2 h-2 rounded-full bg-purple-400 animate-pulse shrink-0"
+                    title="Now playing"
+                  ></span>
+
                   <!-- Override badge + BPM + key + duration + context menu trigger -->
                   <% analysis = load_analysis(track["spotify_id"]) %>
                   <div class="flex items-center gap-2 shrink-0">
@@ -940,6 +1023,34 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                 <p class="text-sm font-medium text-white truncate">{@inspector_track["title"]}</p>
                 <p class="text-xs text-gray-400 truncate">{@inspector_track["artist"]}</p>
               </div>
+              <!-- Preview play/stop button -->
+              <%= if @inspector_track["preview_url"] do %>
+                <%= if @now_playing_id == @inspector_track["spotify_id"] and @playback_state == :playing do %>
+                  <button
+                    phx-click="stop_preview"
+                    class="p-1.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white transition-colors shrink-0"
+                    title="Stop preview"
+                  >
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <rect x="6" y="6" width="4" height="12" rx="1"/>
+                      <rect x="14" y="6" width="4" height="12" rx="1"/>
+                    </svg>
+                  </button>
+                <% else %>
+                  <% playlist = if @active_crate, do: @active_crate.playlist_data || [], else: [] %>
+                  <% idx = Enum.find_index(playlist, fn t -> t["spotify_id"] == @inspector_track["spotify_id"] end) || 0 %>
+                  <button
+                    phx-click="play_track_preview"
+                    phx-value-index={idx}
+                    class="p-1.5 rounded-full bg-gray-700 hover:bg-purple-600 text-white transition-colors shrink-0"
+                    title="Preview 30s"
+                  >
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                  </button>
+                <% end %>
+              <% end %>
               <button phx-click="close_inspector" class="text-gray-500 hover:text-white transition-colors mt-0.5">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />

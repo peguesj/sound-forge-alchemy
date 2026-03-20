@@ -115,7 +115,10 @@ defmodule SoundForge.CrateDigger.WhoSampledScraper do
       {:ok, samples}
     else
       {:ok, %Req.Response{status: 429}} -> {:error, :rate_limited}
+      {:ok, %Req.Response{status: 403}} -> {:error, :blocked}
+      {:ok, %Req.Response{status: 404}} -> {:error, :not_found}
       {:ok, %Req.Response{status: status}} when status >= 500 -> {:error, {:server_error, status}}
+      {:ok, %Req.Response{status: status}} -> {:error, {:unexpected_status, status}}
       {:error, :no_match} -> {:ok, []}
       {:error, reason} -> {:error, reason}
     end
