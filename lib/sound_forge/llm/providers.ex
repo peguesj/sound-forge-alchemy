@@ -77,7 +77,8 @@ defmodule SoundForge.LLM.Providers do
   def create_provider(user_id, attrs) do
     attrs =
       attrs
-      |> Map.put(:user_id, user_id)
+      |> Map.new(fn {k, v} -> {to_string(k), v} end)
+      |> Map.put("user_id", user_id)
       |> maybe_assign_priority(user_id)
 
     %Provider{}
@@ -223,7 +224,7 @@ defmodule SoundForge.LLM.Providers do
   # Private helpers
   # ---------------------------------------------------------------------------
 
-  defp maybe_assign_priority(%{priority: p} = attrs, _user_id) when not is_nil(p), do: attrs
+  defp maybe_assign_priority(%{"priority" => p} = attrs, _user_id) when not is_nil(p), do: attrs
 
   defp maybe_assign_priority(attrs, user_id) do
     max_priority =
@@ -232,6 +233,6 @@ defmodule SoundForge.LLM.Providers do
       |> select([p], max(p.priority))
       |> Repo.one()
 
-    Map.put(attrs, :priority, (max_priority || -1) + 1)
+    Map.put(attrs, "priority", (max_priority || -1) + 1)
   end
 end

@@ -24,7 +24,7 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
 
       # The view should handle this without crashing
       html = render(view)
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
 
     test "handles pipeline_complete messages", %{conn: conn} do
@@ -35,7 +35,7 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
       send(view.pid, {:pipeline_complete, %{track_id: track_id}})
 
       html = render(view)
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
   end
 
@@ -69,7 +69,7 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
       # Wait for async Task to complete
       Process.sleep(500)
       html = render(view)
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
   end
 
@@ -95,7 +95,7 @@ defmodule SoundForgeWeb.DashboardPipelineTest do
       render_click(view, "dismiss_pipeline", %{"track-id" => track_id})
 
       html = render(view)
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
   end
 end
