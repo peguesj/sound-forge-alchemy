@@ -24,6 +24,7 @@ defmodule SoundForge.CrateDigger do
     |> where([c], c.user_id == ^user_id)
     |> order_by([c], desc: c.updated_at)
     |> Repo.all()
+    |> Repo.preload(:track_configs)
   end
 
   @doc "Get a single crate by ID, preloading track configs."
@@ -48,6 +49,10 @@ defmodule SoundForge.CrateDigger do
     crate
     |> Crate.changeset(attrs)
     |> Repo.update()
+    |> case do
+      {:ok, updated} -> {:ok, Repo.preload(updated, :track_configs, force: true)}
+      error -> error
+    end
   end
 
   @doc "Delete a crate and all associated track configs (cascade)."
