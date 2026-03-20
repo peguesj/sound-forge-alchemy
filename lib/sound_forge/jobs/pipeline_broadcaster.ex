@@ -126,6 +126,25 @@ defmodule SoundForge.Jobs.PipelineBroadcaster do
   end
 
   @doc """
+  Broadcasts a track-level pipeline update to the `"playlist_pipeline:{playlist_id}"` topic.
+
+  Called by workers when they carry a `playlist_id` in job args so that
+  PlaylistsLive can update per-track status badges in real time.
+
+  Passing `nil` as `playlist_id` is a no-op so callers don't need to guard.
+  """
+  @spec broadcast_playlist_track_update(binary() | nil, binary(), map()) :: :ok | {:error, term()}
+  def broadcast_playlist_track_update(nil, _track_id, _update), do: :ok
+
+  def broadcast_playlist_track_update(playlist_id, track_id, update) when is_binary(playlist_id) do
+    Phoenix.PubSub.broadcast(
+      SoundForge.PubSub,
+      "playlist_pipeline:#{playlist_id}",
+      {:playlist_track_update, Map.merge(update, %{track_id: track_id, playlist_id: playlist_id})}
+    )
+  end
+
+  @doc """
   Broadcasts that the entire pipeline is complete for a track.
 
   Sends a `:pipeline_complete` event on the track pipeline topic and

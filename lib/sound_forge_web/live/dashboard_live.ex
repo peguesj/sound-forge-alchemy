@@ -11,6 +11,8 @@ defmodule SoundForgeWeb.DashboardLive do
   alias SoundForge.Audio.LalalAI
   alias SoundForge.Audio.Prefetch
 
+  require Logger
+
   @max_debug_logs 500
   @max_midi_log 50
 
@@ -523,7 +525,8 @@ defmodule SoundForgeWeb.DashboardLive do
     user_id = socket.assigns[:current_user_id]
 
     with {:ok, track} <- fetch_owned_track(socket, id),
-         true <- is_binary(track.spotify_url) do
+         true <- is_binary(track.spotify_url),
+         false <- has_completed_download?(id) do
       {:ok, download_job} = Music.create_download_job(%{track_id: track.id, status: :queued})
 
       %{
@@ -553,6 +556,9 @@ defmodule SoundForgeWeb.DashboardLive do
 
       {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, "Track not found")}
+
+      true ->
+        {:noreply, put_flash(socket, :info, "Track has already been downloaded.")}
     end
   end
 
@@ -1316,7 +1322,27 @@ defmodule SoundForgeWeb.DashboardLive do
   @impl true
   def handle_event("nav_playlist", %{"id" => id}, socket) do
     playlist = Music.get_playlist!(id)
-    tracks = Music.list_tracks_for_playlist(playlist.id)
+    tracks = Music.list_playlist_tracks_with_status(playlist.id)
+
+    # Subscribe to playlist-level pipeline topic for real-time batch updates
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(SoundForge.PubSub, "playlist_pipeline:#{playlist.id}")
+      # Subscribe to each track's individual topic so existing handlers fire
+      Enum.each(tracks, fn track ->
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
+      end)
+    end
+
+    # Merge DB-derived initial pipeline state into existing pipelines assign
+    initial_pipelines =
+      Enum.reduce(tracks, socket.assigns.pipelines, fn track, acc ->
+        pipeline = build_initial_pipeline(track)
+        if map_size(pipeline) > 0, do: Map.put(acc, track.id, pipeline), else: acc
+      end)
+
+    # Auto-resume any tracks that are partially complete (download done, analysis missing)
+    user_id = socket.assigns[:current_user_id]
+    maybe_resume_incomplete_pipelines(tracks, user_id)
 
     {:noreply,
      socket
@@ -1328,6 +1354,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
      |> assign(:select_all_pages, false)
+     |> assign(:pipelines, initial_pipelines)
      |> stream(:tracks, tracks, reset: true)
      |> push_patch(to: ~p"/")}
   end
@@ -2206,6 +2233,15 @@ defmodule SoundForgeWeb.DashboardLive do
      |> push_notification(:success, "Pipeline Complete", "\"#{track_title}\" is ready.", %{track_id: track_id})
      |> assign(:pipelines, pipelines)
      |> put_flash(:info, "Pipeline complete! Track is ready.")}
+  end
+
+  # Playlist-level pipeline update (from playlist_pipeline:{playlist_id} topic)
+  @impl true
+  def handle_info({:playlist_track_update, %{track_id: track_id, stage: stage, status: status, progress: progress}}, socket) do
+    pipelines = socket.assigns.pipelines
+    pipeline = Map.get(pipelines, track_id, %{})
+    updated_pipeline = Map.put(pipeline, stage, %{status: status, progress: progress})
+    {:noreply, assign(socket, :pipelines, Map.put(pipelines, track_id, updated_pipeline))}
   end
 
   @impl true
@@ -3255,6 +3291,71 @@ defmodule SoundForgeWeb.DashboardLive do
         where: dj.track_id == ^track_id and dj.status == :completed
       )
     )
+  end
+
+  # Build a pipeline stage map from preloaded job associations on a Track struct.
+  # Used to seed @pipelines when navigating to a playlist.
+  defp build_initial_pipeline(track) do
+    %{}
+    |> add_pipeline_stage(:download, Map.get(track, :download_jobs, []))
+    |> add_pipeline_stage(:processing, Map.get(track, :processing_jobs, []))
+    |> add_pipeline_stage(:analysis, Map.get(track, :analysis_jobs, []))
+  end
+
+  defp add_pipeline_stage(pipeline, _stage, jobs) when not is_list(jobs), do: pipeline
+  defp add_pipeline_stage(pipeline, _stage, []), do: pipeline
+
+  defp add_pipeline_stage(pipeline, stage, jobs) do
+    latest = Enum.max_by(jobs, & &1.inserted_at, DateTime, fn -> nil end)
+
+    if latest do
+      progress = if latest.status == :completed, do: 100, else: latest.progress || 0
+      Map.put(pipeline, stage, %{status: latest.status, progress: progress})
+    else
+      pipeline
+    end
+  end
+
+  # Auto-enqueue missing pipeline stages for tracks in a playlist.
+  # Targets tracks that have a completed download but no completed analysis.
+  defp maybe_resume_incomplete_pipelines(tracks, user_id) do
+    model = Application.get_env(:sound_forge, :default_demucs_model, "htdemucs")
+
+    Enum.each(tracks, fn track ->
+      djs = Map.get(track, :download_jobs, [])
+      ajs = Map.get(track, :analysis_jobs, [])
+      pjs = Map.get(track, :processing_jobs, [])
+
+      has_complete_download = Enum.any?(djs, &(&1.status == :completed))
+      has_complete_analysis = Enum.any?(ajs, &(&1.status == :completed))
+      has_active_processing = Enum.any?(pjs, &(&1.status in [:queued, :processing]))
+
+      completed_download = has_complete_download && Enum.find(djs, &(&1.status == :completed))
+
+      if has_complete_download and not has_complete_analysis and not has_active_processing and completed_download do
+        file_path = completed_download.output_path
+
+        if file_path && File.exists?(file_path) do
+          Logger.info("[DashboardLive] Auto-resuming pipeline for track #{track.id}")
+
+          case Music.create_processing_job(%{track_id: track.id, model: model, status: :queued}) do
+            {:ok, processing_job} ->
+              %{
+                "track_id" => track.id,
+                "job_id" => processing_job.id,
+                "file_path" => file_path,
+                "model" => model,
+                "user_id" => user_id
+              }
+              |> SoundForge.Jobs.ProcessingWorker.new()
+              |> Oban.insert()
+
+            {:error, reason} ->
+              Logger.warning("[DashboardLive] Could not resume pipeline for #{track.id}: #{inspect(reason)}")
+          end
+        end
+      end
+    end)
   end
 
   defp spotify_linked?(nil), do: false

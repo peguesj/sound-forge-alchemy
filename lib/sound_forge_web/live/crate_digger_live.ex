@@ -249,20 +249,42 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
   def handle_event("load_into_sfa", %{"spotify_url" => spotify_url}, socket) do
     user = socket.assigns.current_user
+    inspector_track = socket.assigns.inspector_track
 
-    if user && spotify_url && spotify_url != "" do
-      # Build a minimal track record stub and enqueue
-      %{
-        "spotify_url" => spotify_url,
-        "user_id" => user.id,
-        "quality" => "320k",
-        "job_id" => "crate-#{System.unique_integer([:positive])}"
-      }
-      |> DownloadWorker.new()
-      |> Oban.insert()
+    if is_nil(user) or not is_binary(spotify_url) or spotify_url == "" do
+      {:noreply, socket}
+    else
+      spotify_id = extract_spotify_id_from_url(spotify_url)
+      existing = Music.get_track_by_spotify_id_with_status(spotify_id)
+
+      cond do
+        not is_nil(existing) and Music.track_pipeline_complete?(existing) ->
+          {:noreply, put_flash(socket, :info, "\"#{existing.title}\" is already in your library.")}
+
+        not is_nil(existing) ->
+          {:noreply, put_flash(socket, :info, "\"#{existing.title}\" is already being processed.")}
+
+        true ->
+          attrs = build_track_attrs(inspector_track, spotify_url, spotify_id, user.id)
+
+          with {:ok, track} <- Music.create_track(attrs),
+               {:ok, download_job} <- Music.create_download_job(%{track_id: track.id, status: :queued}) do
+            %{
+              "track_id" => track.id,
+              "spotify_url" => spotify_url,
+              "quality" => "320k",
+              "job_id" => download_job.id
+            }
+            |> DownloadWorker.new()
+            |> Oban.insert()
+
+            {:noreply, put_flash(socket, :info, "\"#{track.title}\" queued for download.")}
+          else
+            {:error, _} ->
+              {:noreply, put_flash(socket, :error, "Failed to queue track for download.")}
+          end
+      end
     end
-
-    {:noreply, put_flash(socket, :info, "Track queued for download.")}
   end
 
   # ---------------------------------------------------------------------------
@@ -408,16 +430,45 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   def handle_event("redownload_track", %{"spotify_url" => spotify_url}, socket) do
     user = socket.assigns.current_user
 
-    if user && socket.assigns.active_crate do
-      %{"track_url" => spotify_url, "quality" => "320k", "user_id" => user.id}
-      |> DownloadWorker.new()
-      |> Oban.insert()
-    end
+    socket =
+      if user && socket.assigns.active_crate && is_binary(spotify_url) && spotify_url != "" do
+        spotify_id = extract_spotify_id_from_url(spotify_url)
+        existing = Music.get_track_by_spotify_id_with_status(spotify_id)
 
-    {:noreply,
-     socket
-     |> assign(:context_menu_track_idx, nil)
-     |> put_flash(:info, "Track queued for re-download.")}
+        track =
+          existing ||
+            with attrs = build_track_attrs(socket.assigns.inspector_track, spotify_url, spotify_id, user.id),
+                 {:ok, t} <- Music.create_track(attrs) do
+              t
+            else
+              _ -> nil
+            end
+
+        case track && Music.create_download_job(%{track_id: track.id, status: :queued}) do
+          {:ok, download_job} ->
+            %{
+              "track_id" => track.id,
+              "spotify_url" => spotify_url,
+              "quality" => "320k",
+              "job_id" => download_job.id
+            }
+            |> DownloadWorker.new()
+            |> Oban.insert()
+
+            socket
+            |> assign(:context_menu_track_idx, nil)
+            |> put_flash(:info, "Re-download queued.")
+
+          _ ->
+            socket
+            |> assign(:context_menu_track_idx, nil)
+            |> put_flash(:error, "Failed to queue re-download.")
+        end
+      else
+        assign(socket, :context_menu_track_idx, nil)
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("load_in_tab", %{"tab" => tab, "spotify_id" => spotify_id}, socket) do
@@ -1286,6 +1337,32 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  defp extract_spotify_id_from_url(url) when is_binary(url) do
+    case Regex.run(~r{spotify\.com/track/([A-Za-z0-9]+)}, url) do
+      [_, id] -> id
+      _ -> nil
+    end
+  end
+
+  defp extract_spotify_id_from_url(_), do: nil
+
+  defp build_track_attrs(inspector_track, spotify_url, spotify_id, user_id) do
+    base = %{spotify_url: spotify_url, user_id: user_id, source: "manual"}
+
+    if is_map(inspector_track) do
+      Map.merge(base, %{
+        spotify_id: spotify_id,
+        title: inspector_track["title"] || "Unknown Track",
+        artist: inspector_track["artist"],
+        album: inspector_track["album"],
+        album_art_url: inspector_track["album_art_url"],
+        duration: inspector_track["duration"]
+      })
+    else
+      Map.merge(base, %{spotify_id: spotify_id, title: "Unknown Track"})
+    end
+  end
 
   defp active_tracks(socket) do
     case socket.assigns.active_crate do
