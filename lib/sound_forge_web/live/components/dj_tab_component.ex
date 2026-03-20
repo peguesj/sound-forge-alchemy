@@ -3918,11 +3918,13 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Hot Cues</span>
           <span class="text-[10px] text-gray-600">Click empty pad to set · Click set pad to jump</span>
         </div>
-        <%!-- A-H hot cue pads --%>
+        <%!-- A-H hot cue pads — 2×4 grid (ADR-004: Rekordbox/Traktor standard) --%>
         <% hot_cues = @cue_points |> Enum.filter(&(&1.cue_type == :hot && !&1.auto_generated)) |> Map.new(&{&1.label, &1}) %>
-        <div class="grid grid-cols-8 gap-1">
+        <% cue_colors = %{"A" => "#ef4444","B" => "#3b82f6","C" => "#22c55e","D" => "#eab308","E" => "#8b5cf6","F" => "#06b6d4","G" => "#f97316","H" => "#e5e7eb"} %>
+        <div class="grid grid-cols-4 gap-1.5">
           <%= for letter <- ~w(A B C D E F G H) do %>
             <% cue = Map.get(hot_cues, letter) %>
+            <% base_color = Map.get(cue_colors, letter, "#6b7280") %>
             <div class="relative group/hc">
               <%= if cue do %>
                 <button
@@ -3936,18 +3938,19 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                       target: @myself
                     )
                   }
-                  class="w-full h-10 rounded text-xs font-bold text-white transition-all hover:brightness-110 active:scale-95 shadow-sm"
-                  style={"background-color: #{cue.color}"}
+                  class="w-full h-12 rounded-md text-xs font-bold text-white transition-all hover:brightness-115 active:scale-95 shadow-md flex flex-col items-center justify-center gap-0.5"
+                  style={"background-color: #{cue.color}; box-shadow: 0 0 8px #{cue.color}55;"}
                   title={"Hot Cue #{letter} · #{format_ms(cue.position_ms)} — click to jump"}
                 >
-                  {letter}
+                  <span class="font-mono font-black text-sm leading-none">{letter}</span>
+                  <span class="text-[8px] opacity-80 leading-none">{format_ms(cue.position_ms)}</span>
                 </button>
                 <button
                   phx-click="clear_hot_cue"
                   phx-target={@myself}
                   phx-value-deck={@deck_number}
                   phx-value-letter={letter}
-                  class="absolute -top-1 -right-1 opacity-0 group-hover/hc:opacity-100 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-red-600 text-white text-[9px] font-bold transition-opacity shadow"
+                  class="absolute -top-1 -right-1 opacity-0 group-hover/hc:opacity-100 w-4 h-4 flex items-center justify-center rounded-full bg-red-600 text-white text-[9px] font-bold transition-opacity shadow z-10"
                   title="Clear hot cue #{letter}"
                 >
                   ×
@@ -3959,11 +3962,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                   phx-value-deck={@deck_number}
                   phx-value-letter={letter}
                   disabled={is_nil(@deck.track)}
-                  class={"w-full h-10 rounded text-xs font-bold transition-colors " <>
+                  class={"w-full h-12 rounded-md text-sm font-black transition-all flex items-center justify-center " <>
                     if(is_nil(@deck.track),
-                      do: "bg-gray-800 text-gray-700 cursor-not-allowed",
-                      else: "bg-gray-700/60 text-gray-500 hover:bg-gray-600 hover:text-gray-300 border border-gray-600/50"
+                      do: "cursor-not-allowed opacity-30",
+                      else: "hover:opacity-60 active:scale-95"
                     )}
+                  style={"background-color: #{base_color}22; border: 1px solid #{base_color}44; color: #{base_color}99;"}
                   title={"Set Hot Cue #{letter} at current position"}
                 >
                   {letter}

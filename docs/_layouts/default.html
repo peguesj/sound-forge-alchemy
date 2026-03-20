@@ -19,6 +19,22 @@
         <a href="{{ '/guides/quickstart' | relative_url }}">Quickstart</a>
         <a href="{{ '/architecture/' | relative_url }}">Architecture</a>
         <a href="{{ '/api/' | relative_url }}">API</a>
+        <a href="{{ '/changelog/' | relative_url }}">Changelog</a>
+        <select class="wiki-version-select" aria-label="Jump to version" onchange="if(this.value){window.location='{{ '/changelog/' | relative_url }}#'+this.value}">
+          <option value="">v4.7.0-dev ▾</option>
+          <option value="v470">v4.7.0-dev</option>
+          <option value="v460">v4.6.0</option>
+          <option value="v450">v4.5.0</option>
+          <option value="v440">v4.4.0</option>
+          <option value="v430">v4.3.0</option>
+          <option value="v4212">v4.2.12</option>
+          <option value="v4210">v4.2.10</option>
+          <option value="v425">v4.2.5</option>
+          <option value="v420">v4.2.0</option>
+          <option value="v410">v4.1.0</option>
+          <option value="v400">v4.0.0</option>
+          <option value="v100">v1.0.0</option>
+        </select>
         <a href="https://github.com/peguesj/sound-forge-alchemy" target="_blank" rel="noopener">GitHub ↗</a>
       </nav>
     </header>

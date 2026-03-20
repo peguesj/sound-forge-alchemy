@@ -20,9 +20,24 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
     packs = SampleLibrary.list_packs(user_id)
     files = SampleLibrary.search_files(user_id, %{limit: 50})
 
+    current_scope = socket.assigns[:current_scope]
+
+    if Phoenix.LiveView.connected?(socket) do
+      Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:actions")
+    end
+
     socket =
       socket
+      |> assign(:page_title, "Sample Library — SFA")
       |> assign(:current_user_id, user_id)
+      |> assign(:current_scope, current_scope)
+      |> assign(:nav_tab, :samples)
+      |> assign(:nav_context, :all_tracks)
+      |> assign(:midi_devices, [])
+      |> assign(:midi_bpm, nil)
+      |> assign(:midi_transport, :stopped)
+      |> assign(:pipelines, %{})
+      |> assign(:refreshing_midi, false)
       |> assign(:packs, packs)
       |> assign(:selected_pack_id, nil)
       |> assign(:search_query, "")
@@ -30,6 +45,7 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
       |> assign(:bpm_max, nil)
       |> assign(:key_filter, "")
       |> assign(:category_filter, "")
+      |> assign(:midi_active_file_id, nil)
       |> stream(:files, files)
 
     {:ok, socket}
@@ -94,6 +110,9 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
      |> reload_files()}
   end
 
+  # Catch-all: ignore unhandled events (e.g. pwa_midi_available from root layout hook)
+  def handle_event(_event, _params, socket), do: {:noreply, socket}
+
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
@@ -139,10 +158,48 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # MIDI action handlers — universal transport controls
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_info({:midi_action, :play, _params}, socket) do
+    {:noreply, push_event(socket, "sample_preview_play", %{})}
+  end
+
+  def handle_info({:midi_action, :stop, _params}, socket) do
+    {:noreply, push_event(socket, "sample_preview_stop", %{})}
+  end
+
+  def handle_info({:midi_action, :next_track, _params}, socket) do
+    {:noreply, push_event(socket, "sample_preview_next", %{})}
+  end
+
+  def handle_info({:midi_action, :prev_track, _params}, socket) do
+    {:noreply, push_event(socket, "sample_preview_prev", %{})}
+  end
+
+  def handle_info({:midi_action, _action, _params}, socket) do
+    {:noreply, socket}
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-full min-h-screen bg-base-100">
+    <div class="flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden">
+      <SoundForgeWeb.Live.Components.AppHeader.app_header
+        nav_tab={:samples}
+        nav_context={@nav_context}
+        current_scope={@current_scope}
+        current_user_id={@current_user_id}
+        midi_devices={@midi_devices}
+        midi_bpm={@midi_bpm}
+        midi_transport={@midi_transport}
+        pipelines={@pipelines}
+        refreshing_midi={@refreshing_midi}
+      />
+      <%!-- Main content --%>
+      <div class="flex flex-1 overflow-hidden">
       <%!-- Left sidebar: pack list --%>
       <aside class="w-64 shrink-0 border-r border-base-300 p-4 overflow-y-auto">
         <h2 class="text-sm font-semibold text-base-content/60 uppercase tracking-wider mb-3">Sample Packs</h2>
@@ -227,30 +284,36 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
             </thead>
             <tbody id="sample-files" phx-update="stream">
               <%= for {dom_id, file} <- @streams.files do %>
-                <tr id={dom_id} class="hover:bg-base-200/50 group">
-                  <td>
+                <tr id={dom_id} class={[
+                  "hover:bg-base-200/50 group transition-colors",
+                  if(@midi_active_file_id == file.id, do: "bg-primary/10 ring-1 ring-inset ring-primary/30", else: "")
+                ]}>
+                  <td class="w-8">
+                    <%!-- Play button: always visible (dimmed), full opacity on hover — Serato/Rekordbox pattern --%>
                     <button
-                      class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100"
+                      class="btn btn-ghost btn-xs opacity-40 group-hover:opacity-100 transition-opacity"
                       phx-hook="SamplePreview"
                       id={"preview-#{file.id}"}
                       data-file-path={file.file_path}
+                      title={"Preview: #{file.name}"}
                     >
                       &#9654;
                     </button>
                   </td>
                   <td class="font-mono text-xs truncate max-w-xs" title={file.name}><%= file.name %></td>
-                  <td class="text-xs"><%= format_bpm(file.bpm) %></td>
-                  <td class="text-xs"><%= file.key || "—" %></td>
+                  <td class="text-xs font-mono tabular-nums text-cyan-500/80"><%= format_bpm(file.bpm) %></td>
+                  <td class="text-xs font-medium text-purple-400/80"><%= file.key || "—" %></td>
                   <td class="text-xs"><%= file.category || "—" %></td>
-                  <td class="text-xs"><%= format_duration(file.duration_ms) %></td>
-                  <td class="text-xs"><%= format_size(file.file_size) %></td>
+                  <td class="text-xs tabular-nums text-gray-500"><%= format_duration(file.duration_ms) %></td>
+                  <td class="text-xs tabular-nums text-gray-600"><%= format_size(file.file_size) %></td>
                 </tr>
               <% end %>
             </tbody>
           </table>
         </div>
       </main>
-    </div>
+      </div><%!-- /flex flex-1 overflow-hidden --%>
+    </div><%!-- /flex flex-col h-screen --%>
     """
   end
 
