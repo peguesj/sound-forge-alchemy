@@ -10,6 +10,7 @@ defmodule SoundForge.CrateDigger do
 
   alias SoundForge.CrateDigger.Crate
   alias SoundForge.CrateDigger.CrateTrackConfig
+  alias SoundForge.Music
   alias SoundForge.Repo
   alias SoundForge.Spotify
 
@@ -110,8 +111,41 @@ defmodule SoundForge.CrateDigger do
            user_id: user_id
          },
          {:ok, saved} <- upsert_crate(crate, attrs) do
+      # Sync playlist tracks to the Alchemy library (metadata only, no download).
+      # Skips tracks already in the library. New tracks get no download_status.
+      sync_tracks_to_library(tracks, user_id)
       {:ok, saved}
     end
+  end
+
+  @doc """
+  Upsert Music.Track records for each playlist track that isn't already in the library.
+  Runs async (fire-and-forget) to avoid blocking playlist load response.
+  """
+  def sync_tracks_to_library(playlist_tracks, user_id) when is_list(playlist_tracks) do
+    Task.start(fn ->
+      Enum.each(playlist_tracks, fn track ->
+        spotify_id = track["spotify_id"]
+        if is_binary(spotify_id) && spotify_id != "" do
+          unless Music.get_track_by_spotify_id(spotify_id) do
+            spotify_url = "https://open.spotify.com/track/#{spotify_id}"
+            attrs = %{
+              spotify_id: spotify_id,
+              spotify_url: spotify_url,
+              title: track["title"] || "Unknown Track",
+              artist: track["artist"],
+              album: track["album"],
+              album_art_url: track["artwork_url"],
+              duration_ms: track["duration_ms"],
+              user_id: user_id,
+              source: "crate"
+            }
+            Music.create_track(attrs)
+          end
+        end
+      end)
+    end)
+    :ok
   end
 
   # ---------------------------------------------------------------------------

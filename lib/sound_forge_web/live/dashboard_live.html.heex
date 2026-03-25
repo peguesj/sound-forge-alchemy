@@ -1674,7 +1674,7 @@
                     <p class="text-sm text-gray-400 truncate">{track.artist}</p>
                     <p class="text-xs text-gray-500">{track.album}</p>
                   </.link>
-                  <div class="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div class="flex items-center gap-1 mt-1.5">
                     <button
                       :if={track.download_status == "completed"}
                       phx-click="play_track"
@@ -1697,6 +1697,17 @@
                         <path d="M8 5v14l11-7z" />
                       </svg>
                     </button>
+                    <.link
+                      :if={track.download_status == "completed"}
+                      navigate={~p"/?tab=daw&track_id=#{track.id}"}
+                      aria-label={"Open #{track.title} in DAW"}
+                      title="Open in DAW"
+                      class="p-1 text-gray-400 hover:text-blue-400 rounded hover:bg-gray-700 transition-colors"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10" />
+                      </svg>
+                    </.link>
                     <button
                       phx-click="edit_metadata"
                       phx-value-id={track.id}
@@ -1874,7 +1885,7 @@
                         />
                       </svg>
                     </button>
-                    <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="flex items-center gap-0.5">
                       <button
                         :if={track.download_status == "completed"}
                         phx-click="play_track"
@@ -1897,6 +1908,17 @@
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       </button>
+                      <.link
+                        :if={track.download_status == "completed"}
+                        navigate={~p"/?tab=daw&track_id=#{track.id}"}
+                        aria-label={"Open #{track.title} in DAW"}
+                        title="Open in DAW"
+                        class="p-1 text-gray-400 hover:text-blue-400 rounded hover:bg-gray-700 transition-colors"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10" />
+                        </svg>
+                      </.link>
                       <button
                         phx-click="edit_metadata"
                         phx-value-id={track.id}
