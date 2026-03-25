@@ -2964,6 +2964,34 @@
     </div>
   </div>
 
+  <!-- MIDI Monitor (floating panel, always available) -->
+  <.live_component
+    module={SoundForgeWeb.Live.Components.MidiMonitorComponent}
+    id="midi-monitor"
+    open={@midi_monitor_open}
+    listening={@midi_monitor_listening}
+    tailf={@midi_tailf}
+    events={@midi_raw_log}
+  />
+
+  <!-- MIDI Monitor Toggle Button (floating, bottom-right) -->
+  <button
+    phx-click="toggle_midi_monitor"
+    class={[
+      "fixed bottom-20 right-6 z-40 p-3 rounded-full shadow-lg transition-all",
+      if(@midi_monitor_open,
+        do: "bg-indigo-600 text-white",
+        else: "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"
+      )
+    ]}
+    aria-label={if(@midi_monitor_open, do: "Close MIDI Monitor", else: "Open MIDI Monitor")}
+    title="MIDI Monitor"
+  >
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+    </svg>
+  </button>
+
   <!-- Debug Panel Toggle Button (floating) -->
   <button
     :if={@debug_mode}

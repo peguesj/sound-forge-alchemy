@@ -101,6 +101,10 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:last_bpm_ms, System.monotonic_time(:millisecond))
       |> assign(:midi_transport, :stopped)
       |> assign(:midi_log, [])
+      |> assign(:midi_monitor_open, false)
+      |> assign(:midi_monitor_listening, false)
+      |> assign(:midi_tailf, false)
+      |> assign(:midi_raw_log, [])
       |> assign(:trace_jobs, [])
       |> assign(:trace_selected_job, nil)
       |> assign(:trace_timeline, [])
@@ -1600,6 +1604,37 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, assign(socket, :midi_log, [])}
   end
 
+  # MIDI Monitor (always-available floating panel)
+  @impl true
+  def handle_event("toggle_midi_monitor", _params, socket) do
+    {:noreply, update(socket, :midi_monitor_open, &(!&1))}
+  end
+
+  @impl true
+  def handle_event("toggle_midi_monitor_listen", _params, socket) do
+    if socket.assigns.midi_monitor_listening do
+      for device <- socket.assigns.midi_devices do
+        port_id = device[:port_id] || device.port_id
+        Phoenix.PubSub.unsubscribe(SoundForge.PubSub, SoundForge.MIDI.Dispatcher.topic(port_id))
+      end
+
+      {:noreply, assign(socket, :midi_monitor_listening, false)}
+    else
+      devices = SoundForge.MIDI.DeviceManager.list_devices()
+
+      for device <- devices, device.direction in [:input, :duplex] do
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, SoundForge.MIDI.Dispatcher.topic(device.port_id))
+      end
+
+      {:noreply, assign(socket, :midi_monitor_listening, true)}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_midi_tailf", _params, socket) do
+    {:noreply, update(socket, :midi_tailf, &(!&1))}
+  end
+
   @impl true
   def handle_event("toggle_debug_workers", _params, socket) do
     opening = !socket.assigns.debug_workers_open
@@ -2596,6 +2631,24 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, append_midi_log(socket, log_entry)}
   end
 
+  # Raw MIDI events from Dispatcher (when monitor is listening, Story v4.7.0)
+  @impl true
+  def handle_info({:midi_message, port_id, message}, socket) do
+    if socket.assigns.midi_monitor_listening do
+      event = build_raw_midi_event(port_id, message)
+      # Push to floating monitor component
+      send_update(SoundForgeWeb.Live.Components.MidiMonitorComponent,
+        id: "midi-monitor",
+        new_event: event
+      )
+      # Also keep a buffer in assigns for hydration on reconnect
+      raw_log = [event | socket.assigns.midi_raw_log] |> Enum.take(200)
+      {:noreply, assign(socket, :midi_raw_log, raw_log)}
+    else
+      {:noreply, socket}
+    end
+  end
+
 
   @impl true
   def handle_info({:batch_progress, %{batch_job_id: _id, status: status, completed_count: completed, total_count: total}}, socket) do
@@ -3449,6 +3502,62 @@ defmodule SoundForgeWeb.DashboardLive do
       timestamp: DateTime.utc_now()
     }
   end
+
+  # Builds a raw MIDI event map for the floating monitor panel
+  defp build_raw_midi_event(port_id, message) do
+    {type, channel, label, value} = decode_midi_message(message)
+    short_port = port_id |> to_string() |> String.split(":") |> List.last() |> String.slice(0, 8)
+
+    %{
+      id: System.unique_integer([:positive]),
+      port: short_port,
+      type: type,
+      channel: channel,
+      label: label,
+      value: value,
+      time: Calendar.strftime(DateTime.utc_now(), "%H:%M:%S")
+    }
+  end
+
+  defp decode_midi_message(%{status: status, data1: d1, data2: d2}) do
+    import Bitwise
+    channel = (status &&& 0x0F) + 1
+    type_nibble = status &&& 0xF0
+
+    case type_nibble do
+      0x90 when d2 > 0 -> {"note_on", channel, note_name(d1), d2}
+      0x90 -> {"note_off", channel, note_name(d1), 0}
+      0x80 -> {"note_off", channel, note_name(d1), d2}
+      0xB0 -> {"cc", channel, "CC#{d1}", d2}
+      0xA0 -> {"aftertouch", channel, note_name(d1), d2}
+      0xD0 -> {"pressure", channel, "CH pressure", d1}
+      0xE0 -> {"pitchbend", channel, "PB", d1 + d2 * 128}
+      0xC0 -> {"program", channel, "PC#{d1}", 0}
+      _ ->
+        case status do
+          0xF8 -> {"clock", 0, "tick", 0}
+          0xFA -> {"clock", 0, "start", 0}
+          0xFC -> {"clock", 0, "stop", 0}
+          0xFE -> {"clock", 0, "sense", 0}
+          0xF0 -> {"sysex", 0, "SysEx", byte_size(d1 || <<>>)}
+          _ -> {"other", 0, "0x#{Integer.to_string(status, 16)}", d1}
+        end
+    end
+  end
+
+  defp decode_midi_message(msg) do
+    {"raw", 0, inspect(msg, limit: 2), 0}
+  end
+
+  @note_names ~w(C C# D D# E F F# G G# A A# B)
+
+  defp note_name(midi_note) when is_integer(midi_note) do
+    oct = div(midi_note, 12) - 1
+    name = Enum.at(@note_names, rem(midi_note, 12))
+    "#{name}#{oct}"
+  end
+
+  defp note_name(_), do: "?"
 
   defp append_midi_log(socket, entry) do
     logs = [entry | socket.assigns.midi_log] |> Enum.take(@max_midi_log)

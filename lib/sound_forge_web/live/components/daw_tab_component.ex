@@ -40,7 +40,8 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
      |> assign(:initialized, false)
      |> assign(:snap_to_bar, false)
      |> assign(:structure_segments, [])
-     |> assign(:bar_times, [])}
+     |> assign(:bar_times, [])
+     |> assign(:stem_mixer, %{})}
   end
 
   @impl true
@@ -110,12 +111,18 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
             {segs, bars}
         end
 
+      stem_mixer =
+        Map.new(stems, fn stem ->
+          {stem.id, %{volume: 1.0, muted: false, solo: false, pan: 0.0}}
+        end)
+
       socket
       |> assign(:track, track)
       |> assign(:stems, stems)
       |> assign(:stem_operations, stem_operations)
       |> assign(:structure_segments, structure_segments)
       |> assign(:bar_times, bar_times)
+      |> assign(:stem_mixer, stem_mixer)
     rescue
       Ecto.NoResultsError ->
         put_flash(socket, :error, "Track not found")
@@ -518,6 +525,27 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
     end
   end
 
+  def handle_event("update_stem_mix", %{"stem_id" => stem_id} = params, socket) do
+    mixer = socket.assigns.stem_mixer
+    current = Map.get(mixer, stem_id, %{volume: 1.0, muted: false, solo: false, pan: 0.0})
+
+    updated =
+      current
+      |> maybe_put(:volume, params["volume"] && String.to_float(params["volume"]))
+      |> maybe_put(:muted, params["muted"] && params["muted"] == "true")
+      |> maybe_put(:solo, params["solo"] && params["solo"] == "true")
+      |> maybe_put(:pan, params["pan"] && String.to_float(params["pan"]))
+
+    new_mixer = Map.put(mixer, stem_id, updated)
+    {:noreply,
+     socket
+     |> assign(:stem_mixer, new_mixer)
+     |> push_event("stem_mix_update", %{stem_id: stem_id, mix: updated})}
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
   # -- Template --
 
   @impl true
@@ -640,14 +668,75 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
               phx-value-stem-id={stem.id}
             >
               <%!-- Stem Header --%>
-              <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-700/50">
-                <span class={"text-sm font-semibold w-24 " <> stem_color(stem.stem_type)}>
-                  {stem_label(stem.stem_type)}
-                </span>
-                <span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
-                  {length(Map.get(@stem_operations, stem.id, []))} ops
-                </span>
-                <div class="ml-auto flex items-center gap-1">
+              <div class="flex flex-col gap-1.5 px-4 py-3 border-b border-gray-700/50">
+                <div class="flex items-center gap-3">
+                  <span class={"text-sm font-semibold w-24 shrink-0 " <> stem_color(stem.stem_type)}>
+                    {stem_label(stem.stem_type)}
+                  </span>
+                  <%!-- Mixer controls: Mute / Solo / Volume / Pan --%>
+                  <div class="flex items-center gap-2" phx-click={JS.stop_propagation()}>
+                    <%!-- Mute --%>
+                    <button
+                      phx-click="update_stem_mix"
+                      phx-target={@myself}
+                      phx-value-stem_id={stem.id}
+                      phx-value-muted={to_string(!(Map.get(@stem_mixer, stem.id, %{muted: false}).muted))}
+                      title="Mute"
+                      class={[
+                        "text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors",
+                        if(Map.get(@stem_mixer, stem.id, %{muted: false}).muted,
+                          do: "bg-yellow-500 text-gray-900",
+                          else: "bg-gray-700 text-gray-400 hover:bg-gray-600")
+                      ]}
+                    >M</button>
+                    <%!-- Solo --%>
+                    <button
+                      phx-click="update_stem_mix"
+                      phx-target={@myself}
+                      phx-value-stem_id={stem.id}
+                      phx-value-solo={to_string(!(Map.get(@stem_mixer, stem.id, %{solo: false}).solo))}
+                      title="Solo"
+                      class={[
+                        "text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors",
+                        if(Map.get(@stem_mixer, stem.id, %{solo: false}).solo,
+                          do: "bg-green-500 text-gray-900",
+                          else: "bg-gray-700 text-gray-400 hover:bg-gray-600")
+                      ]}
+                    >S</button>
+                    <%!-- Volume --%>
+                    <div class="flex items-center gap-1">
+                      <span class="text-[9px] text-gray-500 shrink-0">VOL</span>
+                      <form phx-change="update_stem_mix" phx-target={@myself} class="flex items-center">
+                        <input type="hidden" name="stem_id" value={stem.id} />
+                        <input
+                          type="range" name="volume"
+                          min="0" max="1" step="0.01"
+                          value={Map.get(@stem_mixer, stem.id, %{volume: 1.0}).volume}
+                          class="w-20 h-1 accent-purple-500 cursor-pointer"
+                          title={"Volume: #{round(Map.get(@stem_mixer, stem.id, %{volume: 1.0}).volume * 100)}%"}
+                        />
+                      </form>
+                    </div>
+                    <%!-- Pan/Balance --%>
+                    <div class="flex items-center gap-1">
+                      <span class="text-[9px] text-gray-500 shrink-0">PAN</span>
+                      <form phx-change="update_stem_mix" phx-target={@myself} class="flex items-center">
+                        <input type="hidden" name="stem_id" value={stem.id} />
+                        <input
+                          type="range" name="pan"
+                          min="-1" max="1" step="0.01"
+                          value={Map.get(@stem_mixer, stem.id, %{pan: 0.0}).pan}
+                          class="w-16 h-1 accent-indigo-400 cursor-pointer"
+                          title={"Pan: #{Map.get(@stem_mixer, stem.id, %{pan: 0.0}).pan}"}
+                        />
+                      </form>
+                    </div>
+                  </div>
+                  <span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full ml-auto">
+                    {length(Map.get(@stem_operations, stem.id, []))} ops
+                  </span>
+                </div>
+                <div class="flex items-center gap-1 justify-end">
                   <button
                     :for={op <- [:crop, :trim, :fade_in, :fade_out, :split, :gain, :pitch_shift, :time_stretch]}
                     phx-click="apply_operation"

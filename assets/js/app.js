@@ -57,6 +57,7 @@ import PwaPermissions from "./hooks/pwa_permissions"
 import TransportLocalAudio from "./hooks/transport_local_audio"
 import CratePlayback from "./hooks/crate_playback"
 import ArrangementGrid from "./hooks/arrangement_grid"
+import MidiMonitorScroll from "./hooks/midi_monitor_scroll"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const Hooks = {
@@ -68,6 +69,7 @@ const Hooks = {
   ResizeObserverHook, SwipeHook, StemMixerHook, PadAssignHook, DawEditor, DawPreview, DjDeck, JogWheel, ChromaticPads, TransportBar, PianoRoll, ChordProgression, PwaPermissions, TransportLocalAudio,
   CratePlayback,
   ArrangementGrid,
+  MidiMonitorScroll,
   ...colocatedHooks
 }
 const liveSocket = new LiveSocket("/live", Socket, {
