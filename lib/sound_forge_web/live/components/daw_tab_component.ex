@@ -480,6 +480,44 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
     {:noreply, socket}
   end
 
+  # Stem Arranger (Story 3.2)
+
+  @impl true
+  def handle_event("toggle_arrangement_block", %{"stem_type" => stem_type, "start_sec" => start_sec, "end_sec" => end_sec}, socket) do
+    track = socket.assigns.track
+    if is_nil(track), do: {:noreply, socket}
+
+    arrangement = track.stem_arrangement || %{}
+    regions = Map.get(arrangement, stem_type, [])
+
+    # Toggle muted for any existing region that overlaps, or add a muted block
+    updated_regions =
+      if Enum.any?(regions, &(&1["start_sec"] == start_sec && &1["end_sec"] == end_sec)) do
+        Enum.map(regions, fn r ->
+          if r["start_sec"] == start_sec && r["end_sec"] == end_sec do
+            Map.put(r, "muted", !r["muted"])
+          else
+            r
+          end
+        end)
+      else
+        [%{"start_sec" => start_sec, "end_sec" => end_sec, "muted" => true} | regions]
+      end
+
+    updated_arrangement = Map.put(arrangement, stem_type, updated_regions)
+
+    case Music.update_track(track, %{stem_arrangement: updated_arrangement}) do
+      {:ok, updated_track} ->
+        {:noreply,
+         socket
+         |> assign(:track, updated_track)
+         |> push_event("set_arrangement", %{arrangement: updated_arrangement})}
+
+      {:error, _} ->
+        {:noreply, socket}
+    end
+  end
+
   # -- Template --
 
   @impl true
@@ -658,6 +696,28 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
             </div>
           </div>
         </div>
+
+        <%!-- Stem Arranger Grid (Story 3.2) --%>
+        <div :if={@stems != []} class="px-6 py-4 border-t border-gray-700">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-gray-300">Stem Arranger</h3>
+            <span class="text-xs text-gray-500">Click a block to mute/unmute that section</span>
+          </div>
+          <div
+            id={"arrangement-grid-#{@track && @track.id}"}
+            phx-hook="ArrangementGrid"
+            phx-target={@myself}
+            data-stems={Jason.encode!(Enum.map(@stems, fn s ->
+              %{id: s.id, stem_type: s.stem_type, label: String.capitalize(to_string(s.stem_type)),
+                color: stem_hex_color(s.stem_type)}
+            end))}
+            data-arrangement={Jason.encode!((@track && @track.stem_arrangement) || %{})}
+            data-duration-sec={(@track && @track.duration) || 120}
+            data-bpm={(@track && @track.bpm) || 120}
+            class="overflow-x-auto"
+          >
+          </div>
+        </div>
       <% else %>
         <%!-- Track Picker Grid --%>
         <div class="p-6">
@@ -715,6 +775,24 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   end
 
   # -- Private Helpers --
+
+  @stem_hex_colors %{
+    "vocals" => "#6d28d9",
+    "drums" => "#dc2626",
+    "bass" => "#2563eb",
+    "other" => "#059669",
+    "piano" => "#d97706",
+    "guitar" => "#db2777",
+    "electric_guitar" => "#db2777",
+    "acoustic_guitar" => "#92400e",
+    "strings" => "#0891b2",
+    "wind" => "#065f46",
+    "synth" => "#7c3aed"
+  }
+
+  defp stem_hex_color(stem_type) do
+    Map.get(@stem_hex_colors, to_string(stem_type), "#6b7280")
+  end
 
   defp has_stems?(track) do
     case track do
