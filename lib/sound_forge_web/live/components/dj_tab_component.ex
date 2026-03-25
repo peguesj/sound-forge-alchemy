@@ -110,6 +110,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
      |> assign(:performance_sets_open, false)
      |> assign(:save_set_name, "")
      |> assign(:save_set_input_open, false)
+     |> assign(:sonic_suggestion, nil)
+     |> assign(:sonic_suggestion_loading, false)
      # Cue sequences (Story 2.3)
      |> assign(:deck_1_cue_sequences, [])
      |> assign(:deck_2_cue_sequences, [])
@@ -1829,6 +1831,47 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to delete Chef set")}
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # AI Suggest (SonicAnalyst) handler
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_event("ai_suggest", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    deck = Map.get(socket.assigns, :"deck_#{deck_number}")
+    user_id = socket.assigns[:user_id] || socket.assigns[:current_user_id]
+
+    if deck && deck.track && user_id do
+      # Collect track IDs from decks 1+2 for compatibility scoring if both loaded
+      deck2 = socket.assigns.deck_2
+      track_ids = [deck.track.id] ++ if(deck2.track, do: [deck2.track.id], else: [])
+
+      {:ok, _exec_id} =
+        SoundForge.Agents.trigger("agent-sonic-analyst", %{
+          user_id: user_id,
+          track_ids: track_ids,
+          instruction: "Analyse these tracks and score their mix compatibility. Suggest best transition type."
+        })
+
+      # Subscribe to agent output
+      Phoenix.PubSub.subscribe(SoundForge.PubSub, "agents:agent-sonic-analyst")
+
+      {:noreply, assign(socket, :sonic_suggestion_loading, true)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:agent_output, %{agent_id: "agent-sonic-analyst", result: result}}, socket) do
+    suggestion = case result do
+      {:ok, %SoundForge.Agents.Result{content: content}} -> content
+      _ -> nil
+    end
+
+    {:noreply, socket |> assign(:sonic_suggestion, suggestion) |> assign(:sonic_suggestion_loading, false)}
   end
 
   # ---------------------------------------------------------------------------
@@ -4437,6 +4480,18 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                   <option value="intelligent" selected={@cue_sort == "intelligent"}>Intelligent</option>
                 </select>
               </form>
+              <%!-- AI Suggest button (SonicAnalyst) --%>
+              <button
+                :if={@deck.track && @deck_number == 1}
+                phx-click="ai_suggest"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-indigo-700/50 text-indigo-300 hover:bg-indigo-600 hover:text-white transition-colors"
+                title="Get AI mix suggestions for this track"
+              >
+                AI
+              </button>
+
               <%!-- Generate / Regen button --%>
               <%= if @detecting_cues do %>
                 <svg class="w-3 h-3 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24">
@@ -4461,6 +4516,28 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                 </button>
               <% end %>
             </div>
+          </div>
+
+          <%!-- AI Suggestion panel --%>
+          <div :if={@deck_number == 1 && (@sonic_suggestion_loading || @sonic_suggestion)} class="mt-1 mb-1 p-1.5 rounded bg-indigo-900/20 border border-indigo-700/30">
+            <div :if={@sonic_suggestion_loading} class="flex items-center gap-1 text-[9px] text-indigo-400">
+              <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              Analysing…
+            </div>
+            <%= if @sonic_suggestion && !@sonic_suggestion_loading do %>
+              <% score = @sonic_suggestion["compatibility_score"] %>
+              <div class="text-[9px] space-y-0.5">
+                <div :if={score} class="flex items-center gap-1">
+                  <span class="text-gray-500">Compat:</span>
+                  <span class={["font-bold", if(score >= 0.7, do: "text-green-400", else: if(score >= 0.4, do: "text-amber-400", else: "text-red-400"))]}>
+                    {round(score * 100)}%
+                  </span>
+                  <span :if={@sonic_suggestion["key_compatible"]} class="text-[8px] bg-green-800/40 text-green-400 px-1 rounded">key✓</span>
+                  <span :if={@sonic_suggestion["tempo_match"]} class="text-[8px] bg-blue-800/40 text-blue-400 px-1 rounded">bpm✓</span>
+                </div>
+                <p :if={@sonic_suggestion["mix_notes"]} class="text-gray-400 line-clamp-2">{@sonic_suggestion["mix_notes"]}</p>
+              </div>
+            <% end %>
           </div>
 
           <%!-- Cue chips grid (paginated) --%>
