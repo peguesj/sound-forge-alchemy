@@ -427,6 +427,44 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
     {:noreply, assign(socket, :context_menu_track_idx, nil)}
   end
 
+  def handle_event("reorder_track", %{"spotify_id" => spotify_id, "direction" => direction}, socket) do
+    crate = socket.assigns.active_crate
+
+    case crate do
+      nil ->
+        {:noreply, socket}
+
+      %{playlist_data: tracks} when is_list(tracks) ->
+        idx = Enum.find_index(tracks, &(&1["spotify_id"] == spotify_id))
+
+        new_tracks =
+          case {idx, direction} do
+            {nil, _} -> tracks
+            {0, "up"} -> tracks
+            {i, "up"} when i > 0 ->
+              {a, b} = {Enum.at(tracks, i - 1), Enum.at(tracks, i)}
+              tracks |> List.replace_at(i - 1, b) |> List.replace_at(i, a)
+            {i, "down"} when i < length(tracks) - 1 ->
+              {a, b} = {Enum.at(tracks, i), Enum.at(tracks, i + 1)}
+              tracks |> List.replace_at(i, b) |> List.replace_at(i + 1, a)
+            _ -> tracks
+          end
+
+        case CrateDigger.update_crate(crate, %{playlist_data: new_tracks}) do
+          {:ok, updated} ->
+            crates = Enum.map(socket.assigns.crates, fn c ->
+              if c.id == updated.id, do: updated, else: c
+            end)
+            {:noreply, socket |> assign(:active_crate, updated) |> assign(:crates, crates)}
+          {:error, _} ->
+            {:noreply, socket}
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("redownload_track", %{"spotify_url" => spotify_url}, socket) do
     user = socket.assigns.current_user
 
@@ -961,12 +999,35 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                     <p class="text-xs text-gray-500 truncate">{track["artist"]}</p>
                   </div>
 
-                  <!-- Now-playing animated dot -->
-                  <span
-                    :if={@now_playing_id == track["spotify_id"] and @playback_state == :playing}
-                    class="w-2 h-2 rounded-full bg-purple-400 animate-pulse shrink-0"
-                    title="Now playing"
-                  ></span>
+                  <!-- Play / stop inline button -->
+                  <%= if @now_playing_id == track["spotify_id"] and @playback_state == :playing do %>
+                    <button
+                      phx-click="stop_preview"
+                      class="p-1.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white transition-colors shrink-0"
+                      title="Stop preview"
+                      onclick="event.stopPropagation()"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <rect x="6" y="6" width="4" height="12" rx="1"/>
+                        <rect x="14" y="6" width="4" height="12" rx="1"/>
+                      </svg>
+                    </button>
+                  <% else %>
+                    <% play_idx = Enum.find_index(@active_crate.playlist_data || [], &(&1["spotify_id"] == track["spotify_id"])) || original_idx %>
+                    <button
+                      :if={track["preview_url"]}
+                      phx-click="play_track_preview"
+                      phx-value-index={play_idx}
+                      class="p-1.5 rounded-full bg-gray-700/60 hover:bg-purple-600 text-gray-400 hover:text-white transition-colors shrink-0 opacity-0 group-hover/track:opacity-100"
+                      title="Preview 30s"
+                      onclick="event.stopPropagation()"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </button>
+                    <div :if={!track["preview_url"]} class="w-7 shrink-0"></div>
+                  <% end %>
 
                   <!-- Override badge + BPM + key + duration + context menu trigger -->
                   <% analysis = load_analysis(track["spotify_id"]) %>
@@ -986,11 +1047,36 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                     <% end %>
                     <span :if={analysis} class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Analysis available"></span>
                     <span class="text-xs text-gray-600 tabular-nums">{format_duration(track["duration_ms"])}</span>
-                    <!-- Three-dot context menu button -->
+                    <!-- Reorder buttons -->
+                    <div class="flex flex-col gap-0" onclick="event.stopPropagation()">
+                      <button
+                        :if={original_idx > 0}
+                        phx-click="reorder_track"
+                        phx-value-spotify_id={track["spotify_id"]}
+                        phx-value-direction="up"
+                        class="p-0.5 rounded opacity-0 group-hover/track:opacity-100 transition-opacity text-gray-600 hover:text-gray-300 hover:bg-gray-700"
+                        title="Move up"
+                        onclick="event.stopPropagation()"
+                      >
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5l-7 7h14z"/></svg>
+                      </button>
+                      <button
+                        :if={original_idx < length((@active_crate.playlist_data || [])) - 1}
+                        phx-click="reorder_track"
+                        phx-value-spotify_id={track["spotify_id"]}
+                        phx-value-direction="down"
+                        class="p-0.5 rounded opacity-0 group-hover/track:opacity-100 transition-opacity text-gray-600 hover:text-gray-300 hover:bg-gray-700"
+                        title="Move down"
+                        onclick="event.stopPropagation()"
+                      >
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 19l7-7H5z"/></svg>
+                      </button>
+                    </div>
+                  <!-- Three-dot context menu button -->
                     <button
                       phx-click="open_context_menu"
                       phx-value-index={original_idx}
-                      class="p-1 rounded opacity-0 group-hover/track:opacity-100 transition-opacity text-gray-500 hover:text-white hover:bg-gray-700"
+                      class="p-1 rounded text-gray-500 hover:text-white hover:bg-gray-700 transition-colors"
                       title="Track options"
                       onclick="event.stopPropagation()"
                     >
