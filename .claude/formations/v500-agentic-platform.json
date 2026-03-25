@@ -1,0 +1,139 @@
+{
+  "formation_id": "fmt-20260325-v500-agentic-platform",
+  "version": "5.0.0",
+  "title": "Agentic Platform Intelligence",
+  "description": "Deploys a fleet of domain-specialized AI agents as first-class platform features. Includes: AI set recommendations engine, cross-user set sharing, agentic development organization for continuous platform improvement.",
+  "status": "planned",
+  "agentic_org": {
+    "description": "Specialized agent roles deployed as persistent platform services",
+    "agents": [
+      {
+        "id": "agent-sonic-analyst",
+        "name": "Sonic Analyst",
+        "domain": "Audio analysis, BPM detection, key analysis, mood/energy profiling",
+        "triggers": ["track_uploaded", "analysis_requested", "set_generation_requested"],
+        "outputs": ["AnalysisResult enrichment", "PerformanceSet item suggestions", "Mix compatibility scores"],
+        "llm_routing": "Uses claude-sonnet-4-6 via LLM.Router with tool: analyze_audio_features"
+      },
+      {
+        "id": "agent-set-curator",
+        "name": "Set Curator",
+        "domain": "PerformanceSet curation, set quality scoring, Chef supervision",
+        "triggers": ["chef_complete", "set_saved", "manual_set_created"],
+        "outputs": ["Set quality score", "Suggested improvements", "Redundancy detection"],
+        "llm_routing": "Uses claude-opus-4-6 for high-quality curation decisions"
+      },
+      {
+        "id": "agent-mix-advisor",
+        "name": "Mix Advisor",
+        "domain": "DJ set flow optimization, track ordering, energy curve planning",
+        "triggers": ["playlist_imported", "crate_loaded", "dj_session_start"],
+        "outputs": ["Track order recommendations", "Energy flow diagram", "Key compatibility matrix"],
+        "llm_routing": "Uses claude-sonnet-4-6 with music theory context"
+      },
+      {
+        "id": "agent-stem-engineer",
+        "name": "Stem Engineer",
+        "domain": "Stem quality assessment, DAW edit suggestions, arrangement optimization",
+        "triggers": ["stems_separated", "daw_session_start", "export_requested"],
+        "outputs": ["Stem quality scores", "DAW edit operation suggestions", "Arrangement grid presets"],
+        "llm_routing": "Uses claude-haiku-4-5 for latency-sensitive suggestions"
+      },
+      {
+        "id": "agent-platform-ops",
+        "name": "Platform Ops",
+        "domain": "Error monitoring, performance profiling, automated issue triage",
+        "triggers": ["pipeline_error", "analysis_failed", "slow_query_detected"],
+        "outputs": ["Error classification", "Linear issue creation", "Auto-remediation suggestions"],
+        "llm_routing": "Uses claude-haiku-4-5 for cost-efficient ops monitoring"
+      }
+    ]
+  },
+  "waves": [
+    {
+      "wave": 1,
+      "title": "Agent Infrastructure + Sonic Analyst",
+      "stories": [
+        {
+          "id": "5.0.1.1",
+          "title": "AgentRunner GenServer + agent registry",
+          "description": "Create SoundForge.Agents.AgentRunner GenServer that manages long-running agent tasks. Agents are registered by id, triggered via PubSub events, and their outputs are persisted to an agent_outputs ETS table. Uses existing LLM.Router for model dispatch.",
+          "files_to_create": [
+            "lib/sound_forge/agents/agent_runner.ex",
+            "lib/sound_forge/agents/agent_registry.ex",
+            "lib/sound_forge/agents/sonic_analyst.ex"
+          ],
+          "files_to_modify": [
+            "lib/sound_forge/application.ex"
+          ],
+          "acceptance_criteria": [
+            "AgentRunner starts in supervision tree",
+            "Agents can be triggered via SoundForge.Agents.trigger/2",
+            "SonicAnalyst produces mix compatibility score for two tracks",
+            "Agent outputs stored and retrievable via AgentRegistry.get_output/2"
+          ]
+        },
+        {
+          "id": "5.0.1.2",
+          "title": "AI Set Recommendations in DJ tab",
+          "description": "Add 'AI Suggest' button to DJ tab that triggers SetCurator agent. Shows streaming suggestions as they arrive via PubSub. Each suggestion shows confidence score, item type, and one-click add to current set.",
+          "files_to_create": [
+            "lib/sound_forge/agents/set_curator.ex"
+          ],
+          "files_to_modify": [
+            "lib/sound_forge_web/live/components/dj_tab_component.ex"
+          ],
+          "acceptance_criteria": [
+            "AI Suggest button visible in DJ tab",
+            "Suggestions stream in as agent produces them",
+            "Each suggestion has Add button that creates a cue point",
+            "Agent respects existing manual cues (no duplicates within 500ms)"
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "title": "Cross-User Set Sharing",
+      "stories": [
+        {
+          "id": "5.0.2.1",
+          "title": "Set sharing: publish to community library",
+          "description": "Users can publish PerformanceSets to a community library. Adds is_public flag to performance_sets table. Public sets visible in a community feed at /sets. Sets attributed to track title and genre tags (from analysis data).",
+          "files_to_create": [
+            "lib/sound_forge_web/live/community_sets_live.ex"
+          ],
+          "files_to_modify": [
+            "lib/sound_forge/dj/performance_set.ex",
+            "lib/sound_forge/dj/performance_sets.ex",
+            "lib/sound_forge_web/router.ex"
+          ],
+          "acceptance_criteria": [
+            "Publish button in Set Library with privacy confirmation",
+            "Public sets visible at /sets for all authenticated users",
+            "Sets filterable by genre, BPM range, source",
+            "Import from community set creates local copy"
+          ]
+        },
+        {
+          "id": "5.0.2.2",
+          "title": "MixAdvisor: energy flow planning for playlists",
+          "description": "In CrateDigger, add Mix Plan feature powered by MixAdvisor agent. Analyzes all tracks in the crate, suggests optimal play order based on BPM progression, key compatibility, and energy curve. Outputs an ordered track list with transition notes.",
+          "files_to_create": [
+            "lib/sound_forge/agents/mix_advisor.ex"
+          ],
+          "files_to_modify": [
+            "lib/sound_forge_web/live/crate_digger_live.ex"
+          ],
+          "acceptance_criteria": [
+            "Mix Plan button in CrateDigger",
+            "MixAdvisor produces ordered track list with BPM transitions",
+            "Energy flow diagram shown as canvas visualization",
+            "Apply Order resequences the crate playlist",
+            "Key compatibility shown as color-coded matrix"
+          ]
+        }
+      ]
+    }
+  ]
+}

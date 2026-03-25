@@ -32,6 +32,11 @@ defmodule SoundForgeWeb.PracticeLive do
   end
 
   @impl true
+  def handle_event("nav_tab", %{"tab" => tab}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/?tab=#{tab}")}
+  end
+
+  @impl true
   def handle_event("import_sessions", _params, socket) do
     socket = assign(socket, :importing, true)
     user_id = socket.assigns.current_user_id
@@ -77,6 +82,9 @@ defmodule SoundForgeWeb.PracticeLive do
   def handle_event("refresh_midi_devices", _params, socket) do
     {:noreply, assign(socket, :refreshing_midi, false)}
   end
+
+  # Catch-all: ignore unhandled events (e.g. pwa_midi_available from root layout hook)
+  def handle_event(_event, _params, socket), do: {:noreply, socket}
 
   def render(assigns) do
     ~H"""

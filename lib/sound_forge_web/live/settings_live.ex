@@ -398,6 +398,9 @@ defmodule SoundForgeWeb.SettingsLive do
     {:noreply, socket}
   end
 
+  # Catch-all: ignore unhandled events (e.g. pwa_midi_available from root layout hook)
+  def handle_event(_event, _params, socket), do: {:noreply, socket}
+
   @impl true
   def handle_info(:refresh_quota, socket) do
     lv_pid = self()
