@@ -1058,7 +1058,7 @@ def detect_transients(y: np.ndarray, sr: int) -> Dict[str, Any]:
     onset_strength_mean = float(np.mean(onset_env))
 
     # Detect onset frames and convert to times
-    onset_frames = librosa.onset.onset_frames(
+    onset_frames = librosa.onset.onset_detect(
         onset_envelope=onset_env,
         backtrack=True,
         delta=0.2

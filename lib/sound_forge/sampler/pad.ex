@@ -22,6 +22,7 @@ defmodule SoundForge.Sampler.Pad do
           end_time: float() | nil,
           bank_id: binary(),
           stem_id: binary() | nil,
+          synth_config: map() | nil,
           bank: SoundForge.Sampler.Bank.t() | Ecto.Association.NotLoaded.t(),
           stem: SoundForge.Music.Stem.t() | nil | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil,
@@ -40,6 +41,7 @@ defmodule SoundForge.Sampler.Pad do
     field :velocity, :float, default: 1.0
     field :start_time, :float, default: 0.0
     field :end_time, :float
+    field :synth_config, :map
 
     belongs_to :bank, SoundForge.Sampler.Bank
     belongs_to :stem, SoundForge.Music.Stem
@@ -50,7 +52,7 @@ defmodule SoundForge.Sampler.Pad do
   @doc false
   def changeset(pad, attrs) do
     pad
-    |> cast(attrs, [:index, :label, :color, :volume, :pitch, :velocity, :start_time, :end_time, :bank_id, :stem_id])
+    |> cast(attrs, [:index, :label, :color, :volume, :pitch, :velocity, :start_time, :end_time, :bank_id, :stem_id, :synth_config])
     |> validate_required([:index, :bank_id])
     |> validate_number(:index, greater_than_or_equal_to: 0, less_than: 16)
     |> validate_number(:volume, greater_than_or_equal_to: 0.0, less_than_or_equal_to: 1.0)

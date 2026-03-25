@@ -110,10 +110,14 @@ defmodule SoundForge.DJ do
       {:ok, %Oban.Job{}}
 
   """
-  @spec generate_auto_cues(binary(), integer() | binary()) ::
+  @spec generate_auto_cues(binary(), integer() | binary(), keyword()) ::
           {:ok, Oban.Job.t()} | {:error, Oban.Job.changeset()}
-  def generate_auto_cues(track_id, user_id) do
-    %{"track_id" => track_id, "user_id" => user_id}
+  def generate_auto_cues(track_id, user_id, opts \\ []) do
+    %{
+      "track_id" => track_id,
+      "user_id" => user_id,
+      "leading_stem" => Keyword.get(opts, :leading_stem, "drums")
+    }
     |> SoundForge.Jobs.AutoCueWorker.new()
     |> Oban.insert()
   end
@@ -322,6 +326,16 @@ defmodule SoundForge.DJ do
   """
   @spec get_stem_loop(binary()) :: StemLoop.t() | nil
   def get_stem_loop(id), do: Repo.get(StemLoop, id)
+
+  @doc """
+  Updates a stem loop.
+  """
+  @spec update_stem_loop(StemLoop.t(), map()) :: {:ok, StemLoop.t()} | {:error, Ecto.Changeset.t()}
+  def update_stem_loop(%StemLoop{} = stem_loop, attrs) do
+    stem_loop
+    |> StemLoop.changeset(attrs)
+    |> Repo.update()
+  end
 
   @doc """
   Deletes a stem loop.

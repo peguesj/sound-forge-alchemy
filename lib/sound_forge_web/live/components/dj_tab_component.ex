@@ -297,6 +297,13 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   # -- Events --
 
   @impl true
+  # Form-based select (deck 3/4 soundboard): sends "track_id" (underscore).
+  # Normalize to "track-id" (hyphen) and delegate to the main clause.
+  def handle_event("load_track", %{"deck" => _d, "track_id" => _t} = params, socket)
+      when not is_map_key(params, "track-id") do
+    handle_event("load_track", Map.put(params, "track-id", params["track_id"]), socket)
+  end
+
   def handle_event("load_track", %{"deck" => deck_str, "track-id" => track_id}, socket) do
     deck_number = String.to_integer(deck_str)
     user_id = socket.assigns[:current_user_id]
@@ -595,7 +602,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       loop_length_ms = trunc(beats * (60_000 / deck.tempo_bpm))
       loop_end = loop_start + loop_length_ms
 
-      updated_deck = %{deck | loop_start_ms: loop_start, loop_end_ms: loop_end, loop_active: true}
+      updated_deck = %{deck | loop_start_ms: loop_start, loop_end_ms: loop_end, loop_active: true, loop_size_beats: beats, loop_size_str: beats_str}
 
       user_id = socket.assigns[:current_user_id]
       persist_loop(user_id, deck_number, loop_start, loop_end)
@@ -734,6 +741,32 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       |> push_event("set_pitch", %{deck: deck_number, value: pitch})
 
     {:noreply, socket}
+  end
+
+  # Tap tempo: client sends tapped BPM; server adjusts pitch_adjust so playback
+  # rate matches the tapped tempo relative to the track's native BPM.
+  @impl true
+  def handle_event("tap_tempo", %{"deck" => deck_str, "bpm" => bpm_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    deck_key = deck_assign_key(deck_number)
+    deck = Map.get(socket.assigns, deck_key)
+
+    with {tapped_bpm, _} <- Float.parse(to_string(bpm_str)),
+         true <- deck.tempo_bpm > 0 and tapped_bpm > 0 do
+      pitch = ((tapped_bpm / deck.tempo_bpm - 1.0) * 100.0) |> max(-50.0) |> min(50.0)
+      updated_deck = %{deck | pitch_adjust: pitch}
+      user_id = socket.assigns[:current_user_id]
+      persist_pitch(user_id, deck_number, pitch)
+
+      socket =
+        socket
+        |> assign(deck_key, updated_deck)
+        |> push_event("set_pitch", %{deck: deck_number, value: pitch})
+
+      {:noreply, socket}
+    else
+      _ -> {:noreply, socket}
+    end
   end
 
   @impl true
@@ -2360,6 +2393,10 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         user_id = socket.assigns[:current_user_id]
         persist_loop(user_id, deck_number, stem_loop.start_ms, stem_loop.end_ms)
 
+        stem = Enum.find(deck.stems || [], &(to_string(&1.id) == to_string(stem_loop.stem_id)))
+        stem_type = if stem, do: to_string(stem.stem_type), else: "other"
+        steps = stem_loop.steps || List.duplicate(true, 8)
+
         socket =
           socket
           |> assign(deck_key, updated_deck)
@@ -2368,6 +2405,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             loop_start_ms: stem_loop.start_ms,
             loop_end_ms: stem_loop.end_ms,
             active: true
+          })
+          |> push_event("set_stem_loop_gate", %{
+            deck: deck_number,
+            stem_type: stem_type,
+            steps: steps
           })
 
         {:noreply, socket}
@@ -2416,6 +2458,36 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  # Toggle a single step (0–7) on a stem loop's 8-step gate pattern.
+  @impl true
+  def handle_event("toggle_stem_loop_step", %{"deck" => deck_str, "loop_id" => loop_id, "step" => step_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    stem_loops_key = stem_loops_assign_key(deck_number)
+    step = String.to_integer(step_str)
+
+    case DJ.get_stem_loop(loop_id) do
+      %DJ.StemLoop{} = stem_loop ->
+        current_steps = stem_loop.steps || List.duplicate(true, 8)
+        updated_steps = List.update_at(current_steps, step, &(!&1))
+
+        case DJ.update_stem_loop(stem_loop, %{steps: updated_steps}) do
+          {:ok, _} ->
+            updated_loops =
+              socket.assigns
+              |> Map.get(stem_loops_key, [])
+              |> Enum.map(fn l -> if l.id == loop_id, do: %{l | steps: updated_steps}, else: l end)
+
+            {:noreply, assign(socket, stem_loops_key, updated_loops)}
+
+          {:error, _} ->
+            {:noreply, socket}
+        end
+
+      nil ->
+        {:noreply, socket}
     end
   end
 
@@ -4233,6 +4305,16 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         </div>
 
         <div class="ml-auto flex items-center gap-1.5">
+          <button
+            id={"tap-tempo-btn-#{@deck_number}"}
+            phx-click="tap_tempo"
+            phx-target={@myself}
+            phx-value-deck={@deck_number}
+            title="Tap tempo to sync BPM"
+            class="px-2 py-1 text-[10px] font-bold rounded bg-gray-700 text-gray-400 hover:bg-amber-700 hover:text-white active:bg-amber-500 transition-colors select-none"
+          >
+            TAP
+          </button>
           <span class="text-xs text-gray-500 uppercase">BPM</span>
           <span class={"text-lg font-bold font-mono " <>
             if(@deck.tempo_bpm > 0, do: "text-white", else: "text-gray-600")}>
@@ -4363,10 +4445,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                 phx-value-beats={beats}
                 disabled={is_nil(@deck.track) || @deck.tempo_bpm <= 0}
                 class={"flex-1 py-1 text-[10px] font-mono font-bold rounded text-center transition-colors " <>
-                  if(is_nil(@deck.track) || @deck.tempo_bpm <= 0,
-                    do: "bg-gray-800 text-gray-700 cursor-not-allowed",
-                    else: "bg-gray-700/80 text-gray-300 hover:bg-purple-700 hover:text-white active:bg-purple-500"
-                  )}
+                  cond do
+                    is_nil(@deck.track) || @deck.tempo_bpm <= 0 -> "bg-gray-800 text-gray-700 cursor-not-allowed"
+                    beats == @deck.loop_size_str -> "bg-purple-600 text-white ring-1 ring-purple-400/50"
+                    true -> "bg-gray-700/80 text-gray-300 hover:bg-purple-700 hover:text-white active:bg-purple-500"
+                  end}
               >
                 {label}
               </button>
@@ -5068,28 +5151,49 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               <%!-- Stem Loop Actions --%>
               <div class="flex items-center gap-1.5 text-[10px]">
                 <%!-- Existing loops for this stem --%>
-                <div :for={loop <- stem_loops_for_stem(@stem_loops, stem.id)} class="flex items-center gap-0.5">
-                  <button
-                    phx-click="audition_stem_loop"
-                    phx-target={@myself}
-                    phx-value-deck={@deck_number}
-                    phx-value-loop_id={loop.id}
-                    class="px-1.5 py-0.5 rounded text-white hover:brightness-125 transition-colors font-mono"
-                    style={"background-color: #{loop.color || stem_type_color(stem_type)}; opacity: 0.8;"}
-                    title={"Audition: #{loop.label}"}
-                  >
-                    {loop.label || "Loop"}
-                  </button>
-                  <button
-                    phx-click="delete_stem_loop"
-                    phx-target={@myself}
-                    phx-value-deck={@deck_number}
-                    phx-value-loop_id={loop.id}
-                    class="text-gray-600 hover:text-red-400 transition-colors px-0.5"
-                    title="Delete loop"
-                  >
-                    x
-                  </button>
+                <div :for={loop <- stem_loops_for_stem(@stem_loops, stem.id)} class="flex flex-col gap-1">
+                  <div class="flex items-center gap-0.5">
+                    <button
+                      phx-click="audition_stem_loop"
+                      phx-target={@myself}
+                      phx-value-deck={@deck_number}
+                      phx-value-loop_id={loop.id}
+                      class="px-1.5 py-0.5 rounded text-white hover:brightness-125 transition-colors font-mono"
+                      style={"background-color: #{loop.color || stem_type_color(stem_type)}; opacity: 0.8;"}
+                      title={"Audition: #{loop.label}"}
+                    >
+                      {loop.label || "Loop"}
+                    </button>
+                    <button
+                      phx-click="delete_stem_loop"
+                      phx-target={@myself}
+                      phx-value-deck={@deck_number}
+                      phx-value-loop_id={loop.id}
+                      class="text-gray-600 hover:text-red-400 transition-colors px-0.5"
+                      title="Delete loop"
+                    >
+                      x
+                    </button>
+                  </div>
+                  <%!-- 8-step gate pattern for this stem loop --%>
+                  <div class="flex items-center gap-0.5" title="Step gate: click steps to enable/disable this loop on each beat">
+                    <%= for {active, step_idx} <- Enum.with_index(loop.steps || List.duplicate(true, 8)) do %>
+                      <button
+                        phx-click="toggle_stem_loop_step"
+                        phx-target={@myself}
+                        phx-value-deck={@deck_number}
+                        phx-value-loop_id={loop.id}
+                        phx-value-step={step_idx}
+                        class={"w-4 h-3 rounded-sm transition-colors " <>
+                          if(active,
+                            do: "opacity-90",
+                            else: "bg-gray-800 opacity-40"
+                          )}
+                        style={if active, do: "background-color: #{loop.color || stem_type_color(stem_type)};", else: ""}
+                        title={"Step #{step_idx + 1}: #{if active, do: "ON", else: "OFF"}"}
+                      />
+                    <% end %>
+                  </div>
                 </div>
 
                 <%!-- Send to Pad Button --%>
@@ -5247,7 +5351,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       filter_cutoff: 0.5,
       slip_mode: false,
       stem_states: %{},
-      loop_size_beats: 4.0
+      loop_size_beats: 4.0,
+      loop_size_str: "4"
     }
   end
 

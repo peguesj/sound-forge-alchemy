@@ -492,6 +492,11 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
                 data-pad-velocity={pad.velocity}
                 data-pad-start-time={pad.start_time}
                 data-pad-end-time={pad.end_time}
+                data-pad-synth-config={
+                  if pad.synth_config && map_size(pad.synth_config) > 0,
+                    do: Jason.encode!(pad.synth_config),
+                    else: ""
+                }
                 phx-click={if @midi_learn_mode, do: "midi_learn_pad", else: "select_pad"}
                 phx-target={@myself}
                 phx-value-pad-id={pad.id}
@@ -774,6 +779,67 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
             </div>
           </div>
 
+          <%!-- Synth Layer --%>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs text-gray-500">Synth Layer</label>
+              <button
+                :if={@selected_pad.synth_config && map_size(@selected_pad.synth_config) > 0}
+                phx-click="clear_pad_synth"
+                phx-target={@myself}
+                phx-value-pad-id={@selected_pad.id}
+                class="text-xs text-red-400 hover:text-red-300"
+              >
+                Clear
+              </button>
+            </div>
+            <%= if @selected_pad.synth_config && map_size(@selected_pad.synth_config) > 0 do %>
+              <div class="space-y-1.5">
+                <select
+                  phx-change="update_pad_synth_config"
+                  phx-target={@myself}
+                  phx-value-pad-id={@selected_pad.id}
+                  phx-value-key="type"
+                  class="select select-xs w-full bg-gray-800 border-gray-700 text-white"
+                >
+                  <%= for waveform <- ["sine", "square", "sawtooth", "triangle"] do %>
+                    <option
+                      value={waveform}
+                      selected={Map.get(@selected_pad.synth_config, "type") == waveform}
+                    >
+                      {String.capitalize(waveform)}
+                    </option>
+                  <% end %>
+                </select>
+                <div class="flex items-center gap-2">
+                  <label class="text-[10px] text-gray-600 w-10">Freq</label>
+                  <input
+                    type="number"
+                    min="20"
+                    max="20000"
+                    step="1"
+                    value={Map.get(@selected_pad.synth_config, "frequency", 440)}
+                    phx-blur="update_pad_synth_config"
+                    phx-target={@myself}
+                    phx-value-pad-id={@selected_pad.id}
+                    phx-value-key="frequency"
+                    class="input input-xs flex-1 bg-gray-800 border-gray-700 text-white tabular-nums"
+                  />
+                  <span class="text-[10px] text-gray-600">Hz</span>
+                </div>
+              </div>
+            <% else %>
+              <button
+                phx-click="enable_pad_synth"
+                phx-target={@myself}
+                phx-value-pad-id={@selected_pad.id}
+                class="btn btn-ghost btn-xs text-purple-400 hover:text-purple-300 w-full border border-purple-900/30"
+              >
+                + Enable Synth
+              </button>
+            <% end %>
+          </div>
+
           <%!-- Clear Pad --%>
           <button
             :if={@selected_pad.stem_id}
@@ -1047,6 +1113,41 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
     pad = Sampler.get_pad!(pad_id)
 
     case Sampler.update_pad(pad, %{color: color}) do
+      {:ok, updated_pad} -> {:noreply, reload_bank(socket, updated_pad)}
+      {:error, _} -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("enable_pad_synth", %{"pad-id" => pad_id}, socket) do
+    pad = Sampler.get_pad!(pad_id)
+    default = %{"type" => "sine", "frequency" => 440.0, "attack" => 0.01, "decay" => 0.1, "sustain" => 0.7, "release" => 0.2, "gain" => 1.0}
+
+    case Sampler.update_pad(pad, %{synth_config: default}) do
+      {:ok, updated_pad} -> {:noreply, reload_bank(socket, updated_pad)}
+      {:error, _} -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("clear_pad_synth", %{"pad-id" => pad_id}, socket) do
+    pad = Sampler.get_pad!(pad_id)
+
+    case Sampler.update_pad(pad, %{synth_config: nil}) do
+      {:ok, updated_pad} -> {:noreply, reload_bank(socket, updated_pad)}
+      {:error, _} -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("update_pad_synth_config", %{"pad-id" => pad_id, "key" => key, "value" => val}, socket) do
+    pad = Sampler.get_pad!(pad_id)
+    current = pad.synth_config || %{}
+
+    parsed_val =
+      case Float.parse(to_string(val)) do
+        {f, ""} -> f
+        _ -> val
+      end
+
+    case Sampler.update_pad(pad, %{synth_config: Map.put(current, key, parsed_val)}) do
       {:ok, updated_pad} -> {:noreply, reload_bank(socket, updated_pad)}
       {:error, _} -> {:noreply, socket}
     end

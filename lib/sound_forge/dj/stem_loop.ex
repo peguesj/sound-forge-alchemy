@@ -19,6 +19,7 @@ defmodule SoundForge.DJ.StemLoop do
           start_ms: integer(),
           end_ms: integer(),
           color: String.t() | nil,
+          steps: [boolean()] | nil,
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()
         }
@@ -26,11 +27,14 @@ defmodule SoundForge.DJ.StemLoop do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
+  @default_steps List.duplicate(true, 8)
+
   schema "stem_loops" do
     field :label, :string
     field :start_ms, :integer
     field :end_ms, :integer
     field :color, :string
+    field :steps, {:array, :boolean}, default: @default_steps
 
     belongs_to :stem, SoundForge.Music.Stem
     belongs_to :track, SoundForge.Music.Track
@@ -42,7 +46,7 @@ defmodule SoundForge.DJ.StemLoop do
   @doc false
   def changeset(stem_loop, attrs) do
     stem_loop
-    |> cast(attrs, [:stem_id, :track_id, :user_id, :label, :start_ms, :end_ms, :color])
+    |> cast(attrs, [:stem_id, :track_id, :user_id, :label, :start_ms, :end_ms, :color, :steps])
     |> validate_required([:stem_id, :track_id, :user_id, :start_ms, :end_ms])
     |> validate_number(:start_ms, greater_than_or_equal_to: 0)
     |> validate_number(:end_ms, greater_than_or_equal_to: 0)
