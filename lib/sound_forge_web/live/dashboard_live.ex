@@ -2475,9 +2475,17 @@ defmodule SoundForgeWeb.DashboardLive do
       )
     end
 
+    track_count = payload[:track_count] || 0
+    set_id = payload[:performance_set_id]
+    set_name = get_in(payload, [:recipe_meta, :prompt]) || "Chef Set (#{track_count} tracks)"
+
     {:noreply,
      socket
-     |> put_flash(:info, "Chef recipe ready! #{payload[:track_count] || 0} tracks prepared.")}
+     |> push_notification(:success, "Set Ready", set_name, %{
+       type: :chef_complete,
+       performance_set_id: set_id,
+       track_count: track_count
+     })}
   end
 
   @impl true
