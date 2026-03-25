@@ -821,6 +821,8 @@
                     id={"piano-roll-#{@track.id}"}
                     phx-hook="PianoRoll"
                     data-notes={Jason.encode!(@midi_result.notes)}
+                    data-user-notes={Jason.encode!(@user_notes || [])}
+                    data-editable="true"
                     class="w-full"
                   >
                   </div>

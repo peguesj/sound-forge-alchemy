@@ -48,6 +48,8 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
      |> assign(:importing_preset, false)
      |> assign(:import_error, nil)
      |> assign(:import_success, nil)
+     # Step sequencer mode (Story 2.1)
+     |> assign(:seq_mode, false)
      |> allow_upload(:preset_file,
        accept: ~w(.touchosc .xpm .pgm),
        max_entries: 1,
@@ -533,7 +535,7 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
             <% end %>
           </div>
 
-          <%!-- Quick Load + MIDI Device Info --%>
+          <%!-- Quick Load + PAD/SEQ Toggle + MIDI Device Info --%>
           <div class="mt-4 flex items-center gap-3">
             <button
               phx-click="quick_load"
@@ -544,9 +546,73 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
               Quick Load Stems
             </button>
 
+            <%!-- PAD/SEQ mode toggle --%>
+            <div :if={@current_bank} class="flex rounded overflow-hidden border border-gray-700 text-xs">
+              <button
+                phx-click="toggle_seq_mode"
+                phx-target={@myself}
+                phx-value-mode="pad"
+                class={[
+                  "px-2.5 py-1 transition-colors",
+                  if(!@seq_mode, do: "bg-purple-700 text-white", else: "bg-gray-800 text-gray-400 hover:bg-gray-700")
+                ]}
+              >
+                PAD
+              </button>
+              <button
+                phx-click="toggle_seq_mode"
+                phx-target={@myself}
+                phx-value-mode="seq"
+                class={[
+                  "px-2.5 py-1 transition-colors",
+                  if(@seq_mode, do: "bg-purple-700 text-white", else: "bg-gray-800 text-gray-400 hover:bg-gray-700")
+                ]}
+              >
+                SEQ
+              </button>
+            </div>
+
             <span :if={@midi_devices != []} class="text-[10px] text-gray-500">
               MIDI: {Enum.map_join(@midi_devices, ", ", & &1["name"])}
             </span>
+          </div>
+
+          <%!-- Step Sequencer Grid (SEQ mode) --%>
+          <div :if={@seq_mode && @current_bank} class="mt-4 w-full max-w-lg overflow-x-auto">
+            <div class="text-[10px] text-gray-500 mb-2">
+              Step Sequencer — 16 steps per pad
+            </div>
+            <div class="space-y-1">
+              <%= for {pad, pad_idx} <- Enum.with_index(bank_pads(@current_bank)) do %>
+                <% sequences = @current_bank.pad_sequences || %{} %>
+                <% steps = Map.get(sequences, to_string(pad_idx), List.duplicate(false, 16)) %>
+                <div class="flex items-center gap-1">
+                  <span class="text-[10px] text-gray-500 w-14 truncate">
+                    {pad.label || "Pad #{pad_idx + 1}"}
+                  </span>
+                  <div class="flex gap-0.5">
+                    <%= for {active, step_idx} <- Enum.with_index(steps) do %>
+                      <button
+                        phx-click="toggle_seq_step"
+                        phx-target={@myself}
+                        phx-value-pad-index={pad_idx}
+                        phx-value-step={step_idx}
+                        class={[
+                          "w-5 h-5 rounded-sm text-[8px] transition-colors border",
+                          if(active,
+                            do: "bg-purple-600 border-purple-400 text-white",
+                            else: "bg-gray-800 border-gray-700 text-gray-600"
+                          ),
+                          if(rem(step_idx, 4) == 0 && step_idx > 0, do: "ml-1", else: "")
+                        ]}
+                      >
+                        {step_idx + 1}
+                      </button>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
           </div>
         </div>
 
@@ -873,12 +939,15 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
       user_id = socket.assigns.current_user_id
       mappings = Sampler.bank_midi_mappings(user_id, bank.id)
 
+      sequences = bank.pad_sequences || %{}
+
       {:noreply,
        socket
        |> assign(:current_bank, bank)
        |> assign(:selected_pad, nil)
        |> assign(:midi_mappings_count, length(mappings))
-       |> push_event("load_midi_mappings", %{mappings: mappings})}
+       |> push_event("load_midi_mappings", %{mappings: mappings})
+       |> push_event("set_pad_sequences", %{sequences: sequences, active: socket.assigns.seq_mode})}
     else
       {:noreply, socket}
     end
@@ -1115,6 +1184,41 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
     case Sampler.update_pad(pad, %{color: color}) do
       {:ok, updated_pad} -> {:noreply, reload_bank(socket, updated_pad)}
       {:error, _} -> {:noreply, socket}
+    end
+  end
+
+  # Step sequencer (Story 2.1)
+
+  def handle_event("toggle_seq_mode", %{"mode" => mode}, socket) do
+    seq_mode = mode == "seq"
+    sequences = (socket.assigns.current_bank && socket.assigns.current_bank.pad_sequences) || %{}
+
+    {:noreply,
+     socket
+     |> assign(:seq_mode, seq_mode)
+     |> push_event("set_pad_sequences", %{sequences: sequences, active: seq_mode})}
+  end
+
+  def handle_event("toggle_seq_step", %{"pad-index" => pad_idx_str, "step" => step_str}, socket) do
+    bank = socket.assigns.current_bank
+    if is_nil(bank), do: {:noreply, socket}
+
+    pad_idx = pad_idx_str
+    step = String.to_integer(step_str)
+    sequences = bank.pad_sequences || %{}
+    current_steps = Map.get(sequences, pad_idx, List.duplicate(false, 16))
+    updated_steps = List.update_at(current_steps, step, &(!&1))
+    updated_sequences = Map.put(sequences, pad_idx, updated_steps)
+
+    case Sampler.update_bank(bank, %{pad_sequences: updated_sequences}) do
+      {:ok, updated_bank} ->
+        {:noreply,
+         socket
+         |> assign(:current_bank, updated_bank)
+         |> push_event("set_pad_sequences", %{sequences: updated_sequences, active: socket.assigns.seq_mode})}
+
+      {:error, _} ->
+        {:noreply, socket}
     end
   end
 

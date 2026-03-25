@@ -10,6 +10,7 @@ defmodule SoundForgeWeb.DashboardLive do
   alias SoundForge.Audio.AnalysisHelpers
   alias SoundForge.Audio.LalalAI
   alias SoundForge.Audio.Prefetch
+  alias SoundForge.MIDI.NoteEdits
 
   require Logger
 
@@ -37,6 +38,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:analysis, nil)
       |> assign(:midi_result, nil)
       |> assign(:chord_result, nil)
+      |> assign(:user_notes, [])
       |> assign(:sort_by, :newest)
       |> assign(:view_mode, :grid)
       |> assign(:filters, %{status: "all", artist: "all"})
@@ -186,7 +188,8 @@ defmodule SoundForgeWeb.DashboardLive do
        |> assign(:stems, track.stems)
        |> assign(:analysis, analysis)
        |> assign(:midi_result, Music.get_midi_result_for_track(id))
-       |> assign(:chord_result, Music.get_chord_result_for_track(id))}
+       |> assign(:chord_result, Music.get_chord_result_for_track(id))
+       |> assign(:user_notes, serialize_user_notes(NoteEdits.list_note_edits(id, socket.assigns.current_user_id)))}
     else
       {:noreply,
        socket
@@ -1939,6 +1942,59 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:pipelines, pipelines)
      |> put_flash(:info, "Pipeline reset (#{cancelled_count} job(s) cancelled). Use Retry to restart stages.")}
+  end
+
+  # Piano Roll note editing (Story 2.4)
+  @impl true
+  def handle_event("add_user_note", %{"note" => note, "onset_sec" => onset_sec, "duration_sec" => duration_sec, "velocity" => velocity}, socket) do
+    track = socket.assigns.track
+    user_id = socket.assigns.current_user_id
+
+    if track && user_id do
+      case NoteEdits.create_note_edit(%{
+        note: note,
+        onset_sec: onset_sec,
+        duration_sec: duration_sec,
+        velocity: velocity,
+        track_id: track.id,
+        user_id: user_id
+      }) do
+        {:ok, _edit} ->
+          user_notes = serialize_user_notes(NoteEdits.list_note_edits(track.id, user_id))
+          {:noreply,
+           socket
+           |> assign(:user_notes, user_notes)
+           |> push_event("set_user_notes", %{notes: user_notes})}
+
+        {:error, _changeset} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_user_note", %{"note_id" => note_id}, socket) do
+    track = socket.assigns.track
+    user_id = socket.assigns.current_user_id
+
+    if track && user_id do
+      case NoteEdits.get_note_edit(note_id) do
+        nil ->
+          {:noreply, socket}
+
+        edit ->
+          NoteEdits.delete_note_edit(edit)
+          user_notes = serialize_user_notes(NoteEdits.list_note_edits(track.id, user_id))
+          {:noreply,
+           socket
+           |> assign(:user_notes, user_notes)
+           |> push_event("set_user_notes", %{notes: user_notes})}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   # Catch-all for events bubbled from child components (e.g. AudioPlayer time_update)
@@ -3758,6 +3814,13 @@ defmodule SoundForgeWeb.DashboardLive do
     )
 
     {:noreply, socket}
+  end
+
+  # Serialize NoteEdit structs to JS-friendly maps (onset_sec→onset, duration_sec→duration)
+  defp serialize_user_notes(note_edits) do
+    Enum.map(note_edits, fn n ->
+      %{id: n.id, note: n.note, onset: n.onset_sec, duration: n.duration_sec, velocity: n.velocity}
+    end)
   end
 
 end

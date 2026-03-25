@@ -29,7 +29,11 @@ const DjDeck = {
       loop: null, pitch: 0.0, tempo: null, beatTimes: [], beatMarkers: [],
       timeFactor: 1.0,
       stemStates: {},
-      metronomeOscillator: null, metronomePlaying: false
+      metronomeOscillator: null, metronomePlaying: false,
+      // Loop chaining (Story 2.2)
+      _loopChain: null, _loopChainIndex: 0,
+      // Cue sequence (Story 2.3)
+      _cueSequence: null, _cueSeqActive: false
     })
     this.decks = { 1: deckTemplate(), 2: deckTemplate(), 3: deckTemplate(), 4: deckTemplate() }
 
@@ -89,24 +93,52 @@ const DjDeck = {
       }
     })
 
-    // Beat-driven step gate: mute/unmute stem gain per 8-step pattern
+    // Beat-driven step gate, cue sequence, pad sequencer
     this._onBeat = (e) => {
       const { step } = e.detail
       const gateStep = Math.floor(step / 2)  // 16 clock steps → 8 gate positions
-      Object.values(this.decks).forEach(deckState => {
+
+      Object.entries(this.decks).forEach(([deckNum, deckState]) => {
+        // Stem loop step gate (Story 1.3)
         const gate = deckState._stemLoopGate
-        if (!gate || !deckState.isPlaying) return
-        const stem = deckState.stems[gate.stem_type]
-        if (!stem || !stem.gainNode) return
-        // Don't override user-set mutes
-        const userMuted = deckState.stemStates && deckState.stemStates[gate.stem_type] === "mute"
-        if (userMuted) return
-        const active = gate.steps[gateStep] !== false
-        const now = deckState.audioContext ? deckState.audioContext.currentTime : 0
-        stem.gainNode.gain.setValueAtTime(active ? 1.0 : 0.0, now)
+        if (gate && deckState.isPlaying) {
+          const stem = deckState.stems[gate.stem_type]
+          if (stem && stem.gainNode) {
+            const userMuted = deckState.stemStates && deckState.stemStates[gate.stem_type] === "mute"
+            if (!userMuted) {
+              const active = gate.steps[gateStep] !== false
+              const now = deckState.audioContext ? deckState.audioContext.currentTime : 0
+              stem.gainNode.gain.setValueAtTime(active ? 1.0 : 0.0, now)
+            }
+          }
+        }
+
+        // Cue sequence (Story 2.3): fire seek at each active step
+        if (deckState._cueSeqActive && deckState._cueSequence && deckState.isPlaying) {
+          const seqLen = deckState._cueSequence.length || 16
+          const seqStep = step % seqLen
+          const cuePos = deckState._cueSequence[seqStep]
+          if (cuePos && cuePos.position_ms != null) {
+            this._seekDeck(parseInt(deckNum), cuePos.position_ms / 1000)
+          }
+        }
       })
     }
     window.addEventListener("sfa:beat", this._onBeat)
+
+    // Loop chain (Story 2.2): ordered list of {start_ms, end_ms} loops to chain
+    this.handleEvent("set_loop_chain", ({ deck, loops }) => {
+      if (!this.decks[deck]) return
+      this.decks[deck]._loopChain = loops && loops.length > 0 ? loops : null
+      this.decks[deck]._loopChainIndex = 0
+    })
+
+    // Cue sequence (Story 2.3): 16-element array of {position_ms} | null per step
+    this.handleEvent("set_cue_sequence", ({ deck, cue_positions, active }) => {
+      if (!this.decks[deck]) return
+      this.decks[deck]._cueSequence = cue_positions || null
+      this.decks[deck]._cueSeqActive = active !== false
+    })
 
     // Grid mode, fraction, and rhythmic quantize
     this.handleEvent("set_grid_mode", ({ deck, mode }) => {
@@ -619,9 +651,17 @@ const DjDeck = {
         const currentTime = deckState.audioContext.currentTime - deckState.startTime
         const currentTimeMs = currentTime * 1000
 
-        // Check loop boundary: if loop is active and we've reached loop_end, jump to loop_start
+        // Check loop boundary: if loop is active and we've reached loop_end
         if (deckState.loop && deckState.loop.active && deckState.loop.loop_end_ms) {
           if (currentTimeMs >= deckState.loop.loop_end_ms) {
+            // Loop chain (Story 2.2): advance to next loop in chain if set
+            if (deckState._loopChain && deckState._loopChain.length > 1) {
+              deckState._loopChainIndex = (deckState._loopChainIndex + 1) % deckState._loopChain.length
+              const nextLoop = deckState._loopChain[deckState._loopChainIndex]
+              deckState.loop.loop_start_ms = nextLoop.start_ms
+              deckState.loop.loop_end_ms = nextLoop.end_ms
+              console.log(`[DjDeck] Deck ${deck}: loop chain → index ${deckState._loopChainIndex} (${nextLoop.start_ms}ms-${nextLoop.end_ms}ms)`)
+            }
             const loopStartSec = deckState.loop.loop_start_ms / 1000
             console.log(`[DjDeck] Deck ${deck}: loop jump to ${loopStartSec.toFixed(2)}s`)
             this._seekDeck(deck, loopStartSec)
@@ -1305,6 +1345,10 @@ const DjDeck = {
     deckState.cueMarkers = []
     deckState._pendingCuePoints = null
     deckState._stemLoopGate = null
+    deckState._loopChain = null
+    deckState._loopChainIndex = 0
+    deckState._cueSequence = null
+    deckState._cueSeqActive = false
     deckState.loop = null
     deckState.pitch = 0.0
     deckState.tempo = null

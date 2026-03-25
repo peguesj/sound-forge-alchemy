@@ -14,6 +14,7 @@ defmodule SoundForge.DJ do
   alias SoundForge.Repo
 
   alias SoundForge.DJ.CuePoint
+  alias SoundForge.DJ.CueSequence
   alias SoundForge.DJ.DeckSession
   alias SoundForge.DJ.StemLoop
 
@@ -349,5 +350,56 @@ defmodule SoundForge.DJ do
   @spec delete_stem_loop(StemLoop.t()) :: {:ok, StemLoop.t()} | {:error, Ecto.Changeset.t()}
   def delete_stem_loop(%StemLoop{} = stem_loop) do
     Repo.delete(stem_loop)
+  end
+
+  # ---------------------------------------------------------------------------
+  # Cue Sequence functions
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Creates a cue sequence for a track.
+  """
+  @spec create_cue_sequence(map()) :: {:ok, CueSequence.t()} | {:error, Ecto.Changeset.t()}
+  def create_cue_sequence(attrs \\ %{}) do
+    %CueSequence{}
+    |> CueSequence.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Lists all cue sequences for a track belonging to a user.
+  """
+  @spec list_cue_sequences(binary(), term()) :: [CueSequence.t()]
+  def list_cue_sequences(track_id, user_id) do
+    CueSequence
+    |> where([cs], cs.track_id == ^track_id and cs.user_id == ^user_id)
+    |> order_by([cs], asc: cs.inserted_at)
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a single cue sequence by ID.
+  """
+  @spec get_cue_sequence(binary()) :: CueSequence.t() | nil
+  def get_cue_sequence(id), do: Repo.get(CueSequence, id)
+
+  @doc """
+  Updates a cue sequence.
+  """
+  @spec update_cue_sequence(CueSequence.t(), map()) ::
+          {:ok, CueSequence.t()} | {:error, Ecto.Changeset.t()}
+  def update_cue_sequence(%CueSequence{} = cue_sequence, attrs) do
+    cue_sequence
+    |> CueSequence.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a cue sequence.
+  """
+  @spec delete_cue_sequence(CueSequence.t()) ::
+          {:ok, CueSequence.t()} | {:error, Ecto.Changeset.t()}
+  def delete_cue_sequence(%CueSequence{} = cue_sequence) do
+    Repo.delete(cue_sequence)
   end
 end

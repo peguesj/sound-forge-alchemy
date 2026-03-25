@@ -105,6 +105,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
      |> assign(:deck_3_active_pads, [])
      |> assign(:deck_4_active_pads, [])
      |> assign(:alchemy_sets, [])
+     # Cue sequences (Story 2.3)
+     |> assign(:deck_1_cue_sequences, [])
+     |> assign(:deck_2_cue_sequences, [])
+     |> assign(:deck_3_cue_sequences, [])
+     |> assign(:deck_4_cue_sequences, [])
      |> assign(:dj_midi_learn_mode, false)
      |> assign(:dj_midi_learn_target, nil)
      |> assign(:saved_presets, [])
@@ -369,16 +374,26 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               []
             end
 
+          cue_sequences =
+            if user_id && track do
+              DJ.list_cue_sequences(track.id, user_id)
+            else
+              []
+            end
+
           # Subscribe to PubSub for auto-cue completion broadcasts
           if track do
             SoundForgeWeb.Endpoint.subscribe("tracks:#{track.id}")
           end
+
+          cue_sequences_key = cue_sequences_assign_key(deck_number)
 
           socket =
             socket
             |> assign(deck_key, deck_state)
             |> assign(cue_points_key, cue_points)
             |> assign(stem_loops_key, stem_loops)
+            |> assign(cue_sequences_key, cue_sequences)
             |> assign(detecting_key, false)
             |> push_event("load_deck_audio", %{
               deck: deck_number,
@@ -2563,6 +2578,153 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     end
   end
 
+  # -- Cue Sequences (Story 2.3) --
+
+  @impl true
+  def handle_event("create_cue_sequence", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    deck = Map.get(socket.assigns, deck_assign_key(deck_number))
+    user_id = socket.assigns[:current_user_id]
+    cue_sequences_key = cue_sequences_assign_key(deck_number)
+
+    if deck.track && user_id do
+      count = length(Map.get(socket.assigns, cue_sequences_key, []))
+
+      attrs = %{
+        track_id: deck.track.id,
+        user_id: user_id,
+        name: "Seq #{count + 1}",
+        step_count: 16,
+        step_cues: List.duplicate("", 16)
+      }
+
+      case DJ.create_cue_sequence(attrs) do
+        {:ok, _seq} ->
+          updated = DJ.list_cue_sequences(deck.track.id, user_id)
+          {:noreply, assign(socket, cue_sequences_key, updated)}
+
+        {:error, _} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event(
+        "toggle_cue_seq_step",
+        %{"deck" => deck_str, "seq_id" => seq_id, "step" => step_str, "cue_id" => cue_id},
+        socket
+      ) do
+    deck_number = String.to_integer(deck_str)
+    cue_sequences_key = cue_sequences_assign_key(deck_number)
+    step = String.to_integer(step_str)
+
+    case DJ.get_cue_sequence(seq_id) do
+      %DJ.CueSequence{} = seq ->
+        current = seq.step_cues || List.duplicate("", seq.step_count)
+        current = if length(current) < seq.step_count, do: current ++ List.duplicate("", seq.step_count - length(current)), else: current
+        updated_cues =
+          List.update_at(current, step, fn existing ->
+            if existing == cue_id, do: "", else: cue_id
+          end)
+
+        case DJ.update_cue_sequence(seq, %{step_cues: updated_cues}) do
+          {:ok, updated_seq} ->
+            updated_list =
+              socket.assigns
+              |> Map.get(cue_sequences_key, [])
+              |> Enum.map(fn s -> if s.id == seq_id, do: updated_seq, else: s end)
+
+            {:noreply, assign(socket, cue_sequences_key, updated_list)}
+
+          {:error, _} ->
+            {:noreply, socket}
+        end
+
+      nil ->
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_cue_sequence", %{"deck" => deck_str, "seq_id" => seq_id}, socket) do
+    deck_number = String.to_integer(deck_str)
+    cue_sequences_key = cue_sequences_assign_key(deck_number)
+
+    case DJ.get_cue_sequence(seq_id) do
+      %DJ.CueSequence{} = seq ->
+        case DJ.delete_cue_sequence(seq) do
+          {:ok, _} ->
+            updated = Enum.reject(Map.get(socket.assigns, cue_sequences_key, []), &(&1.id == seq_id))
+            {:noreply, assign(socket, cue_sequences_key, updated)}
+
+          {:error, _} ->
+            {:noreply, socket}
+        end
+
+      nil ->
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("activate_cue_sequence", %{"deck" => deck_str, "seq_id" => seq_id}, socket) do
+    deck_number = String.to_integer(deck_str)
+    deck = Map.get(socket.assigns, deck_assign_key(deck_number))
+    cue_sequences_key = cue_sequences_assign_key(deck_number)
+    cue_points = Map.get(socket.assigns, cue_points_assign_key(deck_number), [])
+
+    case DJ.get_cue_sequence(seq_id) do
+      %DJ.CueSequence{} = seq ->
+        cue_map = Map.new(cue_points, &{to_string(&1.id), &1})
+
+        cue_positions =
+          Enum.map(seq.step_cues, fn cue_id ->
+            case Map.get(cue_map, cue_id) do
+              nil -> nil
+              cue -> %{position_ms: cue.position_ms}
+            end
+          end)
+
+        socket =
+          push_event(socket, "set_cue_sequence", %{
+            deck: deck_number,
+            cue_positions: cue_positions,
+            active: true
+          })
+
+        {:noreply, socket}
+
+      nil ->
+        {:noreply, socket}
+    end
+  end
+
+  # -- Loop Chain (Story 2.2) --
+
+  @impl true
+  def handle_event("chain_all_loops", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    stem_loops = Map.get(socket.assigns, stem_loops_assign_key(deck_number), [])
+
+    loops =
+      Enum.map(stem_loops, fn sl ->
+        %{start_ms: sl.start_ms, end_ms: sl.end_ms}
+      end)
+
+    socket = push_event(socket, "set_loop_chain", %{deck: deck_number, loops: loops})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("clear_loop_chain", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    socket = push_event(socket, "set_loop_chain", %{deck: deck_number, loops: []})
+    {:noreply, socket}
+  end
+
   # -- Send to Pad: assigns stem to the next empty pad in the user's current bank --
 
   @impl true
@@ -2767,6 +2929,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               arrangement_markers={@deck_1.arrangement_markers || []}
               stem_loops={@deck_1_stem_loops}
               stem_loops_open={@deck_1_stem_loops_open}
+              cue_sequences={@deck_1_cue_sequences}
               myself={@myself}
               show_eq={false}
               grid_mode={@deck_1_grid_mode}
@@ -3024,6 +3187,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               arrangement_markers={@deck_2.arrangement_markers || []}
               stem_loops={@deck_2_stem_loops}
               stem_loops_open={@deck_2_stem_loops_open}
+              cue_sequences={@deck_2_cue_sequences}
               myself={@myself}
               show_eq={false}
               grid_mode={@deck_2_grid_mode}
@@ -3778,6 +3942,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   attr :arrangement_markers, :list, default: []
   attr :stem_loops, :list, default: []
   attr :stem_loops_open, :boolean, default: false
+  attr :cue_sequences, :list, default: []
   attr :myself, :any, required: true
   attr :show_eq, :boolean, default: true
   attr :grid_mode, :string, default: "bar"
@@ -4205,6 +4370,127 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             </div>
           </div>
         </div>
+      </div>
+
+      <%!-- Cue Sequences (Story 2.3) --%>
+      <div :if={@deck.track} class="mb-4 border border-gray-700/50 rounded-lg p-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Cue Sequences</span>
+          <button
+            phx-click="create_cue_sequence"
+            phx-target={@myself}
+            phx-value-deck={@deck_number}
+            class="text-[10px] text-purple-400 hover:text-purple-300 px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700"
+          >
+            + New
+          </button>
+        </div>
+        <div :if={@cue_sequences == []} class="text-[10px] text-gray-600">
+          No sequences yet. Create one to step-sequence your hot cues.
+        </div>
+        <div class="space-y-2">
+          <%= for seq <- @cue_sequences do %>
+            <% cue_map = Map.new(@cue_points |> Enum.filter(&(&1.cue_type == :hot && !&1.auto_generated)), &{to_string(&1.id), &1}) %>
+            <div class="bg-gray-800/50 rounded p-2">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] text-gray-300">{seq.name || "Seq"}</span>
+                <div class="flex items-center gap-1">
+                  <button
+                    phx-click="activate_cue_sequence"
+                    phx-target={@myself}
+                    phx-value-deck={@deck_number}
+                    phx-value-seq_id={seq.id}
+                    class="text-[9px] px-1.5 py-0.5 rounded bg-purple-700 text-purple-200 hover:bg-purple-600"
+                  >
+                    Activate
+                  </button>
+                  <button
+                    phx-click="delete_cue_sequence"
+                    phx-target={@myself}
+                    phx-value-deck={@deck_number}
+                    phx-value-seq_id={seq.id}
+                    class="text-[9px] px-1 py-0.5 rounded bg-gray-700 text-red-400 hover:bg-red-700/30"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              <%!-- 16-step grid: each step shows which cue (if any) fires --%>
+              <div class="flex gap-0.5 flex-wrap">
+                <% hot_cues = @cue_points |> Enum.filter(&(&1.cue_type == :hot && !&1.auto_generated)) |> Map.new(&{&1.label, &1}) %>
+                <% step_cues = seq.step_cues || List.duplicate("", seq.step_count) %>
+                <%= for {cue_id, step_idx} <- Enum.with_index(step_cues) do %>
+                  <% cue = Map.get(cue_map, cue_id) %>
+                  <div class="relative group/cseq">
+                    <div
+                      class={[
+                        "w-5 h-5 rounded-sm text-[7px] flex items-center justify-center font-bold border transition-colors",
+                        if(cue,
+                          do: "border-transparent text-white",
+                          else: "bg-gray-800 border-gray-700 text-gray-700"
+                        )
+                      ]}
+                      style={if cue, do: "background-color: #{cue.color || "#6b7280"};", else: ""}
+                      title={"Step #{step_idx + 1}#{if cue, do: ": Cue #{cue.label} at #{format_ms(cue.position_ms)}", else: ": empty"}"}
+                    >
+                      {if cue, do: cue.label, else: step_idx + 1}
+                    </div>
+                    <%!-- Cue picker dropdown on hover --%>
+                    <div class="absolute bottom-full left-0 mb-1 hidden group-hover/cseq:flex flex-col bg-gray-800 border border-gray-700 rounded shadow-lg z-30 min-w-[80px]">
+                      <button
+                        phx-click="toggle_cue_seq_step"
+                        phx-target={@myself}
+                        phx-value-deck={@deck_number}
+                        phx-value-seq_id={seq.id}
+                        phx-value-step={step_idx}
+                        phx-value-cue_id=""
+                        class="px-2 py-1 text-[9px] text-gray-400 hover:bg-gray-700 text-left"
+                      >
+                        — clear
+                      </button>
+                      <%= for {letter, hcue} <- hot_cues do %>
+                        <button
+                          phx-click="toggle_cue_seq_step"
+                          phx-target={@myself}
+                          phx-value-deck={@deck_number}
+                          phx-value-seq_id={seq.id}
+                          phx-value-step={step_idx}
+                          phx-value-cue_id={hcue.id}
+                          class="px-2 py-1 text-[9px] hover:bg-gray-700 text-left font-bold"
+                          style={"color: #{hcue.color};"}
+                        >
+                          {letter}
+                        </button>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <%!-- Loop Chain (Story 2.2) --%>
+      <div :if={@deck.track && @stem_loops != []} class="mb-3 flex items-center gap-2">
+        <button
+          phx-click="chain_all_loops"
+          phx-target={@myself}
+          phx-value-deck={@deck_number}
+          class="text-[10px] px-2 py-1 rounded bg-gray-800 text-purple-300 hover:bg-purple-700/30 border border-gray-700 hover:border-purple-600/40 transition-colors"
+          title="Chain all stem loops in sequence — each loop advances to the next when the boundary is reached"
+        >
+          Chain Loops ({length(@stem_loops)})
+        </button>
+        <button
+          phx-click="clear_loop_chain"
+          phx-target={@myself}
+          phx-value-deck={@deck_number}
+          class="text-[10px] px-1.5 py-1 rounded bg-gray-800 text-gray-500 hover:text-red-400 hover:bg-gray-700"
+          title="Clear loop chain — revert to single-loop repeat"
+        >
+          Clear chain
+        </button>
       </div>
 
       <%!-- Transport Controls --%>
@@ -5370,6 +5656,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   defp stem_loops_assign_key(2), do: :deck_2_stem_loops
   defp stem_loops_assign_key(3), do: :deck_3_stem_loops
   defp stem_loops_assign_key(4), do: :deck_4_stem_loops
+
+  defp cue_sequences_assign_key(1), do: :deck_1_cue_sequences
+  defp cue_sequences_assign_key(2), do: :deck_2_cue_sequences
+  defp cue_sequences_assign_key(3), do: :deck_3_cue_sequences
+  defp cue_sequences_assign_key(4), do: :deck_4_cue_sequences
 
   defp stem_loops_open_key(1), do: :deck_1_stem_loops_open
   defp stem_loops_open_key(2), do: :deck_2_stem_loops_open

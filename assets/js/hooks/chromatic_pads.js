@@ -27,6 +27,10 @@ const ChromaticPads = {
     this.midiAvailable = false;
     this.lastMidiActivity = 0;
 
+    // Step sequencer state (Story 2.1): pad_index (string) → 16 booleans
+    this.padSequences = {};
+    this.seqMode = false;
+
     this.initAudioContext();
     this.initWebMIDI();
     this.setupDragAndDrop();
@@ -59,6 +63,34 @@ const ChromaticPads = {
     this.handleEvent("load_midi_mappings", ({mappings}) => {
       this.midiMappings = mappings || [];
     });
+
+    // Step sequencer (Story 2.1): server pushes pad_sequences when bank changes
+    this.handleEvent("set_pad_sequences", ({sequences, active}) => {
+      this.padSequences = sequences || {};
+      this.seqMode = active !== false;
+    });
+
+    // Beat-driven pad sequencer: fire pads per step pattern
+    this._onPadSeqBeat = (e) => {
+      if (!this.seqMode || Object.keys(this.padSequences).length === 0) return;
+      const step = e.detail.step;
+      this.el.querySelectorAll("[data-pad-id]").forEach(padEl => {
+        const padIdx = String(padEl.dataset.padIndex);
+        const steps = this.padSequences[padIdx];
+        if (!steps || !steps[step]) return;
+        const padId = padEl.dataset.padId;
+        const opts = {
+          volume: padEl.dataset.padVolume,
+          pitch: padEl.dataset.padPitch,
+          velocity: padEl.dataset.padVelocity,
+          start_time: padEl.dataset.padStartTime,
+          end_time: padEl.dataset.padEndTime,
+          synthConfig: padEl.dataset.padSynthConfig
+        };
+        this.triggerPad(padId, opts);
+      });
+    };
+    window.addEventListener("sfa:beat", this._onPadSeqBeat);
   },
 
   updated() {
@@ -67,6 +99,9 @@ const ChromaticPads = {
   },
 
   destroyed() {
+    if (this._onPadSeqBeat) {
+      window.removeEventListener("sfa:beat", this._onPadSeqBeat);
+    }
     if (this.activeOscillators) {
       Object.values(this.activeOscillators).forEach(osc => { try { osc.stop(); } catch (_) {} });
     }
