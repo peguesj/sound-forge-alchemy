@@ -208,6 +208,44 @@ defmodule SoundForgeWeb.DashboardLive do
        |> push_navigate(to: ~p"/")}
   end
 
+  def handle_params(%{"tab" => "dj", "activate_set_id" => set_id}, _uri, socket) do
+    Prefetch.prefetch_for_dj(socket.assigns[:current_user_id])
+
+    socket =
+      socket
+      |> assign(:live_action, :index)
+      |> assign(:nav_tab, :dj)
+      |> assign(:nav_context, :dj)
+
+    if connected?(socket) do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab-root",
+        activate_performance_set_id: set_id
+      )
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_params(%{"tab" => "dj", "set_id" => set_id}, _uri, socket) do
+    Prefetch.prefetch_for_dj(socket.assigns[:current_user_id])
+
+    socket =
+      socket
+      |> assign(:live_action, :index)
+      |> assign(:nav_tab, :dj)
+      |> assign(:nav_context, :dj)
+
+    if connected?(socket) do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab-root",
+        show_performance_set_id: set_id
+      )
+    end
+
+    {:noreply, socket}
+  end
+
   def handle_params(%{"tab" => "dj"}, _uri, socket) do
     # Async prefetch DJ metadata -- does not block tab switch
     Prefetch.prefetch_for_dj(socket.assigns[:current_user_id])

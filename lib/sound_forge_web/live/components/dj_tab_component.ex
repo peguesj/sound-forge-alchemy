@@ -11,6 +11,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   """
   use SoundForgeWeb, :live_component
 
+  alias SoundForge.DJ.PerformanceSets
   alias SoundForge.Music
   alias SoundForge.DJ
   alias SoundForge.DJ.{Chef, Presets, Timecode, CueSets}
@@ -105,6 +106,10 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
      |> assign(:deck_3_active_pads, [])
      |> assign(:deck_4_active_pads, [])
      |> assign(:alchemy_sets, [])
+     |> assign(:performance_sets, [])
+     |> assign(:performance_sets_open, false)
+     |> assign(:save_set_name, "")
+     |> assign(:save_set_input_open, false)
      # Cue sequences (Story 2.3)
      |> assign(:deck_1_cue_sequences, [])
      |> assign(:deck_2_cue_sequences, [])
@@ -276,6 +281,42 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
      |> assign(:chef_error, reason)}
   end
 
+  def update(%{show_performance_set_id: set_id}, socket) do
+    {:ok,
+     socket
+     |> assign(:performance_sets_open, true)
+     |> put_flash(:info, "Set #{set_id} highlighted in My Sets.")}
+  end
+
+  def update(%{activate_performance_set_id: set_id}, socket) do
+    user_id = socket.assigns[:user_id] || socket.assigns[:current_user_id]
+
+    case PerformanceSets.get(set_id) do
+      nil ->
+        {:ok, put_flash(socket, :error, "Performance set not found")}
+
+      set ->
+        cue_data =
+          Enum.map(set.items, fn item ->
+            %{
+              position_ms: item["position_ms"] || 0,
+              label: item["label"] || "Cue",
+              color: item["color"] || "#a855f7",
+              cue_type: if(item["item_type"] == "loop", do: :loop, else: :memory)
+            }
+          end)
+
+        PerformanceSets.mark_activated(set)
+
+        {:ok,
+         socket
+         |> assign(:deck_1_cue_points, cue_data)
+         |> assign(:performance_sets_open, true)
+         |> push_event("set_cue_points", %{deck: 1, cue_points: cue_data})
+         |> put_flash(:info, "Set \"#{set.name}\" activated.")}
+    end
+  end
+
   def update(assigns, socket) do
     socket = assign(socket, :current_scope, assigns[:current_scope])
     socket = assign(socket, :current_user_id, assigns[:current_user_id])
@@ -286,10 +327,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       user_id = assigns[:current_user_id]
       saved_presets = if user_id, do: PresetsContext.list_presets(user_id), else: []
       alchemy_sets = if user_id, do: SoundForge.BigLoopy.list_alchemy_sets(user_id), else: []
+      performance_sets = if user_id, do: PerformanceSets.list_for_user(user_id), else: []
 
       socket =
         socket
-        |> assign(tracks: tracks, initialized: true, saved_presets: saved_presets, alchemy_sets: alchemy_sets)
+        |> assign(tracks: tracks, initialized: true, saved_presets: saved_presets,
+                  alchemy_sets: alchemy_sets, performance_sets: performance_sets)
         |> restore_deck_from_db(user_id, 1)
         |> restore_deck_from_db(user_id, 2)
 
@@ -1785,6 +1828,141 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to delete Chef set")}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # PerformanceSet (My Sets) handlers
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_event("toggle_performance_sets", _params, socket) do
+    {:noreply, assign(socket, :performance_sets_open, !socket.assigns.performance_sets_open)}
+  end
+
+  @impl true
+  def handle_event("open_save_set_input", _params, socket) do
+    track = socket.assigns.deck_1.track
+    default_name = if track, do: "#{track.title} Set", else: "My Set"
+    {:noreply, socket |> assign(:save_set_input_open, true) |> assign(:save_set_name, default_name)}
+  end
+
+  @impl true
+  def handle_event("close_save_set_input", _params, socket) do
+    {:noreply, socket |> assign(:save_set_input_open, false) |> assign(:save_set_name, "")}
+  end
+
+  @impl true
+  def handle_event("update_save_set_name", %{"name" => name}, socket) do
+    {:noreply, assign(socket, :save_set_name, name)}
+  end
+
+  @impl true
+  def handle_event("save_performance_set", _params, socket) do
+    user_id = socket.assigns[:user_id]
+    name = String.trim(socket.assigns.save_set_name)
+    deck = socket.assigns.deck_1
+    cue_points = socket.assigns.deck_1_cue_points
+
+    cond do
+      !user_id ->
+        {:noreply, put_flash(socket, :error, "Not logged in")}
+
+      name == "" ->
+        {:noreply, put_flash(socket, :error, "Enter a set name")}
+
+      !deck.track ->
+        {:noreply, put_flash(socket, :error, "No track loaded on Deck 1")}
+
+      true ->
+        items =
+          cue_points
+          |> Enum.with_index()
+          |> Enum.map(fn {cue, i} ->
+            %{
+              "position_ms" => cue.position_ms,
+              "label" => cue.label || "Cue #{i + 1}",
+              "item_type" => if(cue.cue_type == :loop, do: "loop", else: "cue"),
+              "color" => cue.color || "#a855f7",
+              "sort_order" => i,
+              "confidence" => 1.0
+            }
+          end)
+
+        attrs = %{
+          name: name,
+          set_type: "cueset",
+          source: "manual",
+          items: items,
+          user_id: user_id,
+          track_id: deck.track.id
+        }
+
+        case PerformanceSets.create(attrs) do
+          {:ok, _set} ->
+            sets = PerformanceSets.list_for_user(user_id)
+            {:noreply,
+             socket
+             |> assign(:performance_sets, sets)
+             |> assign(:save_set_input_open, false)
+             |> assign(:save_set_name, "")
+             |> assign(:performance_sets_open, true)
+             |> put_flash(:info, "Set \"#{name}\" saved.")}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to save set")}
+        end
+    end
+  end
+
+  @impl true
+  def handle_event("load_performance_set", %{"set_id" => set_id}, socket) do
+    user_id = socket.assigns[:user_id]
+
+    with set when not is_nil(set) <- PerformanceSets.get(set_id),
+         true <- set.user_id == user_id do
+      cue_points_key = :deck_1_cue_points
+
+      # Convert items to CuePoint-like maps for push_event
+      cue_data =
+        Enum.map(set.items, fn item ->
+          %{
+            position_ms: item["position_ms"] || 0,
+            label: item["label"] || "Cue",
+            color: item["color"] || "#a855f7",
+            cue_type: if(item["item_type"] == "loop", do: :loop, else: :memory)
+          }
+        end)
+
+      {:noreply,
+       socket
+       |> assign(cue_points_key, cue_data)
+       |> push_event("set_cue_points", %{deck: 1, cue_points: cue_data})}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Set not found")}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_performance_set", %{"set_id" => set_id}, socket) do
+    user_id = socket.assigns[:user_id]
+
+    case PerformanceSets.get(set_id) do
+      nil ->
+        {:noreply, socket}
+
+      set when set.user_id == user_id ->
+        case PerformanceSets.delete(set) do
+          {:ok, _} ->
+            sets = PerformanceSets.list_for_user(user_id)
+            {:noreply, assign(socket, :performance_sets, sets)}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to delete set")}
+        end
+
+      _ ->
+        {:noreply, socket}
     end
   end
 
@@ -4365,6 +4543,77 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                     phx-value-set_id={cs.id}
                     class="px-1 py-0.5 rounded bg-gray-800 text-gray-600 hover:bg-red-700/40 hover:text-red-400 transition-colors"
                     title="Delete set">×</button>
+                </div>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- My Sets (PerformanceSets) --%>
+          <% track_sets = if @deck_number == 1 && @deck.track,
+            do: Enum.filter(@performance_sets, &(&1.track_id == @deck.track.id || is_nil(&1.track_id))),
+            else: [] %>
+          <div :if={@deck_number == 1} class="mt-2 pt-1.5 border-t border-gray-700/20">
+            <div class="flex items-center justify-between mb-1">
+              <button
+                phx-click="toggle_performance_sets"
+                phx-target={@myself}
+                class="text-[9px] text-gray-500 uppercase tracking-wider hover:text-gray-300 flex items-center gap-1 transition-colors"
+              >
+                My Sets
+                <span :if={length(@performance_sets) > 0} class="text-purple-400">({length(track_sets)})</span>
+                <svg class={["w-2.5 h-2.5 transition-transform", if(@performance_sets_open, do: "rotate-180", else: "")]} fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+              </button>
+              <button
+                :if={@deck.track}
+                phx-click="open_save_set_input"
+                phx-target={@myself}
+                class="text-[9px] px-1.5 py-0.5 rounded bg-purple-800/40 text-purple-300 hover:bg-purple-700/60 transition-colors"
+                title="Save current cue points as a set"
+              >
+                + Save as Set
+              </button>
+            </div>
+
+            <%!-- Save set name input --%>
+            <div :if={@save_set_input_open} class="mb-1.5">
+              <form phx-submit="save_performance_set" phx-target={@myself} class="flex gap-1">
+                <input
+                  type="text"
+                  name="name"
+                  value={@save_set_name}
+                  phx-change="update_save_set_name"
+                  phx-target={@myself}
+                  placeholder="Set name…"
+                  class="flex-1 px-1.5 py-0.5 text-[9px] bg-gray-900 border border-purple-700/50 rounded text-gray-200 focus:outline-none focus:border-purple-500"
+                  autofocus
+                />
+                <button type="submit" class="px-1.5 py-0.5 text-[9px] rounded bg-purple-600 text-white hover:bg-purple-500">Save</button>
+                <button type="button" phx-click="close_save_set_input" phx-target={@myself} class="px-1.5 py-0.5 text-[9px] rounded bg-gray-700 text-gray-400 hover:bg-gray-600">✕</button>
+              </form>
+            </div>
+
+            <div :if={@performance_sets_open} class="space-y-0.5">
+              <div :if={track_sets == []} class="text-[9px] text-gray-700 italic py-0.5">No sets yet</div>
+              <%= for set <- track_sets do %>
+                <div class="flex items-center gap-1 text-[9px]">
+                  <span class={["w-1.5 h-1.5 rounded-full shrink-0", if(set.source == "chef", do: "bg-amber-400", else: "bg-purple-400")]} title={set.source}></span>
+                  <button
+                    phx-click="load_performance_set"
+                    phx-target={@myself}
+                    phx-value-set_id={set.id}
+                    class="flex-1 text-left px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-purple-700/40 hover:text-purple-300 transition-colors truncate"
+                    title={"Load set: #{set.name} (#{length(set.items)} items)"}
+                  >
+                    {set.name}
+                  </button>
+                  <span class="text-gray-600 tabular-nums">{length(set.items)}</span>
+                  <button
+                    phx-click="delete_performance_set"
+                    phx-target={@myself}
+                    phx-value-set_id={set.id}
+                    data-confirm={"Delete set \"#{set.name}\"?"}
+                    class="px-1 py-0.5 rounded bg-gray-800 text-gray-600 hover:bg-red-700/40 hover:text-red-400 transition-colors"
+                  >×</button>
                 </div>
               <% end %>
             </div>
