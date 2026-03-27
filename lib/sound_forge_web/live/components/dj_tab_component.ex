@@ -3167,6 +3167,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               cue_page={@deck_1_cue_page}
               cue_per_page={@deck_1_cue_per_page}
               chef_sets={@deck_1_chef_sets}
+              performance_sets={@performance_sets}
+              performance_sets_open={@performance_sets_open}
+              save_set_name={@save_set_name}
+              save_set_input_open={@save_set_input_open}
+              sonic_suggestion={@sonic_suggestion}
+              sonic_suggestion_loading={@sonic_suggestion_loading}
             />
           </div>
 
@@ -3425,6 +3431,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               cue_page={@deck_2_cue_page}
               cue_per_page={@deck_2_cue_per_page}
               chef_sets={@deck_2_chef_sets}
+              performance_sets={[]}
+              performance_sets_open={false}
+              save_set_name=""
+              save_set_input_open={false}
+              sonic_suggestion={nil}
+              sonic_suggestion_loading={false}
             />
           </div>
         </div>
@@ -4180,6 +4192,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   attr :cue_page, :integer, default: 1
   attr :cue_per_page, :integer, default: 8
   attr :chef_sets, :list, default: []
+  attr :performance_sets, :list, default: []
+  attr :performance_sets_open, :boolean, default: false
+  attr :save_set_name, :string, default: ""
+  attr :save_set_input_open, :boolean, default: false
+  attr :sonic_suggestion, :any, default: nil
+  attr :sonic_suggestion_loading, :boolean, default: false
 
   defp deck_panel(assigns) do
     deck_color = if assigns.deck_number == 1, do: "cyan", else: "orange"

@@ -69,9 +69,8 @@ defmodule SoundForgeWeb.Live.Components.MidiMonitorComponent do
   def render(assigns) do
     ~H"""
     <div
-      :if={@open}
       id="midi-monitor-panel"
-      class="fixed bottom-16 right-4 z-50 w-96 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col"
+      class={["fixed bottom-16 right-4 z-50 w-96 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col", if(@open, do: "", else: "hidden")]}
       style="max-height: 480px;"
     >
       <%!-- Header --%>

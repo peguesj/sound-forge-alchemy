@@ -58,6 +58,7 @@ import TransportLocalAudio from "./hooks/transport_local_audio"
 import CratePlayback from "./hooks/crate_playback"
 import ArrangementGrid from "./hooks/arrangement_grid"
 import MidiMonitorScroll from "./hooks/midi_monitor_scroll"
+import CrateHeatmap from "./hooks/crate_heatmap"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const Hooks = {
@@ -70,6 +71,7 @@ const Hooks = {
   CratePlayback,
   ArrangementGrid,
   MidiMonitorScroll,
+  CrateHeatmap,
   ...colocatedHooks
 }
 const liveSocket = new LiveSocket("/live", Socket, {
