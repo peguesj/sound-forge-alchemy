@@ -59,6 +59,7 @@ import CratePlayback from "./hooks/crate_playback"
 import ArrangementGrid from "./hooks/arrangement_grid"
 import MidiMonitorScroll from "./hooks/midi_monitor_scroll"
 import CrateHeatmap from "./hooks/crate_heatmap"
+import DawProjectEditor from "./hooks/daw_project_editor"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const Hooks = {
@@ -72,6 +73,7 @@ const Hooks = {
   ArrangementGrid,
   MidiMonitorScroll,
   CrateHeatmap,
+  DawProjectEditor,
   ...colocatedHooks
 }
 const liveSocket = new LiveSocket("/live", Socket, {

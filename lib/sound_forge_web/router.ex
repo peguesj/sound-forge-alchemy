@@ -69,7 +69,8 @@ defmodule SoundForgeWeb.Router do
     live "/settings", SettingsLive, :index
     live "/midi", MidiLive, :index
     live "/practice", PracticeLive, :index
-    live "/daw/:track_id", DawLive, :index
+    live "/daw", Live.DawProjectLive, :index
+    live "/daw/:track_id", Live.DawProjectLive, :show
     live "/dj", DjLive, :index
     live "/samples", Live.SampleLibraryLive, :index
     live "/alchemy", Live.BigLoopyLive, :index
