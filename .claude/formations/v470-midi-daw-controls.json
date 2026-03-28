@@ -1,0 +1,64 @@
+{
+  "formation_id": "fmt-20260325-v470-midi-daw-controls",
+  "version": "4.7.0",
+  "title": "Global MIDI Monitor + DAW Stem Track Controls",
+  "description": "Makes MIDI monitoring always available from any tab as a floating panel with tailf/polling mode. Adds per-stem volume, mute, solo, and balance controls to the DAW editor with real-time AudioContext application.",
+  "status": "complete",
+  "waves": [
+    {
+      "wave": 1,
+      "title": "Global MIDI Monitor Panel",
+      "status": "complete",
+      "stories": [
+        {
+          "id": "4.7.1.1",
+          "title": "MidiMonitorComponent LiveComponent",
+          "status": "complete",
+          "description": "Floating MIDI monitor LiveComponent always rendered in DashboardLive. Supports manual snapshot capture and tailf continuous streaming via send_update/3. Shows event log with type, channel, label, value columns. Filter by All/Note/CC/Clock/Other.",
+          "files_created": [
+            "lib/sound_forge_web/live/components/midi_monitor_component.ex",
+            "assets/js/hooks/midi_monitor_scroll.js"
+          ],
+          "files_modified": [
+            "lib/sound_forge_web/live/dashboard_live.ex",
+            "lib/sound_forge_web/live/dashboard_live.html.heex",
+            "assets/js/app.js"
+          ],
+          "acceptance_criteria": [
+            "MIDI monitor toggle button visible on all tabs",
+            "Panel shows floating overlay at bottom-right",
+            "Start/Stop toggles PubSub subscription for raw midi:messages:{port_id}",
+            "tailf mode auto-scrolls to newest event",
+            "Events display type, channel, note/cc label, value",
+            "Filter buttons narrow event list by type"
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "title": "DAW Stem Track Controls",
+      "status": "complete",
+      "stories": [
+        {
+          "id": "4.7.2.1",
+          "title": "Per-stem mixer controls: volume, mute, solo, pan",
+          "status": "complete",
+          "description": "Adds M/S buttons and VOL/PAN range sliders to each stem header in the DAW tab. State stored in stem_mixer assign. Applied to AudioContext gainNode + StereoPannerNode on preview playback. Live updates via stem_mix_update push_event.",
+          "files_modified": [
+            "lib/sound_forge_web/live/components/daw_tab_component.ex",
+            "assets/js/hooks/daw_preview.js"
+          ],
+          "acceptance_criteria": [
+            "M button mutes stem (yellow when active)",
+            "S button solos stem, silences others (green when active)",
+            "VOL slider 0-100% controls gain",
+            "PAN slider L-R controls StereoPannerNode",
+            "Changes apply immediately to active preview via setTargetAtTime",
+            "Solo logic: if any stem soloed, non-solo stems are silenced"
+          ]
+        }
+      ]
+    }
+  ]
+}

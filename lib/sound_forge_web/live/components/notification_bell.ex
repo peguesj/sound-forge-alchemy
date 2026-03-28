@@ -190,6 +190,22 @@ defmodule SoundForgeWeb.Live.Components.NotificationBell do
               <p class="text-[10px] text-gray-600 mt-1">
                 {relative_time(notification.inserted_at)}
               </p>
+              <!-- Action buttons for Chef Set Ready notifications -->
+              <% set_id = notification.metadata[:performance_set_id] || notification.metadata["performance_set_id"] %>
+              <div :if={notification.metadata[:type] == :chef_complete and set_id} class="flex items-center gap-1.5 mt-2">
+                <.link
+                  navigate={"/?" <> URI.encode_query(%{"tab" => "dj", "set_id" => set_id})}
+                  class="px-2 py-0.5 text-[10px] font-medium bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded transition-colors"
+                >
+                  Show
+                </.link>
+                <.link
+                  navigate={"/?" <> URI.encode_query(%{"tab" => "dj", "activate_set_id" => set_id})}
+                  class="px-2 py-0.5 text-[10px] font-medium bg-green-600/30 hover:bg-green-600/50 text-green-300 rounded transition-colors"
+                >
+                  Activate
+                </.link>
+              </div>
             </div>
             <!-- Unread Indicator -->
             <div

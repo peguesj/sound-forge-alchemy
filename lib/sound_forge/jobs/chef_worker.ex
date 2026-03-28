@@ -30,6 +30,7 @@ defmodule SoundForge.Jobs.ChefWorker do
 
   import Ecto.Query, warn: false
 
+  alias SoundForge.DJ.PerformanceSets
   alias SoundForge.Music
   alias SoundForge.Music.Stem
 
@@ -83,7 +84,16 @@ defmodule SoundForge.Jobs.ChefWorker do
       # Gather stem URLs and cue data for every finalized track
       finalized_recipe = build_finalized_recipe(finalized_tracks, cue_plan, recipe_meta)
 
-      broadcast_complete(user_id, finalized_recipe)
+      # Persist as a PerformanceSet (fire-and-forget — broadcast even if persistence fails)
+      performance_set_id =
+        case PerformanceSets.from_chef_recipe(finalized_recipe, user_id) do
+          {:ok, set} -> set.id
+          {:error, reason} ->
+            Logger.warning("ChefWorker: failed to persist PerformanceSet — #{inspect(reason)}")
+            nil
+        end
+
+      broadcast_complete(user_id, Map.put(finalized_recipe, :performance_set_id, performance_set_id))
 
       Logger.info(
         "Chef recipe complete: #{length(finalized_tracks)} tracks finalized"

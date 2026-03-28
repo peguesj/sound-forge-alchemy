@@ -58,6 +58,8 @@ defmodule SoundForge.Application do
   defp web_children(_mode) do
     [
       SoundForge.Notifications,
+      SoundForge.Agents.AgentRegistry,
+      SoundForge.Agents.AgentRunner,
       SoundForge.Audio.Prefetch,
       SoundForge.Telemetry.ObanHandler,
       SoundForge.LLM.ModelRegistry,
@@ -71,7 +73,8 @@ defmodule SoundForge.Application do
   defp midi_children("full") do
     [
       SoundForge.MIDI.DeviceManager,
-      SoundForge.MIDI.Dispatcher
+      SoundForge.MIDI.Dispatcher,
+      SoundForge.MIDI.GlobalBroadcaster
     ]
   end
 

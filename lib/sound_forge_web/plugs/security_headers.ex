@@ -35,7 +35,7 @@ defmodule SoundForgeWeb.Plugs.SecurityHeaders do
       "img-src 'self' data: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com",
       "font-src 'self' data:",
       "connect-src 'self' ws: wss: https://api.spotify.com",
-      "media-src 'self' blob:",
+      "media-src 'self' blob: https://p.scdn.co",
       frame_src,
       "object-src 'none'",
       "base-uri 'self'"

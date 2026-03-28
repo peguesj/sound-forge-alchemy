@@ -11,6 +11,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   """
   use SoundForgeWeb, :live_component
 
+  alias SoundForge.DJ.PerformanceSets
   alias SoundForge.Music
   alias SoundForge.DJ
   alias SoundForge.DJ.{Chef, Presets, Timecode, CueSets}
@@ -105,6 +106,17 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
      |> assign(:deck_3_active_pads, [])
      |> assign(:deck_4_active_pads, [])
      |> assign(:alchemy_sets, [])
+     |> assign(:performance_sets, [])
+     |> assign(:performance_sets_open, false)
+     |> assign(:save_set_name, "")
+     |> assign(:save_set_input_open, false)
+     |> assign(:sonic_suggestion, nil)
+     |> assign(:sonic_suggestion_loading, false)
+     # Cue sequences (Story 2.3)
+     |> assign(:deck_1_cue_sequences, [])
+     |> assign(:deck_2_cue_sequences, [])
+     |> assign(:deck_3_cue_sequences, [])
+     |> assign(:deck_4_cue_sequences, [])
      |> assign(:dj_midi_learn_mode, false)
      |> assign(:dj_midi_learn_target, nil)
      |> assign(:saved_presets, [])
@@ -116,6 +128,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
        max_file_size: 5_000_000
      )
      |> allow_upload(:rekordbox_file,
+       accept: ~w(.xml),
+       max_entries: 1,
+       max_file_size: 10_000_000
+     )
+     |> allow_upload(:serato_file,
        accept: ~w(.xml),
        max_entries: 1,
        max_file_size: 10_000_000
@@ -271,6 +288,42 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
      |> assign(:chef_error, reason)}
   end
 
+  def update(%{show_performance_set_id: set_id}, socket) do
+    {:ok,
+     socket
+     |> assign(:performance_sets_open, true)
+     |> put_flash(:info, "Set #{set_id} highlighted in My Sets.")}
+  end
+
+  def update(%{activate_performance_set_id: set_id}, socket) do
+    user_id = socket.assigns[:user_id] || socket.assigns[:current_user_id]
+
+    case PerformanceSets.get(set_id) do
+      nil ->
+        {:ok, put_flash(socket, :error, "Performance set not found")}
+
+      set ->
+        cue_data =
+          Enum.map(set.items, fn item ->
+            %{
+              position_ms: item["position_ms"] || 0,
+              label: item["label"] || "Cue",
+              color: item["color"] || "#a855f7",
+              cue_type: if(item["item_type"] == "loop", do: :loop, else: :memory)
+            }
+          end)
+
+        PerformanceSets.mark_activated(set)
+
+        {:ok,
+         socket
+         |> assign(:deck_1_cue_points, cue_data)
+         |> assign(:performance_sets_open, true)
+         |> push_event("set_cue_points", %{deck: 1, cue_points: cue_data})
+         |> put_flash(:info, "Set \"#{set.name}\" activated.")}
+    end
+  end
+
   def update(assigns, socket) do
     socket = assign(socket, :current_scope, assigns[:current_scope])
     socket = assign(socket, :current_user_id, assigns[:current_user_id])
@@ -281,10 +334,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       user_id = assigns[:current_user_id]
       saved_presets = if user_id, do: PresetsContext.list_presets(user_id), else: []
       alchemy_sets = if user_id, do: SoundForge.BigLoopy.list_alchemy_sets(user_id), else: []
+      performance_sets = if user_id, do: PerformanceSets.list_for_user(user_id), else: []
 
       socket =
         socket
-        |> assign(tracks: tracks, initialized: true, saved_presets: saved_presets, alchemy_sets: alchemy_sets)
+        |> assign(tracks: tracks, initialized: true, saved_presets: saved_presets,
+                  alchemy_sets: alchemy_sets, performance_sets: performance_sets)
         |> restore_deck_from_db(user_id, 1)
         |> restore_deck_from_db(user_id, 2)
 
@@ -297,6 +352,13 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   # -- Events --
 
   @impl true
+  # Form-based select (deck 3/4 soundboard): sends "track_id" (underscore).
+  # Normalize to "track-id" (hyphen) and delegate to the main clause.
+  def handle_event("load_track", %{"deck" => _d, "track_id" => _t} = params, socket)
+      when not is_map_key(params, "track-id") do
+    handle_event("load_track", Map.put(params, "track-id", params["track_id"]), socket)
+  end
+
   def handle_event("load_track", %{"deck" => deck_str, "track-id" => track_id}, socket) do
     deck_number = String.to_integer(deck_str)
     user_id = socket.assigns[:current_user_id]
@@ -362,16 +424,26 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               []
             end
 
+          cue_sequences =
+            if user_id && track do
+              DJ.list_cue_sequences(track.id, user_id)
+            else
+              []
+            end
+
           # Subscribe to PubSub for auto-cue completion broadcasts
           if track do
             SoundForgeWeb.Endpoint.subscribe("tracks:#{track.id}")
           end
+
+          cue_sequences_key = cue_sequences_assign_key(deck_number)
 
           socket =
             socket
             |> assign(deck_key, deck_state)
             |> assign(cue_points_key, cue_points)
             |> assign(stem_loops_key, stem_loops)
+            |> assign(cue_sequences_key, cue_sequences)
             |> assign(detecting_key, false)
             |> push_event("load_deck_audio", %{
               deck: deck_number,
@@ -595,7 +667,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       loop_length_ms = trunc(beats * (60_000 / deck.tempo_bpm))
       loop_end = loop_start + loop_length_ms
 
-      updated_deck = %{deck | loop_start_ms: loop_start, loop_end_ms: loop_end, loop_active: true}
+      updated_deck = %{deck | loop_start_ms: loop_start, loop_end_ms: loop_end, loop_active: true, loop_size_beats: beats, loop_size_str: beats_str}
 
       user_id = socket.assigns[:current_user_id]
       persist_loop(user_id, deck_number, loop_start, loop_end)
@@ -734,6 +806,32 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       |> push_event("set_pitch", %{deck: deck_number, value: pitch})
 
     {:noreply, socket}
+  end
+
+  # Tap tempo: client sends tapped BPM; server adjusts pitch_adjust so playback
+  # rate matches the tapped tempo relative to the track's native BPM.
+  @impl true
+  def handle_event("tap_tempo", %{"deck" => deck_str, "bpm" => bpm_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    deck_key = deck_assign_key(deck_number)
+    deck = Map.get(socket.assigns, deck_key)
+
+    with {tapped_bpm, _} <- Float.parse(to_string(bpm_str)),
+         true <- deck.tempo_bpm > 0 and tapped_bpm > 0 do
+      pitch = ((tapped_bpm / deck.tempo_bpm - 1.0) * 100.0) |> max(-50.0) |> min(50.0)
+      updated_deck = %{deck | pitch_adjust: pitch}
+      user_id = socket.assigns[:current_user_id]
+      persist_pitch(user_id, deck_number, pitch)
+
+      socket =
+        socket
+        |> assign(deck_key, updated_deck)
+        |> push_event("set_pitch", %{deck: deck_number, value: pitch})
+
+      {:noreply, socket}
+    else
+      _ -> {:noreply, socket}
+    end
   end
 
   @impl true
@@ -978,9 +1076,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       existing = Enum.find(hot_cues, &(&1.label == letter))
 
       if existing do
-        # Jump to existing hot cue (no auto-play — seek only so user controls playback)
-        position_sec = existing.position_ms / 1000.0
-        {:noreply, push_event(socket, "seek_and_play", %{deck: deck_number, position: position_sec})}
+        # Existing hot cue: JS dj:seek already handled the jump, no server action needed
+        {:noreply, socket}
       else
         # Create new hot cue at current playhead position
         position_ms = trunc(deck.position * 1000)
@@ -1740,6 +1837,182 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # AI Suggest (SonicAnalyst) handler
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_event("ai_suggest", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    deck = Map.get(socket.assigns, :"deck_#{deck_number}")
+    user_id = socket.assigns[:user_id] || socket.assigns[:current_user_id]
+
+    if deck && deck.track && user_id do
+      # Collect track IDs from decks 1+2 for compatibility scoring if both loaded
+      deck2 = socket.assigns.deck_2
+      track_ids = [deck.track.id] ++ if(deck2.track, do: [deck2.track.id], else: [])
+
+      {:ok, _exec_id} =
+        SoundForge.Agents.trigger("agent-sonic-analyst", %{
+          user_id: user_id,
+          track_ids: track_ids,
+          instruction: "Analyse these tracks and score their mix compatibility. Suggest best transition type."
+        })
+
+      # Subscribe to agent output
+      Phoenix.PubSub.subscribe(SoundForge.PubSub, "agents:agent-sonic-analyst")
+
+      {:noreply, assign(socket, :sonic_suggestion_loading, true)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:agent_output, %{agent_id: "agent-sonic-analyst", result: result}}, socket) do
+    suggestion = case result do
+      {:ok, %SoundForge.Agents.Result{content: content}} -> content
+      _ -> nil
+    end
+
+    {:noreply, socket |> assign(:sonic_suggestion, suggestion) |> assign(:sonic_suggestion_loading, false)}
+  end
+
+  # ---------------------------------------------------------------------------
+  # PerformanceSet (My Sets) handlers
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_event("toggle_performance_sets", _params, socket) do
+    {:noreply, assign(socket, :performance_sets_open, !socket.assigns.performance_sets_open)}
+  end
+
+  @impl true
+  def handle_event("open_save_set_input", _params, socket) do
+    track = socket.assigns.deck_1.track
+    default_name = if track, do: "#{track.title} Set", else: "My Set"
+    {:noreply, socket |> assign(:save_set_input_open, true) |> assign(:save_set_name, default_name)}
+  end
+
+  @impl true
+  def handle_event("close_save_set_input", _params, socket) do
+    {:noreply, socket |> assign(:save_set_input_open, false) |> assign(:save_set_name, "")}
+  end
+
+  @impl true
+  def handle_event("update_save_set_name", %{"name" => name}, socket) do
+    {:noreply, assign(socket, :save_set_name, name)}
+  end
+
+  @impl true
+  def handle_event("save_performance_set", _params, socket) do
+    user_id = socket.assigns[:user_id]
+    name = String.trim(socket.assigns.save_set_name)
+    deck = socket.assigns.deck_1
+    cue_points = socket.assigns.deck_1_cue_points
+
+    cond do
+      !user_id ->
+        {:noreply, put_flash(socket, :error, "Not logged in")}
+
+      name == "" ->
+        {:noreply, put_flash(socket, :error, "Enter a set name")}
+
+      !deck.track ->
+        {:noreply, put_flash(socket, :error, "No track loaded on Deck 1")}
+
+      true ->
+        items =
+          cue_points
+          |> Enum.with_index()
+          |> Enum.map(fn {cue, i} ->
+            %{
+              "position_ms" => cue.position_ms,
+              "label" => cue.label || "Cue #{i + 1}",
+              "item_type" => if(cue.cue_type == :loop, do: "loop", else: "cue"),
+              "color" => cue.color || "#a855f7",
+              "sort_order" => i,
+              "confidence" => 1.0
+            }
+          end)
+
+        attrs = %{
+          name: name,
+          set_type: "cueset",
+          source: "manual",
+          items: items,
+          user_id: user_id,
+          track_id: deck.track.id
+        }
+
+        case PerformanceSets.create(attrs) do
+          {:ok, _set} ->
+            sets = PerformanceSets.list_for_user(user_id)
+            {:noreply,
+             socket
+             |> assign(:performance_sets, sets)
+             |> assign(:save_set_input_open, false)
+             |> assign(:save_set_name, "")
+             |> assign(:performance_sets_open, true)
+             |> put_flash(:info, "Set \"#{name}\" saved.")}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to save set")}
+        end
+    end
+  end
+
+  @impl true
+  def handle_event("load_performance_set", %{"set_id" => set_id}, socket) do
+    user_id = socket.assigns[:user_id]
+
+    with set when not is_nil(set) <- PerformanceSets.get(set_id),
+         true <- set.user_id == user_id do
+      cue_points_key = :deck_1_cue_points
+
+      # Convert items to CuePoint-like maps for push_event
+      cue_data =
+        Enum.map(set.items, fn item ->
+          %{
+            position_ms: item["position_ms"] || 0,
+            label: item["label"] || "Cue",
+            color: item["color"] || "#a855f7",
+            cue_type: if(item["item_type"] == "loop", do: :loop, else: :memory)
+          }
+        end)
+
+      {:noreply,
+       socket
+       |> assign(cue_points_key, cue_data)
+       |> push_event("set_cue_points", %{deck: 1, cue_points: cue_data})}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Set not found")}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_performance_set", %{"set_id" => set_id}, socket) do
+    user_id = socket.assigns[:user_id]
+
+    case PerformanceSets.get(set_id) do
+      nil ->
+        {:noreply, socket}
+
+      set when set.user_id == user_id ->
+        case PerformanceSets.delete(set) do
+          {:ok, _} ->
+            sets = PerformanceSets.list_for_user(user_id)
+            {:noreply, assign(socket, :performance_sets, sets)}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to delete set")}
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   @impl true
   def handle_event("set_leading_stem", %{"deck" => deck_str, "stem" => stem}, socket) do
     deck_number = String.to_integer(deck_str)
@@ -2174,6 +2447,73 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   # -- Rekordbox XML Import (US-010) --
 
   @impl true
+  def handle_event("validate_serato", _params, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_event("import_serato", _params, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    results =
+      consume_uploaded_entries(socket, :serato_file, fn %{path: path}, _entry ->
+        binary = File.read!(path)
+        SoundForge.DJ.Presets.parse_serato(binary, user_id)
+      end)
+
+    case results do
+      [{:ok, %{mappings: mapping_attrs}}] ->
+        count =
+          Enum.count(mapping_attrs, fn attrs ->
+            case Mappings.upsert_dj_mapping(attrs) do
+              {:ok, _} -> true
+              {:error, _} -> false
+            end
+          end)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Imported #{count} Serato mapping(s)")}
+
+      [{:error, reason}] ->
+        {:noreply, put_flash(socket, :error, "Serato import failed: #{inspect(reason)}")}
+
+      [] ->
+        {:noreply, put_flash(socket, :error, "No file selected")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Unexpected Serato import result")}
+    end
+  end
+
+  @impl true
+  def handle_event("load_default_preset", _params, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    preset_path = Application.app_dir(:sound_forge, "priv/static/presets/scorin.tsi")
+
+    case File.read(preset_path) do
+      {:ok, binary} ->
+        case SoundForge.DJ.Presets.parse_tsi(binary, user_id) do
+          {:ok, %{mappings: mapping_attrs}} ->
+            count =
+              Enum.count(mapping_attrs, fn attrs ->
+                case Mappings.upsert_dj_mapping(attrs) do
+                  {:ok, _} -> true
+                  {:error, _} -> false
+                end
+              end)
+
+            {:noreply, put_flash(socket, :info, "Loaded default DJ preset (scorin.tsi) — #{count} mappings applied")}
+
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, "Failed to parse scorin.tsi: #{inspect(reason)}")}
+        end
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Default preset (scorin.tsi) not found")}
+    end
+  end
+
+  @impl true
   def handle_event("validate_rekordbox", _params, socket), do: {:noreply, socket}
 
   @impl true
@@ -2360,6 +2700,10 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         user_id = socket.assigns[:current_user_id]
         persist_loop(user_id, deck_number, stem_loop.start_ms, stem_loop.end_ms)
 
+        stem = Enum.find(deck.stems || [], &(to_string(&1.id) == to_string(stem_loop.stem_id)))
+        stem_type = if stem, do: to_string(stem.stem_type), else: "other"
+        steps = stem_loop.steps || List.duplicate(true, 8)
+
         socket =
           socket
           |> assign(deck_key, updated_deck)
@@ -2368,6 +2712,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             loop_start_ms: stem_loop.start_ms,
             loop_end_ms: stem_loop.end_ms,
             active: true
+          })
+          |> push_event("set_stem_loop_gate", %{
+            deck: deck_number,
+            stem_type: stem_type,
+            steps: steps
           })
 
         {:noreply, socket}
@@ -2416,6 +2765,36 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  # Toggle a single step (0–7) on a stem loop's 8-step gate pattern.
+  @impl true
+  def handle_event("toggle_stem_loop_step", %{"deck" => deck_str, "loop_id" => loop_id, "step" => step_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    stem_loops_key = stem_loops_assign_key(deck_number)
+    step = String.to_integer(step_str)
+
+    case DJ.get_stem_loop(loop_id) do
+      %DJ.StemLoop{} = stem_loop ->
+        current_steps = stem_loop.steps || List.duplicate(true, 8)
+        updated_steps = List.update_at(current_steps, step, &(!&1))
+
+        case DJ.update_stem_loop(stem_loop, %{steps: updated_steps}) do
+          {:ok, _} ->
+            updated_loops =
+              socket.assigns
+              |> Map.get(stem_loops_key, [])
+              |> Enum.map(fn l -> if l.id == loop_id, do: %{l | steps: updated_steps}, else: l end)
+
+            {:noreply, assign(socket, stem_loops_key, updated_loops)}
+
+          {:error, _} ->
+            {:noreply, socket}
+        end
+
+      nil ->
+        {:noreply, socket}
     end
   end
 
@@ -2489,6 +2868,153 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       _ ->
         {:noreply, socket}
     end
+  end
+
+  # -- Cue Sequences (Story 2.3) --
+
+  @impl true
+  def handle_event("create_cue_sequence", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    deck = Map.get(socket.assigns, deck_assign_key(deck_number))
+    user_id = socket.assigns[:current_user_id]
+    cue_sequences_key = cue_sequences_assign_key(deck_number)
+
+    if deck.track && user_id do
+      count = length(Map.get(socket.assigns, cue_sequences_key, []))
+
+      attrs = %{
+        track_id: deck.track.id,
+        user_id: user_id,
+        name: "Seq #{count + 1}",
+        step_count: 16,
+        step_cues: List.duplicate("", 16)
+      }
+
+      case DJ.create_cue_sequence(attrs) do
+        {:ok, _seq} ->
+          updated = DJ.list_cue_sequences(deck.track.id, user_id)
+          {:noreply, assign(socket, cue_sequences_key, updated)}
+
+        {:error, _} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event(
+        "toggle_cue_seq_step",
+        %{"deck" => deck_str, "seq_id" => seq_id, "step" => step_str, "cue_id" => cue_id},
+        socket
+      ) do
+    deck_number = String.to_integer(deck_str)
+    cue_sequences_key = cue_sequences_assign_key(deck_number)
+    step = String.to_integer(step_str)
+
+    case DJ.get_cue_sequence(seq_id) do
+      %DJ.CueSequence{} = seq ->
+        current = seq.step_cues || List.duplicate("", seq.step_count)
+        current = if length(current) < seq.step_count, do: current ++ List.duplicate("", seq.step_count - length(current)), else: current
+        updated_cues =
+          List.update_at(current, step, fn existing ->
+            if existing == cue_id, do: "", else: cue_id
+          end)
+
+        case DJ.update_cue_sequence(seq, %{step_cues: updated_cues}) do
+          {:ok, updated_seq} ->
+            updated_list =
+              socket.assigns
+              |> Map.get(cue_sequences_key, [])
+              |> Enum.map(fn s -> if s.id == seq_id, do: updated_seq, else: s end)
+
+            {:noreply, assign(socket, cue_sequences_key, updated_list)}
+
+          {:error, _} ->
+            {:noreply, socket}
+        end
+
+      nil ->
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_cue_sequence", %{"deck" => deck_str, "seq_id" => seq_id}, socket) do
+    deck_number = String.to_integer(deck_str)
+    cue_sequences_key = cue_sequences_assign_key(deck_number)
+
+    case DJ.get_cue_sequence(seq_id) do
+      %DJ.CueSequence{} = seq ->
+        case DJ.delete_cue_sequence(seq) do
+          {:ok, _} ->
+            updated = Enum.reject(Map.get(socket.assigns, cue_sequences_key, []), &(&1.id == seq_id))
+            {:noreply, assign(socket, cue_sequences_key, updated)}
+
+          {:error, _} ->
+            {:noreply, socket}
+        end
+
+      nil ->
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("activate_cue_sequence", %{"deck" => deck_str, "seq_id" => seq_id}, socket) do
+    deck_number = String.to_integer(deck_str)
+    deck = Map.get(socket.assigns, deck_assign_key(deck_number))
+    cue_sequences_key = cue_sequences_assign_key(deck_number)
+    cue_points = Map.get(socket.assigns, cue_points_assign_key(deck_number), [])
+
+    case DJ.get_cue_sequence(seq_id) do
+      %DJ.CueSequence{} = seq ->
+        cue_map = Map.new(cue_points, &{to_string(&1.id), &1})
+
+        cue_positions =
+          Enum.map(seq.step_cues, fn cue_id ->
+            case Map.get(cue_map, cue_id) do
+              nil -> nil
+              cue -> %{position_ms: cue.position_ms}
+            end
+          end)
+
+        socket =
+          push_event(socket, "set_cue_sequence", %{
+            deck: deck_number,
+            cue_positions: cue_positions,
+            active: true
+          })
+
+        {:noreply, socket}
+
+      nil ->
+        {:noreply, socket}
+    end
+  end
+
+  # -- Loop Chain (Story 2.2) --
+
+  @impl true
+  def handle_event("chain_all_loops", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    stem_loops = Map.get(socket.assigns, stem_loops_assign_key(deck_number), [])
+
+    loops =
+      Enum.map(stem_loops, fn sl ->
+        %{start_ms: sl.start_ms, end_ms: sl.end_ms}
+      end)
+
+    socket = push_event(socket, "set_loop_chain", %{deck: deck_number, loops: loops})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("clear_loop_chain", %{"deck" => deck_str}, socket) do
+    deck_number = String.to_integer(deck_str)
+    socket = push_event(socket, "set_loop_chain", %{deck: deck_number, loops: []})
+    {:noreply, socket}
   end
 
   # -- Send to Pad: assigns stem to the next empty pad in the user's current bank --
@@ -2695,6 +3221,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               arrangement_markers={@deck_1.arrangement_markers || []}
               stem_loops={@deck_1_stem_loops}
               stem_loops_open={@deck_1_stem_loops_open}
+              cue_sequences={@deck_1_cue_sequences}
               myself={@myself}
               show_eq={false}
               grid_mode={@deck_1_grid_mode}
@@ -2711,6 +3238,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               cue_page={@deck_1_cue_page}
               cue_per_page={@deck_1_cue_per_page}
               chef_sets={@deck_1_chef_sets}
+              performance_sets={@performance_sets}
+              performance_sets_open={@performance_sets_open}
+              save_set_name={@save_set_name}
+              save_set_input_open={@save_set_input_open}
+              sonic_suggestion={@sonic_suggestion}
+              sonic_suggestion_loading={@sonic_suggestion_loading}
             />
           </div>
 
@@ -2952,6 +3485,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               arrangement_markers={@deck_2.arrangement_markers || []}
               stem_loops={@deck_2_stem_loops}
               stem_loops_open={@deck_2_stem_loops_open}
+              cue_sequences={@deck_2_cue_sequences}
               myself={@myself}
               show_eq={false}
               grid_mode={@deck_2_grid_mode}
@@ -2968,6 +3502,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               cue_page={@deck_2_cue_page}
               cue_per_page={@deck_2_cue_per_page}
               chef_sets={@deck_2_chef_sets}
+              performance_sets={[]}
+              performance_sets_open={false}
+              save_set_name=""
+              save_set_input_open={false}
+              sonic_suggestion={nil}
+              sonic_suggestion_loading={false}
             />
           </div>
         </div>
@@ -3280,9 +3820,25 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               </div>
             </div>
 
-            <%!-- Import MIDI Preset Section --%>
+            <%!-- Default Preset Loader --%>
             <div class="mt-4 pt-3 border-t border-gray-700/30">
-              <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Import MIDI Preset</p>
+              <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Default Layout</p>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-400">scorin.tsi (2-deck, standard)</span>
+                <button
+                  phx-click="load_default_preset"
+                  phx-target={@myself}
+                  class="px-3 py-1.5 bg-indigo-700 text-white text-xs font-medium rounded hover:bg-indigo-600 transition-colors"
+                >
+                  Load Default
+                </button>
+              </div>
+            </div>
+
+            <%!-- Import Traktor / TouchOSC --%>
+            <div class="mt-3 pt-3 border-t border-gray-700/30">
+              <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Import Traktor / TouchOSC</p>
+              <p class="text-[10px] text-gray-600 mb-1.5">.tsi · .touchosc</p>
               <form phx-submit="upload_preset" phx-change="validate_preset" phx-target={@myself}>
                 <div class="flex items-center gap-2">
                   <div class="flex-1">
@@ -3311,9 +3867,42 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               </form>
             </div>
 
-            <%!-- Rekordbox XML Import Section (US-010) --%>
+            <%!-- Import Serato XML --%>
+            <div class="mt-3 pt-3 border-t border-gray-700/30">
+              <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Import Serato</p>
+              <p class="text-[10px] text-gray-600 mb-1.5">.xml (MIDI mappings export)</p>
+              <form phx-submit="import_serato" phx-change="validate_serato" phx-target={@myself}>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1">
+                    <.live_file_input upload={@uploads.serato_file} class="
+                      block w-full text-xs text-gray-400
+                      file:mr-3 file:py-1.5 file:px-3
+                      file:rounded file:border-0
+                      file:text-xs file:font-semibold
+                      file:bg-orange-700 file:text-white
+                      hover:file:bg-orange-600 file:cursor-pointer
+                    " />
+                  </div>
+                  <button
+                    type="submit"
+                    class="px-3 py-1.5 bg-orange-700 text-white text-xs font-medium rounded hover:bg-orange-600 transition-colors disabled:bg-gray-700 disabled:text-gray-500"
+                    disabled={@uploads.serato_file.entries == []}
+                  >
+                    Import
+                  </button>
+                </div>
+                <div :for={entry <- @uploads.serato_file.entries} class="mt-1">
+                  <div :for={err <- upload_errors(@uploads.serato_file, entry)} class="text-xs text-red-400">
+                    {upload_error_to_string(err)}
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <%!-- Rekordbox XML Import Section --%>
             <div class="mt-3 pt-3 border-t border-gray-700/30">
               <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Import Rekordbox</p>
+              <p class="text-[10px] text-gray-600 mb-1.5">.xml (Rekordbox XML export)</p>
               <form phx-submit="import_rekordbox" phx-change="validate_rekordbox" phx-target={@myself}>
                 <div class="flex items-center gap-2">
                   <div class="flex-1">
@@ -3706,6 +4295,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   attr :arrangement_markers, :list, default: []
   attr :stem_loops, :list, default: []
   attr :stem_loops_open, :boolean, default: false
+  attr :cue_sequences, :list, default: []
   attr :myself, :any, required: true
   attr :show_eq, :boolean, default: true
   attr :grid_mode, :string, default: "bar"
@@ -3722,6 +4312,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   attr :cue_page, :integer, default: 1
   attr :cue_per_page, :integer, default: 8
   attr :chef_sets, :list, default: []
+  attr :performance_sets, :list, default: []
+  attr :performance_sets_open, :boolean, default: false
+  attr :save_set_name, :string, default: ""
+  attr :save_set_input_open, :boolean, default: false
+  attr :sonic_suggestion, :any, default: nil
+  attr :sonic_suggestion_loading, :boolean, default: false
 
   defp deck_panel(assigns) do
     deck_color = if assigns.deck_number == 1, do: "cyan", else: "orange"
@@ -3918,11 +4514,13 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Hot Cues</span>
           <span class="text-[10px] text-gray-600">Click empty pad to set · Click set pad to jump</span>
         </div>
-        <%!-- A-H hot cue pads --%>
+        <%!-- A-H hot cue pads — 2×4 grid (ADR-004: Rekordbox/Traktor standard) --%>
         <% hot_cues = @cue_points |> Enum.filter(&(&1.cue_type == :hot && !&1.auto_generated)) |> Map.new(&{&1.label, &1}) %>
-        <div class="grid grid-cols-8 gap-1">
+        <% cue_colors = %{"A" => "#ef4444","B" => "#3b82f6","C" => "#22c55e","D" => "#eab308","E" => "#8b5cf6","F" => "#06b6d4","G" => "#f97316","H" => "#e5e7eb"} %>
+        <div class="grid grid-cols-4 gap-1.5">
           <%= for letter <- ~w(A B C D E F G H) do %>
             <% cue = Map.get(hot_cues, letter) %>
+            <% base_color = Map.get(cue_colors, letter, "#6b7280") %>
             <div class="relative group/hc">
               <%= if cue do %>
                 <button
@@ -3936,18 +4534,21 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                       target: @myself
                     )
                   }
-                  class="w-full h-10 rounded text-xs font-bold text-white transition-all hover:brightness-110 active:scale-95 shadow-sm"
-                  style={"background-color: #{cue.color}"}
+                  class="w-full h-12 rounded-md text-xs font-bold text-white transition-all hover:brightness-115 active:scale-95 shadow-md flex flex-col items-center justify-center gap-0.5"
+                  style={"background-color: #{cue.color}; box-shadow: 0 0 8px #{cue.color}55;"}
                   title={"Hot Cue #{letter} · #{format_ms(cue.position_ms)} — click to jump"}
+                  data-midi-learn-id={"hot_cue_#{String.downcase(letter)}_deck#{@deck_number}"}
+                  data-midi-learn-label={"Hot Cue #{letter} (Deck #{@deck_number})"}
                 >
-                  {letter}
+                  <span class="font-mono font-black text-sm leading-none">{letter}</span>
+                  <span class="text-[8px] opacity-80 leading-none">{format_ms(cue.position_ms)}</span>
                 </button>
                 <button
                   phx-click="clear_hot_cue"
                   phx-target={@myself}
                   phx-value-deck={@deck_number}
                   phx-value-letter={letter}
-                  class="absolute -top-1 -right-1 opacity-0 group-hover/hc:opacity-100 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-red-600 text-white text-[9px] font-bold transition-opacity shadow"
+                  class="absolute -top-1 -right-1 opacity-0 group-hover/hc:opacity-100 w-4 h-4 flex items-center justify-center rounded-full bg-red-600 text-white text-[9px] font-bold transition-opacity shadow z-10"
                   title="Clear hot cue #{letter}"
                 >
                   ×
@@ -3959,12 +4560,15 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                   phx-value-deck={@deck_number}
                   phx-value-letter={letter}
                   disabled={is_nil(@deck.track)}
-                  class={"w-full h-10 rounded text-xs font-bold transition-colors " <>
+                  class={"w-full h-12 rounded-md text-sm font-black transition-all flex items-center justify-center " <>
                     if(is_nil(@deck.track),
-                      do: "bg-gray-800 text-gray-700 cursor-not-allowed",
-                      else: "bg-gray-700/60 text-gray-500 hover:bg-gray-600 hover:text-gray-300 border border-gray-600/50"
+                      do: "cursor-not-allowed opacity-30",
+                      else: "hover:opacity-60 active:scale-95"
                     )}
+                  style={"background-color: #{base_color}22; border: 1px solid #{base_color}44; color: #{base_color}99;"}
                   title={"Set Hot Cue #{letter} at current position"}
+                  data-midi-learn-id={"hot_cue_#{String.downcase(letter)}_deck#{@deck_number}"}
+                  data-midi-learn-label={"Hot Cue #{letter} (Deck #{@deck_number})"}
                 >
                   {letter}
                 </button>
@@ -4018,6 +4622,18 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                   <option value="intelligent" selected={@cue_sort == "intelligent"}>Intelligent</option>
                 </select>
               </form>
+              <%!-- AI Suggest button (SonicAnalyst) --%>
+              <button
+                :if={@deck.track && @deck_number == 1}
+                phx-click="ai_suggest"
+                phx-target={@myself}
+                phx-value-deck={@deck_number}
+                class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-indigo-700/50 text-indigo-300 hover:bg-indigo-600 hover:text-white transition-colors"
+                title="Get AI mix suggestions for this track"
+              >
+                AI
+              </button>
+
               <%!-- Generate / Regen button --%>
               <%= if @detecting_cues do %>
                 <svg class="w-3 h-3 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24">
@@ -4042,6 +4658,28 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                 </button>
               <% end %>
             </div>
+          </div>
+
+          <%!-- AI Suggestion panel --%>
+          <div :if={@deck_number == 1 && (@sonic_suggestion_loading || @sonic_suggestion)} class="mt-1 mb-1 p-1.5 rounded bg-indigo-900/20 border border-indigo-700/30">
+            <div :if={@sonic_suggestion_loading} class="flex items-center gap-1 text-[9px] text-indigo-400">
+              <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              Analysing…
+            </div>
+            <%= if @sonic_suggestion && !@sonic_suggestion_loading do %>
+              <% score = @sonic_suggestion["compatibility_score"] %>
+              <div class="text-[9px] space-y-0.5">
+                <div :if={score} class="flex items-center gap-1">
+                  <span class="text-gray-500">Compat:</span>
+                  <span class={["font-bold", if(score >= 0.7, do: "text-green-400", else: if(score >= 0.4, do: "text-amber-400", else: "text-red-400"))]}>
+                    {round(score * 100)}%
+                  </span>
+                  <span :if={@sonic_suggestion["key_compatible"]} class="text-[8px] bg-green-800/40 text-green-400 px-1 rounded">key✓</span>
+                  <span :if={@sonic_suggestion["tempo_match"]} class="text-[8px] bg-blue-800/40 text-blue-400 px-1 rounded">bpm✓</span>
+                </div>
+                <p :if={@sonic_suggestion["mix_notes"]} class="text-gray-400 line-clamp-2">{@sonic_suggestion["mix_notes"]}</p>
+              </div>
+            <% end %>
           </div>
 
           <%!-- Cue chips grid (paginated) --%>
@@ -4128,7 +4766,199 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               <% end %>
             </div>
           </div>
+
+          <%!-- My Sets (PerformanceSets) --%>
+          <% track_sets = if @deck_number == 1 && @deck.track,
+            do: Enum.filter(@performance_sets, &(&1.track_id == @deck.track.id || is_nil(&1.track_id))),
+            else: [] %>
+          <div :if={@deck_number == 1} class="mt-2 pt-1.5 border-t border-gray-700/20">
+            <div class="flex items-center justify-between mb-1">
+              <button
+                phx-click="toggle_performance_sets"
+                phx-target={@myself}
+                class="text-[9px] text-gray-500 uppercase tracking-wider hover:text-gray-300 flex items-center gap-1 transition-colors"
+              >
+                My Sets
+                <span :if={length(@performance_sets) > 0} class="text-purple-400">({length(track_sets)})</span>
+                <svg class={["w-2.5 h-2.5 transition-transform", if(@performance_sets_open, do: "rotate-180", else: "")]} fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+              </button>
+              <button
+                :if={@deck.track}
+                phx-click="open_save_set_input"
+                phx-target={@myself}
+                class="text-[9px] px-1.5 py-0.5 rounded bg-purple-800/40 text-purple-300 hover:bg-purple-700/60 transition-colors"
+                title="Save current cue points as a set"
+              >
+                + Save as Set
+              </button>
+            </div>
+
+            <%!-- Save set name input --%>
+            <div :if={@save_set_input_open} class="mb-1.5">
+              <form phx-submit="save_performance_set" phx-target={@myself} class="flex gap-1">
+                <input
+                  type="text"
+                  name="name"
+                  value={@save_set_name}
+                  phx-change="update_save_set_name"
+                  phx-target={@myself}
+                  placeholder="Set name…"
+                  class="flex-1 px-1.5 py-0.5 text-[9px] bg-gray-900 border border-purple-700/50 rounded text-gray-200 focus:outline-none focus:border-purple-500"
+                  autofocus
+                />
+                <button type="submit" class="px-1.5 py-0.5 text-[9px] rounded bg-purple-600 text-white hover:bg-purple-500">Save</button>
+                <button type="button" phx-click="close_save_set_input" phx-target={@myself} class="px-1.5 py-0.5 text-[9px] rounded bg-gray-700 text-gray-400 hover:bg-gray-600">✕</button>
+              </form>
+            </div>
+
+            <div :if={@performance_sets_open} class="space-y-0.5">
+              <div :if={track_sets == []} class="text-[9px] text-gray-700 italic py-0.5">No sets yet</div>
+              <%= for set <- track_sets do %>
+                <div class="flex items-center gap-1 text-[9px]">
+                  <span class={["w-1.5 h-1.5 rounded-full shrink-0", if(set.source == "chef", do: "bg-amber-400", else: "bg-purple-400")]} title={set.source}></span>
+                  <button
+                    phx-click="load_performance_set"
+                    phx-target={@myself}
+                    phx-value-set_id={set.id}
+                    class="flex-1 text-left px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-purple-700/40 hover:text-purple-300 transition-colors truncate"
+                    title={"Load set: #{set.name} (#{length(set.items)} items)"}
+                  >
+                    {set.name}
+                  </button>
+                  <span class="text-gray-600 tabular-nums">{length(set.items)}</span>
+                  <button
+                    phx-click="delete_performance_set"
+                    phx-target={@myself}
+                    phx-value-set_id={set.id}
+                    data-confirm={"Delete set \"#{set.name}\"?"}
+                    class="px-1 py-0.5 rounded bg-gray-800 text-gray-600 hover:bg-red-700/40 hover:text-red-400 transition-colors"
+                  >×</button>
+                </div>
+              <% end %>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <%!-- Cue Sequences (Story 2.3) --%>
+      <div :if={@deck.track} class="mb-4 border border-gray-700/50 rounded-lg p-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Cue Sequences</span>
+          <button
+            phx-click="create_cue_sequence"
+            phx-target={@myself}
+            phx-value-deck={@deck_number}
+            class="text-[10px] text-purple-400 hover:text-purple-300 px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700"
+          >
+            + New
+          </button>
+        </div>
+        <div :if={@cue_sequences == []} class="text-[10px] text-gray-600">
+          No sequences yet. Create one to step-sequence your hot cues.
+        </div>
+        <div class="space-y-2">
+          <%= for seq <- @cue_sequences do %>
+            <% cue_map = Map.new(@cue_points |> Enum.filter(&(&1.cue_type == :hot && !&1.auto_generated)), &{to_string(&1.id), &1}) %>
+            <div class="bg-gray-800/50 rounded p-2">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] text-gray-300">{seq.name || "Seq"}</span>
+                <div class="flex items-center gap-1">
+                  <button
+                    phx-click="activate_cue_sequence"
+                    phx-target={@myself}
+                    phx-value-deck={@deck_number}
+                    phx-value-seq_id={seq.id}
+                    class="text-[9px] px-1.5 py-0.5 rounded bg-purple-700 text-purple-200 hover:bg-purple-600"
+                  >
+                    Activate
+                  </button>
+                  <button
+                    phx-click="delete_cue_sequence"
+                    phx-target={@myself}
+                    phx-value-deck={@deck_number}
+                    phx-value-seq_id={seq.id}
+                    class="text-[9px] px-1 py-0.5 rounded bg-gray-700 text-red-400 hover:bg-red-700/30"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              <%!-- 16-step grid: each step shows which cue (if any) fires --%>
+              <div class="flex gap-0.5 flex-wrap">
+                <% hot_cues = @cue_points |> Enum.filter(&(&1.cue_type == :hot && !&1.auto_generated)) |> Map.new(&{&1.label, &1}) %>
+                <% step_cues = seq.step_cues || List.duplicate("", seq.step_count) %>
+                <%= for {cue_id, step_idx} <- Enum.with_index(step_cues) do %>
+                  <% cue = Map.get(cue_map, cue_id) %>
+                  <div class="relative group/cseq">
+                    <div
+                      class={[
+                        "w-5 h-5 rounded-sm text-[7px] flex items-center justify-center font-bold border transition-colors",
+                        if(cue,
+                          do: "border-transparent text-white",
+                          else: "bg-gray-800 border-gray-700 text-gray-700"
+                        )
+                      ]}
+                      style={if cue, do: "background-color: #{cue.color || "#6b7280"};", else: ""}
+                      title={"Step #{step_idx + 1}#{if cue, do: ": Cue #{cue.label} at #{format_ms(cue.position_ms)}", else: ": empty"}"}
+                    >
+                      {if cue, do: cue.label, else: step_idx + 1}
+                    </div>
+                    <%!-- Cue picker dropdown on hover --%>
+                    <div class="absolute bottom-full left-0 mb-1 hidden group-hover/cseq:flex flex-col bg-gray-800 border border-gray-700 rounded shadow-lg z-30 min-w-[80px]">
+                      <button
+                        phx-click="toggle_cue_seq_step"
+                        phx-target={@myself}
+                        phx-value-deck={@deck_number}
+                        phx-value-seq_id={seq.id}
+                        phx-value-step={step_idx}
+                        phx-value-cue_id=""
+                        class="px-2 py-1 text-[9px] text-gray-400 hover:bg-gray-700 text-left"
+                      >
+                        — clear
+                      </button>
+                      <%= for {letter, hcue} <- hot_cues do %>
+                        <button
+                          phx-click="toggle_cue_seq_step"
+                          phx-target={@myself}
+                          phx-value-deck={@deck_number}
+                          phx-value-seq_id={seq.id}
+                          phx-value-step={step_idx}
+                          phx-value-cue_id={hcue.id}
+                          class="px-2 py-1 text-[9px] hover:bg-gray-700 text-left font-bold"
+                          style={"color: #{hcue.color};"}
+                        >
+                          {letter}
+                        </button>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <%!-- Loop Chain (Story 2.2) --%>
+      <div :if={@deck.track && @stem_loops != []} class="mb-3 flex items-center gap-2">
+        <button
+          phx-click="chain_all_loops"
+          phx-target={@myself}
+          phx-value-deck={@deck_number}
+          class="text-[10px] px-2 py-1 rounded bg-gray-800 text-purple-300 hover:bg-purple-700/30 border border-gray-700 hover:border-purple-600/40 transition-colors"
+          title="Chain all stem loops in sequence — each loop advances to the next when the boundary is reached"
+        >
+          Chain Loops ({length(@stem_loops)})
+        </button>
+        <button
+          phx-click="clear_loop_chain"
+          phx-target={@myself}
+          phx-value-deck={@deck_number}
+          class="text-[10px] px-1.5 py-1 rounded bg-gray-800 text-gray-500 hover:text-red-400 hover:bg-gray-700"
+          title="Clear loop chain — revert to single-loop repeat"
+        >
+          Clear chain
+        </button>
       </div>
 
       <%!-- Transport Controls --%>
@@ -4229,6 +5059,16 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         </div>
 
         <div class="ml-auto flex items-center gap-1.5">
+          <button
+            id={"tap-tempo-btn-#{@deck_number}"}
+            phx-click="tap_tempo"
+            phx-target={@myself}
+            phx-value-deck={@deck_number}
+            title="Tap tempo to sync BPM"
+            class="px-2 py-1 text-[10px] font-bold rounded bg-gray-700 text-gray-400 hover:bg-amber-700 hover:text-white active:bg-amber-500 transition-colors select-none"
+          >
+            TAP
+          </button>
           <span class="text-xs text-gray-500 uppercase">BPM</span>
           <span class={"text-lg font-bold font-mono " <>
             if(@deck.tempo_bpm > 0, do: "text-white", else: "text-gray-600")}>
@@ -4359,10 +5199,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                 phx-value-beats={beats}
                 disabled={is_nil(@deck.track) || @deck.tempo_bpm <= 0}
                 class={"flex-1 py-1 text-[10px] font-mono font-bold rounded text-center transition-colors " <>
-                  if(is_nil(@deck.track) || @deck.tempo_bpm <= 0,
-                    do: "bg-gray-800 text-gray-700 cursor-not-allowed",
-                    else: "bg-gray-700/80 text-gray-300 hover:bg-purple-700 hover:text-white active:bg-purple-500"
-                  )}
+                  cond do
+                    is_nil(@deck.track) || @deck.tempo_bpm <= 0 -> "bg-gray-800 text-gray-700 cursor-not-allowed"
+                    beats == @deck.loop_size_str -> "bg-purple-600 text-white ring-1 ring-purple-400/50"
+                    true -> "bg-gray-700/80 text-gray-300 hover:bg-purple-700 hover:text-white active:bg-purple-500"
+                  end}
               >
                 {label}
               </button>
@@ -5064,28 +5905,49 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               <%!-- Stem Loop Actions --%>
               <div class="flex items-center gap-1.5 text-[10px]">
                 <%!-- Existing loops for this stem --%>
-                <div :for={loop <- stem_loops_for_stem(@stem_loops, stem.id)} class="flex items-center gap-0.5">
-                  <button
-                    phx-click="audition_stem_loop"
-                    phx-target={@myself}
-                    phx-value-deck={@deck_number}
-                    phx-value-loop_id={loop.id}
-                    class="px-1.5 py-0.5 rounded text-white hover:brightness-125 transition-colors font-mono"
-                    style={"background-color: #{loop.color || stem_type_color(stem_type)}; opacity: 0.8;"}
-                    title={"Audition: #{loop.label}"}
-                  >
-                    {loop.label || "Loop"}
-                  </button>
-                  <button
-                    phx-click="delete_stem_loop"
-                    phx-target={@myself}
-                    phx-value-deck={@deck_number}
-                    phx-value-loop_id={loop.id}
-                    class="text-gray-600 hover:text-red-400 transition-colors px-0.5"
-                    title="Delete loop"
-                  >
-                    x
-                  </button>
+                <div :for={loop <- stem_loops_for_stem(@stem_loops, stem.id)} class="flex flex-col gap-1">
+                  <div class="flex items-center gap-0.5">
+                    <button
+                      phx-click="audition_stem_loop"
+                      phx-target={@myself}
+                      phx-value-deck={@deck_number}
+                      phx-value-loop_id={loop.id}
+                      class="px-1.5 py-0.5 rounded text-white hover:brightness-125 transition-colors font-mono"
+                      style={"background-color: #{loop.color || stem_type_color(stem_type)}; opacity: 0.8;"}
+                      title={"Audition: #{loop.label}"}
+                    >
+                      {loop.label || "Loop"}
+                    </button>
+                    <button
+                      phx-click="delete_stem_loop"
+                      phx-target={@myself}
+                      phx-value-deck={@deck_number}
+                      phx-value-loop_id={loop.id}
+                      class="text-gray-600 hover:text-red-400 transition-colors px-0.5"
+                      title="Delete loop"
+                    >
+                      x
+                    </button>
+                  </div>
+                  <%!-- 8-step gate pattern for this stem loop --%>
+                  <div class="flex items-center gap-0.5" title="Step gate: click steps to enable/disable this loop on each beat">
+                    <%= for {active, step_idx} <- Enum.with_index(loop.steps || List.duplicate(true, 8)) do %>
+                      <button
+                        phx-click="toggle_stem_loop_step"
+                        phx-target={@myself}
+                        phx-value-deck={@deck_number}
+                        phx-value-loop_id={loop.id}
+                        phx-value-step={step_idx}
+                        class={"w-4 h-3 rounded-sm transition-colors " <>
+                          if(active,
+                            do: "opacity-90",
+                            else: "bg-gray-800 opacity-40"
+                          )}
+                        style={if active, do: "background-color: #{loop.color || stem_type_color(stem_type)};", else: ""}
+                        title={"Step #{step_idx + 1}: #{if active, do: "ON", else: "OFF"}"}
+                      />
+                    <% end %>
+                  </div>
                 </div>
 
                 <%!-- Send to Pad Button --%>
@@ -5243,7 +6105,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       filter_cutoff: 0.5,
       slip_mode: false,
       stem_states: %{},
-      loop_size_beats: 4.0
+      loop_size_beats: 4.0,
+      loop_size_str: "4"
     }
   end
 
@@ -5261,6 +6124,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   defp stem_loops_assign_key(2), do: :deck_2_stem_loops
   defp stem_loops_assign_key(3), do: :deck_3_stem_loops
   defp stem_loops_assign_key(4), do: :deck_4_stem_loops
+
+  defp cue_sequences_assign_key(1), do: :deck_1_cue_sequences
+  defp cue_sequences_assign_key(2), do: :deck_2_cue_sequences
+  defp cue_sequences_assign_key(3), do: :deck_3_cue_sequences
+  defp cue_sequences_assign_key(4), do: :deck_4_cue_sequences
 
   defp stem_loops_open_key(1), do: :deck_1_stem_loops_open
   defp stem_loops_open_key(2), do: :deck_2_stem_loops_open

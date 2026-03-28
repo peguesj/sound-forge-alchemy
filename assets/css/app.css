@@ -120,3 +120,47 @@
 .animate-spin-slow {
   animation: spin-slow 3s linear infinite;
 }
+
+/* ------------------------------------------------------------------ */
+/* MIDI Learn Overlay                                                   */
+/* ------------------------------------------------------------------ */
+
+/* All learnable controls get a yellow ring when learn mode is active */
+.midi-learn-highlight {
+  outline: 2px solid #eab308 !important;
+  outline-offset: 2px;
+  cursor: crosshair !important;
+  position: relative;
+  z-index: 31;
+}
+
+/* The selected target control while waiting for MIDI input */
+.midi-learn-target {
+  outline: 3px solid #f97316 !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.6) !important;
+  z-index: 32;
+}
+
+/* Brief flash on successful assignment */
+.midi-learn-done {
+  outline: 3px solid #22c55e !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.7) !important;
+  transition: outline 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Brief flash on failed assignment */
+.midi-learn-error {
+  outline: 3px solid #ef4444 !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.7) !important;
+}
+
+/* Padding for pages that have the global MIDI bar at bottom/top */
+.has-midi-bar-bottom {
+  padding-bottom: 2.5rem !important;
+}
+.has-midi-bar-top {
+  padding-top: 2.5rem !important;
+}

@@ -1,0 +1,88 @@
+{
+  "formation_id": "fmt-20260325-v490-rich-set-modal",
+  "version": "4.9.0",
+  "title": "Rich Set Modal + Set Store/Load/Activate",
+  "description": "When a PerformanceSet notification View Details action is triggered, shows a rich modal with: animated waveform snippet canvas per track section, energy curve overlay, track structure diagram, set item timeline. Full set store/load/activate workflow end-to-end.",
+  "status": "planned",
+  "waves": [
+    {
+      "wave": 1,
+      "title": "Rich Set Modal UI",
+      "stories": [
+        {
+          "id": "4.9.1.1",
+          "title": "SetDetailModal LiveComponent",
+          "description": "New LiveComponent showing PerformanceSet details. Header: set name, source badge, track title. Left panel: animated canvas with energy curve waveform snippet (reuses AnalysisEnergyCurve hook data). Right panel: item timeline showing cue points/loops as colored blocks on a horizontal time axis. Footer: Activate button, Export MIDI, Save to Library.",
+          "files_to_create": [
+            "lib/sound_forge_web/live/components/set_detail_modal_component.ex",
+            "assets/js/hooks/set_preview_canvas.js"
+          ],
+          "files_to_modify": [
+            "lib/sound_forge_web/live/dashboard_live.ex",
+            "lib/sound_forge_web/live/dashboard_live.html.heex"
+          ],
+          "acceptance_criteria": [
+            "Modal opens from notification View Details action",
+            "Waveform snippet canvas renders a 10s clip around the first set item",
+            "Energy curve overlaid on waveform as animated gradient fill",
+            "Set item timeline shows all cue/loop points as colored blocks",
+            "Activate button loads the set into the active DJ deck",
+            "Modal closes on Escape or backdrop click"
+          ]
+        },
+        {
+          "id": "4.9.1.2",
+          "title": "SetPreviewCanvas JS hook",
+          "description": "Canvas hook that renders: (1) waveform PCM snippet using Web Audio AnalyserNode or pre-computed peaks from analysis data, (2) energy curve as animated glowing line using requestAnimationFrame, (3) set item markers as vertical colored lines with labels. Reuses analysis_energy_curve data format from existing AnalysisEnergyCurve hook.",
+          "files_to_create": [
+            "assets/js/hooks/set_preview_canvas.js"
+          ],
+          "acceptance_criteria": [
+            "Canvas renders in < 100ms for typical set size",
+            "Energy curve animates smoothly at 60fps",
+            "Set item markers clickable — triggers seek in any active preview",
+            "Responsive: canvas width follows container",
+            "Works without audio loaded (renders from analysis data only)"
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "title": "Set Library: Store, Load, Activate",
+      "stories": [
+        {
+          "id": "4.9.2.1",
+          "title": "Set Library panel in DJ tab",
+          "description": "Add a 'My Sets' collapsible panel in the DJ tab sidebar. Lists all PerformanceSets for the current track. Each row shows: set name, source badge (Chef/Manual), item count, created_at. Actions: Load (populates the set into the DJ editor), Activate (immediate deck load), Delete.",
+          "files_to_modify": [
+            "lib/sound_forge_web/live/components/dj_tab_component.ex",
+            "lib/sound_forge/dj/performance_sets.ex"
+          ],
+          "acceptance_criteria": [
+            "My Sets panel shows all PerformanceSets for current track",
+            "Load action populates set items into DJ cue editor",
+            "Activate action triggers deck load immediately",
+            "Delete with confirmation removes the set",
+            "Sets sorted by most recently created"
+          ]
+        },
+        {
+          "id": "4.9.2.2",
+          "title": "Manual set save from DJ editor",
+          "description": "Add Save as Set button to the DJ tab hot cue editor toolbar. Creates a PerformanceSet from the current manual cue points / loop regions with source: :manual. Shows inline name input before save.",
+          "files_to_modify": [
+            "lib/sound_forge_web/live/components/dj_tab_component.ex",
+            "lib/sound_forge/dj/performance_sets.ex"
+          ],
+          "acceptance_criteria": [
+            "Save as Set button visible in DJ editor toolbar",
+            "Inline name input appears on click",
+            "Confirm creates PerformanceSet with source :manual",
+            "Saved set immediately appears in My Sets panel"
+          ]
+        }
+      ]
+    }
+  ]
+}

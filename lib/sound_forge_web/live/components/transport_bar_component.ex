@@ -326,9 +326,6 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
       data-fps={@fps}
       class="fixed bottom-0 left-0 right-0 z-40 bg-gray-950 border-t border-gray-800 select-none"
     >
-      <%!-- Spotify JS hook (hidden, SDK plumbing only) --%>
-      <div id="spotify-player" phx-hook="SpotifyPlayer" class="hidden"></div>
-
       <%!-- Local | Spotify source pill tabs (shown when Spotify is linked) --%>
       <div :if={@spotify_linked} class="flex justify-center border-b border-gray-800/50 py-0.5">
         <div class="flex gap-0.5 bg-gray-900 rounded-full px-0.5 py-0.5">

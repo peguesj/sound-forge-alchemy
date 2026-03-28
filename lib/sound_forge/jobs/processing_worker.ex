@@ -83,14 +83,17 @@ defmodule SoundForge.Jobs.ProcessingWorker do
           "job_id" => job_id,
           "file_path" => file_path,
           "model" => model
-        }
+        } = args
       }) do
+    playlist_id = Map.get(args, "playlist_id")
+
     Logger.metadata(track_id: track_id, job_id: job_id, worker: "ProcessingWorker")
     Logger.info("Starting stem separation with model=#{model}")
 
     job = Music.get_processing_job!(job_id)
     Music.update_processing_job(job, %{status: :processing, progress: 0})
     PipelineBroadcaster.broadcast_stage_started(track_id, job_id, :processing)
+    PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :processing, status: :processing, progress: 0})
     broadcast_progress(job_id, :processing, 0)
     broadcast_track_progress(track_id, :processing, :processing, 0)
 
@@ -159,9 +162,10 @@ defmodule SoundForge.Jobs.ProcessingWorker do
 
         Logger.info("Stem separation complete, stems=#{length(stem_records)}")
         PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :processing)
+        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :processing, status: :completed, progress: 100})
 
         # Chain: enqueue analysis job
-        enqueue_analysis(track_id, file_path)
+        enqueue_analysis(track_id, file_path, playlist_id)
 
         {:ok, %{stems: length(stem_records)}}
 
@@ -172,6 +176,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         fresh_job = Music.get_processing_job!(job_id)
         Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
         PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
+        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :processing, status: :failed, progress: 0})
 
         # Clean up any partial output files
         cleanup_output(fresh_job)
@@ -184,6 +189,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         Logger.error(error_msg)
         Music.update_processing_job(job, %{status: :failed, error: error_msg})
         PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
+        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :processing, status: :failed, progress: 0})
         {:error, validation_error}
     end
   end
@@ -238,10 +244,10 @@ defmodule SoundForge.Jobs.ProcessingWorker do
     ArgumentError -> nil
   end
 
-  defp enqueue_analysis(track_id, file_path) do
+  defp enqueue_analysis(track_id, file_path, playlist_id) do
     case Music.create_analysis_job(%{track_id: track_id, status: :queued}) do
       {:ok, analysis_job} ->
-        %{
+        base_args = %{
           "track_id" => track_id,
           "job_id" => analysis_job.id,
           "file_path" => file_path,
@@ -253,6 +259,11 @@ defmodule SoundForge.Jobs.ProcessingWorker do
               "spectral"
             ])
         }
+
+        job_args =
+          if playlist_id, do: Map.put(base_args, "playlist_id", playlist_id), else: base_args
+
+        job_args
         |> SoundForge.Jobs.AnalysisWorker.new()
         |> Oban.insert()
         |> case do

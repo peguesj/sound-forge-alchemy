@@ -94,7 +94,13 @@ defmodule SoundForge.Settings do
     UserSettings.changeset(settings, attrs)
   end
 
-  @doc "Upserts user settings (creates or updates)."
+  @doc "Update an existing UserSettings struct with new attrs."
+  def update_user_settings(%UserSettings{} = settings, attrs) do
+    settings
+    |> UserSettings.changeset(attrs)
+    |> Repo.update()
+  end
+
   def save_user_settings(user_id, attrs) when is_integer(user_id) do
     case get_user_settings(user_id) do
       %UserSettings{} = existing ->

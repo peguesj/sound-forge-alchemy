@@ -69,11 +69,13 @@ defmodule SoundForgeWeb.Router do
     live "/settings", SettingsLive, :index
     live "/midi", MidiLive, :index
     live "/practice", PracticeLive, :index
-    live "/daw/:track_id", DawLive, :index
+    live "/daw", Live.DawProjectLive, :index
+    live "/daw/:track_id", Live.DawProjectLive, :show
     live "/dj", DjLive, :index
     live "/samples", Live.SampleLibraryLive, :index
     live "/alchemy", Live.BigLoopyLive, :index
     get "/alchemy/:id/download", BigLoopyController, :download
+    live "/crate", Live.CrateDiggerLive, :index
     get "/files/midi/:track_id", FileController, :serve_midi
     get "/files/*path", FileController, :serve
 
@@ -82,6 +84,7 @@ defmodule SoundForgeWeb.Router do
     get "/export/stems/:track_id", ExportController, :download_all_stems
     get "/export/analysis/:track_id", ExportController, :export_analysis
     get "/export/midi/:track_id", ExportController, :export_midi
+    get "/export/osc-layout", ExportController, :export_osc_layout
 
     # Spotify OAuth (initiate - requires auth)
     get "/auth/spotify", SpotifyOAuthController, :authorize

@@ -7,6 +7,7 @@ defmodule SoundForgeWeb.ExportController do
 
   alias SoundForge.Music
   alias SoundForge.Storage
+  alias SoundForge.MIDI.MidiExport
 
   def download_stem(conn, %{"id" => stem_id}) do
     with {:ok, _} <- Ecto.UUID.cast(stem_id),
@@ -102,11 +103,12 @@ defmodule SoundForgeWeb.ExportController do
   end
 
   def export_midi(conn, %{"track_id" => track_id}) do
+    user_id = get_user_id(conn)
+
     with {:ok, _} <- Ecto.UUID.cast(track_id),
          {:ok, track} <- fetch_track(track_id),
          :ok <- authorize(conn, track),
-         {:ok, midi_result} <- fetch_midi_result(track_id) do
-      {:ok, midi_binary} = SoundForge.Audio.MidiFileWriter.build(midi_result.notes, track_name: track.title || "Piano")
+         {:ok, midi_binary} <- MidiExport.build(track_id, user_id) do
       filename = "#{sanitize_filename(track.title)}.mid"
 
       conn
@@ -126,6 +128,15 @@ defmodule SoundForgeWeb.ExportController do
       :error ->
         conn |> put_status(:not_found) |> json(%{error: "Not found"})
     end
+  end
+
+  def export_osc_layout(conn, _params) do
+    xml = SoundForge.OSC.TouchOSCLayout.generate_xml()
+
+    conn
+    |> put_resp_content_type("application/xml")
+    |> put_resp_header("content-disposition", ~s(attachment; filename="sfa-touchosc.tosc"))
+    |> send_resp(200, xml)
   end
 
   # Fetchers
@@ -151,13 +162,6 @@ defmodule SoundForgeWeb.ExportController do
   defp fetch_analysis(track_id) do
     case Music.get_analysis_result_for_track(track_id) do
       nil -> {:error, :no_analysis}
-      result -> {:ok, result}
-    end
-  end
-
-  defp fetch_midi_result(track_id) do
-    case Music.get_midi_result_for_track(track_id) do
-      nil -> {:error, :no_midi}
       result -> {:ok, result}
     end
   end

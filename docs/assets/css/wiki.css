@@ -147,6 +147,23 @@ a:hover {
   text-decoration: none;
 }
 
+/* Version selector dropdown */
+.wiki-version-select {
+  font-size: 0.8rem;
+  background: oklch(25.26% 0.014 253.1);
+  color: var(--base-content);
+  border: 1px solid oklch(37% 0.044 257.287);
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+.wiki-version-select:hover {
+  opacity: 1;
+  border-color: var(--primary);
+}
+
 /* Mobile hamburger (hidden on desktop) */
 .wiki-hamburger {
   display: none;
