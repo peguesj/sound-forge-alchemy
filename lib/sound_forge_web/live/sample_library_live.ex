@@ -24,6 +24,7 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
 
     if Phoenix.LiveView.connected?(socket) do
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:actions")
+      SoundForge.MIDI.GlobalBroadcaster.subscribe()
     end
 
     socket =
@@ -47,6 +48,9 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
       |> assign(:category_filter, "")
       |> assign(:midi_active_file_id, nil)
       |> stream(:files, files)
+      |> assign(:midi_bar_position, "bottom")
+      |> assign(:midi_learn_active, false)
+      |> assign(:midi_monitor_open, false)
 
     {:ok, socket}
   end
@@ -183,10 +187,40 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
     {:noreply, socket}
   end
 
+  def handle_info({:midi_global_event, port_id, msg}, socket) do
+    send_update(SoundForgeWeb.Live.Components.GlobalMidiBarComponent,
+      id: "global-midi-bar",
+      midi_event: {port_id, msg}
+    )
+    {:noreply, socket}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_monitor, open}, socket) do
+    {:noreply, assign(socket, :midi_monitor_open, open)}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_learn, active}, socket) do
+    {:noreply, assign(socket, :midi_learn_active, active)}
+  end
+
+  def handle_info({:global_midi_bar, :set_position, pos}, socket) do
+    {:noreply, assign(socket, :midi_bar_position, pos)}
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
   @impl true
   def render(assigns) do
     ~H"""
     <div class="flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden">
+      <.live_component
+        module={SoundForgeWeb.Live.Components.GlobalMidiBarComponent}
+        id="global-midi-bar"
+        position={@midi_bar_position}
+        visible={true}
+        midi_monitor_open={@midi_monitor_open}
+        midi_learn_active={@midi_learn_active}
+      />
       <SoundForgeWeb.Live.Components.AppHeader.app_header
         nav_tab={:samples}
         nav_context={@nav_context}

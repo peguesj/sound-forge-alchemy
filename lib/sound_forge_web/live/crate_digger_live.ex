@@ -85,9 +85,14 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
     if Phoenix.LiveView.connected?(socket) do
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:actions")
+      SoundForge.MIDI.GlobalBroadcaster.subscribe()
     end
 
-    {:ok, socket}
+    {:ok,
+     socket
+     |> assign(:midi_bar_position, "bottom")
+     |> assign(:midi_learn_active, false)
+     |> assign(:midi_monitor_open, false)}
   end
 
   # ---------------------------------------------------------------------------
@@ -1052,6 +1057,27 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
     {:noreply, socket}
   end
 
+  # Global MIDI bar events
+  def handle_info({:midi_global_event, port_id, msg}, socket) do
+    send_update(SoundForgeWeb.Live.Components.GlobalMidiBarComponent,
+      id: "global-midi-bar",
+      midi_event: {port_id, msg}
+    )
+    {:noreply, socket}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_monitor, open}, socket) do
+    {:noreply, assign(socket, :midi_monitor_open, open)}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_learn, active}, socket) do
+    {:noreply, assign(socket, :midi_learn_active, active)}
+  end
+
+  def handle_info({:global_midi_bar, :set_position, pos}, socket) do
+    {:noreply, assign(socket, :midi_bar_position, pos)}
+  end
+
   # v2: Fetch user playlists from Spotify
   def handle_info({:fetch_user_playlists, _user_id}, socket) do
     alias SoundForge.Spotify
@@ -1292,7 +1318,7 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
           <!-- v2: Crate profile badge + wizard trigger + sequence controls -->
           <div :if={@active_crate} class="flex items-center gap-2 px-4 py-1.5 bg-gray-900/30 border-b border-gray-800/60 shrink-0">
-            <%# Profile badge %>
+            <%!-- Profile badge --%>
             <% profile = @active_crate.crate_profile || %{} %>
             <span class={[
               "text-[9px] px-2 py-0.5 rounded-full font-medium",
@@ -1314,7 +1340,7 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
             >
               {if map_size(profile) > 0, do: "Edit Profile", else: "Define Profile"}
             </button>
-            <%# Sequencer arc buttons %>
+            <%!-- Sequencer arc buttons --%>
             <div class="ml-auto flex items-center gap-1">
               <%= for {label, arc} <- [{"Rise", :rise}, {"Fall", :fall}, {"Peak", :peak}, {"Flat", :flat}] do %>
                 <button
@@ -2106,6 +2132,16 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
         </div>
       </div>
     </div>
+
+    <%!-- Global MIDI Bar --%>
+    <.live_component
+      module={SoundForgeWeb.Live.Components.GlobalMidiBarComponent}
+      id="global-midi-bar"
+      position={@midi_bar_position}
+      visible={true}
+      midi_monitor_open={@midi_monitor_open}
+      midi_learn_active={@midi_learn_active}
+    />
     """
   end
 
@@ -2297,14 +2333,6 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   # ---------------------------------------------------------------------------
   # SVG icons
   # ---------------------------------------------------------------------------
-
-  defp vinyl_icon do
-    Phoenix.HTML.raw("""
-    <svg class="w-5 h-5 text-purple-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-    </svg>
-    """)
-  end
 
   defp vinyl_icon_sm do
     Phoenix.HTML.raw("""

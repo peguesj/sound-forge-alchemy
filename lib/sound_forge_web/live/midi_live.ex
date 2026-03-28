@@ -26,6 +26,7 @@ defmodule SoundForgeWeb.MidiLive do
   def mount(_params, session, socket) do
     if connected?(socket) do
       DeviceManager.subscribe()
+      SoundForge.MIDI.GlobalBroadcaster.subscribe()
     end
 
     current_user_id = resolve_user_id(socket.assigns[:current_user], session)
@@ -75,6 +76,9 @@ defmodule SoundForgeWeb.MidiLive do
       |> assign(:midi_monitor, [])
       |> assign(:monitor_listening, false)
       |> assign(:monitor_expanded, false)
+      |> assign(:midi_bar_position, "bottom")
+      |> assign(:midi_learn_active, false)
+      |> assign(:midi_monitor_open, false)
 
     {:ok, socket}
   end
@@ -439,6 +443,26 @@ defmodule SoundForgeWeb.MidiLive do
     {:noreply, assign(socket, :activity, activity)}
   end
 
+  def handle_info({:midi_global_event, port_id, msg}, socket) do
+    send_update(SoundForgeWeb.Live.Components.GlobalMidiBarComponent,
+      id: "global-midi-bar",
+      midi_event: {port_id, msg}
+    )
+    {:noreply, socket}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_monitor, open}, socket) do
+    {:noreply, assign(socket, :midi_monitor_open, open)}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_learn, active}, socket) do
+    {:noreply, assign(socket, :midi_learn_active, active)}
+  end
+
+  def handle_info({:global_midi_bar, :set_position, pos}, socket) do
+    {:noreply, assign(socket, :midi_bar_position, pos)}
+  end
+
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   # ---------------------------------------------------------------------------
@@ -473,6 +497,14 @@ defmodule SoundForgeWeb.MidiLive do
 
     ~H"""
     <div id="midi-page" class="flex flex-col min-h-screen bg-gray-950 text-white">
+      <.live_component
+        module={SoundForgeWeb.Live.Components.GlobalMidiBarComponent}
+        id="global-midi-bar"
+        position={@midi_bar_position}
+        visible={true}
+        midi_monitor_open={@midi_monitor_open}
+        midi_learn_active={@midi_learn_active}
+      />
       <SoundForgeWeb.Live.Components.AppHeader.app_header
         current_scope={@current_scope}
         current_user_id={@current_user_id}

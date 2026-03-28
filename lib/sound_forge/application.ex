@@ -73,7 +73,8 @@ defmodule SoundForge.Application do
   defp midi_children("full") do
     [
       SoundForge.MIDI.DeviceManager,
-      SoundForge.MIDI.Dispatcher
+      SoundForge.MIDI.Dispatcher,
+      SoundForge.MIDI.GlobalBroadcaster
     ]
   end
 

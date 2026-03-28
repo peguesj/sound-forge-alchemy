@@ -105,6 +105,8 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:midi_monitor_listening, false)
       |> assign(:midi_tailf, false)
       |> assign(:midi_raw_log, [])
+      |> assign(:midi_learn_active, false)
+      |> assign(:midi_bar_position, "bottom")
       |> assign(:trace_jobs, [])
       |> assign(:trace_selected_job, nil)
       |> assign(:trace_timeline, [])
@@ -2680,6 +2682,20 @@ defmodule SoundForgeWeb.DashboardLive do
   # Raw MIDI events from Dispatcher (when monitor is listening, Story v4.7.0)
   @impl true
   def handle_info({:midi_message, port_id, message}, socket) do
+    # Always forward to global MIDI bar
+    send_update(SoundForgeWeb.Live.Components.GlobalMidiBarComponent,
+      id: "global-midi-bar",
+      midi_event: {port_id, message}
+    )
+    # Forward to MIDI learn overlay if active
+    if socket.assigns[:midi_learn_active] do
+      send_update(SoundForgeWeb.Live.Components.MidiLearnOverlayComponent,
+        id: "midi-learn",
+        midi_event: {port_id, message},
+        current_user_id: socket.assigns[:current_user_id]
+      )
+    end
+
     if socket.assigns.midi_monitor_listening do
       event = build_raw_midi_event(port_id, message)
       # Push to floating monitor component
@@ -2693,6 +2709,35 @@ defmodule SoundForgeWeb.DashboardLive do
     else
       {:noreply, socket}
     end
+  end
+
+  # Global MIDI bar control messages
+  @impl true
+  def handle_info({:global_midi_bar, :toggle_monitor, open}, socket) do
+    {:noreply, assign(socket, :midi_monitor_open, open)}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_learn, active}, socket) do
+    {:noreply, assign(socket, :midi_learn_active, active)}
+  end
+
+  def handle_info({:global_midi_bar, :set_position, pos}, socket) do
+    user_id = socket.assigns[:current_user_id]
+    if user_id do
+      settings = SoundForge.Settings.get_user_settings(user_id) ||
+        %SoundForge.Accounts.UserSettings{user_id: user_id}
+      SoundForge.Settings.update_user_settings(settings, %{midi_bar_position: pos})
+    end
+    {:noreply, assign(socket, :midi_bar_position, pos)}
+  end
+
+  # GlobalBroadcaster events (on pages other than dashboard)
+  def handle_info({:midi_global_event, port_id, message}, socket) do
+    send_update(SoundForgeWeb.Live.Components.GlobalMidiBarComponent,
+      id: "global-midi-bar",
+      midi_event: {port_id, message}
+    )
+    {:noreply, socket}
   end
 
 

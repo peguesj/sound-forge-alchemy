@@ -54,9 +54,16 @@ defmodule SoundForgeWeb.SettingsLive do
       |> assign_form(changeset)
       |> assign_provider_assigns(user_id)
 
-    if connected?(socket), do: :timer.send_interval(60_000, self(), :refresh_quota)
+    if connected?(socket) do
+      :timer.send_interval(60_000, self(), :refresh_quota)
+      SoundForge.MIDI.GlobalBroadcaster.subscribe()
+    end
 
-    {:ok, socket}
+    {:ok,
+     socket
+     |> assign(:midi_bar_position, "bottom")
+     |> assign(:midi_learn_active, false)
+     |> assign(:midi_monitor_open, false)}
   end
 
   @impl true
@@ -493,6 +500,35 @@ defmodule SoundForgeWeb.SettingsLive do
   @impl true
   def handle_info({:DOWN, _ref, :process, _pid, _reason}, socket) do
     {:noreply, assign(socket, :lalalai_testing, false)}
+  end
+
+  @impl true
+  def handle_info({:midi_global_event, port_id, msg}, socket) do
+    send_update(SoundForgeWeb.Live.Components.GlobalMidiBarComponent,
+      id: "global-midi-bar",
+      midi_event: {port_id, msg}
+    )
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:global_midi_bar, :toggle_monitor, open}, socket) do
+    {:noreply, assign(socket, :midi_monitor_open, open)}
+  end
+
+  @impl true
+  def handle_info({:global_midi_bar, :toggle_learn, active}, socket) do
+    {:noreply, assign(socket, :midi_learn_active, active)}
+  end
+
+  @impl true
+  def handle_info({:global_midi_bar, :set_position, pos}, socket) do
+    if socket.assigns[:current_user_id] do
+      settings = Settings.get_user_settings(socket.assigns.current_user_id) ||
+        %SoundForge.Accounts.UserSettings{user_id: socket.assigns.current_user_id}
+      Settings.update_user_settings(settings, %{midi_bar_position: pos})
+    end
+    {:noreply, assign(socket, :midi_bar_position, pos)}
   end
 
   # -- Private --

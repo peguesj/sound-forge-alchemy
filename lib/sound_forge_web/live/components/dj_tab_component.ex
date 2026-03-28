@@ -4416,6 +4416,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                   class="w-full h-12 rounded-md text-xs font-bold text-white transition-all hover:brightness-115 active:scale-95 shadow-md flex flex-col items-center justify-center gap-0.5"
                   style={"background-color: #{cue.color}; box-shadow: 0 0 8px #{cue.color}55;"}
                   title={"Hot Cue #{letter} · #{format_ms(cue.position_ms)} — click to jump"}
+                  data-midi-learn-id={"hot_cue_#{String.downcase(letter)}_deck#{@deck_number}"}
+                  data-midi-learn-label={"Hot Cue #{letter} (Deck #{@deck_number})"}
                 >
                   <span class="font-mono font-black text-sm leading-none">{letter}</span>
                   <span class="text-[8px] opacity-80 leading-none">{format_ms(cue.position_ms)}</span>
@@ -4444,6 +4446,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                     )}
                   style={"background-color: #{base_color}22; border: 1px solid #{base_color}44; color: #{base_color}99;"}
                   title={"Set Hot Cue #{letter} at current position"}
+                  data-midi-learn-id={"hot_cue_#{String.downcase(letter)}_deck#{@deck_number}"}
+                  data-midi-learn-label={"Hot Cue #{letter} (Deck #{@deck_number})"}
                 >
                   {letter}
                 </button>

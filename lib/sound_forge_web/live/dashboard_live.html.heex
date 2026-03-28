@@ -3383,6 +3383,25 @@
 <%!-- Spotify SDK plumbing: always in DOM so the SDK connection survives tab switches --%>
 <div id="spotify-player-root" phx-hook="SpotifyPlayer" class="hidden"></div>
 
+<%!-- Global MIDI Bar (omnipresent across all tabs) --%>
+<.live_component
+  module={SoundForgeWeb.Live.Components.GlobalMidiBarComponent}
+  id="global-midi-bar"
+  position={@midi_bar_position}
+  visible={true}
+  midi_monitor_open={@midi_monitor_open}
+  midi_learn_active={@midi_learn_active}
+/>
+
+<%!-- MIDI Learn Overlay (module-wide, activated by LEARN button in global bar) --%>
+<.live_component
+  module={SoundForgeWeb.Live.Components.MidiLearnOverlayComponent}
+  id="midi-learn"
+  active={@midi_learn_active}
+  module_name={to_string(@nav_tab)}
+  current_user_id={@current_user_id}
+/>
+
 <%!-- Unified Transport Bar (local + Spotify, pill-tab switched) --%>
 <.live_component
   :if={@nav_tab not in [:dj, :daw, :pads] and not @batch_mode}

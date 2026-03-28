@@ -7,6 +7,10 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      SoundForge.MIDI.GlobalBroadcaster.subscribe()
+    end
+
     user_id = socket.assigns.current_user.id
     projects = DAW.list_projects(user_id)
     active_project = List.first(projects)
@@ -25,7 +29,10 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
        track_override_id: nil,
        import_crate_open: false,
        user_crates: [],
-       page_title: "DAW"
+       page_title: "DAW",
+       midi_bar_position: "bottom",
+       midi_learn_active: false,
+       midi_monitor_open: false
      )}
   end
 
@@ -301,6 +308,33 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
   end
 
   # ---------------------------------------------------------------------------
+  # MIDI bar
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_info({:midi_global_event, port_id, msg}, socket) do
+    send_update(SoundForgeWeb.Live.Components.GlobalMidiBarComponent,
+      id: "global-midi-bar",
+      midi_event: {port_id, msg}
+    )
+    {:noreply, socket}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_monitor, open}, socket) do
+    {:noreply, assign(socket, :midi_monitor_open, open)}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_learn, active}, socket) do
+    {:noreply, assign(socket, :midi_learn_active, active)}
+  end
+
+  def handle_info({:global_midi_bar, :set_position, pos}, socket) do
+    {:noreply, assign(socket, :midi_bar_position, pos)}
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
+  # ---------------------------------------------------------------------------
   # Render
   # ---------------------------------------------------------------------------
 
@@ -308,6 +342,14 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-full min-h-screen bg-gray-950 text-gray-100 relative overflow-hidden">
+      <.live_component
+        module={SoundForgeWeb.Live.Components.GlobalMidiBarComponent}
+        id="global-midi-bar"
+        position={@midi_bar_position}
+        visible={true}
+        midi_monitor_open={@midi_monitor_open}
+        midi_learn_active={@midi_learn_active}
+      />
 
       <!-- Project sidebar (left, w-64) -->
       <aside class="w-64 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
