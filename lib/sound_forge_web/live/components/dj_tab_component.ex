@@ -131,6 +131,11 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
        accept: ~w(.xml),
        max_entries: 1,
        max_file_size: 10_000_000
+     )
+     |> allow_upload(:serato_file,
+       accept: ~w(.xml),
+       max_entries: 1,
+       max_file_size: 10_000_000
      )}
   end
 
@@ -2442,6 +2447,73 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   # -- Rekordbox XML Import (US-010) --
 
   @impl true
+  def handle_event("validate_serato", _params, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_event("import_serato", _params, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    results =
+      consume_uploaded_entries(socket, :serato_file, fn %{path: path}, _entry ->
+        binary = File.read!(path)
+        SoundForge.DJ.Presets.parse_serato(binary, user_id)
+      end)
+
+    case results do
+      [{:ok, %{mappings: mapping_attrs}}] ->
+        count =
+          Enum.count(mapping_attrs, fn attrs ->
+            case Mappings.upsert_dj_mapping(attrs) do
+              {:ok, _} -> true
+              {:error, _} -> false
+            end
+          end)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Imported #{count} Serato mapping(s)")}
+
+      [{:error, reason}] ->
+        {:noreply, put_flash(socket, :error, "Serato import failed: #{inspect(reason)}")}
+
+      [] ->
+        {:noreply, put_flash(socket, :error, "No file selected")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Unexpected Serato import result")}
+    end
+  end
+
+  @impl true
+  def handle_event("load_default_preset", _params, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    preset_path = Application.app_dir(:sound_forge, "priv/static/presets/scorin.tsi")
+
+    case File.read(preset_path) do
+      {:ok, binary} ->
+        case SoundForge.DJ.Presets.parse_tsi(binary, user_id) do
+          {:ok, %{mappings: mapping_attrs}} ->
+            count =
+              Enum.count(mapping_attrs, fn attrs ->
+                case Mappings.upsert_dj_mapping(attrs) do
+                  {:ok, _} -> true
+                  {:error, _} -> false
+                end
+              end)
+
+            {:noreply, put_flash(socket, :info, "Loaded default DJ preset (scorin.tsi) — #{count} mappings applied")}
+
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, "Failed to parse scorin.tsi: #{inspect(reason)}")}
+        end
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Default preset (scorin.tsi) not found")}
+    end
+  end
+
+  @impl true
   def handle_event("validate_rekordbox", _params, socket), do: {:noreply, socket}
 
   @impl true
@@ -3748,9 +3820,25 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               </div>
             </div>
 
-            <%!-- Import MIDI Preset Section --%>
+            <%!-- Default Preset Loader --%>
             <div class="mt-4 pt-3 border-t border-gray-700/30">
-              <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Import MIDI Preset</p>
+              <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Default Layout</p>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-400">scorin.tsi (2-deck, standard)</span>
+                <button
+                  phx-click="load_default_preset"
+                  phx-target={@myself}
+                  class="px-3 py-1.5 bg-indigo-700 text-white text-xs font-medium rounded hover:bg-indigo-600 transition-colors"
+                >
+                  Load Default
+                </button>
+              </div>
+            </div>
+
+            <%!-- Import Traktor / TouchOSC --%>
+            <div class="mt-3 pt-3 border-t border-gray-700/30">
+              <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Import Traktor / TouchOSC</p>
+              <p class="text-[10px] text-gray-600 mb-1.5">.tsi · .touchosc</p>
               <form phx-submit="upload_preset" phx-change="validate_preset" phx-target={@myself}>
                 <div class="flex items-center gap-2">
                   <div class="flex-1">
@@ -3779,9 +3867,42 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               </form>
             </div>
 
-            <%!-- Rekordbox XML Import Section (US-010) --%>
+            <%!-- Import Serato XML --%>
+            <div class="mt-3 pt-3 border-t border-gray-700/30">
+              <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Import Serato</p>
+              <p class="text-[10px] text-gray-600 mb-1.5">.xml (MIDI mappings export)</p>
+              <form phx-submit="import_serato" phx-change="validate_serato" phx-target={@myself}>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1">
+                    <.live_file_input upload={@uploads.serato_file} class="
+                      block w-full text-xs text-gray-400
+                      file:mr-3 file:py-1.5 file:px-3
+                      file:rounded file:border-0
+                      file:text-xs file:font-semibold
+                      file:bg-orange-700 file:text-white
+                      hover:file:bg-orange-600 file:cursor-pointer
+                    " />
+                  </div>
+                  <button
+                    type="submit"
+                    class="px-3 py-1.5 bg-orange-700 text-white text-xs font-medium rounded hover:bg-orange-600 transition-colors disabled:bg-gray-700 disabled:text-gray-500"
+                    disabled={@uploads.serato_file.entries == []}
+                  >
+                    Import
+                  </button>
+                </div>
+                <div :for={entry <- @uploads.serato_file.entries} class="mt-1">
+                  <div :for={err <- upload_errors(@uploads.serato_file, entry)} class="text-xs text-red-400">
+                    {upload_error_to_string(err)}
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <%!-- Rekordbox XML Import Section --%>
             <div class="mt-3 pt-3 border-t border-gray-700/30">
               <p class="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">Import Rekordbox</p>
+              <p class="text-[10px] text-gray-600 mb-1.5">.xml (Rekordbox XML export)</p>
               <form phx-submit="import_rekordbox" phx-change="validate_rekordbox" phx-target={@myself}>
                 <div class="flex items-center gap-2">
                   <div class="flex-1">
