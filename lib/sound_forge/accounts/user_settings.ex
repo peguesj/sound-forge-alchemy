@@ -67,6 +67,10 @@ defmodule SoundForge.Accounts.UserSettings do
     # Debug
     field :debug_mode, :boolean, default: false
 
+    # MIDI global bar
+    field :midi_bar_position, :string, default: "bottom"
+    field :midi_bar_visible, :boolean, default: true
+
     timestamps(type: :utc_datetime)
   end
 
@@ -98,7 +102,9 @@ defmodule SoundForge.Accounts.UserSettings do
     :splice_library_path,
     :warn_on_missing_files,
     :auto_rescan_on_login,
-    :debug_mode
+    :debug_mode,
+    :midi_bar_position,
+    :midi_bar_visible
   ]
 
   def changeset(settings, attrs) do
@@ -120,6 +126,7 @@ defmodule SoundForge.Accounts.UserSettings do
     |> validate_inclusion(:lalalai_splitter, @valid_lalalai_splitters)
     |> validate_inclusion(:lalalai_extraction_level, @valid_lalalai_extraction_levels)
     |> validate_inclusion(:lalalai_output_format, @valid_lalalai_output_formats)
+    |> validate_inclusion(:midi_bar_position, ["top", "bottom"])
   end
 
   @section_fields %{
@@ -131,7 +138,8 @@ defmodule SoundForge.Accounts.UserSettings do
     storage: [:storage_path, :max_file_age_days, :retention_days],
     cloud_separation: [:lalalai_api_key, :lalalai_splitter, :lalalai_dereverb, :lalalai_extraction_level, :lalalai_output_format],
     general: [:tracks_per_page, :max_upload_size],
-    sources: [:splice_library_path]
+    sources: [:splice_library_path],
+    midi: [:midi_bar_position, :midi_bar_visible, :auto_midi_conversion, :auto_chord_detection]
   }
 
   def section_fields, do: @section_fields

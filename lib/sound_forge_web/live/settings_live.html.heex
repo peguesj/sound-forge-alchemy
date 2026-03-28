@@ -1384,3 +1384,13 @@
     </div>
   </div>
 </div>
+
+<%!-- Global MIDI Bar --%>
+<.live_component
+  module={SoundForgeWeb.Live.Components.GlobalMidiBarComponent}
+  id="global-midi-bar"
+  position={@midi_bar_position}
+  visible={true}
+  midi_monitor_open={@midi_monitor_open}
+  midi_learn_active={@midi_learn_active}
+/>

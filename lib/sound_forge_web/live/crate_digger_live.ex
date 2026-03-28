@@ -65,12 +65,34 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       # Playback state
       |> assign(:now_playing_id, nil)
       |> assign(:playback_state, :idle)
+      # v2: Guided profile wizard
+      |> assign(:profile_wizard_open, false)
+      |> assign(:profile_wizard_step, 1)
+      |> assign(:profile_wizard_draft, %{})
+      # v2: Spotify folder browser
+      |> assign(:playlist_browser_open, false)
+      |> assign(:playlist_browser_loading, false)
+      |> assign(:user_playlists, [])
+      |> assign(:selected_playlist_urls, MapSet.new())
+      |> assign(:mega_crate_name, "")
+      # v2: Stem interchange lab
+      |> assign(:stem_lab_assignments, %{})
+      # v2: Sequencer
+      |> assign(:crate_sequence, nil)
+      |> assign(:sequence_arc, :rise)
+      # v2: Pagination
+      |> assign(:track_page, 1)
 
     if Phoenix.LiveView.connected?(socket) do
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:actions")
+      SoundForge.MIDI.GlobalBroadcaster.subscribe()
     end
 
-    {:ok, socket}
+    {:ok,
+     socket
+     |> assign(:midi_bar_position, "bottom")
+     |> assign(:midi_learn_active, false)
+     |> assign(:midi_monitor_open, false)}
   end
 
   # ---------------------------------------------------------------------------
@@ -572,6 +594,281 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   end
 
   # Catch-all: ignore unhandled events (e.g. pwa_midi_available from root layout hook)
+  # ---------------------------------------------------------------------------
+  # Events — guided profile wizard (v2)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("open_profile_wizard", _params, socket) do
+    crate = socket.assigns.active_crate
+    draft = if crate, do: crate.crate_profile || %{}, else: %{}
+
+    draft =
+      draft
+      |> Map.put_new("bpm_min", 120)
+      |> Map.put_new("bpm_max", 140)
+      |> Map.put_new("energy_level", 70)
+      |> Map.put_new("key_preferences", [])
+      |> Map.put_new("mood_tags", [])
+
+    {:noreply,
+     socket
+     |> assign(:profile_wizard_open, true)
+     |> assign(:profile_wizard_step, 1)
+     |> assign(:profile_wizard_draft, draft)}
+  end
+
+  def handle_event("close_profile_wizard", _params, socket) do
+    {:noreply, assign(socket, :profile_wizard_open, false)}
+  end
+
+  def handle_event("set_profile_field", %{"field" => field, "value" => value}, socket) do
+    draft =
+      case field do
+        "bpm_min" -> Map.put(socket.assigns.profile_wizard_draft, "bpm_min", parse_int(value, 120))
+        "bpm_max" -> Map.put(socket.assigns.profile_wizard_draft, "bpm_max", parse_int(value, 140))
+        "energy_level" -> Map.put(socket.assigns.profile_wizard_draft, "energy_level", parse_int(value, 70))
+        "mood_tags" -> Map.put(socket.assigns.profile_wizard_draft, "mood_tags", String.split(value, ",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == "")))
+        "toggle_key" ->
+          keys = socket.assigns.profile_wizard_draft["key_preferences"] || []
+          updated = if value in keys, do: List.delete(keys, value), else: [value | keys]
+          Map.put(socket.assigns.profile_wizard_draft, "key_preferences", updated)
+        _ -> socket.assigns.profile_wizard_draft
+      end
+
+    {:noreply, assign(socket, :profile_wizard_draft, draft)}
+  end
+
+  def handle_event("next_wizard_step", _params, socket) do
+    step = min(socket.assigns.profile_wizard_step + 1, 4)
+    {:noreply, assign(socket, :profile_wizard_step, step)}
+  end
+
+  def handle_event("prev_wizard_step", _params, socket) do
+    step = max(socket.assigns.profile_wizard_step - 1, 1)
+    {:noreply, assign(socket, :profile_wizard_step, step)}
+  end
+
+  def handle_event("save_profile", _params, socket) do
+    crate = socket.assigns.active_crate
+
+    if crate do
+      profile = Map.put(socket.assigns.profile_wizard_draft, "mode", "guided")
+
+      case CrateDigger.update_crate(crate, %{crate_profile: profile}) do
+        {:ok, updated_crate} ->
+          crates = Enum.map(socket.assigns.crates, fn c ->
+            if c.id == updated_crate.id, do: updated_crate, else: c
+          end)
+          {:noreply,
+           socket
+           |> assign(:active_crate, updated_crate)
+           |> assign(:crates, crates)
+           |> assign(:profile_wizard_open, false)}
+
+        {:error, _changeset} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, assign(socket, :profile_wizard_open, false)}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — Spotify playlist browser (v2)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("open_playlist_browser", _params, socket) do
+    user_id = socket.assigns.current_user_id
+    socket = assign(socket, :playlist_browser_open, true)
+    socket = assign(socket, :playlist_browser_loading, true)
+
+    send(self(), {:fetch_user_playlists, user_id})
+    {:noreply, socket}
+  end
+
+  def handle_event("close_playlist_browser", _params, socket) do
+    {:noreply, assign(socket, :playlist_browser_open, false)}
+  end
+
+  def handle_event("toggle_playlist_selection", %{"url" => url}, socket) do
+    selected = socket.assigns.selected_playlist_urls
+
+    updated =
+      if MapSet.member?(selected, url),
+        do: MapSet.delete(selected, url),
+        else: MapSet.put(selected, url)
+
+    {:noreply, assign(socket, :selected_playlist_urls, updated)}
+  end
+
+  def handle_event("set_mega_crate_name", %{"name" => name}, socket) do
+    {:noreply, assign(socket, :mega_crate_name, name)}
+  end
+
+  def handle_event("import_selected_playlists", _params, socket) do
+    urls = MapSet.to_list(socket.assigns.selected_playlist_urls)
+    name = socket.assigns.mega_crate_name
+    user_id = socket.assigns.current_user_id
+
+    if Enum.empty?(urls) or name == "" do
+      {:noreply, socket}
+    else
+      socket = assign(socket, :playlist_browser_loading, true)
+      send(self(), {:import_multi_playlists, urls, name, user_id})
+      {:noreply, socket}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — Stem Interchange Lab (v2)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("set_stem_donor", %{"stem" => stem, "donor" => donor_id}, socket) do
+    crate = socket.assigns.active_crate
+    track = socket.assigns.inspector_track
+
+    if crate && track do
+      assignments = Map.put(socket.assigns.stem_lab_assignments, stem, donor_id)
+      spotify_track_id = track["spotify_id"]
+
+      # Build extended stem_override
+      enabled_stems = Map.keys(assignments) |> Enum.reject(fn s -> assignments[s] == "own" end)
+      blend = assignments |> Enum.reject(fn {_s, v} -> v == "own" end) |> Map.new()
+
+      stem_override = %{
+        "enabled_stems" => if(Enum.empty?(enabled_stems), do: ["vocals", "drums", "bass", "other"], else: ["vocals", "drums", "bass", "other"]),
+        "blend_assignments" => blend
+      }
+
+      CrateDigger.set_track_stem_override(crate.id, spotify_track_id, stem_override["enabled_stems"])
+      {:noreply, assign(socket, :stem_lab_assignments, assignments)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("reset_stem_lab", _params, socket) do
+    crate = socket.assigns.active_crate
+    track = socket.assigns.inspector_track
+
+    if crate && track do
+      CrateDigger.set_track_stem_override(crate.id, track["spotify_id"], nil)
+    end
+
+    {:noreply, assign(socket, :stem_lab_assignments, %{})}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — Sequencer (v2)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("set_sequence_arc", %{"arc" => arc}, socket) do
+    {:noreply, assign(socket, :sequence_arc, String.to_existing_atom(arc))}
+  end
+
+  def handle_event("generate_sequence", _params, socket) do
+    crate = socket.assigns.active_crate
+    arc = socket.assigns.sequence_arc
+
+    if crate do
+      case SoundForge.CrateDigger.Sequencer.sequence(crate, arc) do
+        {:ok, ordered_tracks} ->
+          {:noreply, assign(socket, :crate_sequence, ordered_tracks)}
+
+        {:error, _} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("send_sequence_to_deck", _params, socket) do
+    if socket.assigns.crate_sequence do
+      Phoenix.PubSub.broadcast(
+        SoundForge.PubSub,
+        "dj:commands",
+        {:crate_sequence, socket.assigns.crate_sequence}
+      )
+    end
+
+    {:noreply, socket}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — Pagination (v2)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("set_track_page", %{"page" => page_str}, socket) do
+    page = parse_int(page_str, 1)
+    {:noreply, assign(socket, :track_page, page)}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — Export (v2)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("export_crate_json", _params, socket) do
+    crate = socket.assigns.active_crate
+
+    if crate do
+      data = %{
+        name: crate.name,
+        source_type: crate.source_type,
+        profile: crate.crate_profile,
+        tracks: crate.playlist_data
+      }
+
+      json = Jason.encode!(data, pretty: true)
+      filename = "#{crate.name |> String.replace(~r/[^a-zA-Z0-9]/, "_")}_crate.json"
+
+      {:noreply,
+       socket
+       |> push_event("download_file", %{filename: filename, content: json, mime: "application/json"})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("export_crate_csv", _params, socket) do
+    crate = socket.assigns.active_crate
+
+    if crate do
+      header = "title,artist,spotify_id,duration_ms\n"
+
+      rows =
+        Enum.map_join(crate.playlist_data, "\n", fn t ->
+          [t["title"] || "", t["artist"] || "", t["spotify_id"] || "", to_string(t["duration_ms"] || "")]
+          |> Enum.map(&("\"" <> String.replace(&1, "\"", "\"\"") <> "\""))
+          |> Enum.join(",")
+        end)
+
+      csv = header <> rows
+      filename = "#{crate.name |> String.replace(~r/[^a-zA-Z0-9]/, "_")}_tracks.csv"
+
+      {:noreply,
+       socket
+       |> push_event("download_file", %{filename: filename, content: csv, mime: "text/csv"})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — Batch analysis (v2)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("analyze_all_tracks", _params, socket) do
+    crate = socket.assigns.active_crate
+    user_id = socket.assigns.current_user_id
+
+    if crate && user_id do
+      send(self(), {:enqueue_crate_analysis, crate, user_id})
+    end
+
+    {:noreply, socket}
+  end
+
   def handle_event(_event, _params, socket), do: {:noreply, socket}
 
   # ---------------------------------------------------------------------------
@@ -760,6 +1057,97 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
     {:noreply, socket}
   end
 
+  # Global MIDI bar events
+  def handle_info({:midi_global_event, port_id, msg}, socket) do
+    send_update(SoundForgeWeb.Live.Components.GlobalMidiBarComponent,
+      id: "global-midi-bar",
+      midi_event: {port_id, msg}
+    )
+    {:noreply, socket}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_monitor, open}, socket) do
+    {:noreply, assign(socket, :midi_monitor_open, open)}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_learn, active}, socket) do
+    {:noreply, assign(socket, :midi_learn_active, active)}
+  end
+
+  def handle_info({:global_midi_bar, :set_position, pos}, socket) do
+    {:noreply, assign(socket, :midi_bar_position, pos)}
+  end
+
+  # v2: Fetch user playlists from Spotify
+  def handle_info({:fetch_user_playlists, _user_id}, socket) do
+    alias SoundForge.Spotify
+
+    playlists =
+      case Spotify.list_user_playlists(socket.assigns.current_user) do
+        {:ok, list} -> list
+        _ -> []
+      end
+
+    {:noreply,
+     socket
+     |> assign(:user_playlists, playlists)
+     |> assign(:playlist_browser_loading, false)}
+  end
+
+  # v2: Import multiple playlists into a mega-crate
+  def handle_info({:import_multi_playlists, urls, name, user_id}, socket) do
+    case CrateDigger.load_multiple_playlists(user_id, urls, name) do
+      {:ok, crate} ->
+        crates = [crate | Enum.reject(socket.assigns.crates, &(&1.id == crate.id))]
+
+        {:noreply,
+         socket
+         |> assign(:crates, crates)
+         |> assign(:active_crate, crate)
+         |> assign(:playlist_browser_open, false)
+         |> assign(:playlist_browser_loading, false)
+         |> assign(:selected_playlist_urls, MapSet.new())
+         |> assign(:mega_crate_name, "")}
+
+      {:error, _reason} ->
+        {:noreply, assign(socket, :playlist_browser_loading, false)}
+    end
+  end
+
+  # v2: Enqueue analysis for all unanalyzed tracks in a crate
+  def handle_info({:enqueue_crate_analysis, crate, user_id}, socket) do
+    spotify_ids =
+      crate.playlist_data
+      |> Enum.map(& &1["spotify_id"])
+      |> Enum.reject(&is_nil/1)
+
+    Enum.each(spotify_ids, fn spotify_id ->
+      track = SoundForge.Music.get_track_by_spotify_id(spotify_id)
+
+      if track && is_nil(track.analysis_status) do
+        %{"track_id" => track.id, "user_id" => user_id}
+        |> SoundForge.Jobs.AnalysisWorker.new()
+        |> Oban.insert()
+      end
+    end)
+
+    {:noreply, socket}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private helpers
+  # ---------------------------------------------------------------------------
+
+  defp parse_int(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, _} -> n
+      :error -> default
+    end
+  end
+
+  defp parse_int(value, _default) when is_integer(value), do: value
+  defp parse_int(_, default), do: default
+
   # ---------------------------------------------------------------------------
   # Render
   # ---------------------------------------------------------------------------
@@ -806,6 +1194,13 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
               </button>
             </form>
             <p :if={@playlist_error} class="mt-2 text-xs text-red-400">{@playlist_error}</p>
+            <div class="mt-2 pt-2 border-t border-gray-800/50">
+              <button phx-click="open_playlist_browser"
+                class="w-full text-[10px] py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors flex items-center justify-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+                Browse My Spotify Library
+              </button>
+            </div>
           </div>
 
           <!-- Crate list -->
@@ -919,6 +1314,61 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
             <span class="ml-2 text-xs text-gray-600">
               Playing: {Enum.join(@active_crate.stem_config["enabled_stems"] || [], " + ")}
             </span>
+          </div>
+
+          <!-- v2: Crate profile badge + wizard trigger + sequence controls -->
+          <div :if={@active_crate} class="flex items-center gap-2 px-4 py-1.5 bg-gray-900/30 border-b border-gray-800/60 shrink-0">
+            <%!-- Profile badge --%>
+            <% profile = @active_crate.crate_profile || %{} %>
+            <span class={[
+              "text-[9px] px-2 py-0.5 rounded-full font-medium",
+              cond do
+                profile["mode"] == "guided" -> "bg-green-900/60 text-green-400"
+                profile["mode"] == "auto" -> "bg-blue-900/60 text-blue-400"
+                true -> "bg-gray-800 text-gray-600"
+              end
+            ]}>
+              {cond do
+                profile["mode"] == "guided" -> "Profile: Guided"
+                profile["mode"] == "auto" -> "Profile: Auto (#{profile["bpm_center"]} BPM)"
+                true -> "No Profile"
+              end}
+            </span>
+            <button
+              phx-click="open_profile_wizard"
+              class="text-[9px] px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors"
+            >
+              {if map_size(profile) > 0, do: "Edit Profile", else: "Define Profile"}
+            </button>
+            <%!-- Sequencer arc buttons --%>
+            <div class="ml-auto flex items-center gap-1">
+              <%= for {label, arc} <- [{"Rise", :rise}, {"Fall", :fall}, {"Peak", :peak}, {"Flat", :flat}] do %>
+                <button
+                  phx-click="set_sequence_arc"
+                  phx-value-arc={arc}
+                  class={[
+                    "text-[9px] px-1.5 py-0.5 rounded transition-colors",
+                    if(@sequence_arc == arc, do: "bg-purple-700 text-purple-200", else: "bg-gray-800 text-gray-500 hover:bg-gray-700")
+                  ]}
+                >
+                  {label}
+                </button>
+              <% end %>
+              <button
+                phx-click="generate_sequence"
+                class="text-[9px] px-2 py-0.5 rounded bg-purple-900/50 text-purple-300 hover:bg-purple-800 transition-colors ml-1"
+              >
+                Sequence
+              </button>
+              <button
+                :if={@crate_sequence}
+                phx-click="send_sequence_to_deck"
+                class="text-[9px] px-2 py-0.5 rounded bg-green-900/50 text-green-300 hover:bg-green-800 transition-colors"
+                title="Send sequence to DJ deck"
+              >
+                → Deck
+              </button>
+            </div>
           </div>
 
           <!-- Track filter bar -->
@@ -1131,6 +1581,71 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                   </div>
                 </div>
               <% end %>
+            </div>
+          </div>
+
+          <%!-- v2: Sequence view (shown when sequence generated) --%>
+          <div :if={@crate_sequence} class="border-t border-purple-900/40 bg-gray-950 shrink-0">
+            <div class="flex items-center justify-between px-4 py-2 border-b border-gray-800/50">
+              <span class="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">Sequence ({length(@crate_sequence)} tracks — {@sequence_arc})</span>
+              <button phx-click="generate_sequence" class="text-[9px] text-gray-500 hover:text-gray-300">Regenerate</button>
+            </div>
+            <div class="overflow-x-auto">
+              <div class="flex items-center gap-1 px-3 py-2 min-w-0">
+                <%= for {track, i} <- Enum.with_index(@crate_sequence, 1) do %>
+                  <div class="flex flex-col items-center shrink-0 w-14">
+                    <% ring_class = cond do
+                         track["_key_compat"] == "compatible" -> "ring-1 ring-green-500/50"
+                         track["_key_compat"] == "close" -> "ring-1 ring-yellow-500/30"
+                         true -> ""
+                       end %>
+                    <div class={["w-10 h-10 rounded bg-gray-800 overflow-hidden shrink-0", ring_class]}>
+                      <img :if={track["artwork_url"]} src={track["artwork_url"]} class="w-full h-full object-cover" />
+                      <div :if={!track["artwork_url"]} class="w-full h-full flex items-center justify-center text-gray-600 text-[8px]">{i}</div>
+                    </div>
+                    <span :if={track["_bpm_delta"]} class={[
+                      "text-[8px] font-mono mt-0.5",
+                      cond do
+                        track["_bpm_delta"] > 0 -> "text-cyan-500"
+                        track["_bpm_delta"] < 0 -> "text-orange-400"
+                        true -> "text-gray-600"
+                      end
+                    ]}>
+                      {if track["_bpm_delta"] > 0, do: "+#{track["_bpm_delta"]}", else: "#{track["_bpm_delta"]}"} BPM
+                    </span>
+                  </div>
+                  <span :if={i < length(@crate_sequence)} class="text-gray-700 shrink-0">→</span>
+                <% end %>
+              </div>
+            </div>
+          </div>
+
+          <%!-- v2: Export + analyze toolbar --%>
+          <div :if={@active_crate} class="flex items-center gap-2 px-4 py-2 border-t border-gray-800/60 bg-gray-950 shrink-0">
+            <% health = CrateDigger.crate_health_score(@active_crate) %>
+            <span class={[
+              "text-[9px] px-2 py-0.5 rounded-full font-medium",
+              cond do
+                health > 0.7 -> "bg-green-900/50 text-green-400"
+                health > 0.3 -> "bg-yellow-900/50 text-yellow-400"
+                true -> "bg-red-900/50 text-red-400"
+              end
+            ]} title="Fraction of tracks with analysis data">
+              {round(health * 100)}% analyzed
+            </span>
+            <button phx-click="analyze_all_tracks"
+              class="text-[9px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors">
+              Analyze All
+            </button>
+            <div class="ml-auto flex items-center gap-1">
+              <button phx-click="export_crate_json"
+                class="text-[9px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors">
+                Export JSON
+              </button>
+              <button phx-click="export_crate_csv"
+                class="text-[9px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors">
+                Export CSV
+              </button>
             </div>
           </div>
         </div>
@@ -1376,6 +1891,41 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                 </div>
               </div>
 
+              <%!-- v2: Stem Interchange Lab --%>
+              <div class="border-t border-gray-800/60">
+                <div class="px-4 py-2.5 flex items-center justify-between">
+                  <span class="text-xs font-medium text-gray-400">Stem Lab</span>
+                  <button phx-click="reset_stem_lab" class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors">Reset All</button>
+                </div>
+                <div :if={@active_crate && @inspector_track} class="px-4 pb-3 space-y-1.5">
+                  <p class="text-[10px] text-gray-600 mb-2">Swap stems between tracks in this crate:</p>
+                  <% crate_tracks = @active_crate.playlist_data || [] %>
+                  <%= for stem <- ["vocals", "drums", "bass", "other"] do %>
+                    <% current_donor = Map.get(@stem_lab_assignments, stem, "own") %>
+                    <div class="flex items-center gap-2">
+                      <span class={[
+                        "w-14 shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded text-center",
+                        if(current_donor != "own", do: "bg-purple-900/50 text-purple-300", else: "bg-gray-800 text-gray-500")
+                      ]}>
+                        {String.capitalize(stem)}
+                        <span :if={current_donor != "own"} class="block w-2 h-2 rounded-full bg-purple-400 mx-auto mt-0.5"></span>
+                      </span>
+                      <form phx-change="set_stem_donor" class="flex-1">
+                        <input type="hidden" name="stem" value={stem} />
+                        <select name="donor"
+                          class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[9px] text-gray-300 focus:outline-none focus:border-purple-500">
+                          <option value="own" selected={current_donor == "own"}>Own</option>
+                          <%= for t <- crate_tracks, t["spotify_id"] != @inspector_track["spotify_id"] do %>
+                            <% label = "#{t["title"] || "?"}" |> String.slice(0, 28) %>
+                            <option value={t["spotify_id"]} selected={current_donor == t["spotify_id"]}>{label}</option>
+                          <% end %>
+                        </select>
+                      </form>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+
             </div>
           <% end %>
         </div>
@@ -1417,6 +1967,182 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
         </div>
       </div>
     </div>
+
+    <%!-- v2: Guided Profile Wizard Modal --%>
+    <div :if={@profile_wizard_open} class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div class="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-800">
+          <h3 class="text-sm font-semibold text-gray-200">Define Crate Profile</h3>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-500">Step {@profile_wizard_step}/4</span>
+            <button phx-click="close_profile_wizard" class="text-gray-500 hover:text-white">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="px-5 py-4 min-h-[180px]">
+          <%!-- Step 1: BPM Range --%>
+          <div :if={@profile_wizard_step == 1}>
+            <p class="text-xs text-gray-400 mb-3">What BPM range defines this crate?</p>
+            <div class="flex items-center gap-4">
+              <div class="flex-1">
+                <label class="text-[10px] text-gray-500 block mb-1">Min BPM</label>
+                <form phx-change="set_profile_field">
+                  <input type="hidden" name="field" value="bpm_min" />
+                  <input type="range" name="value" min="60" max="200" value={@profile_wizard_draft["bpm_min"] || 120}
+                    class="w-full accent-purple-500" phx-debounce="100" />
+                  <span class="text-purple-400 text-xs font-mono">{@profile_wizard_draft["bpm_min"] || 120} BPM</span>
+                </form>
+              </div>
+              <div class="flex-1">
+                <label class="text-[10px] text-gray-500 block mb-1">Max BPM</label>
+                <form phx-change="set_profile_field">
+                  <input type="hidden" name="field" value="bpm_max" />
+                  <input type="range" name="value" min="60" max="200" value={@profile_wizard_draft["bpm_max"] || 140}
+                    class="w-full accent-purple-500" phx-debounce="100" />
+                  <span class="text-purple-400 text-xs font-mono">{@profile_wizard_draft["bpm_max"] || 140} BPM</span>
+                </form>
+              </div>
+            </div>
+          </div>
+          <%!-- Step 2: Key preferences --%>
+          <div :if={@profile_wizard_step == 2}>
+            <p class="text-xs text-gray-400 mb-3">Select preferred keys (Camelot notation):</p>
+            <div class="grid grid-cols-6 gap-1">
+              <%= for key <- ~w(1A 2A 3A 4A 5A 6A 7A 8A 9A 10A 11A 12A 1B 2B 3B 4B 5B 6B 7B 8B 9B 10B 11B 12B) do %>
+                <form phx-change="set_profile_field">
+                  <input type="hidden" name="field" value="toggle_key" />
+                  <button type="button" phx-click="set_profile_field" phx-value-field="toggle_key" phx-value-value={key}
+                    class={[
+                      "w-full text-[9px] py-1 rounded transition-colors",
+                      if(key in (@profile_wizard_draft["key_preferences"] || []),
+                        do: "bg-purple-600 text-white font-medium",
+                        else: "bg-gray-800 text-gray-500 hover:bg-gray-700")
+                    ]}>
+                    {key}
+                  </button>
+                </form>
+              <% end %>
+            </div>
+          </div>
+          <%!-- Step 3: Energy level --%>
+          <div :if={@profile_wizard_step == 3}>
+            <p class="text-xs text-gray-400 mb-3">Target energy level for this crate:</p>
+            <form phx-change="set_profile_field">
+              <input type="hidden" name="field" value="energy_level" />
+              <input type="range" name="value" min="0" max="100" value={@profile_wizard_draft["energy_level"] || 70}
+                class="w-full accent-purple-500" phx-debounce="100" />
+            </form>
+            <div class="flex justify-between text-[9px] text-gray-600 mt-1">
+              <span>Mellow</span>
+              <span class="text-purple-400 font-mono">{@profile_wizard_draft["energy_level"] || 70}%</span>
+              <span>Peak</span>
+            </div>
+          </div>
+          <%!-- Step 4: Mood tags --%>
+          <div :if={@profile_wizard_step == 4}>
+            <p class="text-xs text-gray-400 mb-3">Add mood/genre tags (comma separated):</p>
+            <form phx-change="set_profile_field">
+              <input type="hidden" name="field" value="mood_tags" />
+              <input type="text" name="value"
+                value={@profile_wizard_draft["mood_tags"] |> List.wrap() |> Enum.join(", ")}
+                placeholder="deep house, hypnotic, driving, 4am..."
+                class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500"
+                phx-debounce="300" />
+            </form>
+            <div class="flex flex-wrap gap-1 mt-2">
+              <%= for tag <- (@profile_wizard_draft["mood_tags"] || []) do %>
+                <span class="px-2 py-0.5 rounded-full bg-purple-900/50 text-purple-300 text-[9px]">{tag}</span>
+              <% end %>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-between px-5 py-3 border-t border-gray-800">
+          <button :if={@profile_wizard_step > 1} phx-click="prev_wizard_step"
+            class="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition-colors">
+            Back
+          </button>
+          <div :if={@profile_wizard_step == 1} />
+          <div class="flex gap-2">
+            <button phx-click="close_profile_wizard"
+              class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors">
+              Cancel
+            </button>
+            <button :if={@profile_wizard_step < 4} phx-click="next_wizard_step"
+              class="px-4 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 rounded text-white font-medium transition-colors">
+              Next
+            </button>
+            <button :if={@profile_wizard_step == 4} phx-click="save_profile"
+              class="px-4 py-1.5 text-xs bg-green-600 hover:bg-green-500 rounded text-white font-medium transition-colors">
+              Save Profile
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- v2: Playlist Browser Modal --%>
+    <div :if={@playlist_browser_open} class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div class="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col" style="max-height: 70vh;">
+        <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-800 shrink-0">
+          <h3 class="text-sm font-semibold text-gray-200">Browse Your Spotify Library</h3>
+          <button phx-click="close_playlist_browser" class="text-gray-500 hover:text-white">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+          <div :if={@playlist_browser_loading} class="flex items-center justify-center py-12">
+            <span class="text-gray-500 text-xs animate-pulse">Loading your playlists...</span>
+          </div>
+          <div :if={!@playlist_browser_loading && @user_playlists == []} class="px-5 py-8 text-center">
+            <p class="text-gray-500 text-xs">No Spotify playlists found. Connect your Spotify account to browse.</p>
+          </div>
+          <%= for playlist <- @user_playlists do %>
+            <div class="flex items-center gap-3 px-4 py-2.5 border-b border-gray-800/50 hover:bg-gray-800/30">
+              <input type="checkbox"
+                checked={MapSet.member?(@selected_playlist_urls, playlist["url"])}
+                phx-click="toggle_playlist_selection"
+                phx-value-url={playlist["url"]}
+                class="accent-purple-500" />
+              <div class="w-8 h-8 rounded bg-gray-800 shrink-0 overflow-hidden">
+                <img :if={playlist["image_url"]} src={playlist["image_url"]} class="w-full h-full object-cover" />
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs text-gray-200 truncate">{playlist["name"]}</p>
+                <p class="text-[9px] text-gray-600">{playlist["tracks_total"]} tracks</p>
+              </div>
+            </div>
+          <% end %>
+        </div>
+        <div class="px-5 py-3 border-t border-gray-800 shrink-0">
+          <div class="flex items-center gap-3">
+            <form phx-change="set_mega_crate_name" class="flex-1">
+              <input type="text" name="name" value={@mega_crate_name}
+                placeholder="Name your mega-crate..."
+                class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500" />
+            </form>
+            <span class="text-[10px] text-gray-500">{MapSet.size(@selected_playlist_urls)} selected</span>
+            <button
+              phx-click="import_selected_playlists"
+              disabled={MapSet.size(@selected_playlist_urls) == 0 or @mega_crate_name == ""}
+              class="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed rounded text-white font-medium transition-colors shrink-0">
+              Import Selected
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Global MIDI Bar — offset 72px to clear TransportBar --%>
+    <.live_component
+      module={SoundForgeWeb.Live.Components.GlobalMidiBarComponent}
+      id="global-midi-bar"
+      position={@midi_bar_position}
+      visible={true}
+      bottom_offset={72}
+      midi_monitor_open={@midi_monitor_open}
+      midi_learn_active={@midi_learn_active}
+    />
     """
   end
 
@@ -1608,14 +2334,6 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   # ---------------------------------------------------------------------------
   # SVG icons
   # ---------------------------------------------------------------------------
-
-  defp vinyl_icon do
-    Phoenix.HTML.raw("""
-    <svg class="w-5 h-5 text-purple-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-    </svg>
-    """)
-  end
 
   defp vinyl_icon_sm do
     Phoenix.HTML.raw("""

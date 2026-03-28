@@ -2,16 +2,252 @@ defmodule SoundForge.DAW do
   @moduledoc """
   The DAW context.
 
-  Manages non-destructive edit operations applied to audio stems.
-  Operations are ordered by position and replayed to produce the final
-  edited audio output.
+  Provides two areas of functionality:
+
+  1. **Project CRUD** — management of `DawProject` records and their
+     track lanes (`DawProjectTrack`), including CrateDigger import.
+
+  2. **Non-destructive edit operations** — `EditOperation` records applied
+     to audio stems.  Operations are ordered by position and replayed to
+     produce the final edited audio output.
   """
 
   import Ecto.Query, warn: false
   alias SoundForge.Repo
 
+  alias SoundForge.CrateDigger.Crate
+  alias SoundForge.Daw.{DawProject, DawProjectTrack}
   alias SoundForge.DAW.EditOperation
-  alias SoundForge.Music.Stem
+  alias SoundForge.Music.{Stem, Track}
+
+  # ---------------------------------------------------------------------------
+  # Project CRUD
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  List all DAW projects for a user, ordered by most recently updated.
+
+  Preloads `:project_tracks` on each project.
+  """
+  @spec list_projects(integer()) :: [DawProject.t()]
+  def list_projects(user_id) do
+    DawProject
+    |> where([p], p.user_id == ^user_id)
+    |> order_by([p], desc: p.updated_at)
+    |> Repo.all()
+    |> Repo.preload(:project_tracks)
+  end
+
+  @doc """
+  Fetch a single DAW project by ID, raising `Ecto.NoResultsError` if missing.
+
+  Preloads `project_tracks` with their associated `audio_file` (`Music.Track`).
+  """
+  @spec get_project!(binary()) :: DawProject.t()
+  def get_project!(id) do
+    DawProject
+    |> Repo.get!(id)
+    |> Repo.preload(project_tracks: :audio_file)
+  end
+
+  @doc "Create a new DAW project for `user_id` with the given `attrs`."
+  @spec create_project(integer(), map()) ::
+          {:ok, DawProject.t()} | {:error, Ecto.Changeset.t()}
+  def create_project(user_id, attrs \\ %{}) do
+    %DawProject{}
+    |> DawProject.changeset(Map.put(attrs, :user_id, user_id))
+    |> Repo.insert()
+  end
+
+  @doc "Update an existing DAW project."
+  @spec update_project(DawProject.t(), map()) ::
+          {:ok, DawProject.t()} | {:error, Ecto.Changeset.t()}
+  def update_project(%DawProject{} = project, attrs) do
+    project
+    |> DawProject.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc "Delete a DAW project (cascades to project_tracks via DB constraint)."
+  @spec delete_project(DawProject.t()) ::
+          {:ok, DawProject.t()} | {:error, Ecto.Changeset.t()}
+  def delete_project(%DawProject{} = project) do
+    Repo.delete(project)
+  end
+
+  # ---------------------------------------------------------------------------
+  # Track-lane management
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Add a track lane to a project.
+
+  `attrs` should include `:position` and optionally `:audio_file_id`,
+  `:title`, `:track_type`, and `:metadata`.
+  """
+  @spec add_track(binary(), map()) ::
+          {:ok, DawProjectTrack.t()} | {:error, Ecto.Changeset.t()}
+  def add_track(project_id, attrs) do
+    result =
+      %DawProjectTrack{}
+      |> DawProjectTrack.changeset(Map.put(attrs, :daw_project_id, project_id))
+      |> Repo.insert()
+
+    case result do
+      {:ok, _track} ->
+        %{"project_id" => project_id}
+        |> SoundForge.Jobs.DawClassifyWorker.new()
+        |> Oban.insert()
+
+        result
+
+      {:error, _changeset} ->
+        result
+    end
+  end
+
+  @doc """
+  Remove a track lane from a project.
+
+  Accepts either a `DawProjectTrack` struct or a binary ID string.
+  """
+  @spec remove_track(DawProjectTrack.t() | binary()) ::
+          {:ok, DawProjectTrack.t()} | {:error, Ecto.Changeset.t() | :not_found}
+  def remove_track(%DawProjectTrack{} = track) do
+    Repo.delete(track)
+  end
+
+  def remove_track(id) when is_binary(id) do
+    case Repo.get(DawProjectTrack, id) do
+      nil -> {:error, :not_found}
+      track -> Repo.delete(track)
+    end
+  end
+
+  @doc """
+  Reorder track lanes within a project.
+
+  Accepts `project_id` and an ordered list of `DawProjectTrack` IDs.
+  Each track's `position` is updated to its zero-based index in the list.
+  """
+  @spec reorder_tracks(binary(), [binary()]) :: :ok | {:error, term()}
+  def reorder_tracks(project_id, track_ids) when is_list(track_ids) do
+    Repo.transaction(fn ->
+      track_ids
+      |> Enum.with_index()
+      |> Enum.each(fn {track_id, index} ->
+        DawProjectTrack
+        |> where([t], t.id == ^track_id and t.daw_project_id == ^project_id)
+        |> Repo.update_all(set: [position: index])
+      end)
+    end)
+    |> case do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Update the semantic type of a track lane.
+
+  Stores `:type` and `:manual` flag into the `metadata` map and also updates
+  the `track_type` field directly.
+
+  `opts` must include `:type` (atom or string). Optional `:manual` boolean
+  (defaults to `false`).
+  """
+  @spec update_track_type(DawProjectTrack.t(), map()) ::
+          {:ok, DawProjectTrack.t()} | {:error, Ecto.Changeset.t()}
+  def update_track_type(%DawProjectTrack{} = track, %{type: type} = opts) do
+    type_str = to_string(type)
+    manual = Map.get(opts, :manual, false)
+
+    updated_metadata =
+      (track.metadata || %{})
+      |> Map.put("type", type_str)
+      |> Map.put("manual", manual)
+
+    track
+    |> DawProjectTrack.changeset(%{track_type: type_str, metadata: updated_metadata})
+    |> Repo.update()
+  end
+
+  # ---------------------------------------------------------------------------
+  # CrateDigger import
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Import tracks from a CrateDigger crate into a DAW project.
+
+  For each `spotify_track_id` in the crate's `track_configs`, a matching
+  downloaded `Music.Track` is looked up by `spotify_id`. Tracks whose
+  `audio_file_id` already appears in the project are skipped.
+
+  Returns `{:ok, %{imported: count, skipped: count}}`.
+  """
+  @spec import_from_crate(binary(), binary()) ::
+          {:ok, %{imported: non_neg_integer(), skipped: non_neg_integer()}}
+          | {:error, :crate_not_found | :project_not_found}
+  def import_from_crate(project_id, crate_id) do
+    project = Repo.get(DawProject, project_id)
+    crate = Repo.get(Crate, crate_id)
+
+    cond do
+      is_nil(project) -> {:error, :project_not_found}
+      is_nil(crate) -> {:error, :crate_not_found}
+      true -> do_import_from_crate(project, crate)
+    end
+  end
+
+  defp do_import_from_crate(project, crate) do
+    crate = Repo.preload(crate, :track_configs)
+
+    spotify_ids =
+      crate.track_configs
+      |> Enum.map(& &1.spotify_track_id)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    matched_tracks =
+      Track
+      |> where([t], t.spotify_id in ^spotify_ids)
+      |> Repo.all()
+
+    existing_audio_file_ids =
+      DawProjectTrack
+      |> where([pt], pt.daw_project_id == ^project.id)
+      |> select([pt], pt.audio_file_id)
+      |> Repo.all()
+      |> MapSet.new()
+
+    current_count =
+      DawProjectTrack
+      |> where([pt], pt.daw_project_id == ^project.id)
+      |> Repo.aggregate(:count, :id)
+
+    new_tracks = Enum.reject(matched_tracks, &MapSet.member?(existing_audio_file_ids, &1.id))
+    already_present = length(matched_tracks) - length(new_tracks)
+
+    {imported, failed} =
+      new_tracks
+      |> Enum.with_index(current_count)
+      |> Enum.reduce({0, 0}, fn {track, position}, {imp, fail} ->
+        attrs = %{
+          daw_project_id: project.id,
+          audio_file_id: track.id,
+          title: track.title,
+          position: position,
+          track_type: "audio"
+        }
+
+        case %DawProjectTrack{} |> DawProjectTrack.changeset(attrs) |> Repo.insert() do
+          {:ok, _} -> {imp + 1, fail}
+          {:error, _} -> {imp, fail + 1}
+        end
+      end)
+
+    {:ok, %{imported: imported, skipped: already_present + failed}}
+  end
 
   # Edit Operation functions
 

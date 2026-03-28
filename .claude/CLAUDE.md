@@ -1091,3 +1091,27 @@ This is a hard rule with no exceptions.
 - [x] **CP-76**: SampleLibraryLive LiveView at /samples (US-S06)
 - [x] **CP-77**: SamplePreviewHook for in-browser audio preview (US-S07)
 - After Wave 3: `mix compile --warnings-as-errors` PASS, both /alchemy and /library routes live
+
+### Phase: Full-Featured DAW — Project Management + Track Classification (ralph/daw-full-featured)
+
+#### Wave 1 — Schema + Classifier (2 concurrent stories)
+- [x] **CP-10- [x] **CP-106**: Add daw_projects and daw_project_tracks migration and schemas (US-001) [SFA-252]
+- [x] **CP-10- [x] **CP-107**: Add TrackClassifier module for audio type detection (US-002) [SFA-253]
+- After Wave 1: `mix ecto.migrate` passes, `mix compile --warnings-as-errors` PASS
+
+#### Wave 2 — Context + Worker (2 concurrent stories, depend on Wave 1)
+- [x] **CP-10- [x] **CP-108**: Add SoundForge.DAW context with project CRUD (US-003) [SFA-254]
+- [x] **CP-10- [x] **CP-109**: Add DawClassifyWorker Oban job for batch track classification (US-004) [SFA-255]
+- After Wave 2: `mix compile --warnings-as-errors` PASS
+
+#### Wave 3 — LiveView + UI (4 concurrent stories, depend on Wave 2)
+- [x] **CP-110**: Create standalone DawProjectLive at /daw (US-005) [SFA-256]
+- [x] **CP-111**: Add project management sidebar to DawProjectLive (US-006) [SFA-257]
+- [x] **CP-112**: Add multi-file track panel to DawProjectLive (US-007) [SFA-258]
+- [x] **CP-113**: Add track type classification UI with confidence and manual override (US-008) [SFA-259]
+- After Wave 3: `mix compile --warnings-as-errors` PASS, /daw route live and functional
+
+#### Wave 4 — Hook + Integration (2 concurrent stories, depend on Wave 3)
+- [x] **CP-114**: Wire DawEditor JS hook to DawProjectLive project state (US-009) [SFA-260]
+- [x] **CP-115**: Add Import from CrateDigger to DAW project track panel (US-010) [SFA-261]
+- After Wave 4: `mix compile --warnings-as-errors` PASS, `mix test` all green, verify in browser
