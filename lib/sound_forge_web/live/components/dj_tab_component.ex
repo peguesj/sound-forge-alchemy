@@ -1071,9 +1071,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       existing = Enum.find(hot_cues, &(&1.label == letter))
 
       if existing do
-        # Jump to existing hot cue (no auto-play — seek only so user controls playback)
-        position_sec = existing.position_ms / 1000.0
-        {:noreply, push_event(socket, "seek_and_play", %{deck: deck_number, position: position_sec})}
+        # Existing hot cue: JS dj:seek already handled the jump, no server action needed
+        {:noreply, socket}
       else
         # Create new hot cue at current playhead position
         position_ms = trunc(deck.position * 1000)
