@@ -38,7 +38,8 @@ defmodule SoundForgeWeb.Live.Components.GlobalMidiBarComponent do
      |> assign(:midi_monitor_open, false)
      |> assign(:midi_learn_active, false)
      |> assign(:position, "bottom")
-     |> assign(:visible, true)}
+     |> assign(:visible, true)
+     |> assign(:bottom_offset, 0)}
   end
 
   @impl true
@@ -75,6 +76,7 @@ defmodule SoundForgeWeb.Live.Components.GlobalMidiBarComponent do
      socket
      |> assign_new(:position, fn -> assigns[:position] || "bottom" end)
      |> assign_new(:visible, fn -> Map.get(assigns, :visible, true) end)
+     |> assign(:bottom_offset, Map.get(assigns, :bottom_offset, socket.assigns.bottom_offset))
      |> assign(:midi_monitor_open, assigns[:midi_monitor_open] || socket.assigns.midi_monitor_open)
      |> assign(:midi_learn_active, assigns[:midi_learn_active] || socket.assigns.midi_learn_active)}
   end
@@ -104,13 +106,13 @@ defmodule SoundForgeWeb.Live.Components.GlobalMidiBarComponent do
     <div
       id="global-midi-bar"
       class={[
-        "fixed left-0 right-0 z-40 h-9 flex items-center px-3 gap-3",
+        "fixed left-0 right-0 z-41 h-9 flex items-center px-3 gap-3",
         "bg-gray-900/95 backdrop-blur border-gray-700/60",
         "text-xs text-gray-300 shadow-lg",
-        bar_position_class(@position),
+        bar_border_class(@position),
         if(!@visible, do: "hidden", else: "")
       ]}
-      style="font-family: 'SF Mono', monospace;"
+      style={bar_position_style(@position, @bottom_offset)}
     >
       <%!-- MIDI icon + device --%>
       <div class="flex items-center gap-1.5 min-w-0">
@@ -205,8 +207,14 @@ defmodule SoundForgeWeb.Live.Components.GlobalMidiBarComponent do
 
   # -- Helpers --
 
-  defp bar_position_class("top"), do: "top-0 border-b"
-  defp bar_position_class(_), do: "bottom-0 border-t"
+  defp bar_border_class("top"), do: "border-b"
+  defp bar_border_class(_), do: "border-t"
+
+  defp bar_position_style("top", _offset),
+    do: "top: 0; font-family: 'SF Mono', monospace;"
+
+  defp bar_position_style(_bottom, offset),
+    do: "bottom: #{offset}px; font-family: 'SF Mono', monospace;"
 
   defp midi_type(%{status: s}) when s in 0x80..0x8F, do: "NOTE OFF"
   defp midi_type(%{status: s}) when s in 0x90..0x9F, do: "NOTE ON"

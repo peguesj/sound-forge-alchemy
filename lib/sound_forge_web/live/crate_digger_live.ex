@@ -2133,12 +2133,13 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       </div>
     </div>
 
-    <%!-- Global MIDI Bar --%>
+    <%!-- Global MIDI Bar — offset 72px to clear TransportBar --%>
     <.live_component
       module={SoundForgeWeb.Live.Components.GlobalMidiBarComponent}
       id="global-midi-bar"
       position={@midi_bar_position}
       visible={true}
+      bottom_offset={72}
       midi_monitor_open={@midi_monitor_open}
       midi_learn_active={@midi_learn_active}
     />
