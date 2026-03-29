@@ -2621,18 +2621,6 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   @impl true
-  def handle_info({:virtual_controller, :trigger_cue, params}, socket) do
-    if socket.assigns.nav_tab == :dj do
-      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-        id: "dj-tab-root",
-        virtual_controller: {:trigger_cue, params}
-      )
-    end
-
-    {:noreply, socket}
-  end
-
-  @impl true
   def handle_info({:midi_action, :stem_volume, %{volume: volume, target: target} = params}, socket) do
     log_entry = midi_log_entry("CC -> stem_volume target=#{target} vol=#{Float.round(volume, 2)}")
 
