@@ -637,4 +637,208 @@ defmodule SoundForge.DJ.Presets do
   end
 
   defp parse_int(_, default), do: default
+
+  # ==========================================================================
+  # Serato XML Preset Parsing
+  # ==========================================================================
+
+  @doc """
+  Parses a Serato MIDI mapping XML export.
+
+  Serato exports MIDI mappings as XML via Preferences > MIDI.
+  The format wraps `<MidiMapping>` elements with `<Action>`, `<Status>`,
+  `<Data1>`, `<Data2>` children.
+
+  Returns `{:ok, %{mappings: [mapping_attrs], layout: map}}` or `{:error, reason}`.
+  """
+  @spec parse_serato(binary(), binary()) ::
+          {:ok, %{mappings: [mapping_attrs()], layout: map()}} | {:error, String.t()}
+  def parse_serato(binary, user_id) when is_binary(binary) and is_binary(user_id) do
+    charlist = String.to_charlist(binary)
+
+    case :xmerl_scan.string(charlist, quiet: true) do
+      {doc, _rest} ->
+        mappings = extract_serato_mappings(doc, user_id)
+        layout = %{name: "Serato Import", device_type: "serato", deck_count: 2, template_metadata: %{}}
+        {:ok, %{mappings: mappings, layout: layout}}
+
+      _ ->
+        {:error, "Invalid Serato XML"}
+    end
+  rescue
+    _ -> {:error, "Failed to parse Serato file"}
+  end
+
+  @serato_action_map %{
+    "play" => {:dj_play, %{}},
+    "pause" => {:dj_play, %{}},
+    "cue" => {:dj_cue, %{"slot" => "1"}},
+    "next_track" => {:next_track, %{}},
+    "prev_track" => {:prev_track, %{}},
+    "volume" => {:stem_volume, %{"target" => "master"}},
+    "crossfader" => {:dj_crossfader, %{}},
+    "loop_in" => {:dj_loop_toggle, %{}},
+    "loop_out" => {:dj_loop_toggle, %{}},
+    "hot_cue_1" => {:dj_cue, %{"slot" => "1"}},
+    "hot_cue_2" => {:dj_cue, %{"slot" => "2"}},
+    "hot_cue_3" => {:dj_cue, %{"slot" => "3"}},
+    "hot_cue_4" => {:dj_cue, %{"slot" => "4"}},
+    "hot_cue_5" => {:dj_cue, %{"slot" => "5"}},
+    "hot_cue_6" => {:dj_cue, %{"slot" => "6"}},
+    "hot_cue_7" => {:dj_cue, %{"slot" => "7"}},
+    "hot_cue_8" => {:dj_cue, %{"slot" => "8"}}
+  }
+
+  defp extract_serato_mappings(doc, user_id) do
+    entries = :xmerl_xpath.string('//MidiMapping', doc)
+
+    Enum.flat_map(entries, fn entry ->
+      action_str = get_child_text(entry, "Action") || ""
+      status_str = get_child_text(entry, "Status") || "176"
+      data1_str = get_child_text(entry, "Data1") || "0"
+      device_name = get_child_text(entry, "DeviceName") || "Serato Controller"
+
+      action_key = action_str |> String.downcase() |> String.replace(" ", "_")
+      {action, params} = Map.get(@serato_action_map, action_key, {:dj_play, %{}})
+
+      status = parse_int(status_str, 176)
+      channel = rem(status, 16)
+      midi_type = if status >= 176 and status <= 191, do: :cc, else: :note
+
+      [
+        %{
+          user_id: user_id,
+          device_name: device_name,
+          midi_type: midi_type,
+          channel: channel,
+          number: parse_int(data1_str, 0),
+          action: action,
+          params: params,
+          source: "serato"
+        }
+      ]
+    end)
+  end
+
+  defp get_child_text({:xmlElement, _, _, _, _, _, _, _, children, _, _, _}, tag_name) do
+    tag_atom = String.to_atom(tag_name)
+
+    case Enum.find(children, fn
+           {:xmlElement, name, _, _, _, _, _, _, _, _, _, _} -> name == tag_atom
+           _ -> false
+         end) do
+      nil ->
+        nil
+
+      {:xmlElement, _, _, _, _, _, _, _, sub_children, _, _, _} ->
+        text =
+          Enum.find_value(sub_children, fn
+            {:xmlText, _, _, _, value, _} -> to_string(value) |> String.trim()
+            _ -> nil
+          end)
+
+        if text == "", do: nil, else: text
+    end
+  end
+
+  defp get_child_text(_, _), do: nil
+
+  # ==========================================================================
+  # RekordBox XML Preset Parsing
+  # ==========================================================================
+
+  @doc """
+  Parses a RekordBox DJ MIDI mapping XML export (exported via Preferences > MIDI).
+
+  RekordBox format uses `<MIDI_ASSIGN>` elements with `STATUS`, `CH`, `NOTE`
+  attributes and a `FUNCTION_NAME` attribute describing the mapped action.
+
+  Returns `{:ok, %{mappings: [mapping_attrs], layout: map}}` or `{:error, reason}`.
+  """
+  @spec parse_rekordbox(binary(), binary()) ::
+          {:ok, %{mappings: [mapping_attrs()], layout: map()}} | {:error, String.t()}
+  def parse_rekordbox(binary, user_id) when is_binary(binary) and is_binary(user_id) do
+    charlist = String.to_charlist(binary)
+
+    case :xmerl_scan.string(charlist, quiet: true) do
+      {doc, _rest} ->
+        mappings = extract_rekordbox_mappings(doc, user_id)
+        name = extract_rekordbox_name(doc)
+        layout = %{name: name || "RekordBox Import", device_type: "rekordbox", deck_count: 2, template_metadata: %{}}
+        {:ok, %{mappings: mappings, layout: layout}}
+
+      _ ->
+        {:error, "Invalid RekordBox XML"}
+    end
+  rescue
+    _ -> {:error, "Failed to parse RekordBox file"}
+  end
+
+  @rekordbox_action_map %{
+    "PLAY_PAUSE" => {:dj_play, %{}},
+    "CUE" => {:dj_cue, %{"slot" => "1"}},
+    "CUE_PLAY" => {:dj_cue, %{"slot" => "1"}},
+    "HOT_CUE_1" => {:dj_cue, %{"slot" => "1"}},
+    "HOT_CUE_2" => {:dj_cue, %{"slot" => "2"}},
+    "HOT_CUE_3" => {:dj_cue, %{"slot" => "3"}},
+    "HOT_CUE_4" => {:dj_cue, %{"slot" => "4"}},
+    "HOT_CUE_5" => {:dj_cue, %{"slot" => "5"}},
+    "HOT_CUE_6" => {:dj_cue, %{"slot" => "6"}},
+    "HOT_CUE_7" => {:dj_cue, %{"slot" => "7"}},
+    "HOT_CUE_8" => {:dj_cue, %{"slot" => "8"}},
+    "TEMPO_SLIDER" => {:dj_pitch, %{}},
+    "CROSSFADER" => {:dj_crossfader, %{}},
+    "CHANNEL_FADER" => {:stem_volume, %{"target" => "master"}},
+    "MASTER_VOLUME" => {:stem_volume, %{"target" => "master"}},
+    "LOOP_IN" => {:dj_loop_toggle, %{}},
+    "LOOP_OUT" => {:dj_loop_toggle, %{}},
+    "LOOP_ACTIVE" => {:dj_loop_toggle, %{}},
+    "NEXT_TRACK" => {:next_track, %{}},
+    "PREV_TRACK" => {:prev_track, %{}}
+  }
+
+  defp extract_rekordbox_mappings(doc, user_id) do
+    entries = :xmerl_xpath.string('//MIDI_ASSIGN', doc)
+    device_name = extract_rekordbox_device(doc)
+
+    Enum.flat_map(entries, fn entry ->
+      function_name = get_attribute(entry, :FUNCTION_NAME) || ""
+      status_str = get_attribute(entry, :STATUS) || "176"
+      ch_str = get_attribute(entry, :CH) || "0"
+      note_str = get_attribute(entry, :NOTE) || "0"
+
+      fn_key = function_name |> String.upcase() |> String.replace(" ", "_")
+      {action, params} = Map.get(@rekordbox_action_map, fn_key, {:dj_play, %{}})
+
+      status = parse_int(status_str, 176)
+      midi_type = if status in [176, 177, 178, 179], do: :cc, else: :note
+
+      [
+        %{
+          user_id: user_id,
+          device_name: device_name,
+          midi_type: midi_type,
+          channel: parse_int(ch_str, 0),
+          number: parse_int(note_str, 0),
+          action: action,
+          params: params,
+          source: "rekordbox"
+        }
+      ]
+    end)
+  end
+
+  defp extract_rekordbox_name(doc) do
+    case :xmerl_xpath.string('//TEMPLATE/@NAME', doc) do
+      [{:xmlAttribute, _, _, _, _, _, _, _, value, _} | _] -> to_string(value)
+      _ -> nil
+    end
+  end
+
+  defp extract_rekordbox_device(doc) do
+    case :xmerl_xpath.string('//DEVICE/@NAME', doc) do
+      [{:xmlAttribute, _, _, _, _, _, _, _, value, _} | _] -> to_string(value)
+      _ -> "RekordBox Controller"
+    end
+  end
 end

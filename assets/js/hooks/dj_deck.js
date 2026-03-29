@@ -29,7 +29,11 @@ const DjDeck = {
       loop: null, pitch: 0.0, tempo: null, beatTimes: [], beatMarkers: [],
       timeFactor: 1.0,
       stemStates: {},
-      metronomeOscillator: null, metronomePlaying: false
+      metronomeOscillator: null, metronomePlaying: false,
+      // Loop chaining (Story 2.2)
+      _loopChain: null, _loopChainIndex: 0,
+      // Cue sequence (Story 2.3)
+      _cueSequence: null, _cueSeqActive: false
     })
     this.decks = { 1: deckTemplate(), 2: deckTemplate(), 3: deckTemplate(), 4: deckTemplate() }
 
@@ -71,6 +75,70 @@ const DjDeck = {
     this.handleEvent("set_master_volume", (payload) => this._setMasterVolume(payload))
     this.handleEvent("set_eq_gain", (payload) => this._setEqGain(payload))
     this.handleEvent("download_file", (payload) => this._downloadFile(payload))
+
+    // Tap tempo — delegate clicks on TAP buttons to _handleTapTempo
+    this._tapTimes = {}
+    this._onTapClick = (e) => {
+      const btn = e.target.closest('[id^="tap-tempo-btn-"]')
+      if (!btn) return
+      const deck = parseInt(btn.id.replace("tap-tempo-btn-", ""), 10)
+      if (deck >= 1 && deck <= 4) this._handleTapTempo(deck)
+    }
+    document.addEventListener("click", this._onTapClick, { passive: true })
+
+    // Stem loop step gate: server tells us which stem + steps pattern for a deck
+    this.handleEvent("set_stem_loop_gate", ({ deck, stem_type, steps }) => {
+      if (this.decks[deck]) {
+        this.decks[deck]._stemLoopGate = { stem_type, steps }
+      }
+    })
+
+    // Beat-driven step gate, cue sequence, pad sequencer
+    this._onBeat = (e) => {
+      const { step } = e.detail
+      const gateStep = Math.floor(step / 2)  // 16 clock steps → 8 gate positions
+
+      Object.entries(this.decks).forEach(([deckNum, deckState]) => {
+        // Stem loop step gate (Story 1.3)
+        const gate = deckState._stemLoopGate
+        if (gate && deckState.isPlaying) {
+          const stem = deckState.stems[gate.stem_type]
+          if (stem && stem.gainNode) {
+            const userMuted = deckState.stemStates && deckState.stemStates[gate.stem_type] === "mute"
+            if (!userMuted) {
+              const active = gate.steps[gateStep] !== false
+              const now = deckState.audioContext ? deckState.audioContext.currentTime : 0
+              stem.gainNode.gain.setValueAtTime(active ? 1.0 : 0.0, now)
+            }
+          }
+        }
+
+        // Cue sequence (Story 2.3): fire seek at each active step
+        if (deckState._cueSeqActive && deckState._cueSequence && deckState.isPlaying) {
+          const seqLen = deckState._cueSequence.length || 16
+          const seqStep = step % seqLen
+          const cuePos = deckState._cueSequence[seqStep]
+          if (cuePos && cuePos.position_ms != null) {
+            this._seekDeck(parseInt(deckNum), cuePos.position_ms / 1000)
+          }
+        }
+      })
+    }
+    window.addEventListener("sfa:beat", this._onBeat)
+
+    // Loop chain (Story 2.2): ordered list of {start_ms, end_ms} loops to chain
+    this.handleEvent("set_loop_chain", ({ deck, loops }) => {
+      if (!this.decks[deck]) return
+      this.decks[deck]._loopChain = loops && loops.length > 0 ? loops : null
+      this.decks[deck]._loopChainIndex = 0
+    })
+
+    // Cue sequence (Story 2.3): 16-element array of {position_ms} | null per step
+    this.handleEvent("set_cue_sequence", ({ deck, cue_positions, active }) => {
+      if (!this.decks[deck]) return
+      this.decks[deck]._cueSequence = cue_positions || null
+      this.decks[deck]._cueSeqActive = active !== false
+    })
 
     // Grid mode, fraction, and rhythmic quantize
     this.handleEvent("set_grid_mode", ({ deck, mode }) => {
@@ -583,9 +651,17 @@ const DjDeck = {
         const currentTime = deckState.audioContext.currentTime - deckState.startTime
         const currentTimeMs = currentTime * 1000
 
-        // Check loop boundary: if loop is active and we've reached loop_end, jump to loop_start
+        // Check loop boundary: if loop is active and we've reached loop_end
         if (deckState.loop && deckState.loop.active && deckState.loop.loop_end_ms) {
           if (currentTimeMs >= deckState.loop.loop_end_ms) {
+            // Loop chain (Story 2.2): advance to next loop in chain if set
+            if (deckState._loopChain && deckState._loopChain.length > 1) {
+              deckState._loopChainIndex = (deckState._loopChainIndex + 1) % deckState._loopChain.length
+              const nextLoop = deckState._loopChain[deckState._loopChainIndex]
+              deckState.loop.loop_start_ms = nextLoop.start_ms
+              deckState.loop.loop_end_ms = nextLoop.end_ms
+              console.log(`[DjDeck] Deck ${deck}: loop chain → index ${deckState._loopChainIndex} (${nextLoop.start_ms}ms-${nextLoop.end_ms}ms)`)
+            }
             const loopStartSec = deckState.loop.loop_start_ms / 1000
             console.log(`[DjDeck] Deck ${deck}: loop jump to ${loopStartSec.toFixed(2)}s`)
             this._seekDeck(deck, loopStartSec)
@@ -1268,6 +1344,11 @@ const DjDeck = {
     deckState.loopRegion = null
     deckState.cueMarkers = []
     deckState._pendingCuePoints = null
+    deckState._stemLoopGate = null
+    deckState._loopChain = null
+    deckState._loopChainIndex = 0
+    deckState._cueSequence = null
+    deckState._cueSeqActive = false
     deckState.loop = null
     deckState.pitch = 0.0
     deckState.tempo = null
@@ -1305,6 +1386,15 @@ const DjDeck = {
       this._previewContext = null
     }
     this._stopMidiLearnListener()
+    if (this._onTapClick) {
+      document.removeEventListener("click", this._onTapClick)
+      this._onTapClick = null
+    }
+    if (this._onBeat) {
+      window.removeEventListener("sfa:beat", this._onBeat)
+      this._onBeat = null
+    }
+    this._stopBeatClock()
   },
 
   // ---------------------------------------------------------------------------
@@ -1565,6 +1655,89 @@ const DjDeck = {
     }
     this._midiLearnListener = null
     this._midiLearnMidiAccess = null
+  },
+
+  // -- Tap Tempo --
+
+  /**
+   * Handle a tap from the TAP button for a given deck.
+   * Accumulates up to 8 tap timestamps, computes average BPM,
+   * and pushes a `tap_tempo` event to the server.
+   * Resets if more than 2 seconds have elapsed since the last tap.
+   *
+   * @param {number} deck - deck number (1–4)
+   */
+  _handleTapTempo(deck) {
+    const now = performance.now()
+    if (!this._tapTimes) this._tapTimes = {}
+    if (!this._tapTimes[deck]) this._tapTimes[deck] = []
+
+    const taps = this._tapTimes[deck]
+
+    // Reset if gap > 2 seconds
+    if (taps.length > 0 && now - taps[taps.length - 1] > 2000) {
+      this._tapTimes[deck] = []
+    }
+
+    this._tapTimes[deck].push(now)
+
+    // Keep only the last 8 taps
+    if (this._tapTimes[deck].length > 8) {
+      this._tapTimes[deck] = this._tapTimes[deck].slice(-8)
+    }
+
+    if (this._tapTimes[deck].length < 2) return  // Need at least 2 taps
+
+    // Compute average interval in ms
+    const times = this._tapTimes[deck]
+    let totalInterval = 0
+    for (let i = 1; i < times.length; i++) {
+      totalInterval += times[i] - times[i - 1]
+    }
+    const avgInterval = totalInterval / (times.length - 1)
+    const tappedBpm = Math.round((60000 / avgInterval) * 10) / 10
+
+    if (tappedBpm > 20 && tappedBpm < 400) {
+      console.log(`[DjDeck] Tap tempo deck ${deck}: ${tappedBpm} BPM`)
+      this.pushEvent("tap_tempo", { deck: String(deck), bpm: String(tappedBpm) })
+    }
+  },
+
+  // -- Global Beat Clock (shared singleton for step sequencer hooks) --
+
+  /**
+   * Start the global beat clock at the given BPM.
+   * Publishes `window.__sfaBeatClock` for other hooks (pad sequencer, stem gating).
+   * Only deck 1's BPM drives the master clock; other decks may use their own.
+   *
+   * @param {number} bpm - beats per minute
+   */
+  _startBeatClock(bpm) {
+    this._stopBeatClock()
+    if (!bpm || bpm <= 0) return
+
+    const beatMs = 60000 / bpm
+    let step = 0
+
+    window.__sfaBeatClock = { bpm, step: 0, active: true }
+
+    this._beatClockInterval = setInterval(() => {
+      step = (step + 1) % 16
+      window.__sfaBeatClock.step = step
+      window.__sfaBeatClock.bpm = bpm
+      // Dispatch a custom event so other hooks can react without polling
+      window.dispatchEvent(new CustomEvent("sfa:beat", { detail: { step, bpm } }))
+    }, beatMs)
+  },
+
+  _stopBeatClock() {
+    if (this._beatClockInterval) {
+      clearInterval(this._beatClockInterval)
+      this._beatClockInterval = null
+    }
+    if (window.__sfaBeatClock) {
+      window.__sfaBeatClock.active = false
+    }
   }
 }
 

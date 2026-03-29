@@ -29,11 +29,48 @@ defmodule SoundForge.MIDI.Mappings do
   end
 
   @doc """
+  Upsert a DJ MIDI mapping. If a mapping already exists for the same
+  (user_id, device_name, number), update its action/params. Otherwise insert.
+  """
+  def upsert_dj_mapping(%{user_id: uid, device_name: dev, number: num} = attrs) do
+    case Repo.get_by(Mapping, user_id: uid, device_name: dev, number: num) do
+      nil ->
+        %Mapping{}
+        |> Mapping.changeset(attrs)
+        |> Repo.insert()
+
+      existing ->
+        existing
+        |> Mapping.changeset(attrs)
+        |> Repo.update()
+    end
+  end
+
+  @doc """
   Deletes a MIDI mapping.
   """
   @spec delete_mapping(Mapping.t()) :: {:ok, Mapping.t()} | {:error, Ecto.Changeset.t()}
   def delete_mapping(%Mapping{} = mapping) do
     Repo.delete(mapping)
+  end
+
+  @doc "Update a mapping's fields."
+  def update_mapping(%Mapping{} = mapping, attrs) do
+    mapping
+    |> Mapping.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Find a single mapping by user, device, and MIDI number (note/CC).
+  Used by MIDI learn to detect if a control is already bound.
+  """
+  @spec get_mapping_for_control(integer(), String.t(), integer()) :: Mapping.t() | nil
+  def get_mapping_for_control(user_id, device_name, number) do
+    Mapping
+    |> where([m], m.user_id == ^user_id and m.device_name == ^device_name and m.number == ^number)
+    |> limit(1)
+    |> Repo.one()
   end
 
   @doc """

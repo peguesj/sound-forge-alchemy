@@ -34,6 +34,52 @@ defmodule SoundForge.Spotify do
     end
   end
 
+  @doc """
+  Fetch the current user's playlists from Spotify.
+
+  Requires a user-level OAuth access token stored on the user struct as
+  `spotify_access_token`. Returns `{:ok, [playlist_map]}` or `{:error, reason}`.
+
+  Each playlist_map has keys: `"id"`, `"name"`, `"tracks_total"`, `"url"`, `"image_url"`.
+  """
+  @spec list_user_playlists(map() | nil) ::
+          {:ok, [map()]} | {:error, term()}
+  def list_user_playlists(nil), do: {:error, :not_authenticated}
+
+  def list_user_playlists(user) do
+    token = user[:spotify_access_token] || Map.get(user, :spotify_access_token)
+
+    if is_nil(token) do
+      {:error, :no_spotify_token}
+    else
+      url = "https://api.spotify.com/v1/me/playlists?limit=50"
+      opts = [headers: [{"Authorization", "Bearer #{token}"}]]
+
+      case Req.get(url, opts) do
+        {:ok, %Req.Response{status: 200, body: body}} ->
+          items = body["items"] || []
+          playlists =
+            Enum.map(items, fn p ->
+              %{
+                "id" => p["id"],
+                "name" => p["name"],
+                "tracks_total" => get_in(p, ["tracks", "total"]) || 0,
+                "url" => "https://open.spotify.com/playlist/#{p["id"]}",
+                "image_url" => get_in(p, ["images", Access.at(0), "url"])
+              }
+            end)
+
+          {:ok, playlists}
+
+        {:ok, %Req.Response{status: status}} ->
+          {:error, {:api_error, status}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
   defp spotify_client do
     Application.get_env(:sound_forge, :spotify_client, SoundForge.Spotify.HTTPClient)
   end

@@ -23,9 +23,11 @@ defmodule SoundForge.Jobs.DownloadWorker do
           "spotify_url" => spotify_url,
           "quality" => quality,
           "job_id" => job_id
-        },
+        } = args,
         attempt: attempt
       } = oban_job) do
+    playlist_id = Map.get(args, "playlist_id")
+
     Logger.metadata(track_id: track_id, job_id: job_id, worker: "DownloadWorker", stage: "download")
 
     Logger.info(
@@ -36,25 +38,26 @@ defmodule SoundForge.Jobs.DownloadWorker do
     job = Music.get_download_job!(job_id)
     Music.update_download_job(job, %{status: :downloading, progress: 0})
     PipelineBroadcaster.broadcast_stage_started(track_id, job_id, :download)
+    PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :download, status: :downloading, progress: 0})
     broadcast_progress(job_id, :downloading, 0)
     broadcast_track_progress(track_id, :download, :downloading, 0)
 
-    # Download via spotdl (Spotify API -> YouTube -> yt-dlp)
+    # Download via spotdl (embed page scraping -> Spotify API fallback -> YouTube -> yt-dlp)
     dl_opts = [output_dir: downloads_dir(), bitrate: quality, output_template: track_id]
 
     case SpotDL.download(spotify_url, dl_opts) do
       {:ok, result} ->
         Logger.debug("[oban.DownloadWorker] SpotDL.download returned :ok, path=#{result.path} size=#{result.size}")
-        handle_download_success(result, track_id, job_id, job)
+        handle_download_success(result, track_id, job_id, job, playlist_id)
 
       {:error, reason} ->
         Logger.debug("[oban.DownloadWorker] SpotDL.download returned :error, reason=#{reason}")
         Logger.warning("[oban.DownloadWorker] Spotify download failed: #{reason} -- attempting direct fallback")
-        attempt_direct_fallback(track_id, job_id, job, dl_opts, reason)
+        attempt_direct_fallback(track_id, job_id, job, dl_opts, reason, playlist_id)
     end
   end
 
-  defp handle_download_success(%{path: output_path, size: file_size}, track_id, job_id, job) do
+  defp handle_download_success(%{path: output_path, size: file_size}, track_id, job_id, job, playlist_id) do
     Logger.metadata(stage: "validate")
     Logger.debug("[oban.DownloadWorker] validating output_path=#{output_path} file_size=#{file_size}")
 
@@ -71,6 +74,7 @@ defmodule SoundForge.Jobs.DownloadWorker do
 
         Logger.info("[oban.DownloadWorker] download complete: output_path=#{output_path} file_size=#{file_size}")
         PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :download)
+        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :download, status: :completed, progress: 100})
 
         enqueue_processing(track_id, output_path)
 
@@ -81,12 +85,13 @@ defmodule SoundForge.Jobs.DownloadWorker do
         Logger.error("[oban.DownloadWorker] download validation failed: #{reason}")
         Music.update_download_job(job, %{status: :failed, error: reason})
         PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :download)
+        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :download, status: :failed, progress: 0})
         File.rm(output_path)
         {:error, reason}
     end
   end
 
-  defp attempt_direct_fallback(track_id, job_id, job, dl_opts, original_reason) do
+  defp attempt_direct_fallback(track_id, job_id, job, dl_opts, original_reason, playlist_id) do
     Logger.metadata(stage: "fallback")
     track = Music.get_track!(track_id)
 
@@ -100,18 +105,20 @@ defmodule SoundForge.Jobs.DownloadWorker do
       case SpotDL.download_direct(metadata, dl_opts) do
         {:ok, result} ->
           Logger.info("[oban.DownloadWorker] direct fallback succeeded for track #{track_id}")
-          handle_download_success(result, track_id, job_id, job)
+          handle_download_success(result, track_id, job_id, job, playlist_id)
 
         {:error, fallback_reason} ->
           Logger.error("[oban.DownloadWorker] direct fallback also failed: #{fallback_reason}")
           Music.update_download_job(job, %{status: :failed, error: original_reason})
           PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :download)
+          PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :download, status: :failed, progress: 0})
           {:error, original_reason}
       end
     else
       Logger.error("[oban.DownloadWorker] cannot attempt direct fallback: track #{track_id} missing title/artist")
       Music.update_download_job(job, %{status: :failed, error: original_reason})
       PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :download)
+      PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :download, status: :failed, progress: 0})
       {:error, original_reason}
     end
   end

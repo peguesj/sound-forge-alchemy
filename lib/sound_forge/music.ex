@@ -257,6 +257,20 @@ defmodule SoundForge.Music do
   def get_track_by_spotify_id(_), do: nil
 
   @doc """
+  Gets a track by its Spotify ID, preloaded with all pipeline job associations.
+  Returns nil if not found.
+  """
+  @spec get_track_by_spotify_id_with_status(String.t() | nil) :: Track.t() | nil
+  def get_track_by_spotify_id_with_status(spotify_id) when is_binary(spotify_id) do
+    case Repo.get_by(Track, spotify_id: spotify_id) do
+      nil -> nil
+      track -> Repo.preload(track, [:download_jobs, :processing_jobs, :analysis_jobs])
+    end
+  end
+
+  def get_track_by_spotify_id_with_status(_), do: nil
+
+  @doc """
   Gets a track with preloaded stems, download_jobs, and latest analysis result.
   """
   @spec get_track_with_details!(String.t()) :: Track.t()
@@ -480,6 +494,43 @@ defmodule SoundForge.Music do
     |> order_by([t, pt], asc: pt.position)
     |> apply_pagination(opts)
     |> Repo.all()
+  end
+
+  @doc """
+  Lists tracks for a playlist with their pipeline job associations preloaded.
+
+  Returns tracks in playlist order with download_jobs, processing_jobs, and
+  analysis_jobs loaded so callers can determine pipeline status per track
+  without additional queries.
+  """
+  @spec list_playlist_tracks_with_status(String.t()) :: [Track.t()]
+  def list_playlist_tracks_with_status(playlist_id) do
+    Track
+    |> join(:inner, [t], pt in PlaylistTrack,
+      on: pt.track_id == t.id and pt.playlist_id == ^playlist_id
+    )
+    |> order_by([t, pt], asc: pt.position)
+    |> Repo.all()
+    |> Repo.preload([:download_jobs, :processing_jobs, :analysis_jobs])
+  end
+
+  @doc """
+  Returns true if the full pipeline is complete for a track.
+
+  A pipeline is considered complete when:
+  - At least one download job has status :completed
+  - At least one analysis job has status :completed
+
+  Pass a track with preloaded jobs to avoid extra queries, or pass a bare
+  track struct and this function will load the associations automatically.
+  """
+  @spec track_pipeline_complete?(Track.t()) :: boolean()
+  def track_pipeline_complete?(%Track{} = track) do
+    %{download_jobs: djs, analysis_jobs: ajs} =
+      Repo.preload(track, [:download_jobs, :analysis_jobs])
+
+    Enum.any?(djs, &(&1.status == :completed)) and
+      Enum.any?(ajs, &(&1.status == :completed))
   end
 
   @doc "Returns tracks filtered by source (spotify/splice/manual/import) for the given user."

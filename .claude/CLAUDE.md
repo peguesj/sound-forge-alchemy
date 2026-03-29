@@ -430,6 +430,71 @@ All admin mutations are automatically audit-logged by the `Admin` context. The p
 
 Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivate`, `config_update`, `feature_flag_toggle`, `login`, `logout`, `create`, `update`, `delete`.
 
+## Feature: CrateDigger — Learning-Focused Spotify Playlist Player (feature/crate-digger, v4.7.0)
+
+Route `/crate` — standalone LiveView for importing Spotify playlists as crates, configuring per-track stem overrides, and browsing WhoSampled sample history.
+
+### Database Tables
+
+| Table | PK | Purpose |
+|---|---|---|
+| `crates` | `binary_id` | Spotify playlist snapshots with stem config defaults |
+| `crate_track_configs` | `binary_id` | Per-track stem overrides (nullable); unique on `(crate_id, spotify_track_id)` |
+| `who_sampled_cache` | `binary_id` | 7-day TTL WhoSampled.com result cache keyed by `spotify_track_id` |
+
+### Context Functions (`lib/sound_forge/crate_digger.ex`)
+
+| Function | Notes |
+|---|---|
+| `list_crates/1` | List all crates for a user_id |
+| `load_spotify_playlist/2` | Fetch via `SoundForge.Spotify.fetch_metadata/1`, upsert Crate |
+| `update_crate_stem_config/2` | Update default stem config for entire crate |
+| `get_effective_stem_config/2` | Returns track override if present, else crate default |
+| `set_track_stem_override/3` | Pass `nil` to clear override (deletes CrateTrackConfig row) |
+
+### WhoSampledScraper (`lib/sound_forge/crate_digger/who_sampled_scraper.ex`)
+
+- Req (HTTP) + Floki (HTML parsing) — `{:floki, "~> 0.36"}` added to mix.exs
+- `fetch_samples(spotify_track_id, artist, title)` → `{:ok, [map()]}` | `{:error, :rate_limited}`
+- Cache lookup: `fetched_at` compared to `DateTime.add(utc_now(), -7 * 86400, :second)`
+- `store_cache/2` uses `on_conflict: :replace_all, conflict_target: :spotify_track_id`
+- Sample map keys: `title`, `artist`, `year`, `sample_type` (direct/interpolation/replayed/other), `spotify_url`, `youtube_url`
+
+### LiveView Patterns (`lib/sound_forge_web/live/crate_digger_live.ex`)
+
+**Async load pattern**:
+```elixir
+# Inside handle_event("select_track", ...) — never blocks render
+send(self(), {:fetch_whosampled, track.spotify_track_id, track.artist, track.title})
+```
+
+**Slide panel**: CSS only, no JS hook needed
+```html
+<div class={"fixed inset-y-0 right-0 w-96 ... transition-transform duration-300 ease-in-out
+             #{if @selected_track, do: "translate-x-0", else: "translate-x-full"}"}>
+```
+
+**Accordion sections**: use inline `:if` + `phx-value-section` — do NOT use `TagEngine.component` (broken in HEEx)
+```heex
+<div :if={@section_open.who_sampled}>...</div>
+```
+
+**PubSub stem broadcast** (consumed by DashboardLive to route playback with correct stems):
+```elixir
+Phoenix.PubSub.broadcast(SoundForge.PubSub, "crate_digger:stem_config",
+  {:crate_digger, :stem_config, %{enabled_stems: stems}})
+```
+
+**Sidebar**: add tab to `:if` exclusion list so sidebar hides when CrateDigger is active:
+```elixir
+:if={@nav_tab not in [:dj, :daw, :pads, :crate]}
+```
+
+### Schema Conventions
+- All three schemas use `@primary_key {:id, :binary_id, autogenerate: true}`
+- `belongs_to :user, SoundForge.Accounts.User, type: :integer` — cross-type FK (users has integer PK)
+- `belongs_to :crate` — no override needed (crates PK is binary_id, which is the Ecto default FK type)
+
 ## Implementation Checkpoints
 
 ### Feature: Melodics/MPC App/TouchOSC/Responsive (feat/melodics-mpc-touchosc-responsive)
@@ -735,6 +800,34 @@ All 16 stories (US-301 through US-316) delivered. CP-79 through CP-94 complete.
 - [x] `chord_results` table for chord detection output
 - [x] `auto_midi_chord` user settings
 
+### Phase 12: CrateDigger — Learning-Focused Spotify Playlist Player (feature/crate-digger)
+
+#### Wave 1 — Foundation (CP-95 to CP-97)
+- [x] **CP-95**: Crate, CrateTrackConfig, WhoSampledCache schemas + migration (US-CD01)
+- [x] **CP-96**: CrateDigger context module — CRUD, load_spotify_playlist, stem override helpers (US-CD02)
+- [x] **CP-97**: WhoSampledScraper — Req-based scraper with 7-day cache (US-CD03)
+- After CP-97: `mix compile` passes, `mix ecto.migrate` runs cleanly
+
+#### Wave 2 — LiveView Shell (CP-98)
+- [x] **CP-98**: CrateDiggerLive at /crate — track list + slide-out inspector shell (US-CD04)
+- After CP-98: /crate renders in browser, inspector opens/closes with CSS transition
+
+#### Wave 3 — Inspector Sections (CP-99 to CP-101)
+- [x] **CP-99**: WhoSampled inspector — lazy async fetch, type badges, Load into SFA (US-CD05)
+- [x] **CP-100**: Track Details + Lyrics inspector sections (US-CD06)
+- [x] **CP-101**: Processing/Analysis inspector — BPM, key, energy, stem grid (US-CD07)
+- After CP-101: all four inspector sections functional
+
+#### Wave 4 — Stem Config (CP-102 to CP-103)
+- [x] **CP-102**: Playlist-level stem config UI — toggle buttons persisted on Crate (US-CD08)
+- [x] **CP-103**: Per-track stem override + PubSub broadcast (US-CD09)
+- After CP-103: stem config persists, PubSub broadcasts effective config on track play
+
+#### Wave 5 — Integration + Polish (CP-104 to CP-105)
+- [x] **CP-104**: Dashboard nav integration — sidebar link, router, nav_tab (US-CD10)
+- [x] **CP-105**: Polish — empty states, skeleton loading, mobile inspector overlay, error handling (US-CD11)
+- After CP-105: `mix compile` passes, live browser test confirms full UX flow
+
 ## Agentic Complexity Tree View Requirement
 
 When any request involves agentic complexity (UPM, Formation, agent deployment), ALWAYS display a `tree`-style hierarchical view of the planned structure BEFORE execution. This applies to /upm build, /formation deploy, /deploy:agents-v2, /ralph story mapping, /plane-pm issue creation, and any todo/task list with concurrent work. No exceptions.
@@ -998,3 +1091,27 @@ This is a hard rule with no exceptions.
 - [x] **CP-76**: SampleLibraryLive LiveView at /samples (US-S06)
 - [x] **CP-77**: SamplePreviewHook for in-browser audio preview (US-S07)
 - After Wave 3: `mix compile --warnings-as-errors` PASS, both /alchemy and /library routes live
+
+### Phase: Full-Featured DAW — Project Management + Track Classification (ralph/daw-full-featured)
+
+#### Wave 1 — Schema + Classifier (2 concurrent stories)
+- [x] **CP-10- [x] **CP-106**: Add daw_projects and daw_project_tracks migration and schemas (US-001) [SFA-252]
+- [x] **CP-10- [x] **CP-107**: Add TrackClassifier module for audio type detection (US-002) [SFA-253]
+- After Wave 1: `mix ecto.migrate` passes, `mix compile --warnings-as-errors` PASS
+
+#### Wave 2 — Context + Worker (2 concurrent stories, depend on Wave 1)
+- [x] **CP-10- [x] **CP-108**: Add SoundForge.DAW context with project CRUD (US-003) [SFA-254]
+- [x] **CP-10- [x] **CP-109**: Add DawClassifyWorker Oban job for batch track classification (US-004) [SFA-255]
+- After Wave 2: `mix compile --warnings-as-errors` PASS
+
+#### Wave 3 — LiveView + UI (4 concurrent stories, depend on Wave 2)
+- [x] **CP-110**: Create standalone DawProjectLive at /daw (US-005) [SFA-256]
+- [x] **CP-111**: Add project management sidebar to DawProjectLive (US-006) [SFA-257]
+- [x] **CP-112**: Add multi-file track panel to DawProjectLive (US-007) [SFA-258]
+- [x] **CP-113**: Add track type classification UI with confidence and manual override (US-008) [SFA-259]
+- After Wave 3: `mix compile --warnings-as-errors` PASS, /daw route live and functional
+
+#### Wave 4 — Hook + Integration (2 concurrent stories, depend on Wave 3)
+- [x] **CP-114**: Wire DawEditor JS hook to DawProjectLive project state (US-009) [SFA-260]
+- [x] **CP-115**: Add Import from CrateDigger to DAW project track panel (US-010) [SFA-261]
+- After Wave 4: `mix compile --warnings-as-errors` PASS, `mix test` all green, verify in browser

@@ -14,6 +14,7 @@ defmodule SoundForge.Sampler.Bank do
           color: String.t() | nil,
           position: integer(),
           bpm: float() | nil,
+          pad_sequences: map() | nil,
           user_id: integer(),
           pads: [SoundForge.Sampler.Pad.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil,
@@ -28,6 +29,7 @@ defmodule SoundForge.Sampler.Bank do
     field :color, :string, default: "#8b5cf6"
     field :position, :integer, default: 0
     field :bpm, :float
+    field :pad_sequences, :map
     field :user_id, :integer
 
     has_many :pads, SoundForge.Sampler.Pad
@@ -38,7 +40,7 @@ defmodule SoundForge.Sampler.Bank do
   @doc false
   def changeset(bank, attrs) do
     bank
-    |> cast(attrs, [:name, :color, :position, :bpm, :user_id])
+    |> cast(attrs, [:name, :color, :position, :bpm, :pad_sequences, :user_id])
     |> validate_required([:name, :user_id])
     |> validate_length(:name, min: 1, max: 100)
   end
