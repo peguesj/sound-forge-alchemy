@@ -2330,11 +2330,6 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   # -- Saved Presets Panel (US-009) --
 
   @impl true
-  def handle_event("toggle_presets_panel", _params, socket) do
-    {:noreply, assign(socket, :presets_panel_open, !socket.assigns.presets_panel_open)}
-  end
-
-  @impl true
   def handle_event("preset_name_change", %{"value" => value}, socket) do
     {:noreply, assign(socket, :preset_name_input, value)}
   end
