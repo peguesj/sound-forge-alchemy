@@ -2,7 +2,7 @@
 
 **Professional audio engineering platform for DJs and producers — built on Elixir/Phoenix.**
 
-[![Version](https://img.shields.io/badge/version-4.3.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.0.0-blue.svg)](CHANGELOG.md)
 [![Elixir](https://img.shields.io/badge/elixir-~%3E1.15-purple.svg)](https://elixir-lang.org)
 [![Phoenix](https://img.shields.io/badge/phoenix-~%3E1.8-orange.svg)](https://phoenixframework.org)
 [![Tests](https://img.shields.io/badge/tests-707%20passing-brightgreen.svg)](test/)
