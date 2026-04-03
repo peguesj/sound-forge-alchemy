@@ -430,6 +430,71 @@ All admin mutations are automatically audit-logged by the `Admin` context. The p
 
 Audited actions: `role_change`, `bulk_role_change`, `suspend`, `ban`, `reactivate`, `config_update`, `feature_flag_toggle`, `login`, `logout`, `create`, `update`, `delete`.
 
+## Feature: CrateDigger — Learning-Focused Spotify Playlist Player (feature/crate-digger, v4.7.0)
+
+Route `/crate` — standalone LiveView for importing Spotify playlists as crates, configuring per-track stem overrides, and browsing WhoSampled sample history.
+
+### Database Tables
+
+| Table | PK | Purpose |
+|---|---|---|
+| `crates` | `binary_id` | Spotify playlist snapshots with stem config defaults |
+| `crate_track_configs` | `binary_id` | Per-track stem overrides (nullable); unique on `(crate_id, spotify_track_id)` |
+| `who_sampled_cache` | `binary_id` | 7-day TTL WhoSampled.com result cache keyed by `spotify_track_id` |
+
+### Context Functions (`lib/sound_forge/crate_digger.ex`)
+
+| Function | Notes |
+|---|---|
+| `list_crates/1` | List all crates for a user_id |
+| `load_spotify_playlist/2` | Fetch via `SoundForge.Spotify.fetch_metadata/1`, upsert Crate |
+| `update_crate_stem_config/2` | Update default stem config for entire crate |
+| `get_effective_stem_config/2` | Returns track override if present, else crate default |
+| `set_track_stem_override/3` | Pass `nil` to clear override (deletes CrateTrackConfig row) |
+
+### WhoSampledScraper (`lib/sound_forge/crate_digger/who_sampled_scraper.ex`)
+
+- Req (HTTP) + Floki (HTML parsing) — `{:floki, "~> 0.36"}` added to mix.exs
+- `fetch_samples(spotify_track_id, artist, title)` → `{:ok, [map()]}` | `{:error, :rate_limited}`
+- Cache lookup: `fetched_at` compared to `DateTime.add(utc_now(), -7 * 86400, :second)`
+- `store_cache/2` uses `on_conflict: :replace_all, conflict_target: :spotify_track_id`
+- Sample map keys: `title`, `artist`, `year`, `sample_type` (direct/interpolation/replayed/other), `spotify_url`, `youtube_url`
+
+### LiveView Patterns (`lib/sound_forge_web/live/crate_digger_live.ex`)
+
+**Async load pattern**:
+```elixir
+# Inside handle_event("select_track", ...) — never blocks render
+send(self(), {:fetch_whosampled, track.spotify_track_id, track.artist, track.title})
+```
+
+**Slide panel**: CSS only, no JS hook needed
+```html
+<div class={"fixed inset-y-0 right-0 w-96 ... transition-transform duration-300 ease-in-out
+             #{if @selected_track, do: "translate-x-0", else: "translate-x-full"}"}>
+```
+
+**Accordion sections**: use inline `:if` + `phx-value-section` — do NOT use `TagEngine.component` (broken in HEEx)
+```heex
+<div :if={@section_open.who_sampled}>...</div>
+```
+
+**PubSub stem broadcast** (consumed by DashboardLive to route playback with correct stems):
+```elixir
+Phoenix.PubSub.broadcast(SoundForge.PubSub, "crate_digger:stem_config",
+  {:crate_digger, :stem_config, %{enabled_stems: stems}})
+```
+
+**Sidebar**: add tab to `:if` exclusion list so sidebar hides when CrateDigger is active:
+```elixir
+:if={@nav_tab not in [:dj, :daw, :pads, :crate]}
+```
+
+### Schema Conventions
+- All three schemas use `@primary_key {:id, :binary_id, autogenerate: true}`
+- `belongs_to :user, SoundForge.Accounts.User, type: :integer` — cross-type FK (users has integer PK)
+- `belongs_to :crate` — no override needed (crates PK is binary_id, which is the Ecto default FK type)
+
 ## Implementation Checkpoints
 
 ### Feature: Melodics/MPC App/TouchOSC/Responsive (feat/melodics-mpc-touchosc-responsive)
@@ -735,6 +800,34 @@ All 16 stories (US-301 through US-316) delivered. CP-79 through CP-94 complete.
 - [x] `chord_results` table for chord detection output
 - [x] `auto_midi_chord` user settings
 
+### Phase 12: CrateDigger — Learning-Focused Spotify Playlist Player (feature/crate-digger)
+
+#### Wave 1 — Foundation (CP-95 to CP-97)
+- [x] **CP-95**: Crate, CrateTrackConfig, WhoSampledCache schemas + migration (US-CD01)
+- [x] **CP-96**: CrateDigger context module — CRUD, load_spotify_playlist, stem override helpers (US-CD02)
+- [x] **CP-97**: WhoSampledScraper — Req-based scraper with 7-day cache (US-CD03)
+- After CP-97: `mix compile` passes, `mix ecto.migrate` runs cleanly
+
+#### Wave 2 — LiveView Shell (CP-98)
+- [x] **CP-98**: CrateDiggerLive at /crate — track list + slide-out inspector shell (US-CD04)
+- After CP-98: /crate renders in browser, inspector opens/closes with CSS transition
+
+#### Wave 3 — Inspector Sections (CP-99 to CP-101)
+- [x] **CP-99**: WhoSampled inspector — lazy async fetch, type badges, Load into SFA (US-CD05)
+- [x] **CP-100**: Track Details + Lyrics inspector sections (US-CD06)
+- [x] **CP-101**: Processing/Analysis inspector — BPM, key, energy, stem grid (US-CD07)
+- After CP-101: all four inspector sections functional
+
+#### Wave 4 — Stem Config (CP-102 to CP-103)
+- [x] **CP-102**: Playlist-level stem config UI — toggle buttons persisted on Crate (US-CD08)
+- [x] **CP-103**: Per-track stem override + PubSub broadcast (US-CD09)
+- After CP-103: stem config persists, PubSub broadcasts effective config on track play
+
+#### Wave 5 — Integration + Polish (CP-104 to CP-105)
+- [x] **CP-104**: Dashboard nav integration — sidebar link, router, nav_tab (US-CD10)
+- [x] **CP-105**: Polish — empty states, skeleton loading, mobile inspector overlay, error handling (US-CD11)
+- After CP-105: `mix compile` passes, live browser test confirms full UX flow
+
 ## Agentic Complexity Tree View Requirement
 
 When any request involves agentic complexity (UPM, Formation, agent deployment), ALWAYS display a `tree`-style hierarchical view of the planned structure BEFORE execution. This applies to /upm build, /formation deploy, /deploy:agents-v2, /ralph story mapping, /plane-pm issue creation, and any todo/task list with concurrent work. No exceptions.
@@ -998,3 +1091,92 @@ This is a hard rule with no exceptions.
 - [x] **CP-76**: SampleLibraryLive LiveView at /samples (US-S06)
 - [x] **CP-77**: SamplePreviewHook for in-browser audio preview (US-S07)
 - After Wave 3: `mix compile --warnings-as-errors` PASS, both /alchemy and /library routes live
+
+### Phase: Full-Featured DAW — Project Management + Track Classification (ralph/daw-full-featured)
+
+#### Wave 1 — Schema + Classifier (2 concurrent stories)
+- [x] **CP-10- [x] **CP-106**: Add daw_projects and daw_project_tracks migration and schemas (US-001) [SFA-252]
+- [x] **CP-10- [x] **CP-107**: Add TrackClassifier module for audio type detection (US-002) [SFA-253]
+- After Wave 1: `mix ecto.migrate` passes, `mix compile --warnings-as-errors` PASS
+
+#### Wave 2 — Context + Worker (2 concurrent stories, depend on Wave 1)
+- [x] **CP-10- [x] **CP-108**: Add SoundForge.DAW context with project CRUD (US-003) [SFA-254]
+- [x] **CP-10- [x] **CP-109**: Add DawClassifyWorker Oban job for batch track classification (US-004) [SFA-255]
+- After Wave 2: `mix compile --warnings-as-errors` PASS
+
+#### Wave 3 — LiveView + UI (4 concurrent stories, depend on Wave 2)
+- [x] **CP-110**: Create standalone DawProjectLive at /daw (US-005) [SFA-256]
+- [x] **CP-111**: Add project management sidebar to DawProjectLive (US-006) [SFA-257]
+- [x] **CP-112**: Add multi-file track panel to DawProjectLive (US-007) [SFA-258]
+- [x] **CP-113**: Add track type classification UI with confidence and manual override (US-008) [SFA-259]
+- After Wave 3: `mix compile --warnings-as-errors` PASS, /daw route live and functional
+
+#### Wave 4 — Hook + Integration (2 concurrent stories, depend on Wave 3)
+- [x] **CP-114**: Wire DawEditor JS hook to DawProjectLive project state (US-009) [SFA-260]
+- [x] **CP-115**: Add Import from CrateDigger to DAW project track panel (US-010) [SFA-261]
+- After Wave 4: `mix compile --warnings-as-errors` PASS, `mix test` all green, verify in browser
+
+### Phase: SFA v4.7.0 UAT Coverage + OpsDoc + Showcase + Docsmax (feature/uat-docs-showcase-2026-03-30)
+
+#### Wave 1 — E2E Tests + OpsDoc Runbooks (20 concurrent stories)
+- [x] **CP-116**: E2E: Settings audio engine toggle (SET-01) [SFA-262]
+- [x] **CP-117**: E2E: lalal.ai quota display in settings (SET-02) [SFA-263]
+- [x] **CP-118**: E2E: Debug mode toggle shows/hides inspector panel (SET-03) [SFA-264]
+- [x] **CP-119**: E2E: MIDI device selection in Settings (SET-04) [SFA-265]
+- [x] **CP-120**: E2E: BigLoopy source track selection at /alchemy (BL-01) [SFA-266]
+- [x] **CP-121**: E2E: BigLoopy recipe natural language input (BL-02) [SFA-267]
+- [x] **CP-122**: E2E: BigLoopy agent progress visualization (BL-03) [SFA-268]
+- [x] **CP-123**: E2E: Chromatic Pads 4x4 grid renders with Bank A (PAD-01) [SFA-269]
+- [x] **CP-124**: E2E: Pad bank switching A to B to C to D (PAD-02) [SFA-270]
+- [x] **CP-125**: E2E: MIDI hot-plug device connect detection (MIDI-05) [SFA-271]
+- [x] **CP-126**: E2E: Device research shows manufacturer info (MIDI-06) [SFA-272]
+- [x] **CP-127**: E2E: Image upload button present in MIDI column 3 (MIDI-07) [SFA-273]
+- [x] **CP-128**: E2E: Admin user list renders with role badges (ADM-01) [SFA-274]
+- [x] **CP-129**: E2E: Admin feature flag toggle accessible (ADM-02) [SFA-275]
+- [x] **CP-130**: E2E: Practice session list renders at /practice (PRC-01) [SFA-276]
+- [x] **CP-131**: OpsDoc: Import Pipeline Runbook (OPS-01) [SFA-277]
+- [x] **CP-132**: OpsDoc: Stem Separation Runbook (OPS-02) [SFA-278]
+- [x] **CP-133**: OpsDoc: MIDI Device Runbook (OPS-03) [SFA-279]
+- [x] **CP-134**: OpsDoc: DAW Project Runbook (OPS-04) [SFA-280]
+- [x] **CP-135**: OpsDoc: Deployment Runbook (OPS-05) [SFA-281]
+- After Wave 1: All E2E specs exist, all OpsDoc runbooks written, `mix compile --warnings-as-errors` PASS
+
+#### Wave 2 — Showcase Pull-Tab Container (6 concurrent stories, depends on OPS runbooks)
+- [x] **CP-136**: Showcase: Pull-tab container (OpsDoc|Wiki|Notion|Plane-PM|GitHub) (SHOW-01) [SFA-282]
+- [x] **CP-137**: Showcase: OpsDoc tab with runbook index (SHOW-02) [SFA-283]
+- [x] **CP-138**: Showcase: Wiki tab with Plane wiki tree (SHOW-03) [SFA-284]
+- [x] **CP-139**: Showcase: Notion tab gated by NOTION_TOKEN (SHOW-04) [SFA-285]
+- [x] **CP-140**: Showcase: Plane-PM tab with epics stories and docs tree (SHOW-05) [SFA-286]
+- [x] **CP-141**: Showcase: GitHub tab with README and CHANGELOG (SHOW-06) [SFA-287]
+- After Wave 2: Showcase pull-tab container live, all doc sinks accessible from UI
+
+#### Wave 3 — Docsmax Full Sync (4 sequential stories, depends on Showcase)
+- [x] **CP-142**: Docsmax: Push all sections to github (DOCS-01) [SFA-288]
+- [x] **CP-143**: Docsmax: Push all sections to Plane wiki (DOCS-02) [SFA-289]
+- [x] **CP-144**: Docsmax: Verify checksums in docsmax.json (DOCS-03) [SFA-290]
+- [x] **CP-145**: Docsmax: Install PostToolUse hook for incremental sync (DOCS-04) [SFA-291]
+- After Wave 3: All doc sinks in parity, hooks installed, sections_synced = 34
+
+### Phase: macOS Native Application — SwiftUI/AppKit Wrapper (ralph/macos-native-app)
+
+#### Wave 1 — Foundation (3 independent stories)
+- [ ] **CP-146**: Create macOS Xcode project with SwiftUI app structure (US-001) [SFA-292]
+- [ ] **CP-147**: WKWebView container loading Phoenix at 127.0.0.1:4000 (US-002) [SFA-293]
+- [ ] **CP-148**: Phoenix/Elixir backend process manager (US-003) [SFA-300]
+- After Wave 1: Xcode project builds, Phoenix auto-starts, web UI loads in native window, `xcodebuild clean build` PASS
+
+#### Wave 2 — Native Features (3 concurrent stories, depends on Wave 1)
+- [ ] **CP-149**: macOS menu bar with SFA menus and keyboard shortcuts (US-004) [SFA-301]
+- [ ] **CP-150**: Native system notifications for SFA job completion (US-005) [SFA-299]
+- [ ] **CP-151**: Native audio file drag-and-drop onto app window and dock icon (US-006) [SFA-294]
+- After Wave 2: Menu bar functional, notifications delivered, drag-and-drop works
+
+#### Wave 3 — Polish (4 concurrent stories, depends on Wave 2)
+- [ ] **CP-152**: NSStatusItem menu bar extra for quick playback controls (US-007) [SFA-295]
+- [ ] **CP-153**: Native NSOpenPanel file picker bridged to Phoenix (US-008) [SFA-296]
+- [ ] **CP-154**: App bundle configuration, icon, About panel, and entitlements (US-009) [SFA-297]
+- After Wave 3: Menu bar extra live, file picker native, app bundle complete with icon
+
+#### Wave 4 — Release (1 story, depends on Wave 3)
+- [ ] **CP-155**: Build script and Makefile for distributable .app release (US-010) [SFA-298]
+- After Wave 4: `make build` and `make release` produce distributable .app, CLAUDE.md updated
