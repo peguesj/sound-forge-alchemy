@@ -82,21 +82,126 @@
 <!-- Main Content (scrollable) -->
     <main class={["flex-1 overflow-y-auto flex flex-col", if(@nav_tab in [:dj, :daw, :pads, :home], do: "", else: "pb-24")]} id="main-scroll">
       <%= if @nav_tab == :dj do %>
-        <.live_component
-          module={SoundForgeWeb.Live.Components.DjTabComponent}
-          id="dj-tab-root"
-          current_scope={@current_scope}
-          current_user_id={@current_user_id}
-        />
+        <%!-- DJ tab with library pullout sidebar (US-B03) --%>
+        <div class="relative flex h-full">
+          <%!-- Library pullout panel --%>
+          <div
+            id="dj-library-pullout"
+            class={[
+              "sfa-library-pullout absolute left-0 top-0 h-full z-30 bg-gray-900 border-r border-gray-700 shadow-2xl transition-transform duration-300 overflow-y-auto",
+              if(@dj_library_open, do: "translate-x-0 w-64", else: "-translate-x-full w-64")
+            ]}
+          >
+            <div class="flex items-center justify-between p-4 border-b border-gray-700">
+              <h3 class="text-sm font-semibold text-white">Track Library</h3>
+              <button phx-click="toggle_dj_library" class="text-gray-400 hover:text-white" aria-label="Close">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div class="p-2">
+              <%= for {id, track} <- @streams.tracks do %>
+                <div class="px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors" id={"dj-lib-#{id}"}>
+                  <div class="text-sm text-white truncate"><%= track.title || track.filename %></div>
+                  <div class="text-xs text-gray-500 truncate"><%= track.artist || "" %></div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+          <%!-- Library toggle tab --%>
+          <button
+            phx-click="toggle_dj_library"
+            class={[
+              "absolute top-4 z-20 flex items-center px-2 py-1.5 text-xs rounded-r-lg transition-all duration-300 border border-l-0",
+              if(@dj_library_open,
+                do: "left-64 bg-blue-700 border-blue-600 text-white",
+                else: "left-0 bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+              )
+            ]}
+            aria-label="Toggle DJ library"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 6H21M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+            </svg>
+          </button>
+          <div class={["flex-1 transition-all duration-300", if(@dj_library_open, do: "ml-64", else: "ml-0")]}>
+            <.live_component
+              module={SoundForgeWeb.Live.Components.DjTabComponent}
+              id="dj-tab-root"
+              current_scope={@current_scope}
+              current_user_id={@current_user_id}
+            />
+          </div>
+        </div>
       <% end %>
       <%= if @nav_tab == :daw do %>
-        <.live_component
-          module={SoundForgeWeb.Live.Components.DawTabComponent}
-          id="daw-tab"
-          current_scope={@current_scope}
-          current_user_id={@current_user_id}
-          track_id={assigns[:daw_track_id]}
-        />
+        <%!-- DAW tab with library pullout sidebar (US-B02) --%>
+        <div class="relative flex h-full">
+          <%!-- Library pullout panel --%>
+          <div
+            id="daw-library-pullout"
+            class={[
+              "sfa-library-pullout absolute left-0 top-0 h-full z-30 bg-gray-900 border-r border-gray-700 shadow-2xl transition-transform duration-300 overflow-y-auto",
+              if(@daw_library_open, do: "translate-x-0 w-72", else: "-translate-x-full w-72")
+            ]}
+          >
+            <div class="flex items-center justify-between p-4 border-b border-gray-700">
+              <h3 class="text-sm font-semibold text-white">Track Library</h3>
+              <button
+                phx-click="toggle_daw_library"
+                class="text-gray-400 hover:text-white transition-colors"
+                aria-label="Close library"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div class="p-2">
+              <%= for {id, track} <- @streams.tracks do %>
+                <button
+                  phx-click="daw_load_from_library"
+                  phx-value-track-id={track.id}
+                  class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors group"
+                  id={"daw-lib-#{id}"}
+                >
+                  <div class="text-sm text-white truncate group-hover:text-violet-300"><%= track.title || track.filename %></div>
+                  <div class="text-xs text-gray-500 truncate"><%= track.artist || "" %></div>
+                </button>
+              <% end %>
+            </div>
+          </div>
+          <%!-- Library toggle button --%>
+          <button
+            phx-click="toggle_daw_library"
+            class={[
+              "absolute top-4 z-20 flex items-center gap-1 px-2 py-1.5 text-xs rounded-r-lg transition-all duration-300 border border-l-0",
+              if(@daw_library_open,
+                do: "left-72 bg-violet-700 border-violet-600 text-white",
+                else: "left-0 bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700"
+              )
+            ]}
+            aria-label="Toggle library"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 6H21M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+            </svg>
+            <span class="hidden group-hover:inline">Library</span>
+          </button>
+          <%!-- DAW component --%>
+          <div class={["flex-1 transition-all duration-300", if(@daw_library_open, do: "ml-72", else: "ml-0")]}>
+            <.live_component
+              module={SoundForgeWeb.Live.Components.DawTabComponent}
+              id="daw-tab"
+              current_scope={@current_scope}
+              current_user_id={@current_user_id}
+              track_id={assigns[:daw_track_id]}
+            />
+          </div>
+        </div>
       <% end %>
       <%= if @nav_tab == :pads do %>
         <.live_component
@@ -374,6 +479,18 @@
                     </div>
                   </div>
                 </div>
+                <%!-- Open in DAW button (US-B01) --%>
+                <button
+                  phx-click="open_in_daw"
+                  phx-value-track-id={@track.id}
+                  class="w-full flex items-center gap-2 bg-violet-900/30 hover:bg-violet-900/60 text-violet-400 hover:text-violet-300 border border-violet-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  </svg>
+                  Open in DAW
+                </button>
                 <button
                   phx-click="process_track"
                   phx-value-id={@track.id}
@@ -473,7 +590,7 @@
                   Play on Spotify
                 </button>
                 <.link
-                  :if={length(@stems) > 0}
+                  :if={@track.download_status == "completed"}
                   navigate={~p"/daw/#{@track.id}"}
                   class="w-full flex items-center gap-2 bg-cyan-900/30 hover:bg-cyan-900/60 text-cyan-400 hover:text-cyan-300 border border-cyan-800/50 rounded-lg px-4 py-2 text-sm transition-colors"
                 >
@@ -870,9 +987,17 @@
               </div>
 
 <!-- Stems -->
+              <%!-- Stem Library (US-B05) — stems as first-class library assets --%>
               <div :if={length(@stems) > 0} class="mb-8">
                 <div class="flex items-center justify-between mb-4">
-                  <h2 class="text-lg font-semibold text-gray-300">Stems</h2>
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <h2 class="text-lg font-semibold text-gray-300">Stem Library</h2>
+                    <span class="badge badge-sm badge-ghost"><%= length(@stems) %> stems</span>
+                  </div>
                   <.link
                     href={~p"/export/stems/#{@track.id}"}
                     class="text-sm bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-lg transition-colors"
@@ -880,34 +1005,53 @@
                     Download All (ZIP)
                   </.link>
                 </div>
-                <%!-- TransportLocalAudio JS hook — persistent element for local Web Audio playback --%>
+                <%!-- TransportLocalAudio JS hook --%>
                 <div id="transport-local-audio" phx-hook="TransportLocalAudio" class="hidden"></div>
-                <%!-- AudioPlayerLive replaced by SMPTE TransportBarComponent (fixed bottom) --%>
-                <%!-- Per-stem controls (solo/mute/volume) remain in stem list below --%>
-                <!-- Individual stem downloads -->
-                <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <.link
+                <%!-- Stem assets as library cards --%>
+                <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div
                     :for={stem <- @stems}
-                    href={~p"/export/stem/#{stem.id}"}
-                    class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm transition-colors"
+                    class="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 hover:border-violet-500/50 transition-colors group"
                   >
-                    <svg
-                      class="w-4 h-4 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                      />
-                    </svg>
-                    <span class="capitalize">{stem.stem_type}</span>
-                    <span :if={stem.source == "lalalai"} class="badge badge-xs badge-primary">cloud</span>
-                    <span :if={stem.source != "lalalai"} class="badge badge-xs badge-ghost">local</span>
-                  </.link>
+                    <div class="flex items-center gap-2 mb-2">
+                      <div class="w-8 h-8 rounded-lg bg-violet-900/40 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                      </div>
+                      <div class="min-w-0">
+                        <div class="text-sm font-medium text-white capitalize truncate"><%= stem.stem_type %></div>
+                        <div class="flex gap-1">
+                          <span :if={stem.source == "lalalai"} class="badge badge-xs badge-primary">cloud</span>
+                          <span :if={stem.source != "lalalai"} class="badge badge-xs badge-ghost">local</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex gap-1 mt-2">
+                      <button
+                        phx-click="open_in_daw"
+                        phx-value-track-id={@track.id}
+                        class="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 px-2 bg-violet-900/30 hover:bg-violet-900/60 text-violet-400 rounded-lg transition-colors"
+                        title="Open in DAW"
+                      >
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        DAW
+                      </button>
+                      <.link
+                        href={~p"/export/stem/#{stem.id}"}
+                        class="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 px-2 bg-gray-700/60 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+                        title="Download stem"
+                      >
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        DL
+                      </.link>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1295,8 +1439,9 @@
         <% end %>
 
         <%= if !(@nav_context in [:artist, :album] && is_nil(@browse_filter)) do %>
-          <!-- Sticky Search & Sort & Filter & Actions Toolbar -->
-          <div class="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 py-2">
+          <div class="flex flex-col flex-1 overflow-hidden min-h-0">
+          <!-- Search & Sort & Filter & Actions Toolbar -->
+          <div class="bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 py-2 shrink-0">
             <!-- Search & Sort & View Toggle -->
             <div class="flex gap-3 px-6 pt-4 mb-4">
               <form phx-change="search" class="flex-1">
@@ -1508,7 +1653,7 @@
           <!-- end sticky toolbar -->
 
 <!-- Track Library Container -->
-          <div class="flex-1">
+          <div class="flex-1 overflow-y-auto pt-4">
             <!-- Track Library (single stream container, view-mode conditional inner rendering) -->
             <div
               id="tracks"
@@ -2226,6 +2371,8 @@
           </div>
           </div>
           <!-- end track library scrollable wrapper -->
+          </div>
+          <!-- end flex column wrapper -->
         <% end %>
         <!-- end browse-filter conditional -->
 
@@ -3525,5 +3672,8 @@
     </div>
   </div>
 </div>
+
+<!-- Changelog Modal -->
+<SoundForgeWeb.Live.Components.ChangelogModal.changelog_modal />
 
 </div>

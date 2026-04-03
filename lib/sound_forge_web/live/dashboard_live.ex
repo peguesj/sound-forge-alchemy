@@ -127,6 +127,9 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:queue_history_jobs, [])
       |> assign(:queue_history_has_more, false)
       |> assign(:daw_track_id, nil)
+      |> assign(:daw_library_open, false)
+      |> assign(:dj_library_open, false)
+      |> assign(:analysis_library_open, false)
       |> allow_upload(:audio,
         accept: ~w(.mp3 .wav .flac .ogg .m4a .aac .wma),
         max_entries: 5,
@@ -1253,6 +1256,37 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:nav_tab, :pads)
      |> assign(:nav_context, :pads)
      |> push_patch(to: ~p"/?#{[tab: "pads"]}")}
+  end
+
+  # MARK: — Library pullout handlers (US-B01 to US-B04)
+
+  def handle_event("open_in_daw", %{"track-id" => track_id}, socket) do
+    {:noreply,
+     socket
+     |> assign(:nav_tab, :daw)
+     |> assign(:nav_context, :daw)
+     |> assign(:daw_track_id, track_id)
+     |> assign(:daw_library_open, true)
+     |> push_patch(to: ~p"/?#{[tab: "daw", track_id: track_id]}")}
+  end
+
+  def handle_event("toggle_daw_library", _params, socket) do
+    {:noreply, assign(socket, :daw_library_open, !socket.assigns.daw_library_open)}
+  end
+
+  def handle_event("toggle_dj_library", _params, socket) do
+    {:noreply, assign(socket, :dj_library_open, !socket.assigns.dj_library_open)}
+  end
+
+  def handle_event("toggle_analysis_library", _params, socket) do
+    {:noreply, assign(socket, :analysis_library_open, !socket.assigns.analysis_library_open)}
+  end
+
+  def handle_event("daw_load_from_library", %{"track-id" => track_id}, socket) do
+    {:noreply,
+     socket
+     |> assign(:daw_track_id, track_id)
+     |> assign(:daw_library_open, false)}
   end
 
   @impl true
@@ -2836,6 +2870,19 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
+  def handle_info(:stop_midi_refresh_spin, socket) do
+    {:noreply, assign(socket, :refreshing_midi, false)}
+  end
+
+  def handle_info({:reset_midi_activity, component_id}, socket) do
+    send_update(SoundForgeWeb.Live.Components.ChromaticPadsComponent,
+      id: component_id,
+      midi_activity: false
+    )
+
+    {:noreply, socket}
+  end
+
   # -- Template helpers --
 
   def filtered_debug_logs(logs, level_filter, ns_filter, search) do
@@ -3989,19 +4036,6 @@ defmodule SoundForgeWeb.DashboardLive do
     end
 
     socket
-  end
-
-  def handle_info(:stop_midi_refresh_spin, socket) do
-    {:noreply, assign(socket, :refreshing_midi, false)}
-  end
-
-  def handle_info({:reset_midi_activity, component_id}, socket) do
-    send_update(SoundForgeWeb.Live.Components.ChromaticPadsComponent,
-      id: component_id,
-      midi_activity: false
-    )
-
-    {:noreply, socket}
   end
 
   # Serialize NoteEdit structs to JS-friendly maps (onset_sec→onset, duration_sec→duration)
