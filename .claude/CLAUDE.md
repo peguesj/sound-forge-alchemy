@@ -1115,3 +1115,98 @@ This is a hard rule with no exceptions.
 - [x] **CP-114**: Wire DawEditor JS hook to DawProjectLive project state (US-009) [SFA-260]
 - [x] **CP-115**: Add Import from CrateDigger to DAW project track panel (US-010) [SFA-261]
 - After Wave 4: `mix compile --warnings-as-errors` PASS, `mix test` all green, verify in browser
+
+### Phase: SFA v4.7.0 UAT Coverage + OpsDoc + Showcase + Docsmax (feature/uat-docs-showcase-2026-03-30)
+
+#### Wave 1 — E2E Tests + OpsDoc Runbooks (20 concurrent stories)
+- [x] **CP-116**: E2E: Settings audio engine toggle (SET-01) [SFA-262]
+- [x] **CP-117**: E2E: lalal.ai quota display in settings (SET-02) [SFA-263]
+- [x] **CP-118**: E2E: Debug mode toggle shows/hides inspector panel (SET-03) [SFA-264]
+- [x] **CP-119**: E2E: MIDI device selection in Settings (SET-04) [SFA-265]
+- [x] **CP-120**: E2E: BigLoopy source track selection at /alchemy (BL-01) [SFA-266]
+- [x] **CP-121**: E2E: BigLoopy recipe natural language input (BL-02) [SFA-267]
+- [x] **CP-122**: E2E: BigLoopy agent progress visualization (BL-03) [SFA-268]
+- [x] **CP-123**: E2E: Chromatic Pads 4x4 grid renders with Bank A (PAD-01) [SFA-269]
+- [x] **CP-124**: E2E: Pad bank switching A to B to C to D (PAD-02) [SFA-270]
+- [x] **CP-125**: E2E: MIDI hot-plug device connect detection (MIDI-05) [SFA-271]
+- [x] **CP-126**: E2E: Device research shows manufacturer info (MIDI-06) [SFA-272]
+- [x] **CP-127**: E2E: Image upload button present in MIDI column 3 (MIDI-07) [SFA-273]
+- [x] **CP-128**: E2E: Admin user list renders with role badges (ADM-01) [SFA-274]
+- [x] **CP-129**: E2E: Admin feature flag toggle accessible (ADM-02) [SFA-275]
+- [x] **CP-130**: E2E: Practice session list renders at /practice (PRC-01) [SFA-276]
+- [x] **CP-131**: OpsDoc: Import Pipeline Runbook (OPS-01) [SFA-277]
+- [x] **CP-132**: OpsDoc: Stem Separation Runbook (OPS-02) [SFA-278]
+- [x] **CP-133**: OpsDoc: MIDI Device Runbook (OPS-03) [SFA-279]
+- [x] **CP-134**: OpsDoc: DAW Project Runbook (OPS-04) [SFA-280]
+- [x] **CP-135**: OpsDoc: Deployment Runbook (OPS-05) [SFA-281]
+- After Wave 1: All E2E specs exist, all OpsDoc runbooks written, `mix compile --warnings-as-errors` PASS
+
+#### Wave 2 — Showcase Pull-Tab Container (6 concurrent stories, depends on OPS runbooks)
+- [x] **CP-136**: Showcase: Pull-tab container (OpsDoc|Wiki|Notion|Plane-PM|GitHub) (SHOW-01) [SFA-282]
+- [x] **CP-137**: Showcase: OpsDoc tab with runbook index (SHOW-02) [SFA-283]
+- [x] **CP-138**: Showcase: Wiki tab with Plane wiki tree (SHOW-03) [SFA-284]
+- [x] **CP-139**: Showcase: Notion tab gated by NOTION_TOKEN (SHOW-04) [SFA-285]
+- [x] **CP-140**: Showcase: Plane-PM tab with epics stories and docs tree (SHOW-05) [SFA-286]
+- [x] **CP-141**: Showcase: GitHub tab with README and CHANGELOG (SHOW-06) [SFA-287]
+- After Wave 2: Showcase pull-tab container live, all doc sinks accessible from UI
+
+#### Wave 3 — Docsmax Full Sync (4 sequential stories, depends on Showcase)
+- [x] **CP-142**: Docsmax: Push all sections to github (DOCS-01) [SFA-288]
+- [x] **CP-143**: Docsmax: Push all sections to Plane wiki (DOCS-02) [SFA-289]
+- [x] **CP-144**: Docsmax: Verify checksums in docsmax.json (DOCS-03) [SFA-290]
+- [x] **CP-145**: Docsmax: Install PostToolUse hook for incremental sync (DOCS-04) [SFA-291]
+- After Wave 3: All doc sinks in parity, hooks installed, sections_synced = 34
+
+### Phase: macOS Native Application — SwiftUI/AppKit Wrapper (ralph/macos-native-app)
+
+#### Wave 1 — Foundation (3 independent stories)
+- [ ] **CP-146**: Create macOS Xcode project with SwiftUI app structure (US-001) [SFA-292]
+- [ ] **CP-147**: WKWebView container loading Phoenix at 127.0.0.1:4000 (US-002) [SFA-293]
+- [ ] **CP-148**: Phoenix/Elixir backend process manager (US-003) [SFA-300]
+- After Wave 1: Xcode project builds, Phoenix auto-starts, web UI loads in native window, `xcodebuild clean build` PASS
+
+#### Wave 2 — Native Features (3 concurrent stories, depends on Wave 1)
+- [ ] **CP-149**: macOS menu bar with SFA menus and keyboard shortcuts (US-004) [SFA-301]
+- [ ] **CP-150**: Native system notifications for SFA job completion (US-005) [SFA-299]
+- [ ] **CP-151**: Native audio file drag-and-drop onto app window and dock icon (US-006) [SFA-294]
+- After Wave 2: Menu bar functional, notifications delivered, drag-and-drop works
+
+#### Wave 3 — Polish (4 concurrent stories, depends on Wave 2)
+- [ ] **CP-152**: NSStatusItem menu bar extra for quick playback controls (US-007) [SFA-295]
+- [ ] **CP-153**: Native NSOpenPanel file picker bridged to Phoenix (US-008) [SFA-296]
+- [ ] **CP-154**: App bundle configuration, icon, About panel, and entitlements (US-009) [SFA-297]
+- After Wave 3: Menu bar extra live, file picker native, app bundle complete with icon
+
+#### Wave 4 — Release (1 story, depends on Wave 3)
+- [ ] **CP-155**: Build script and Makefile for distributable .app release (US-010) [SFA-298]
+- After Wave 4: `make build` and `make release` produce distributable .app, CLAUDE.md updated
+
+### Phase: SFA UI + DAW Modules (ralph/sfa-ui-daw-modules)
+Formation: fmt-sfa-full-stack-001 | Squadron Alpha (SwiftUI) + Bravo (DAW/Web) + Charlie (APM/Infra)
+
+#### Squadron Alpha — SwiftUI Custom UI (Wave A, 7 concurrent stories)
+- [ ] **CP-156**: Custom NSWindow with vibrancy, no standard chrome (US-A01)
+- [ ] **CP-157**: Custom SwiftUI sidebar/tab navigator matching SFA dark theme (US-A02)
+- [ ] **CP-158**: Full-screen mode with auto-hiding custom toolbar Cmd+Ctrl+F (US-A03)
+- [ ] **CP-159**: Helper Agent floating panel Cmd+Shift+H (US-A04)
+- [ ] **CP-160**: Module-based native views with WKWebView per tab hash (US-A05)
+- [ ] **CP-161**: Audio Unit v3 wrapper proxying to SFA Demucs/analysis backend (US-A06)
+- [ ] **CP-162**: Native notification center wired through APM formation telemetry (US-A07)
+- After Squadron Alpha: Custom NSWindow built, helper panel functional, AU v3 wrapper shell exists, `xcodebuild build` PASS
+
+#### Squadron Bravo — DAW/Library Web Integration (Wave B, 7 concurrent stories)
+- [ ] **CP-163**: Open in DAW button on track library items (US-B01)
+- [ ] **CP-164**: Library pullout sidebar in DAW tab (US-B02)
+- [ ] **CP-165**: Library pullout sidebar in DJ tab (US-B03)
+- [ ] **CP-166**: Library pullout sidebar in Analysis tab (US-B04)
+- [ ] **CP-167**: Stem separation results as library assets in track detail (US-B05)
+- [ ] **CP-168**: MIDI export results as library assets in track detail (US-B06)
+- [ ] **CP-169**: Cross-module asset sharing stems in DAW MIDI in piano roll (US-B07)
+- After Squadron Bravo: Open-in-DAW functional, library pullouts render in DAW/DJ/Analysis, `mix compile --warnings-as-errors` PASS
+
+#### Squadron Charlie — APM/Formation Infra (Wave C, 4 concurrent stories)
+- [ ] **CP-170**: Plane PM post-commit hook reading prd.json (US-C01)
+- [ ] **CP-171**: APM formation lifecycle hooks pre/post tool use events (US-C02)
+- [ ] **CP-172**: UPM plan/Plane PM bidirectional sync via /upm sync (US-C03)
+- [ ] **CP-173**: Formation member registry in APM dashboard (US-C04)
+- After Squadron Charlie: All hooks active, APM tracks all formation members, Plane issues auto-synced
