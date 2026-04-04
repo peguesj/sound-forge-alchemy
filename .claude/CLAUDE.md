@@ -1198,9 +1198,9 @@ Formation: fmt-sfa-full-stack-001 | Squadron Alpha (SwiftUI) + Bravo (DAW/Web) +
 - [x] **CP-163**: Open in DAW button on track library items (US-B01)
 - [x] **CP-164**: Library pullout sidebar in DAW tab (US-B02)
 - [x] **CP-165**: Library pullout sidebar in DJ tab (US-B03)
-- [ ] **CP-166**: Library pullout sidebar in Analysis tab (US-B04)
-- [ ] **CP-167**: Stem separation results as library assets in track detail (US-B05)
-- [ ] **CP-168**: MIDI export results as library assets in track detail (US-B06)
+- [x] **CP-166**: Library pullout sidebar in Analysis tab (US-B04)
+- [x] **CP-167**: Stem separation results as library assets in track detail (US-B05)
+- [x] **CP-168**: MIDI export results as library assets in track detail (US-B06)
 - [x] **CP-169**: Cross-module asset sharing stems in DAW MIDI in piano roll (US-B07)
 - After Squadron Bravo: Open-in-DAW functional, library pullouts render in DAW/DJ/Analysis, `mix compile --warnings-as-errors` PASS
 

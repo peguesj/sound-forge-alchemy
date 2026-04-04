@@ -212,7 +212,59 @@
         />
       <% end %>
       <%= if @nav_tab not in [:dj, :daw, :pads] and @live_action == :show && @track do %>
-        <!-- Track Detail View -->
+        <%!-- Track Detail View with Analysis library pullout sidebar (US-B04) --%>
+        <div class="relative flex h-full">
+          <%!-- Analysis library pullout panel --%>
+          <div
+            id="analysis-library-pullout"
+            class={[
+              "sfa-library-pullout absolute left-0 top-0 h-full z-30 bg-gray-900 border-r border-gray-700 shadow-2xl transition-transform duration-300 overflow-y-auto",
+              if(@analysis_library_open, do: "translate-x-0 w-64", else: "-translate-x-full w-64")
+            ]}
+          >
+            <div class="flex items-center justify-between p-4 border-b border-gray-700">
+              <h3 class="text-sm font-semibold text-white">Track Library</h3>
+              <button phx-click="toggle_analysis_library" class="text-gray-400 hover:text-white transition-colors" aria-label="Close library">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div class="p-2">
+              <%= for {id, track} <- @streams.tracks do %>
+                <.link
+                  navigate={~p"/tracks/#{track.id}"}
+                  class={[
+                    "block px-3 py-2 rounded-lg transition-colors group",
+                    if(@track && @track.id == track.id, do: "bg-purple-900/40 border border-purple-700/40", else: "hover:bg-gray-800")
+                  ]}
+                  id={"analysis-lib-#{id}"}
+                >
+                  <div class="text-sm text-white truncate group-hover:text-purple-300"><%= track.title || track.filename %></div>
+                  <div class="text-xs text-gray-500 truncate"><%= track.artist || "" %></div>
+                </.link>
+              <% end %>
+            </div>
+          </div>
+          <%!-- Library toggle tab --%>
+          <button
+            phx-click="toggle_analysis_library"
+            class={[
+              "absolute top-4 z-20 flex items-center px-2 py-1.5 text-xs rounded-r-lg transition-all duration-300 border border-l-0",
+              if(@analysis_library_open,
+                do: "left-64 bg-purple-700 border-purple-600 text-white",
+                else: "left-0 bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700"
+              )
+            ]}
+            aria-label="Toggle track library"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 6H21M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+            </svg>
+          </button>
+          <%!-- Track detail content --%>
+          <div class={["flex-1 overflow-y-auto transition-all duration-300", if(@analysis_library_open, do: "ml-64", else: "ml-0")]}>
         <div class="px-6 py-4">
           <.link navigate={~p"/"} class="text-sm text-gray-400 hover:text-white transition-colors">
             &larr; Back to library
@@ -1059,9 +1111,107 @@
                 <p>No stems available yet.</p>
                 <p class="text-sm mt-1">Process this track to separate it into stems.</p>
               </div>
+
+              <%!-- MIDI Library Assets (US-B06) — MIDI exports as first-class library assets --%>
+              <div :if={@midi_result} class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                    <h2 class="text-lg font-semibold text-gray-300">MIDI Library</h2>
+                    <span class="badge badge-sm badge-ghost"><%= length(@midi_result.notes) %> notes</span>
+                  </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <%!-- Melodic MIDI asset card --%>
+                  <div class="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 hover:border-purple-500/50 transition-colors group">
+                    <div class="flex items-center gap-2 mb-2">
+                      <div class="w-8 h-8 rounded-lg bg-purple-900/40 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                      </div>
+                      <div class="min-w-0">
+                        <div class="text-sm font-medium text-white truncate">Melodic MIDI</div>
+                        <div class="flex gap-1">
+                          <span class="badge badge-xs badge-ghost"><%= length(@midi_result.notes) %> notes</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex gap-1 mt-2">
+                      <button
+                        phx-click="open_in_daw"
+                        phx-value-track-id={@track.id}
+                        class="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 px-2 bg-violet-900/30 hover:bg-violet-900/60 text-violet-400 rounded-lg transition-colors"
+                        title="Open track in DAW"
+                      >
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        DAW
+                      </button>
+                      <.link
+                        href={~p"/export/midi/#{@track.id}"}
+                        class="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 px-2 bg-gray-700/60 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+                        title="Download MIDI file"
+                      >
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        DL
+                      </.link>
+                    </div>
+                  </div>
+                  <%!-- Drum MIDI asset card (from transient analysis) --%>
+                  <div class="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 hover:border-purple-500/50 transition-colors group">
+                    <div class="flex items-center gap-2 mb-2">
+                      <div class="w-8 h-8 rounded-lg bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div class="min-w-0">
+                        <div class="text-sm font-medium text-white truncate">Drum MIDI</div>
+                        <div class="flex gap-1">
+                          <span class="badge badge-xs badge-warning text-orange-900">transient</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex gap-1 mt-2">
+                      <button
+                        phx-click="open_in_daw"
+                        phx-value-track-id={@track.id}
+                        class="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 px-2 bg-violet-900/30 hover:bg-violet-900/60 text-violet-400 rounded-lg transition-colors"
+                        title="Open track in DAW"
+                      >
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        DAW
+                      </button>
+                      <.link
+                        href={"/files/midi/#{@track.id}"}
+                        class="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 px-2 bg-gray-700/60 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+                        title="Download drum MIDI"
+                      >
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        DL
+                      </.link>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+          </div><%!-- /flex-1 detail content --%>
+        </div><%!-- /relative flex h-full analysis wrapper --%>
       <% else %>
         <!-- Home Module Cards -->
         <%= if @nav_tab == :home do %>
