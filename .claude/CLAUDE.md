@@ -1190,8 +1190,8 @@ Formation: fmt-sfa-full-stack-001 | Squadron Alpha (SwiftUI) + Bravo (DAW/Web) +
 - [x] **CP-158**: Full-screen mode with auto-hiding custom toolbar Cmd+Ctrl+F (US-A03)
 - [x] **CP-159**: Helper Agent floating panel Cmd+Shift+H (US-A04)
 - [x] **CP-160**: Module-based native views with WKWebView per tab hash (US-A05)
-- [ ] **CP-161**: Audio Unit v3 wrapper proxying to SFA Demucs/analysis backend (US-A06)
-- [ ] **CP-162**: Native notification center wired through APM formation telemetry (US-A07)
+- [x] **CP-161**: Audio Unit v3 wrapper proxying to SFA Demucs/analysis backend (US-A06)
+- [x] **CP-162**: Native notification center wired through APM formation telemetry (US-A07)
 - After Squadron Alpha: Custom NSWindow built, helper panel functional, AU v3 wrapper shell exists, `xcodebuild build` PASS
 
 #### Squadron Bravo — DAW/Library Web Integration (Wave B, 7 concurrent stories)
@@ -1201,12 +1201,12 @@ Formation: fmt-sfa-full-stack-001 | Squadron Alpha (SwiftUI) + Bravo (DAW/Web) +
 - [ ] **CP-166**: Library pullout sidebar in Analysis tab (US-B04)
 - [ ] **CP-167**: Stem separation results as library assets in track detail (US-B05)
 - [ ] **CP-168**: MIDI export results as library assets in track detail (US-B06)
-- [ ] **CP-169**: Cross-module asset sharing stems in DAW MIDI in piano roll (US-B07)
+- [x] **CP-169**: Cross-module asset sharing stems in DAW MIDI in piano roll (US-B07)
 - After Squadron Bravo: Open-in-DAW functional, library pullouts render in DAW/DJ/Analysis, `mix compile --warnings-as-errors` PASS
 
 #### Squadron Charlie — APM/Formation Infra (Wave C, 4 concurrent stories)
-- [ ] **CP-170**: Plane PM post-commit hook reading prd.json (US-C01)
-- [ ] **CP-171**: APM formation lifecycle hooks pre/post tool use events (US-C02)
-- [ ] **CP-172**: UPM plan/Plane PM bidirectional sync via /upm sync (US-C03)
-- [ ] **CP-173**: Formation member registry in APM dashboard (US-C04)
+- [x] **CP-170**: Plane PM post-commit hook reading prd.json (US-C01)
+- [x] **CP-171**: APM formation lifecycle hooks pre/post tool use events (US-C02)
+- [x] **CP-172**: UPM plan/Plane PM bidirectional sync via /upm sync (US-C03)
+- [x] **CP-173**: Formation member registry in APM dashboard (US-C04)
 - After Squadron Charlie: All hooks active, APM tracks all formation members, Plane issues auto-synced

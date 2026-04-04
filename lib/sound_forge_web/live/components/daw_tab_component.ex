@@ -594,6 +594,19 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
 
               <%!-- Global Operation Selector --%>
               <div class="ml-auto flex items-center gap-2">
+                <%!-- Import Stem from Library (US-B07) --%>
+                <button
+                  phx-click="toggle_daw_library"
+                  class="flex items-center gap-1 px-2 py-1 text-xs rounded bg-violet-900/40 hover:bg-violet-900/70 text-violet-300 transition-colors"
+                  title="Import stem from library"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8 6H21M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+                  </svg>
+                  Library
+                </button>
+                <div class="w-px h-5 bg-gray-700"></div>
                 <button phx-click="toggle_snap" phx-target={@myself}
                         class={"px-2 py-1 text-xs rounded " <> if(@snap_to_bar, do: "bg-purple-600 text-white", else: "bg-gray-700 text-gray-400")}>
                   Snap to Bar
@@ -674,7 +687,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                     {stem_label(stem.stem_type)}
                   </span>
                   <%!-- Mixer controls: Mute / Solo / Volume / Pan --%>
-                  <div class="flex items-center gap-2" phx-click={JS.stop_propagation()}>
+                  <div class="flex items-center gap-2">
                     <%!-- Mute --%>
                     <button
                       phx-click="update_stem_mix"
