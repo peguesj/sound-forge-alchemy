@@ -115,6 +115,7 @@ defmodule SoundForge.Agents.AgentRunner do
 
   defp register_builtin_agents(table) do
     :ets.insert(table, {"agent-sonic-analyst", SoundForge.Agents.SonicAnalyst})
+    :ets.insert(table, {"agent-crate-analyst", SoundForge.Agents.CrateAnalyst})
   end
 
   defp spawn_agent_task(agent_id, module, execution_id, payload) do

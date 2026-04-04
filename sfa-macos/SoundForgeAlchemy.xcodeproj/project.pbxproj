@@ -1,0 +1,375 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1000001 /* SoundForgeAlchemyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001 /* SoundForgeAlchemyApp.swift */; };
+		A1000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000002 /* ContentView.swift */; };
+		A1000003 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000003 /* AppDelegate.swift */; };
+		A1000004 /* MenuBarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000004 /* MenuBarManager.swift */; };
+		A1000005 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000005 /* NotificationManager.swift */; };
+		A1000006 /* DropDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000006 /* DropDelegate.swift */; };
+		A1000007 /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000007 /* StatusBarController.swift */; };
+		A1000008 /* FilePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000008 /* FilePicker.swift */; };
+		A1000009 /* AboutViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000009 /* AboutViewController.swift */; };
+		A1000012 /* SFATabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000012 /* SFATabView.swift */; };
+		A1000013 /* HelperAgentPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013 /* HelperAgentPanel.swift */; };
+		A1000014 /* AudioUnitWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014 /* AudioUnitWrapper.swift */; };
+		A1000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000010 /* Assets.xcassets */; };
+		A1000011 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A2000011 /* Info.plist */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A2000001 /* SoundForgeAlchemyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundForgeAlchemyApp.swift; sourceTree = "<group>"; };
+		A2000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A2000003 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A2000004 /* MenuBarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarManager.swift; sourceTree = "<group>"; };
+		A2000005 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		A2000006 /* DropDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropDelegate.swift; sourceTree = "<group>"; };
+		A2000007 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
+		A2000008 /* FilePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePicker.swift; sourceTree = "<group>"; };
+		A2000009 /* AboutViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutViewController.swift; sourceTree = "<group>"; };
+		A2000012 /* SFATabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFATabView.swift; sourceTree = "<group>"; };
+		A2000013 /* HelperAgentPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperAgentPanel.swift; sourceTree = "<group>"; };
+		A2000014 /* AudioUnitWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioUnitWrapper.swift; sourceTree = "<group>"; };
+		A2000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A2000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A3000001 /* SoundForgeAlchemy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SoundForgeAlchemy.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A4000001 /* SoundForgeAlchemy.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoundForgeAlchemy.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A5000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A6000001 = {
+			isa = PBXGroup;
+			children = (
+				A6000002 /* SoundForgeAlchemy */,
+				A6000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A6000002 /* SoundForgeAlchemy */ = {
+			isa = PBXGroup;
+			children = (
+				A2000001 /* SoundForgeAlchemyApp.swift */,
+				A2000002 /* ContentView.swift */,
+				A2000003 /* AppDelegate.swift */,
+				A2000004 /* MenuBarManager.swift */,
+				A2000005 /* NotificationManager.swift */,
+				A2000006 /* DropDelegate.swift */,
+				A2000007 /* StatusBarController.swift */,
+				A2000008 /* FilePicker.swift */,
+				A2000009 /* AboutViewController.swift */,
+				A2000012 /* SFATabView.swift */,
+				A2000013 /* HelperAgentPanel.swift */,
+				A2000014 /* AudioUnitWrapper.swift */,
+				A2000010 /* Assets.xcassets */,
+				A2000011 /* Info.plist */,
+				A4000001 /* SoundForgeAlchemy.entitlements */,
+			);
+			path = SoundForgeAlchemy;
+			sourceTree = "<group>";
+		};
+		A6000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A3000001 /* SoundForgeAlchemy.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A7000001 /* SoundForgeAlchemy */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A8000001 /* Build configuration list for PBXNativeTarget "SoundForgeAlchemy" */;
+			buildPhases = (
+				A9000001 /* Sources */,
+				A5000001 /* Frameworks */,
+				AA000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SoundForgeAlchemy;
+			productName = SoundForgeAlchemy;
+			productReference = A3000001 /* SoundForgeAlchemy.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AB000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A7000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = A8000002 /* Build configuration list for PBXProject "SoundForgeAlchemy" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A6000001;
+			productRefGroup = A6000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A7000001 /* SoundForgeAlchemy */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000010 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A9000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000001 /* SoundForgeAlchemyApp.swift in Sources */,
+				A1000002 /* ContentView.swift in Sources */,
+				A1000003 /* AppDelegate.swift in Sources */,
+				A1000004 /* MenuBarManager.swift in Sources */,
+				A1000005 /* NotificationManager.swift in Sources */,
+				A1000006 /* DropDelegate.swift in Sources */,
+				A1000007 /* StatusBarController.swift in Sources */,
+				A1000008 /* FilePicker.swift in Sources */,
+				A1000009 /* AboutViewController.swift in Sources */,
+				A1000012 /* SFATabView.swift in Sources */,
+				A1000013 /* HelperAgentPanel.swift in Sources */,
+				A1000014 /* AudioUnitWrapper.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AC000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		AC000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		AC000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SoundForgeAlchemy/SoundForgeAlchemy.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoundForgeAlchemy/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 5.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soundforgealchemy.mac;
+				PRODUCT_NAME = "Sound Forge Alchemy";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AC000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SoundForgeAlchemy/SoundForgeAlchemy.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoundForgeAlchemy/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 5.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soundforgealchemy.mac;
+				PRODUCT_NAME = "Sound Forge Alchemy";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A8000001 /* Build configuration list for PBXNativeTarget "SoundForgeAlchemy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC000003 /* Debug */,
+				AC000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A8000002 /* Build configuration list for PBXProject "SoundForgeAlchemy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC000001 /* Debug */,
+				AC000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AB000001 /* Project object */;
+}

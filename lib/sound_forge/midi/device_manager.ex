@@ -60,6 +60,16 @@ defmodule SoundForge.MIDI.DeviceManager do
     end
   end
 
+  @doc "Look up a single device by port_id. Returns the device map or nil."
+  def get_device_by_port(port_id) do
+    if :ets.whereis(@table) != :undefined do
+      case :ets.lookup(@table, port_id) do
+        [{^port_id, device}] -> device
+        _ -> nil
+      end
+    end
+  end
+
   @doc """
   Subscribes the calling process to MIDI device events.
   """
@@ -94,6 +104,7 @@ defmodule SoundForge.MIDI.DeviceManager do
           []
       end
 
+    Logger.info("MIDI DeviceManager: discovered #{length(devices)} device(s) at startup")
     store_devices(devices)
 
     schedule_poll()
@@ -119,50 +130,47 @@ defmodule SoundForge.MIDI.DeviceManager do
   end
 
   defp poll_hotplug do
-    try do
-      Midiex.hotplug()
-    rescue
-      _e ->
-        Logger.debug("Midiex.hotplug/0 unavailable")
-    catch
-      _kind, _reason ->
-        Logger.debug("Midiex.hotplug/0 NIF unavailable")
-    end
+    # If discover returns empty the NIF may be temporarily unavailable; skip diff
+    # to avoid falsely evicting valid ETS entries.
+    case discover_devices() do
+      [] ->
+        :ok
 
-    current_devices = discover_devices()
-    current_ids = MapSet.new(current_devices, & &1.port_id)
+      current_devices ->
+        current_ids = MapSet.new(current_devices, & &1.port_id)
 
-    previous_ids =
-      if :ets.whereis(@table) != :undefined do
-        @table
-        |> :ets.tab2list()
-        |> Enum.map(fn {port_id, _} -> port_id end)
-        |> MapSet.new()
-      else
-        MapSet.new()
-      end
+        previous_ids =
+          if :ets.whereis(@table) != :undefined do
+            @table
+            |> :ets.tab2list()
+            |> Enum.map(fn {port_id, _} -> port_id end)
+            |> MapSet.new()
+          else
+            MapSet.new()
+          end
 
-    # Detect new devices
-    new_ids = MapSet.difference(current_ids, previous_ids)
+        # Detect new devices
+        new_ids = MapSet.difference(current_ids, previous_ids)
 
-    for device <- current_devices, MapSet.member?(new_ids, device.port_id) do
-      :ets.insert(@table, {device.port_id, device})
-      broadcast({:midi_device_connected, device})
-    end
+        for device <- current_devices, MapSet.member?(new_ids, device.port_id) do
+          :ets.insert(@table, {device.port_id, device})
+          broadcast({:midi_device_connected, device})
+        end
 
-    # Detect removed devices
-    removed_ids = MapSet.difference(previous_ids, current_ids)
+        # Detect removed devices
+        removed_ids = MapSet.difference(previous_ids, current_ids)
 
-    for removed_id <- removed_ids do
-      case :ets.lookup(@table, removed_id) do
-        [{^removed_id, device}] ->
-          disconnected = %{device | status: :disconnected}
-          :ets.delete(@table, removed_id)
-          broadcast({:midi_device_disconnected, disconnected})
+        for removed_id <- removed_ids do
+          case :ets.lookup(@table, removed_id) do
+            [{^removed_id, device}] ->
+              disconnected = %{device | status: :disconnected}
+              :ets.delete(@table, removed_id)
+              broadcast({:midi_device_disconnected, disconnected})
 
-        [] ->
-          :ok
-      end
+            [] ->
+              :ok
+          end
+        end
     end
   end
 
@@ -172,12 +180,12 @@ defmodule SoundForge.MIDI.DeviceManager do
       |> List.wrap()
       |> Enum.map(&port_to_device/1)
     rescue
-      _e ->
-        Logger.debug("Midiex.ports/0 unavailable")
+      e ->
+        Logger.warning("Midiex.ports/0 raised: #{inspect(e)}")
         []
     catch
-      _kind, _reason ->
-        Logger.debug("Midiex.ports/0 NIF unavailable")
+      kind, reason ->
+        Logger.warning("Midiex.ports/0 NIF threw (#{kind}): #{inspect(reason)}")
         []
     end
   end

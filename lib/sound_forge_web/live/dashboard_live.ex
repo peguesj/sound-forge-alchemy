@@ -105,6 +105,8 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:midi_monitor_listening, false)
       |> assign(:midi_tailf, false)
       |> assign(:midi_raw_log, [])
+      |> assign(:midi_learn_active, false)
+      |> assign(:midi_bar_position, "bottom")
       |> assign(:trace_jobs, [])
       |> assign(:trace_selected_job, nil)
       |> assign(:trace_timeline, [])
@@ -125,6 +127,9 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:queue_history_jobs, [])
       |> assign(:queue_history_has_more, false)
       |> assign(:daw_track_id, nil)
+      |> assign(:daw_library_open, false)
+      |> assign(:dj_library_open, false)
+      |> assign(:analysis_library_open, false)
       |> allow_upload(:audio,
         accept: ~w(.mp3 .wav .flac .ogg .m4a .aac .wma),
         max_entries: 5,
@@ -1251,6 +1256,37 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:nav_tab, :pads)
      |> assign(:nav_context, :pads)
      |> push_patch(to: ~p"/?#{[tab: "pads"]}")}
+  end
+
+  # MARK: — Library pullout handlers (US-B01 to US-B04)
+
+  def handle_event("open_in_daw", %{"track-id" => track_id}, socket) do
+    {:noreply,
+     socket
+     |> assign(:nav_tab, :daw)
+     |> assign(:nav_context, :daw)
+     |> assign(:daw_track_id, track_id)
+     |> assign(:daw_library_open, true)
+     |> push_patch(to: ~p"/?#{[tab: "daw", track_id: track_id]}")}
+  end
+
+  def handle_event("toggle_daw_library", _params, socket) do
+    {:noreply, assign(socket, :daw_library_open, !socket.assigns.daw_library_open)}
+  end
+
+  def handle_event("toggle_dj_library", _params, socket) do
+    {:noreply, assign(socket, :dj_library_open, !socket.assigns.dj_library_open)}
+  end
+
+  def handle_event("toggle_analysis_library", _params, socket) do
+    {:noreply, assign(socket, :analysis_library_open, !socket.assigns.analysis_library_open)}
+  end
+
+  def handle_event("daw_load_from_library", %{"track-id" => track_id}, socket) do
+    {:noreply,
+     socket
+     |> assign(:daw_track_id, track_id)
+     |> assign(:daw_library_open, false)}
   end
 
   @impl true
@@ -2619,18 +2655,6 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   @impl true
-  def handle_info({:virtual_controller, :trigger_cue, params}, socket) do
-    if socket.assigns.nav_tab == :dj do
-      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
-        id: "dj-tab-root",
-        virtual_controller: {:trigger_cue, params}
-      )
-    end
-
-    {:noreply, socket}
-  end
-
-  @impl true
   def handle_info({:midi_action, :stem_volume, %{volume: volume, target: target} = params}, socket) do
     log_entry = midi_log_entry("CC -> stem_volume target=#{target} vol=#{Float.round(volume, 2)}")
 
@@ -2680,6 +2704,20 @@ defmodule SoundForgeWeb.DashboardLive do
   # Raw MIDI events from Dispatcher (when monitor is listening, Story v4.7.0)
   @impl true
   def handle_info({:midi_message, port_id, message}, socket) do
+    # Always forward to global MIDI bar
+    send_update(SoundForgeWeb.Live.Components.GlobalMidiBarComponent,
+      id: "global-midi-bar",
+      midi_event: {port_id, message}
+    )
+    # Forward to MIDI learn overlay if active
+    if socket.assigns[:midi_learn_active] do
+      send_update(SoundForgeWeb.Live.Components.MidiLearnOverlayComponent,
+        id: "midi-learn",
+        midi_event: {port_id, message},
+        current_user_id: socket.assigns[:current_user_id]
+      )
+    end
+
     if socket.assigns.midi_monitor_listening do
       event = build_raw_midi_event(port_id, message)
       # Push to floating monitor component
@@ -2693,6 +2731,35 @@ defmodule SoundForgeWeb.DashboardLive do
     else
       {:noreply, socket}
     end
+  end
+
+  # Global MIDI bar control messages
+  @impl true
+  def handle_info({:global_midi_bar, :toggle_monitor, open}, socket) do
+    {:noreply, assign(socket, :midi_monitor_open, open)}
+  end
+
+  def handle_info({:global_midi_bar, :toggle_learn, active}, socket) do
+    {:noreply, assign(socket, :midi_learn_active, active)}
+  end
+
+  def handle_info({:global_midi_bar, :set_position, pos}, socket) do
+    user_id = socket.assigns[:current_user_id]
+    if user_id do
+      settings = SoundForge.Settings.get_user_settings(user_id) ||
+        %SoundForge.Accounts.UserSettings{user_id: user_id}
+      SoundForge.Settings.update_user_settings(settings, %{midi_bar_position: pos})
+    end
+    {:noreply, assign(socket, :midi_bar_position, pos)}
+  end
+
+  # GlobalBroadcaster events (on pages other than dashboard)
+  def handle_info({:midi_global_event, port_id, message}, socket) do
+    send_update(SoundForgeWeb.Live.Components.GlobalMidiBarComponent,
+      id: "global-midi-bar",
+      midi_event: {port_id, message}
+    )
+    {:noreply, socket}
   end
 
 
@@ -2801,6 +2868,19 @@ defmodule SoundForgeWeb.DashboardLive do
         end
       end
     end
+  end
+
+  def handle_info(:stop_midi_refresh_spin, socket) do
+    {:noreply, assign(socket, :refreshing_midi, false)}
+  end
+
+  def handle_info({:reset_midi_activity, component_id}, socket) do
+    send_update(SoundForgeWeb.Live.Components.ChromaticPadsComponent,
+      id: component_id,
+      midi_activity: false
+    )
+
+    {:noreply, socket}
   end
 
   # -- Template helpers --
@@ -3956,19 +4036,6 @@ defmodule SoundForgeWeb.DashboardLive do
     end
 
     socket
-  end
-
-  def handle_info(:stop_midi_refresh_spin, socket) do
-    {:noreply, assign(socket, :refreshing_midi, false)}
-  end
-
-  def handle_info({:reset_midi_activity, component_id}, socket) do
-    send_update(SoundForgeWeb.Live.Components.ChromaticPadsComponent,
-      id: component_id,
-      midi_activity: false
-    )
-
-    {:noreply, socket}
   end
 
   # Serialize NoteEdit structs to JS-friendly maps (onset_sec→onset, duration_sec→duration)

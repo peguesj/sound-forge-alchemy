@@ -108,13 +108,103 @@ defmodule SoundForge.CrateDigger do
            name: name,
            spotify_playlist_id: playlist_id,
            playlist_data: tracks,
+           source_type: "playlist",
            user_id: user_id
          },
          {:ok, saved} <- upsert_crate(crate, attrs) do
-      # Sync playlist tracks to the Alchemy library (metadata only, no download).
-      # Skips tracks already in the library. New tracks get no download_status.
       sync_tracks_to_library(tracks, user_id)
       {:ok, saved}
+    end
+  end
+
+  @doc """
+  Load a Spotify album URL into a Crate for the given user.
+
+  Fetches album metadata and normalises the track list. The crate is keyed by
+  album ID and created with `source_type: "album"`.
+  """
+  @spec load_spotify_album(integer(), String.t()) ::
+          {:ok, Crate.t()} | {:error, term()}
+  def load_spotify_album(user_id, spotify_url) do
+    with {:ok, album} <- Spotify.fetch_metadata(spotify_url),
+         {:ok, tracks} <- extract_album_tracks(album),
+         album_id = album["id"],
+         name = album["name"] || "Untitled Album",
+         crate = find_or_build_crate(user_id, album_id, name),
+         attrs = %{
+           name: name,
+           spotify_playlist_id: album_id,
+           playlist_data: tracks,
+           source_type: "album",
+           user_id: user_id
+         },
+         {:ok, saved} <- upsert_crate(crate, attrs) do
+      sync_tracks_to_library(tracks, user_id)
+      {:ok, saved}
+    end
+  end
+
+  @doc """
+  Aggregate multiple Spotify playlist URLs into a single "folder crate".
+
+  Fetches each playlist, deduplicates tracks by spotify_id, and stores the
+  union as one Crate with `source_type: "folder"` and `source_urls` set.
+
+  Returns `{:ok, crate}` or `{:error, {url, reason}}` for the first failure.
+  """
+  @spec load_multiple_playlists(integer(), [String.t()], String.t()) ::
+          {:ok, Crate.t()} | {:error, term()}
+  def load_multiple_playlists(user_id, spotify_urls, crate_name)
+      when is_list(spotify_urls) and is_binary(crate_name) do
+    results =
+      Enum.map(spotify_urls, fn url ->
+        with {:ok, playlist} <- Spotify.fetch_metadata(url),
+             {:ok, tracks} <- extract_tracks(playlist) do
+          {:ok, tracks}
+        else
+          {:error, reason} -> {:error, {url, reason}}
+        end
+      end)
+
+    errors = Enum.filter(results, &match?({:error, _}, &1))
+
+    if Enum.any?(errors) do
+      {:error, hd(errors) |> elem(1)}
+    else
+      all_tracks =
+        results
+        |> Enum.flat_map(fn {:ok, tracks} -> tracks end)
+        |> Enum.uniq_by(fn t -> t["spotify_id"] end)
+        |> Enum.reject(fn t -> is_nil(t["spotify_id"]) end)
+
+      # Use a synthetic ID derived from sorted URLs for stable upsert key
+      folder_id =
+        spotify_urls
+        |> Enum.sort()
+        |> Enum.join("|")
+        |> then(&:crypto.hash(:sha256, &1))
+        |> Base.encode16(case: :lower)
+        |> binary_part(0, 22)
+
+      crate = find_or_build_crate(user_id, folder_id, crate_name)
+
+      attrs = %{
+        name: crate_name,
+        spotify_playlist_id: folder_id,
+        playlist_data: all_tracks,
+        source_type: "folder",
+        source_urls: spotify_urls,
+        user_id: user_id
+      }
+
+      case upsert_crate(crate, attrs) do
+        {:ok, saved} ->
+          sync_tracks_to_library(all_tracks, user_id)
+          {:ok, saved}
+
+        error ->
+          error
+      end
     end
   end
 
@@ -215,6 +305,39 @@ defmodule SoundForge.CrateDigger do
     end
   end
 
+  @doc """
+  Compute the health score of a crate: fraction of tracks that have AnalysisResult data.
+
+  Returns a float 0.0–1.0. Returns 0.0 for empty crates.
+  """
+  @spec crate_health_score(Crate.t()) :: float()
+  def crate_health_score(%Crate{playlist_data: []}), do: 0.0
+
+  def crate_health_score(%Crate{playlist_data: tracks}) do
+    import Ecto.Query
+
+    alias SoundForge.Music.{AnalysisResult, Track}
+
+    spotify_ids = Enum.map(tracks, & &1["spotify_id"]) |> Enum.reject(&is_nil/1)
+    total = length(spotify_ids)
+
+    if total == 0 do
+      0.0
+    else
+      analyzed_count =
+        from(a in AnalysisResult,
+          join: t in Track,
+          on: t.id == a.track_id,
+          where: t.spotify_id in ^spotify_ids,
+          select: count(a.id)
+        )
+        |> Repo.one()
+        |> Kernel.||(0)
+
+      min(analyzed_count / total, 1.0)
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
@@ -271,4 +394,39 @@ defmodule SoundForge.CrateDigger do
   end
 
   defp extract_tracks(_), do: {:ok, []}
+
+  # Album items use a flat structure: each item is a track directly (no item["track"] wrapper)
+  defp extract_album_tracks(%{"tracks" => %{"items" => items}, "images" => images})
+       when is_list(items) do
+    artwork_url = get_in(images, [Access.at(0), "url"])
+
+    tracks =
+      items
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(fn track ->
+        artists = track["artists"] || []
+
+        %{
+          "spotify_id" => track["id"],
+          "title" => track["name"],
+          "artist" => artists |> Enum.map(& &1["name"]) |> Enum.join(", "),
+          "artists" => Enum.map(artists, & &1["name"]),
+          "album" => nil,
+          "artwork_url" => artwork_url,
+          "duration_ms" => track["duration_ms"],
+          "preview_url" => track["preview_url"],
+          "release_date" => nil,
+          "explicit" => track["explicit"] || false,
+          "popularity" => track["popularity"]
+        }
+      end)
+
+    {:ok, tracks}
+  end
+
+  defp extract_album_tracks(%{"tracks" => %{"items" => items}}) when is_list(items) do
+    extract_album_tracks(%{"tracks" => %{"items" => items}, "images" => []})
+  end
+
+  defp extract_album_tracks(_), do: {:ok, []}
 end
