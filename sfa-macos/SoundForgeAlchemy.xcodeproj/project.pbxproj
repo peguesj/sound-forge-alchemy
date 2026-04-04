@@ -18,6 +18,7 @@
 		A1000009 /* AboutViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000009 /* AboutViewController.swift */; };
 		A1000012 /* SFATabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000012 /* SFATabView.swift */; };
 		A1000013 /* HelperAgentPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013 /* HelperAgentPanel.swift */; };
+		A1000014 /* AudioUnitWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014 /* AudioUnitWrapper.swift */; };
 		A1000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000010 /* Assets.xcassets */; };
 		A1000011 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A2000011 /* Info.plist */; };
 /* End PBXBuildFile section */
@@ -34,6 +35,7 @@
 		A2000009 /* AboutViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutViewController.swift; sourceTree = "<group>"; };
 		A2000012 /* SFATabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFATabView.swift; sourceTree = "<group>"; };
 		A2000013 /* HelperAgentPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperAgentPanel.swift; sourceTree = "<group>"; };
+		A2000014 /* AudioUnitWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioUnitWrapper.swift; sourceTree = "<group>"; };
 		A2000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A2000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A3000001 /* SoundForgeAlchemy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SoundForgeAlchemy.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -73,6 +75,7 @@
 				A2000009 /* AboutViewController.swift */,
 				A2000012 /* SFATabView.swift */,
 				A2000013 /* HelperAgentPanel.swift */,
+				A2000014 /* AudioUnitWrapper.swift */,
 				A2000010 /* Assets.xcassets */,
 				A2000011 /* Info.plist */,
 				A4000001 /* SoundForgeAlchemy.entitlements */,
@@ -168,6 +171,7 @@
 				A1000009 /* AboutViewController.swift in Sources */,
 				A1000012 /* SFATabView.swift in Sources */,
 				A1000013 /* HelperAgentPanel.swift in Sources */,
+				A1000014 /* AudioUnitWrapper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
