@@ -119,6 +119,15 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
           {stem.id, %{volume: 1.0, muted: false, solo: false, pan: 0.0}}
         end)
 
+      # Verify the downloaded file actually exists on disk (DB may be stale)
+      file_ok =
+        case Music.get_download_path_validated(track.id) do
+          {:ok, _path} -> true
+          {:error, _} -> false
+        end
+
+      pipeline_status = track_pipeline_status(track, file_ok)
+
       socket
       |> assign(:track, track)
       |> assign(:stems, stems)
@@ -126,7 +135,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
       |> assign(:structure_segments, structure_segments)
       |> assign(:bar_times, bar_times)
       |> assign(:stem_mixer, stem_mixer)
-      |> assign(:pipeline_status, track_pipeline_status(track))
+      |> assign(:pipeline_status, pipeline_status)
     rescue
       Ecto.NoResultsError ->
         put_flash(socket, :error, "Track not found")
@@ -647,8 +656,9 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 <%!-- Pipeline status badges --%>
                 <div class="flex flex-wrap gap-1.5 mt-1.5">
                   <span :if={@pipeline_status.on_spotify} class="badge badge-sm bg-purple-600 text-white border-0">Spotify</span>
-                  <span :if={@pipeline_status.downloaded} class="badge badge-sm bg-blue-600 text-white border-0">Downloaded</span>
-                  <span :if={@pipeline_status.analyzed} class="badge badge-sm bg-teal-600 text-white border-0">Analyzed</span>
+                  <span :if={@pipeline_status.downloaded and @pipeline_status.file_ok} class="badge badge-sm bg-blue-600 text-white border-0">Downloaded</span>
+                  <span :if={@pipeline_status.downloaded and not @pipeline_status.file_ok} class="badge badge-sm bg-amber-600 text-white border-0" title="Audio file missing from disk">File Missing</span>
+                  <span :if={@pipeline_status.analyzed and @pipeline_status.file_ok} class="badge badge-sm bg-teal-600 text-white border-0">Analyzed</span>
                   <span :if={@pipeline_status.processed} class="badge badge-sm bg-green-600 text-white border-0">Processed</span>
                 </div>
               </div>
@@ -731,22 +741,37 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
               <p class="text-lg font-medium text-gray-400">No stems available for this track.</p>
               <p class="text-sm mt-2 mb-6">Complete the pipeline steps below to prepare this track for editing.</p>
 
+              <%!-- File missing warning --%>
+              <div
+                :if={@pipeline_status.downloaded and not @pipeline_status.file_ok}
+                class="mx-auto mb-5 max-w-sm bg-amber-950/60 border border-amber-500/40 rounded-lg px-4 py-3 text-amber-300 text-sm text-left"
+              >
+                <p class="font-medium mb-0.5">Audio file not found on disk</p>
+                <p class="text-xs text-amber-400/80">The download record exists but the file could not be located. Re-download to restore it.</p>
+              </div>
+
               <div class="flex flex-col items-center gap-3 mt-4">
-                <%!-- Step 1: Download --%>
-                <div :if={not @pipeline_status.downloaded} class="w-full max-w-sm">
+                <%!-- Step 1: Download / Re-download --%>
+                <div :if={not @pipeline_status.downloaded or not @pipeline_status.file_ok} class="w-full max-w-sm">
                   <button
                     phx-click="daw_download_track"
                     phx-target={@myself}
                     phx-value-track-id={@track.id}
                     class="btn btn-sm btn-primary w-full"
                   >
-                    Download Track
+                    <%= if @pipeline_status.downloaded and not @pipeline_status.file_ok, do: "Re-download Track", else: "Download Track" %>
                   </button>
-                  <p class="text-xs text-gray-600 mt-1">Fetch the audio file from Spotify</p>
+                  <p class="text-xs text-gray-600 mt-1">
+                    <%= if @pipeline_status.downloaded and not @pipeline_status.file_ok do %>
+                      Fetch a fresh copy of the audio file
+                    <% else %>
+                      Fetch the audio file from Spotify
+                    <% end %>
+                  </p>
                 </div>
 
-                <%!-- Step 2: Analyze (only shown if downloaded) --%>
-                <div :if={@pipeline_status.downloaded and not @pipeline_status.analyzed} class="w-full max-w-sm">
+                <%!-- Step 2: Analyze (only shown if file is present and not yet analyzed) --%>
+                <div :if={@pipeline_status.downloaded and @pipeline_status.file_ok and not @pipeline_status.analyzed} class="w-full max-w-sm">
                   <button
                     phx-click="daw_analyze_track"
                     phx-target={@myself}
@@ -758,8 +783,8 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                   <p class="text-xs text-gray-600 mt-1">Detect BPM, key, and structure</p>
                 </div>
 
-                <%!-- Step 3: Separate stems (only shown if downloaded) --%>
-                <div :if={@pipeline_status.downloaded and not @pipeline_status.processed} class="w-full max-w-sm">
+                <%!-- Step 3: Separate stems (only shown if file is present and not yet processed) --%>
+                <div :if={@pipeline_status.downloaded and @pipeline_status.file_ok and not @pipeline_status.processed} class="w-full max-w-sm">
                   <button
                     phx-click="daw_separate_stems"
                     phx-target={@myself}
@@ -1028,15 +1053,18 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
 
   Fields:
     - `on_spotify`  — track has a spotify_url
-    - `downloaded`  — track has at least one completed download job
+    - `downloaded`  — track has at least one completed download job (DB record)
+    - `file_ok`     — downloaded file actually exists on disk (false = file missing)
     - `analyzed`    — track has at least one analysis result
     - `processed`   — track has at least one stem
   """
-  defp track_pipeline_status(nil) do
-    %{on_spotify: false, downloaded: false, analyzed: false, processed: false}
+  defp track_pipeline_status(track, file_ok \\ true)
+
+  defp track_pipeline_status(nil, _file_ok) do
+    %{on_spotify: false, downloaded: false, file_ok: true, analyzed: false, processed: false}
   end
 
-  defp track_pipeline_status(track) do
+  defp track_pipeline_status(track, file_ok) do
     on_spotify = not is_nil(track.spotify_url)
 
     downloaded =
@@ -1050,7 +1078,16 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
 
     processed = is_list(track.stems) and track.stems != []
 
-    %{on_spotify: on_spotify, downloaded: downloaded, analyzed: analyzed, processed: processed}
+    # file_ok is only meaningful when downloaded; if not downloaded, it's N/A (true)
+    effective_file_ok = if downloaded, do: file_ok, else: true
+
+    %{
+      on_spotify: on_spotify,
+      downloaded: downloaded,
+      file_ok: effective_file_ok,
+      analyzed: analyzed,
+      processed: processed
+    }
   end
 
   defp dispatch_download(track_id, user_id) do
@@ -1069,7 +1106,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   end
 
   defp dispatch_analysis(track_id, user_id) do
-    with {:ok, file_path} <- Music.get_download_path(track_id),
+    with {:ok, file_path} <- Music.get_download_path_validated(track_id),
          {:ok, job} <- Music.create_analysis_job(%{track_id: track_id, status: :queued}) do
       %{
         "track_id" => track_id,
@@ -1085,7 +1122,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   defp dispatch_stem_separation(track_id, user_id) do
     model = Settings.get(user_id, :demucs_model)
 
-    with {:ok, file_path} <- Music.get_download_path(track_id),
+    with {:ok, file_path} <- Music.get_download_path_validated(track_id),
          {:ok, job} <-
            Music.create_processing_job(%{
              track_id: track_id,
