@@ -11,6 +11,124 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.1.0] - 2026-04-05
+
+### Added
+- `ControlSurface.Behaviour` — protocol contract for all control surface adapters; MIDI and OSC adapters implement it
+- `ControlSurface.MidiAdapter` — MIDI message routing to action translation layer
+- `ControlSurface.OscAdapter` — OSC message routing to action translation layer
+- `ControlSurface.DeviceProfile` Ecto schema with `device_profiles` migration — persisted controller configurations per user
+- `ControlSurface.DeviceProfiles` context — CRUD and query interface for device profiles
+- `ControlSurface.ActionTranslator` — vendor-specific action dictionaries (Serato, Traktor, generic)
+- `ControlSurface.ProfileLoader` — loads Serato XML mappings, Traktor TSI, and TouchOSC JSON layouts
+- Universal Controller Preset — `controller_registry.json` seeded with Akai MPC Live II and MVAVE fingerprints
+- AI Auto-Detect in `MIDI.AutoDetect` — identifies connected controllers by fingerprint matching
+- `dj_crossfader_split` persisted to `user_settings` — loaded on mount, saved on toggle
+- MIDI Mapping schema: `tab_context` and `preset_name` fields; DAW and Library action categories
+
+### Fixed
+- `ControllerFingerprints` atom conversion bug — `String.to_existing_atom/1` replaced with `String.to_atom/1` to resolve application startup failure when MIDI type atoms were not pre-registered
+- `AutoDetect` module references corrected — was calling `ControllerRegistry.lookup/1` and `ControllerRegistry.list_controllers/0`; fixed to target `ControllerFingerprints` module, eliminating compilation warnings and potential runtime failures
+- DAW UUID guard — prevents nil-UUID crash when accessing DAW project before tracks load
+- Library sidebar dedup — analysis library pullout panel no longer shows duplicate track entries
+- Nav tab highlight — active tab indicator now follows LiveView route state correctly
+
+---
+
+## [5.0.0] - 2026-04-01
+
+### Added
+- `AgentRunner` GenServer — orchestrates AI agents as supervised OTP processes with lifecycle callbacks, retry logic, and PubSub telemetry
+- `SonicAnalyst` AI agent — real-time audio feature extraction and recommendation engine running as a supervised GenServer
+- AI Suggest panel in DJ tab — on-demand track suggestions from SonicAnalyst with energy/tempo/key matching
+- `agent_results` Ecto schema for persisting AI agent output per analysis session
+
+---
+
+## [4.9.0] - 2026-03-31
+
+### Added
+- Set Library panel in DJ tab — browse, load, and organize performance sets without leaving the mix view
+- Manual set save — save the current deck state (tracks, cue points, loop regions, EQ settings) as a named performance set with one click
+- Set version history — each save creates a versioned snapshot; restore any previous set state
+- `PerformanceSetVersion` Ecto schema with JSON snapshot storage
+
+---
+
+## [4.8.0] - 2026-03-28
+
+### Added
+- `PerformanceSet` Ecto schema — stores DJ set configurations including deck assignments, BPM sync, and crossfader position
+- Chef AI completion notifications — toast notifications with mix quality score and harmonic analysis summary when Chef finishes a suggestion cycle
+- Set export to Rekordbox XML — export current performance set as a Rekordbox-compatible playlist with cue points
+
+---
+
+## [4.7.0] - 2026-03-25
+
+### Added
+- Global MIDI monitor overlay — floating panel showing all incoming MIDI messages in real time, filterable by channel and message type
+- DAW stem track controls — per-stem volume, pan, mute, and solo controls in the DAW tab arrangement view
+- Full-featured DAW with project management — create, rename, and delete DAW projects; track arrangement with drag-to-reorder; export stems to project
+- Track classification in DAW — automatic genre/mood/energy classification for imported stems using the analysis pipeline
+- Crate Digger v2 expansion — 10 new user stories across 4 waves: advanced scraper targets, AI-powered curation, bulk import, playlist sync
+- MIDI omnipresent bar — persistent MIDI status bar at top of every page showing active device, last received note, and channel activity
+- Per-module MIDI learn overlay — yellow ring highlights on all learnable controls when MIDI learn mode is active; orange ring on selected target
+- Preset import from Serato DJ, Traktor TSI, and default scorin.tsi controller mappings
+- OpsDoc runbooks — 5 operational runbooks covering import pipeline, stem separation, MIDI device setup, DAW projects, and deployment
+- Showcase doc-sink pull-tab container — 5-tab documentation panel (OpsDoc, Wiki, Notion, Plane-PM, GitHub) in the dev showcase
+
+### Fixed
+- Hot cue click no longer resets playback to beginning — `seek` event was incorrectly clearing the play position
+- MIDI bar no longer overlaps transport footer — z-index and positioning corrected for fixed-position bars
+- Input text contrast on login page — layout's `text-white` was inheriting into daisyUI inputs causing invisible text; fixed via `color: var(--color-base-content)` on `.input`
+- Dev mailbox link now uses `127.0.0.1` instead of `localhost` — added `url: [host: "127.0.0.1"]` to endpoint config
+
+### Removed
+- Virtual controller UI — replaced by the persistent MIDI bar and per-module learn overlay; removed to reduce UI complexity
+
+---
+
+## [4.6.3] - 2026-03-20
+
+### Added
+- Auto-migration on startup — `Ecto.Migrator.run/3` called in `Application.start/2` so fresh deployments migrate automatically
+- Admin impersonation — platform admins can impersonate any user account for support triage; logged to audit table
+- Azure OpenAI provider — full support for Azure-hosted GPT-4o and GPT-4-turbo via updated `LLM.Providers.Azure` adapter
+- MCP config support — `.mcp.json` project-level file for Claude Code MCP server definitions
+
+### Fixed
+- `yt-dlp` updated to 2026.3.3, resolving download pipeline failures for recent YouTube format changes
+- `spotdl` dependency conflict with `yt-dlp` resolved by pinning compatible versions
+- Python stderr now logged on download failure for easier debugging
+
+---
+
+## [4.6.2] - 2026-03-17
+
+### Added
+- MIDI settings redesigned as Logic Pro-style 3-column layout: device list, channel assignments, mapping table
+- CrateDigger learning-focused playlist player with spaced-repetition queue
+
+### Fixed
+- `/settings` FunctionClauseError on section render — added missing `section_label/1` clauses for `:sources` and `:control_surfaces`
+- `@analysis.features` used instead of `@analysis.result` for drum events rendering
+
+---
+
+## [4.6.1] - 2026-03-14
+
+### Added
+- Dashboard navigation home module cards — quick-launch cards for Library, DJ, DAW, Crate Digger, Settings, and Admin
+- MIDI refresh button on dashboard — manually trigger MIDI device enumeration without page reload
+- Select-all-pages in track library — checkbox to select all tracks across paginated results
+
+### Fixed
+- MIDI pad learning regression — pad cells were not registering `phx-click` events after the layout normalization pass
+- MIDI graceful init when hardware unavailable — `Midiex.ports/0` returns empty list instead of raising when no MIDI devices present
+
+---
+
 ## [4.6.0] - 2026-03-11
 
 ### Added
@@ -508,7 +626,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.6.0...HEAD
+[Unreleased]: https://github.com/peguesj/sound-forge-alchemy/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.9.0...v5.0.0
+[4.9.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.8.0...v4.9.0
+[4.8.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.7.0...v4.8.0
+[4.7.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.6.3...v4.7.0
+[4.6.3]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.6.2...v4.6.3
+[4.6.2]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.6.1...v4.6.2
+[4.6.1]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.6.0...v4.6.1
 [4.6.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.5.0...v4.6.0
 [4.5.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.4.0...v4.5.0
 [4.4.0]: https://github.com/peguesj/sound-forge-alchemy/compare/v4.3.0...v4.4.0

@@ -104,6 +104,13 @@
 
 /* This file is for your main application CSS */
 
+/* daisyUI inputs use --color-base-100 as background and --color-base-content as text.
+   The layout wrapper sets text-white globally, which inherited into inputs and made
+   text invisible on daisyUI's light input backgrounds. This restores correct contrast. */
+.input {
+  color: var(--color-base-content) !important;
+}
+
 /* App shell layout utilities */
 .sidebar-scroll::-webkit-scrollbar {
   width: 4px;
@@ -164,3 +171,4 @@
 .has-midi-bar-top {
   padding-top: 2.5rem !important;
 }
+

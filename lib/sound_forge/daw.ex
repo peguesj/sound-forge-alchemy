@@ -75,6 +75,49 @@ defmodule SoundForge.DAW do
     Repo.delete(project)
   end
 
+  @doc """
+  Get or create the user's primary DAW project and add the given track if not already present.
+
+  Returns:
+  - `{:ok, :added, project}` — track was added to an existing or new project
+  - `{:ok, :already_present, project}` — track was already in the project (no-op)
+  - `{:error, reason}` — project or track operation failed
+  """
+  @spec get_or_create_project_with_track(integer(), binary()) ::
+          {:ok, :added | :already_present, DawProject.t()} | {:error, term()}
+  def get_or_create_project_with_track(user_id, track_id) do
+    track = SoundForge.Music.get_track!(track_id)
+
+    project =
+      case list_projects(user_id) do
+        [] ->
+          title = "#{track.title || "New"} — Project"
+          {:ok, p} = create_project(user_id, %{title: title})
+          get_project!(p.id)
+
+        [p | _] ->
+          get_project!(p.id)
+      end
+
+    existing_ids = MapSet.new(project.project_tracks, & &1.audio_file_id)
+
+    if MapSet.member?(existing_ids, track.id) do
+      {:ok, :already_present, project}
+    else
+      position = length(project.project_tracks)
+
+      case add_track(project.id, %{
+             audio_file_id: track.id,
+             title: track.title,
+             position: position,
+             track_type: "unknown"
+           }) do
+        {:ok, _} -> {:ok, :added, get_project!(project.id)}
+        {:error, cs} -> {:error, cs}
+      end
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # Track-lane management
   # ---------------------------------------------------------------------------

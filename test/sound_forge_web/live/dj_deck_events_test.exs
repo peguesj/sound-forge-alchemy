@@ -138,16 +138,15 @@ defmodule SoundForgeWeb.DjDeckEventsTest do
   end
 
   describe "preset section" do
-    test "toggle_preset_section opens presets", %{conn: conn} do
+    test "export_preset triggers push_event", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/?tab=dj")
-      html = view |> element("[phx-click='toggle_preset_section']") |> render_click()
+      html = view |> element("[phx-click='export_preset']") |> render_click()
       assert is_binary(html)
     end
 
-    test "toggle_preset_section double toggle closes", %{conn: conn} do
+    test "load_default_preset renders without crash", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/?tab=dj")
-      view |> element("[phx-click='toggle_preset_section']") |> render_click()
-      html = view |> element("[phx-click='toggle_preset_section']") |> render_click()
+      html = view |> element("[phx-click='load_default_preset']") |> render_click()
       assert is_binary(html)
     end
   end

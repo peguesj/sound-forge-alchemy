@@ -1,0 +1,35 @@
+# Sound Forge Alchemy — macOS Native
+# Gemfile: Ruby toolchain for Fastlane build pipeline
+#
+# Install: bundle install
+# Use:     bundle exec fastlane [lane]
+
+source "https://rubygems.org"
+
+# Pin Ruby version to match CI runners
+ruby "~> 3.2"
+
+# Core build automation
+gem "fastlane", "~> 2.221"
+
+# --- Fastlane plugins ---
+
+# xcpretty-style formatting for xcodebuild output
+gem "xcpretty", "~> 0.3"
+
+# Required for `run_tests` JUnit/HTML output
+gem "xcpretty-travis-formatter", "~> 1.0"
+
+# Semantic version bumping helper (used in bump_version lane)
+# gem "fastlane-plugin-versioning", "~> 0.5"
+
+# Slack / webhook build notifications
+# gem "fastlane-plugin-slack_upload", "~> 0.1"
+
+# App Store Connect API key management (bundled in fastlane 2.x)
+# No extra gem needed; use app_store_connect_api_key action.
+
+group :development do
+  # Interactive debug console
+  gem "pry", "~> 0.14"
+end

@@ -14,7 +14,9 @@ defmodule SoundForgeWeb.MidiLive do
   alias SoundForge.MIDI.{
     ControllerRegistry,
     DeviceManager,
+    DeviceResearch,
     Dispatcher,
+    ImageMapper,
     Mapping,
     Mappings,
     NetworkDiscovery
@@ -33,6 +35,13 @@ defmodule SoundForgeWeb.MidiLive do
     devices = DeviceManager.list_devices()
     network_devices = NetworkDiscovery.list_network_devices()
     mappings = if current_user_id, do: Mappings.list_mappings(current_user_id), else: []
+
+    # Pre-load any cached device research info
+    device_research =
+      devices
+      |> Enum.map(&{&1.port_id, DeviceResearch.get_info(&1.port_id)})
+      |> Enum.reject(fn {_, v} -> is_nil(v) end)
+      |> Map.new()
 
     # Auto-select the first input device, if any
     default_controller =
@@ -57,6 +66,8 @@ defmodule SoundForgeWeb.MidiLive do
       |> assign(:listening, MapSet.new())
       |> assign(:activity, %{})
       |> assign(:scanning, false)
+      # Device research (port_id → info map)
+      |> assign(:device_research, device_research)
       # Controller selection (3-column)
       |> assign(:selected_controller_port_id, default_controller && default_controller.port_id)
       |> assign(:visual_tab, nil)
@@ -72,6 +83,10 @@ defmodule SoundForgeWeb.MidiLive do
       |> assign(:learned_number, nil)
       |> assign(:selected_preset, nil)
       |> assign(:mapping_flash, nil)
+      # Image-to-mapping state
+      |> assign(:image_mapping_controls, nil)
+      |> assign(:image_mapping_analyzing, false)
+      |> assign(:image_mapping_error, nil)
       # Monitor strip
       |> assign(:midi_monitor, [])
       |> assign(:monitor_listening, false)
@@ -79,6 +94,11 @@ defmodule SoundForgeWeb.MidiLive do
       |> assign(:midi_bar_position, "bottom")
       |> assign(:midi_learn_active, false)
       |> assign(:midi_monitor_open, false)
+      |> allow_upload(:controller_image,
+        accept: ~w(.png .jpg .jpeg .webp),
+        max_entries: 1,
+        max_file_size: 5_000_000
+      )
 
     {:ok, socket}
   end
@@ -357,6 +377,94 @@ defmodule SoundForgeWeb.MidiLive do
     {:noreply, assign(socket, :midi_monitor, [])}
   end
 
+  # ---------------------------------------------------------------------------
+  # Image-to-Mapping
+  # ---------------------------------------------------------------------------
+
+  def handle_event("analyze_controller_image", _params, socket) do
+    case uploaded_entries(socket, :controller_image) do
+      {[entry | _], []} ->
+        socket = assign(socket, :image_mapping_analyzing, true)
+
+        # Read the file and encode as base64
+        {base64, mime_type} =
+          consume_uploaded_entry(socket, entry, fn %{path: path} ->
+            data = File.read!(path)
+            mime = entry.client_type || "image/png"
+            {Base.encode64(data), mime}
+          end)
+
+        # Analyze asynchronously
+        self_pid = self()
+
+        Task.start(fn ->
+          result = ImageMapper.analyze(base64, mime_type)
+          send(self_pid, {:image_mapping_result, result})
+        end)
+
+        {:noreply, socket}
+
+      _ ->
+        {:noreply, assign(socket, :image_mapping_error, "Please select an image first.")}
+    end
+  end
+
+  def handle_event("confirm_image_control", %{"index" => idx_str, "cc" => cc_str}, socket) do
+    index = String.to_integer(idx_str)
+    cc = String.to_integer(cc_str)
+
+    controls =
+      socket.assigns.image_mapping_controls
+      |> List.update_at(index, fn c -> %{c | suggested_cc: cc, confirmed: true} end)
+
+    {:noreply, assign(socket, :image_mapping_controls, controls)}
+  end
+
+  def handle_event("apply_image_mappings", _params, socket) do
+    user_id = socket.assigns.current_user_id
+    device_name = socket.assigns.selected_device
+    controls = socket.assigns.image_mapping_controls || []
+
+    unless user_id && device_name do
+      {:noreply, assign(socket, :image_mapping_error, "Select a device first.")}
+    else
+      confirmed = Enum.filter(controls, & &1.confirmed)
+
+      results =
+        Enum.map(confirmed, fn control ->
+          {midi_type, number} = control_to_midi(control)
+
+          attrs = %{
+            user_id: user_id,
+            device_name: device_name,
+            midi_type: midi_type,
+            channel: 1,
+            number: number,
+            action: control_to_action(control),
+            params: %{"label" => control.label, "from_image" => true}
+          }
+
+          Mappings.create_mapping(attrs)
+        end)
+
+      saved = Enum.count(results, &match?({:ok, _}, &1))
+      mappings = if user_id, do: Mappings.list_mappings(user_id), else: []
+
+      {:noreply,
+       socket
+       |> assign(:mappings, mappings)
+       |> assign(:image_mapping_controls, nil)
+       |> assign(:mapping_flash, "Applied #{saved} mapping(s) from image.")}
+    end
+  end
+
+  def handle_event("clear_image_mapping", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:image_mapping_controls, nil)
+     |> assign(:image_mapping_error, nil)}
+  end
+
   # Catch-all: ignore unhandled events (e.g. pwa_midi_available from root layout hook)
   def handle_event(_event, _params, socket), do: {:noreply, socket}
 
@@ -365,6 +473,33 @@ defmodule SoundForgeWeb.MidiLive do
   # ---------------------------------------------------------------------------
 
   @impl true
+  def handle_info({:midi_device_researched, info}, socket) do
+    device_research = Map.put(socket.assigns.device_research, info.port_id, info)
+    {:noreply, assign(socket, :device_research, device_research)}
+  end
+
+  def handle_info({:image_mapping_result, {:ok, controls}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:image_mapping_controls, controls)
+     |> assign(:image_mapping_analyzing, false)
+     |> assign(:image_mapping_error, nil)}
+  end
+
+  def handle_info({:image_mapping_result, {:error, :no_provider}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:image_mapping_analyzing, false)
+     |> assign(:image_mapping_error, "No AI provider configured. Set ANTHROPIC_API_KEY.")}
+  end
+
+  def handle_info({:image_mapping_result, {:error, _}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:image_mapping_analyzing, false)
+     |> assign(:image_mapping_error, "Failed to analyze image. Try again.")}
+  end
+
   def handle_info({:midi_device_connected, device}, socket) do
     devices =
       socket.assigns.devices
@@ -941,6 +1076,124 @@ defmodule SoundForgeWeb.MidiLive do
               </div>
             </div>
 
+            <%!-- Device Research Info --%>
+            <% research = Map.get(@device_research, @selected_controller && @selected_controller.port_id) %>
+            <div :if={research && research.source == :researched} class="mx-3 mb-2 px-3 py-2 bg-blue-950/40 border border-blue-800/30 rounded-lg">
+              <p class="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-1">Device Info</p>
+              <div class="space-y-0.5">
+                <div :if={research.manufacturer} class="text-[10px] text-gray-400">
+                  <span class="text-gray-600">Manufacturer:</span> {research.manufacturer}
+                </div>
+                <div :if={research.vendor_id} class="text-[10px] text-gray-400 font-mono">
+                  <span class="text-gray-600">USB ID:</span> {research.vendor_id}{if research.product_id, do: ":#{research.product_id}", else: ""}
+                </div>
+              </div>
+            </div>
+
+            <%!-- Image-to-Mapping --%>
+            <div class="px-3 pb-3 border-t border-gray-800/40 pt-3">
+              <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Map from Image</p>
+
+              <%!-- Upload form --%>
+              <form :if={is_nil(@image_mapping_controls)} phx-change="validate" phx-submit="analyze_controller_image">
+                <.live_file_input upload={@uploads.controller_image} class="hidden" id="image-upload-input" />
+                <label
+                  for="image-upload-input"
+                  class="flex flex-col items-center justify-center gap-1 w-full py-4 rounded-lg border border-dashed border-gray-700 text-gray-600 hover:border-purple-600 hover:text-purple-400 cursor-pointer transition-colors text-center"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span class="text-[10px]">Upload controller photo</span>
+                </label>
+
+                <%= for entry <- @uploads.controller_image.entries do %>
+                  <div class="mt-2 flex items-center gap-2 text-xs text-gray-400">
+                    <span class="truncate flex-1">{entry.client_name}</span>
+                    <button type="button" phx-click="cancel_upload" phx-value-ref={entry.ref} class="text-gray-600 hover:text-red-400">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="w-full bg-gray-800 rounded-full h-1 mt-1">
+                    <div class="bg-purple-600 h-1 rounded-full" style={"width: #{entry.progress}%"} />
+                  </div>
+                <% end %>
+
+                <button
+                  :if={@uploads.controller_image.entries != []}
+                  type="submit"
+                  disabled={@image_mapping_analyzing}
+                  class="mt-2 w-full py-1 text-xs bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white rounded transition-colors"
+                >
+                  {if @image_mapping_analyzing, do: "Analyzing...", else: "Analyze with AI"}
+                </button>
+              </form>
+
+              <%!-- Analyzing indicator --%>
+              <div :if={@image_mapping_analyzing && is_nil(@image_mapping_controls)} class="flex items-center gap-2 text-xs text-purple-400 mt-2">
+                <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span>Identifying controls...</span>
+              </div>
+
+              <%!-- Error --%>
+              <div :if={@image_mapping_error} class="mt-2 text-[10px] text-red-400">{@image_mapping_error}</div>
+
+              <%!-- Results --%>
+              <div :if={@image_mapping_controls} class="mt-2">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[10px] text-gray-400">{length(@image_mapping_controls)} controls detected</span>
+                  <button phx-click="clear_image_mapping" class="text-[10px] text-gray-600 hover:text-red-400">Clear</button>
+                </div>
+
+                <div class="space-y-1 max-h-48 overflow-y-auto">
+                  <%= for {control, idx} <- Enum.with_index(@image_mapping_controls) do %>
+                    <div class={[
+                      "flex items-center gap-2 px-2 py-1.5 rounded text-[10px]",
+                      if(control.confirmed, do: "bg-green-900/30 border border-green-700/30", else: "bg-gray-900 border border-gray-800")
+                    ]}>
+                      <span class={[
+                        "px-1 rounded font-mono",
+                        case control.type do
+                          :pad -> "bg-purple-900 text-purple-300"
+                          :knob -> "bg-blue-900 text-blue-300"
+                          :fader -> "bg-cyan-900 text-cyan-300"
+                          :button -> "bg-gray-700 text-gray-300"
+                          _ -> "bg-gray-800 text-gray-400"
+                        end
+                      ]}>{control.type}</span>
+                      <span class="flex-1 text-gray-400 truncate">{control.label || "—"}</span>
+                      <form phx-change="confirm_image_control" phx-value-index={idx} class="flex items-center gap-1">
+                        <input type="hidden" name="index" value={idx} />
+                        <input
+                          type="number"
+                          name="cc"
+                          value={control.suggested_cc}
+                          min="0"
+                          max="127"
+                          class="w-10 bg-gray-800 border border-gray-700 rounded text-[10px] text-white px-1 py-0.5 text-center"
+                        />
+                      </form>
+                      <div :if={control.confirmed} class="w-2 h-2 rounded-full bg-green-500" />
+                    </div>
+                  <% end %>
+                </div>
+
+                <button
+                  :if={Enum.any?(@image_mapping_controls, & &1.confirmed)}
+                  phx-click="apply_image_mappings"
+                  class="mt-2 w-full py-1 text-xs bg-green-700 hover:bg-green-600 text-white rounded transition-colors"
+                >
+                  Apply Confirmed Mappings
+                </button>
+              </div>
+            </div>
+
             <%!-- Per-controller mappings list --%>
             <div class="px-3 pb-4 border-t border-gray-800/40 pt-3 flex-1">
               <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-2">
@@ -1409,6 +1662,37 @@ defmodule SoundForgeWeb.MidiLive do
   defp format_midi_type(:note_on), do: "Note"
   defp format_midi_type(:note_off), do: "NoteOff"
   defp format_midi_type(other) when is_atom(other), do: Atom.to_string(other)
+
+  defp control_to_midi(%{type: type, suggested_cc: cc}) do
+    case type do
+      t when t in [:pad, :key] -> {:note_on, cc}
+      _ -> {:cc, cc}
+    end
+  end
+
+  defp control_to_action(%{type: type, label: label}) do
+    label_lower = if label, do: String.downcase(label), else: ""
+
+    cond do
+      String.contains?(label_lower, "vol") -> :stem_volume
+      String.contains?(label_lower, "play") -> :play
+      String.contains?(label_lower, "stop") -> :stop
+      String.contains?(label_lower, "next") -> :next_track
+      String.contains?(label_lower, "prev") -> :prev_track
+      String.contains?(label_lower, "bpm") -> :bpm_tap
+      String.contains?(label_lower, "pitch") -> :dj_pitch
+      String.contains?(label_lower, "cross") -> :dj_crossfader
+      String.contains?(label_lower, "loop") -> :dj_loop_toggle
+      String.contains?(label_lower, "cue") -> :dj_cue
+      String.contains?(label_lower, "mute") -> :stem_mute
+      String.contains?(label_lower, "solo") -> :stem_solo
+      type == :pad -> :pad_trigger
+      type == :key -> :play
+      true -> :play
+    end
+  rescue
+    _ -> :play
+  end
 
   defp category_pill_class(:transport), do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-900/60 text-blue-300"
   defp category_pill_class(:dj), do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-900/60 text-cyan-300"

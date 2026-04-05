@@ -35,7 +35,7 @@ defmodule SoundForge.MIDI.AutoDetect do
       {:error, :unknown}
   """
 
-  alias SoundForge.MIDI.{ControllerRegistry, Mappings}
+  alias SoundForge.MIDI.{ControllerFingerprints, Mappings}
   alias SoundForge.LLM.Router
   require Logger
 
@@ -73,7 +73,7 @@ defmodule SoundForge.MIDI.AutoDetect do
   def detect_controller([], _user_id), do: {:error, :no_signals}
 
   def detect_controller(signals, user_id) when is_list(signals) do
-    case ControllerRegistry.lookup(signals) do
+    case ControllerFingerprints.lookup(signals) do
       {:ok, controller_name, confidence} ->
         build_registry_result(controller_name, confidence, user_id)
 
@@ -94,7 +94,7 @@ defmodule SoundForge.MIDI.AutoDetect do
 
   defp build_registry_result(controller_name, confidence, user_id) do
     # Try to get the full controller info from the registry
-    controllers = ControllerRegistry.list_controllers()
+    controllers = ControllerFingerprints.list_controllers()
     controller_info = Enum.find(controllers, &(&1.model == controller_name)) || %{model: controller_name}
 
     suggested = build_suggested_mappings(controller_name, user_id)

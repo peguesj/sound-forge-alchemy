@@ -16,6 +16,40 @@
           {
             "type": "command",
             "command": "bash -c 'branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [[ \"$branch\" == release/* ]]; then echo \"WARNING: On $branch. Changes should be made on main and promoted via merge.\"; fi'"
+          },
+          {
+            "type": "command",
+            "command": "bash /Users/jeremiah/Developer/sfa/.claude/hooks/pre_tool_use.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/jeremiah/Developer/sfa/.claude/hooks/post_tool_use.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'OUTPUT=\"${CLAUDE_TOOL_OUTPUT:-}\"; if echo \"$OUTPUT\" | grep -q \"mix compile\\|Compiled \"; then curl -s -X POST http://localhost:3032/api/notify -H \"Content-Type: application/json\" -d \"{\\\"type\\\":\\\"success\\\",\\\"title\\\":\\\"SFA Compile\\\",\\\"message\\\":\\\"mix compile complete\\\",\\\"category\\\":\\\"upm\\\"}\" >/dev/null 2>&1 & fi'"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/jeremiah/Developer/sfa/.claude/hooks/session_init.sh"
           }
         ]
       }

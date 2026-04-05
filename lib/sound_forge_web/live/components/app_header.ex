@@ -26,7 +26,13 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
           >
             Alchemy
           </a>
-          <span class="hidden sm:inline text-xs text-gray-600">v4.7.0</span>
+          <button
+            onclick="document.getElementById('changelog-modal').showModal()"
+            class="hidden sm:inline text-xs text-gray-600 hover:text-purple-400 transition-colors cursor-pointer px-1.5 py-0.5 rounded hover:bg-gray-800"
+            title="View changelog"
+          >
+            v5.0.0
+          </button>
           <nav class="hidden md:flex items-center gap-0.5" aria-label="Main navigation">
             <!-- Home -->
             <button
@@ -347,11 +353,11 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
   end
 
   defp tab_class(true) do
-    "group is-active flex items-center px-3 py-2 text-sm font-medium text-purple-400 border-b-2 border-purple-500 transition-colors"
+    "group is-active flex items-center gap-1 px-3 py-2 text-sm font-medium text-purple-400 border-b-2 border-purple-500 transition-colors"
   end
 
   defp tab_class(false) do
-    "group flex items-center px-3 py-2 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-white hover:border-gray-600 transition-colors"
+    "group flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-white hover:border-gray-600 transition-colors"
   end
 
   defp sub_nav_class(true) do

@@ -1,0 +1,32 @@
+// Sound Forge Alchemy — macOS Native
+// Release.xcconfig: production / distribution configuration
+//
+// Wire this file to the "Release" build configuration in Xcode:
+//   Project > Info > Configurations > Release > SoundForgeAlchemy: xcconfig/Release
+//
+// The SFA_SERVER_URL can be overridden at build time:
+//   xcodebuild ... SFA_SERVER_URL=https://custom.host.com
+// or via CI environment variable injection (see GitHub Actions workflow).
+
+#include "Base.xcconfig"
+
+// Production Phoenix server.
+// Override with env var SFA_SERVER_URL in CI or Fastlane xcargs.
+SFA_SERVER_URL = https://app.soundforgealchemy.com
+
+// Optimisation
+GCC_OPTIMIZATION_LEVEL = s
+SWIFT_OPTIMIZATION_LEVEL = -O
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+STRIP_INSTALLED_PRODUCT = YES
+
+// Manual signing — Fastlane Match manages certs
+CODE_SIGN_STYLE = Manual
+DEVELOPMENT_TEAM = $(TEAM_ID)
+CODE_SIGN_IDENTITY = Developer ID Application
+
+// Universal Binary
+ONLY_ACTIVE_ARCH = NO
+
+// Dead-code stripping
+DEAD_CODE_STRIPPING = YES

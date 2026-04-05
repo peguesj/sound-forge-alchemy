@@ -4,15 +4,17 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
   alias SoundForge.DAW
   alias SoundForge.Music
   alias SoundForge.CrateDigger
+  alias SoundForge.Accounts
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
+    user_id = resolve_user_id(socket.assigns[:current_user], session)
+
     if connected?(socket) do
       SoundForge.MIDI.GlobalBroadcaster.subscribe()
     end
 
-    user_id = socket.assigns.current_user.id
-    projects = DAW.list_projects(user_id)
+    projects = if user_id, do: DAW.list_projects(user_id), else: []
     active_project = List.first(projects)
 
     # Load full project with preloaded tracks
@@ -21,14 +23,19 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
 
     {:ok,
      assign(socket,
+       current_user_id: user_id,
        projects: projects,
        active_project: active_project,
        add_track_open: false,
+       import_source: :library,
        library_tracks: [],
        library_search: "",
-       track_override_id: nil,
-       import_crate_open: false,
+       selected_track_ids: MapSet.new(),
+       last_selected_index: nil,
        user_crates: [],
+       selected_crate_id: nil,
+       crate_matched_tracks: [],
+       track_override_id: nil,
        page_title: "DAW",
        midi_bar_position: "bottom",
        midi_learn_active: false,
@@ -38,8 +45,19 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
 
   @impl true
   def handle_params(%{"track_id" => track_id}, _uri, socket) do
-    # Backward compat: /daw/:track_id just loads the DAW, ignoring track_id for now
-    {:noreply, assign(socket, :requested_track_id, track_id)}
+    user_id = socket.assigns.current_user_id
+
+    with true <- user_id != nil,
+         {:ok, _uuid} <- Ecto.UUID.cast(track_id),
+         {:ok, kind, project} <- DAW.get_or_create_project_with_track(user_id, track_id) do
+      projects = DAW.list_projects(user_id)
+      msg = if kind == :added, do: "Track added to \"#{project.title}\"", else: "Track already in project"
+      {:noreply, socket |> assign(active_project: project, projects: projects) |> put_flash(:info, msg)}
+    else
+      false -> {:noreply, socket}
+      :error -> {:noreply, put_flash(socket, :error, "Invalid track ID")}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Could not load track in DAW")}
+    end
   end
 
   def handle_params(_params, _uri, socket) do
@@ -52,7 +70,8 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
 
   defp reload_project(socket, project_id) do
     project = DAW.get_project!(project_id)
-    projects = DAW.list_projects(socket.assigns.current_user.id)
+    user_id = socket.assigns.current_user_id
+    projects = if user_id, do: DAW.list_projects(user_id), else: []
     assign(socket, active_project: project, projects: projects)
   end
 
@@ -78,7 +97,7 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
 
   defp format_duration(ms) when is_float(ms), do: format_duration(round(ms / 1000))
 
-  defp scope(socket), do: %{user: socket.assigns.current_user}
+  defp scope(socket), do: %{user: %{id: socket.assigns.current_user_id}}
 
   defp project_tracks_json(nil), do: []
 
@@ -110,7 +129,7 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
 
   @impl true
   def handle_event("new_project", _params, socket) do
-    user_id = socket.assigns.current_user.id
+    user_id = socket.assigns.current_user_id
 
     case DAW.create_project(user_id, %{title: "Untitled Project"}) do
       {:ok, project} ->
@@ -133,7 +152,7 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
 
     case DAW.update_project(project, %{title: title}) do
       {:ok, updated} ->
-        projects = DAW.list_projects(socket.assigns.current_user.id)
+        projects = DAW.list_projects(socket.assigns.current_user_id)
         {:noreply, assign(socket, active_project: updated, projects: projects)}
 
       {:error, _} ->
@@ -181,11 +200,150 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
   def handle_event("open_add_track", _params, socket) do
     scope = scope(socket)
     library_tracks = Music.list_tracks(scope)
-    {:noreply, assign(socket, add_track_open: true, library_tracks: library_tracks, library_search: "")}
+
+    {:noreply,
+     assign(socket,
+       add_track_open: true,
+       import_source: :library,
+       library_tracks: library_tracks,
+       library_search: "",
+       selected_track_ids: MapSet.new(),
+       last_selected_index: nil
+     )}
   end
 
   def handle_event("close_add_track", _params, socket) do
-    {:noreply, assign(socket, add_track_open: false)}
+    {:noreply,
+     assign(socket,
+       add_track_open: false,
+       selected_track_ids: MapSet.new(),
+       selected_crate_id: nil,
+       crate_matched_tracks: []
+     )}
+  end
+
+  def handle_event("set_import_source", %{"source" => source}, socket) do
+    source_atom = if source == "crate", do: :crate, else: :library
+
+    socket =
+      if source_atom == :library do
+        scope = scope(socket)
+        library_tracks = Music.list_tracks(scope)
+        assign(socket, library_tracks: library_tracks, library_search: "")
+      else
+        user_id = socket.assigns.current_user_id
+        crates = CrateDigger.list_crates(user_id)
+        assign(socket, user_crates: crates, selected_crate_id: nil, crate_matched_tracks: [])
+      end
+
+    {:noreply,
+     assign(socket,
+       import_source: source_atom,
+       selected_track_ids: MapSet.new(),
+       last_selected_index: nil
+     )}
+  end
+
+  def handle_event("toggle_track_selection", %{"track-id" => track_id} = params, socket) do
+    index = params["index"] && String.to_integer(params["index"])
+    selected = socket.assigns.selected_track_ids
+
+    new_selected =
+      if MapSet.member?(selected, track_id) do
+        MapSet.delete(selected, track_id)
+      else
+        MapSet.put(selected, track_id)
+      end
+
+    {:noreply, assign(socket, selected_track_ids: new_selected, last_selected_index: index)}
+  end
+
+  def handle_event("select_all_tracks", _params, socket) do
+    tracks =
+      case socket.assigns.import_source do
+        :library -> socket.assigns.library_tracks
+        :crate -> socket.assigns.crate_matched_tracks
+      end
+
+    all_ids = MapSet.new(tracks, & &1.id)
+    {:noreply, assign(socket, selected_track_ids: all_ids)}
+  end
+
+  def handle_event("clear_selection", _params, socket) do
+    {:noreply, assign(socket, selected_track_ids: MapSet.new(), last_selected_index: nil)}
+  end
+
+  def handle_event("select_crate_to_browse", %{"crate-id" => crate_id}, socket) do
+    scope = scope(socket)
+    crate = CrateDigger.get_crate(crate_id)
+
+    crate_matched_tracks =
+      if crate do
+        spotify_ids =
+          (crate.track_configs || [])
+          |> Enum.map(& &1.spotify_track_id)
+          |> Enum.reject(&is_nil/1)
+
+        Music.list_tracks(scope)
+        |> Enum.filter(fn t -> t.spotify_id in spotify_ids end)
+      else
+        []
+      end
+
+    {:noreply,
+     assign(socket,
+       selected_crate_id: crate_id,
+       crate_matched_tracks: crate_matched_tracks,
+       selected_track_ids: MapSet.new()
+     )}
+  end
+
+  def handle_event("back_to_crate_list", _params, socket) do
+    {:noreply,
+     assign(socket,
+       selected_crate_id: nil,
+       crate_matched_tracks: [],
+       selected_track_ids: MapSet.new()
+     )}
+  end
+
+  def handle_event("add_selected_tracks", _params, socket) do
+    project = socket.assigns.active_project
+    track_ids = MapSet.to_list(socket.assigns.selected_track_ids)
+    base_position = length(project.project_tracks)
+
+    {imported, errors} =
+      track_ids
+      |> Enum.with_index()
+      |> Enum.reduce({0, 0}, fn {track_id, i}, {ok, err} ->
+        track = Music.get_track!(track_id)
+
+        attrs = %{
+          audio_file_id: track.id,
+          title: track.title,
+          position: base_position + i,
+          track_type: "unknown"
+        }
+
+        case DAW.add_track(project.id, attrs) do
+          {:ok, _} -> {ok + 1, err}
+          {:error, _} -> {ok, err + 1}
+        end
+      end)
+
+    socket =
+      socket
+      |> reload_project(project.id)
+      |> assign(add_track_open: false, selected_track_ids: MapSet.new())
+
+    socket =
+      if errors > 0 do
+        put_flash(socket, :error, "Added #{imported} track(s), #{errors} failed")
+      else
+        put_flash(socket, :info, "Added #{imported} track(s)")
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("search_library", %{"query" => query}, socket) do
@@ -199,31 +357,6 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
       end
 
     {:noreply, assign(socket, library_tracks: tracks, library_search: query)}
-  end
-
-  def handle_event("add_track_from_library", %{"track-id" => track_id}, socket) do
-    project = socket.assigns.active_project
-    position = length(project.project_tracks)
-
-    track = Music.get_track!(track_id)
-
-    attrs = %{
-      audio_file_id: track.id,
-      title: track.title,
-      position: position,
-      track_type: "unknown"
-    }
-
-    case DAW.add_track(project.id, attrs) do
-      {:ok, _} ->
-        {:noreply,
-         socket
-         |> reload_project(project.id)
-         |> assign(add_track_open: false)}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not add track")}
-    end
   end
 
   def handle_event("remove_track", %{"id" => id}, socket) do
@@ -275,36 +408,22 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
   end
 
   # ---------------------------------------------------------------------------
-  # Event handlers — crate import
+  # Event handlers — crate import (shortcut: opens unified panel on Crate tab)
   # ---------------------------------------------------------------------------
 
   def handle_event("open_import_crate", _params, socket) do
-    user_id = socket.assigns.current_user.id
+    user_id = socket.assigns.current_user_id
     crates = CrateDigger.list_crates(user_id)
-    {:noreply, assign(socket, import_crate_open: true, user_crates: crates)}
-  end
 
-  def handle_event("close_import_crate", _params, socket) do
-    {:noreply, assign(socket, import_crate_open: false)}
-  end
-
-  def handle_event("import_from_crate", %{"crate-id" => crate_id}, socket) do
-    project = socket.assigns.active_project
-
-    case DAW.import_from_crate(project.id, crate_id) do
-      {:ok, %{imported: n, skipped: s}} ->
-        {:noreply,
-         socket
-         |> reload_project(project.id)
-         |> assign(import_crate_open: false)
-         |> put_flash(:info, "Imported #{n} track(s), skipped #{s} duplicate(s)")}
-
-      {:error, :crate_not_found} ->
-        {:noreply, put_flash(socket, :error, "Crate not found")}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not import from crate")}
-    end
+    {:noreply,
+     assign(socket,
+       add_track_open: true,
+       import_source: :crate,
+       user_crates: crates,
+       selected_track_ids: MapSet.new(),
+       selected_crate_id: nil,
+       crate_matched_tracks: []
+     )}
   end
 
   # ---------------------------------------------------------------------------
@@ -634,14 +753,15 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
         <% end %>
       </main>
 
-      <!-- Add Track slide-over panel (right side) -->
+      <!-- Import Tracks slide-over panel (right side) -->
       <div class={[
-        "fixed inset-y-0 right-0 w-96 bg-gray-900 border-l border-gray-800 z-40",
+        "fixed inset-y-0 right-0 w-[480px] bg-gray-900 border-l border-gray-800 z-40",
         "flex flex-col shadow-2xl transform transition-transform duration-300 ease-in-out",
         if(@add_track_open, do: "translate-x-0", else: "translate-x-full")
       ]}>
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-          <h3 class="text-base font-semibold text-gray-100">Add Track</h3>
+        <%!-- Header --%>
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800 flex-shrink-0">
+          <h3 class="text-base font-semibold text-gray-100">Import Tracks</h3>
           <button
             phx-click="close_add_track"
             class="btn btn-sm btn-ghost text-gray-400 hover:text-gray-200"
@@ -650,60 +770,258 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
           </button>
         </div>
 
-        <div class="px-5 py-3 border-b border-gray-800">
-          <form phx-change="search_library">
-            <input
-              type="search"
-              name="query"
-              value={@library_search}
-              placeholder="Search tracks..."
-              phx-debounce="300"
-              class="input input-sm input-bordered bg-gray-800 border-gray-700 text-gray-100 w-full placeholder-gray-500"
-            />
-          </form>
+        <%!-- Source tabs --%>
+        <div class="flex border-b border-gray-800 px-5 flex-shrink-0">
+          <button
+            phx-click="set_import_source"
+            phx-value-source="library"
+            class={[
+              "py-3 pr-5 text-sm font-medium border-b-2 -mb-px transition-colors",
+              if(@import_source == :library,
+                do: "border-primary text-primary",
+                else: "border-transparent text-gray-400 hover:text-gray-200"
+              )
+            ]}
+          >
+            Library
+          </button>
+          <button
+            phx-click="set_import_source"
+            phx-value-source="crate"
+            class={[
+              "py-3 px-5 text-sm font-medium border-b-2 -mb-px transition-colors",
+              if(@import_source == :crate,
+                do: "border-primary text-primary",
+                else: "border-transparent text-gray-400 hover:text-gray-200"
+              )
+            ]}
+          >
+            Crate
+          </button>
         </div>
 
-        <div class="flex-1 overflow-y-auto divide-y divide-gray-800/50">
-          <%= if Enum.empty?(@library_tracks) do %>
-            <div class="flex items-center justify-center h-32">
-              <p class="text-gray-500 text-sm">
-                <%= if @library_search == "",
-                  do: "No tracks in library",
-                  else: "No results for \"#{@library_search}\"" %>
-              </p>
-            </div>
-          <% else %>
-            <%= for lib_track <- @library_tracks do %>
-              <button
-                phx-click="add_track_from_library"
-                phx-value-track-id={lib_track.id}
-                class="w-full text-left px-5 py-3 hover:bg-gray-800 transition-colors flex items-center justify-between gap-3"
-              >
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm text-gray-200 font-medium truncate">
-                    <%= lib_track.title || "Untitled" %>
-                  </p>
-                  <%= if lib_track.artist do %>
-                    <p class="text-xs text-gray-500 truncate"><%= lib_track.artist %></p>
-                  <% end %>
-                </div>
-                <div class="flex-shrink-0 text-right">
-                  <p class="text-xs text-gray-500 tabular-nums">
-                    <%= format_duration(lib_track.duration) %>
-                  </p>
-                  <%= if lib_track.bpm do %>
-                    <p class="text-xs text-gray-600 tabular-nums">
-                      <%= :erlang.float_to_binary(lib_track.bpm, decimals: 0) %> BPM
+        <%!-- Search bar (library tab only) --%>
+        <%= if @import_source == :library do %>
+          <div class="px-5 py-3 border-b border-gray-800 flex-shrink-0">
+            <form phx-change="search_library">
+              <input
+                type="search"
+                name="query"
+                value={@library_search}
+                placeholder="Search by title or artist..."
+                phx-debounce="300"
+                class="input input-sm input-bordered bg-gray-800 border-gray-700 text-gray-100 w-full placeholder-gray-500"
+              />
+            </form>
+          </div>
+        <% end %>
+
+        <%!-- Crate breadcrumb (when browsing a crate's tracks) --%>
+        <%= if @import_source == :crate && @selected_crate_id do %>
+          <% active_crate = Enum.find(@user_crates, & &1.id == @selected_crate_id) %>
+          <div class="px-5 py-2 border-b border-gray-800 flex items-center gap-2 flex-shrink-0 text-sm">
+            <button
+              phx-click="back_to_crate_list"
+              class="text-gray-400 hover:text-gray-200 flex items-center gap-1"
+            >
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              Crates
+            </button>
+            <span class="text-gray-600">/</span>
+            <span class="text-gray-300 truncate">
+              <%= (active_crate && (active_crate.name || active_crate.spotify_playlist_id)) || "Crate" %>
+            </span>
+          </div>
+        <% end %>
+
+        <%!-- Track/Crate list --%>
+        <div class="flex-1 overflow-y-auto divide-y divide-gray-800/40 min-h-0">
+          <%!-- Library track list --%>
+          <%= if @import_source == :library do %>
+            <%= if Enum.empty?(@library_tracks) do %>
+              <div class="flex items-center justify-center h-32">
+                <p class="text-gray-500 text-sm">
+                  <%= if @library_search == "",
+                    do: "No tracks in library",
+                    else: "No results for \"#{@library_search}\"" %>
+                </p>
+              </div>
+            <% else %>
+              <%= for {lib_track, index} <- Enum.with_index(@library_tracks) do %>
+                <% selected = MapSet.member?(@selected_track_ids, lib_track.id) %>
+                <div
+                  phx-click="toggle_track_selection"
+                  phx-value-track-id={lib_track.id}
+                  phx-value-index={index}
+                  class={[
+                    "flex items-center gap-3 px-5 py-3 cursor-pointer transition-colors select-none",
+                    if(selected,
+                      do: "bg-primary/10 hover:bg-primary/15",
+                      else: "hover:bg-gray-800"
+                    )
+                  ]}
+                >
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-primary checkbox-sm flex-shrink-0 pointer-events-none"
+                    checked={selected}
+                    readonly
+                  />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm text-gray-200 font-medium truncate">
+                      <%= lib_track.title || "Untitled" %>
                     </p>
-                  <% end %>
+                    <%= if lib_track.artist do %>
+                      <p class="text-xs text-gray-500 truncate"><%= lib_track.artist %></p>
+                    <% end %>
+                  </div>
+                  <div class="flex-shrink-0 text-right">
+                    <p class="text-xs text-gray-500 tabular-nums">
+                      <%= format_duration(lib_track.duration) %>
+                    </p>
+                    <%= if lib_track.bpm do %>
+                      <p class="text-xs text-gray-600 tabular-nums">
+                        <%= :erlang.float_to_binary(lib_track.bpm, decimals: 0) %> BPM
+                      </p>
+                    <% end %>
+                  </div>
                 </div>
-              </button>
+              <% end %>
+            <% end %>
+          <% end %>
+
+          <%!-- Crate list (select which crate to browse) --%>
+          <%= if @import_source == :crate && is_nil(@selected_crate_id) do %>
+            <%= if Enum.empty?(@user_crates) do %>
+              <div class="flex flex-col items-center justify-center h-32 gap-2">
+                <p class="text-gray-500 text-sm">No crates found.</p>
+                <a href="/crate" class="text-primary text-sm hover:underline">Open Crate Digger</a>
+              </div>
+            <% else %>
+              <%= for crate <- @user_crates do %>
+                <button
+                  phx-click="select_crate_to_browse"
+                  phx-value-crate-id={crate.id}
+                  class="w-full text-left px-5 py-3 hover:bg-gray-800 transition-colors flex items-center justify-between gap-3"
+                >
+                  <div class="min-w-0">
+                    <p class="text-sm text-gray-200 font-medium truncate">
+                      <%= crate.name || crate.spotify_playlist_id || "Untitled Crate" %>
+                    </p>
+                    <p class="text-xs text-gray-500">
+                      <%= length(crate.track_configs) %> track(s) in crate
+                    </p>
+                  </div>
+                  <svg
+                    class="w-4 h-4 text-gray-500 flex-shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              <% end %>
+            <% end %>
+          <% end %>
+
+          <%!-- Crate track list (after selecting a crate) --%>
+          <%= if @import_source == :crate && @selected_crate_id do %>
+            <%= if Enum.empty?(@crate_matched_tracks) do %>
+              <div class="flex flex-col items-center justify-center h-32 gap-1 px-6 text-center">
+                <p class="text-gray-500 text-sm">No downloaded tracks from this crate.</p>
+                <p class="text-xs text-gray-600">Download tracks first via the Crate Digger.</p>
+              </div>
+            <% else %>
+              <%= for {crate_track, index} <- Enum.with_index(@crate_matched_tracks) do %>
+                <% selected = MapSet.member?(@selected_track_ids, crate_track.id) %>
+                <div
+                  phx-click="toggle_track_selection"
+                  phx-value-track-id={crate_track.id}
+                  phx-value-index={index}
+                  class={[
+                    "flex items-center gap-3 px-5 py-3 cursor-pointer transition-colors select-none",
+                    if(selected,
+                      do: "bg-primary/10 hover:bg-primary/15",
+                      else: "hover:bg-gray-800"
+                    )
+                  ]}
+                >
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-primary checkbox-sm flex-shrink-0 pointer-events-none"
+                    checked={selected}
+                    readonly
+                  />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm text-gray-200 font-medium truncate">
+                      <%= crate_track.title || "Untitled" %>
+                    </p>
+                    <%= if crate_track.artist do %>
+                      <p class="text-xs text-gray-500 truncate"><%= crate_track.artist %></p>
+                    <% end %>
+                  </div>
+                  <div class="flex-shrink-0 text-right">
+                    <p class="text-xs text-gray-500 tabular-nums">
+                      <%= format_duration(crate_track.duration) %>
+                    </p>
+                    <%= if crate_track.bpm do %>
+                      <p class="text-xs text-gray-600 tabular-nums">
+                        <%= :erlang.float_to_binary(crate_track.bpm, decimals: 0) %> BPM
+                      </p>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
             <% end %>
           <% end %>
         </div>
+
+        <%!-- Footer action bar (shown when track list is visible) --%>
+        <%= if @import_source == :library || (@import_source == :crate && @selected_crate_id) do %>
+          <% selected_count = MapSet.size(@selected_track_ids) %>
+          <div class="px-5 py-3 border-t border-gray-800 flex-shrink-0 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 text-sm">
+              <span class="text-gray-400">
+                <%= if selected_count == 0, do: "None selected", else: "#{selected_count} selected" %>
+              </span>
+              <button
+                phx-click="select_all_tracks"
+                class="text-xs text-gray-500 hover:text-gray-200 underline underline-offset-2"
+              >
+                Select all
+              </button>
+              <%= if selected_count > 0 do %>
+                <button
+                  phx-click="clear_selection"
+                  class="text-xs text-gray-500 hover:text-gray-200 underline underline-offset-2"
+                >
+                  Clear
+                </button>
+              <% end %>
+            </div>
+            <button
+              phx-click="add_selected_tracks"
+              disabled={selected_count == 0}
+              class={[
+                "btn btn-sm btn-primary",
+                if(selected_count == 0, do: "btn-disabled opacity-40", else: "")
+              ]}
+            >
+              <%= cond do %>
+                <% selected_count == 0 -> %>Add Tracks
+                <% selected_count == 1 -> %>Add 1 Track
+                <% true -> %>Add <%= selected_count %> Tracks
+              <% end %>
+            </button>
+          </div>
+        <% end %>
       </div>
 
-      <!-- Add Track backdrop (mobile only) -->
+      <%!-- Panel backdrop (mobile) --%>
       <%= if @add_track_open do %>
         <div
           class="fixed inset-0 bg-black/50 z-30 md:hidden"
@@ -711,49 +1029,22 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
         />
       <% end %>
 
-      <!-- Import from Crate modal -->
-      <%= if @import_crate_open do %>
-        <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-md shadow-2xl">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-              <h3 class="text-base font-semibold text-gray-100">Import from Crate</h3>
-              <button
-                phx-click="close_import_crate"
-                class="btn btn-sm btn-ghost text-gray-400 hover:text-gray-200"
-              >
-                ✕
-              </button>
-            </div>
-            <div class="p-4 max-h-80 overflow-y-auto divide-y divide-gray-800/50">
-              <%= if Enum.empty?(@user_crates) do %>
-                <p class="text-sm text-gray-500 text-center py-8">
-                  No crates found. Create one in Crate Digger first.
-                </p>
-              <% else %>
-                <%= for crate <- @user_crates do %>
-                  <button
-                    phx-click="import_from_crate"
-                    phx-value-crate-id={crate.id}
-                    class="w-full text-left px-4 py-3 hover:bg-gray-800 transition-colors flex items-center justify-between gap-3"
-                  >
-                    <div>
-                      <p class="text-sm text-gray-200 font-medium">
-                        <%= crate.name || crate.spotify_playlist_id || "Untitled Crate" %>
-                      </p>
-                      <p class="text-xs text-gray-500">
-                        <%= length(crate.track_configs) %> track(s)
-                      </p>
-                    </div>
-                    <span class="badge badge-sm badge-ghost text-gray-400">Import</span>
-                  </button>
-                <% end %>
-              <% end %>
-            </div>
-          </div>
-        </div>
-      <% end %>
-
     </div>
     """
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private Helpers
+  # ---------------------------------------------------------------------------
+
+  defp resolve_user_id(%{id: id}, _session) when is_integer(id), do: id
+
+  defp resolve_user_id(_, session) do
+    with token when is_binary(token) <- session["user_token"],
+         {user, _} <- Accounts.get_user_by_session_token(token) do
+      user.id
+    else
+      _ -> nil
+    end
   end
 end

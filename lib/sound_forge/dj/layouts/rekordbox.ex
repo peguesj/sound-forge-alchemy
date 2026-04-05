@@ -174,13 +174,18 @@ defmodule SoundForge.DJ.Layouts.Rekordbox do
   defp child_elements(node, tag) do
     tag_atom = String.to_atom(tag)
 
-    node
-    |> :xmerl_lib.content(node)
-    |> List.flatten()
-    |> Enum.filter(fn
-      {:xmlElement, ^tag_atom, _, _, _, _, _, _, _, _, _, _} -> true
-      _ -> false
-    end)
+    case node do
+      {:xmlElement, _, _, _, _, _, _, _, children, _, _, _} ->
+        children
+        |> List.flatten()
+        |> Enum.filter(fn
+          {:xmlElement, ^tag_atom, _, _, _, _, _, _, _, _, _, _} -> true
+          _ -> false
+        end)
+
+      _ ->
+        []
+    end
   rescue
     _ -> []
   end
@@ -188,31 +193,21 @@ defmodule SoundForge.DJ.Layouts.Rekordbox do
   defp attr(node, name) do
     name_atom = String.to_atom(name)
 
-    try do
-      attrs = :xmerl_lib.get_attribute_value(name_atom, node, nil)
-
-      case attrs do
-        nil -> nil
-        val when is_list(val) -> List.to_string(val)
-        val -> to_string(val)
-      end
-    rescue
-      _ ->
-        # Fallback: manually scan attribute list
-        case node do
-          {:xmlElement, _, _, _, _, _, _, attr_list, _, _, _, _} ->
-            Enum.find_value(attr_list, nil, fn
-              {:xmlAttribute, ^name_atom, _, _, _, _, _, _, val, _} ->
-                if is_list(val), do: List.to_string(val), else: to_string(val)
-
-              _ ->
-                nil
-            end)
+    case node do
+      {:xmlElement, _, _, _, _, _, _, attr_list, _, _, _, _} ->
+        Enum.find_value(attr_list, nil, fn
+          {:xmlAttribute, ^name_atom, _, _, _, _, _, _, val, _} ->
+            if is_list(val), do: List.to_string(val), else: to_string(val)
 
           _ ->
             nil
-        end
+        end)
+
+      _ ->
+        nil
     end
+  rescue
+    _ -> nil
   end
 
   # ---------------------------------------------------------------------------

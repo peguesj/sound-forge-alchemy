@@ -17,7 +17,7 @@ defmodule SoundForge.CrateDigger.CrateCollection do
     field :metadata, :map, default: %{}
 
     belongs_to :user, SoundForge.Accounts.User, type: :integer
-    has_many :crates, SoundForge.CrateDigger.Crate
+    has_many :crates, SoundForge.CrateDigger.Crate, foreign_key: :collection_id
 
     timestamps()
   end

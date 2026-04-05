@@ -1,0 +1,39 @@
+# Sound Forge Alchemy — macOS Native
+# Matchfile: code signing certificate management via Match
+#
+# Initial setup:
+#   bundle exec fastlane match developer_id --new_cert
+#   bundle exec fastlane match app-store --new_cert
+#
+# Daily use (read-only sync):
+#   bundle exec fastlane certs
+
+# Default signing type — developer-id for direct/notarized distribution.
+# Override per lane: match(type: "app-store") for TestFlight/App Store.
+type "developer_id"
+
+# Certificate storage backend.
+# "git"       — encrypted in a private Git repo (recommended)
+# "s3"        — AWS S3 bucket
+# "google_cloud" — Google Cloud Storage
+storage_mode "git"
+
+# Private Git repo that stores encrypted certs and profiles.
+# Use an SSH URL for CI (deploy key), HTTPS for local with credential helper.
+git_url ENV["MATCH_GIT_URL"]
+
+# Optional: pin to a specific branch (default: master)
+# git_branch "certs"
+
+# App bundle identifiers managed by Match
+app_identifier ["com.soundforgealchemy.mac"]
+
+# Apple Developer team
+team_id ENV["TEAM_ID"]
+
+# Keychain to use on CI runners (avoids interactive prompts)
+# keychain_name "fastlane_keychain"
+# keychain_password ENV["MATCH_KEYCHAIN_PASSWORD"]
+
+# Platform — explicit for macOS
+platform "macos"

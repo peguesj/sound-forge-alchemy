@@ -1,0 +1,653 @@
+{
+  "version": "1.0.0",
+  "generated": "2026-03-29",
+  "project": "sound-forge-alchemy",
+  "description": "Comprehensive user story database for Library→DAW flow and related epics. Used for UAT testing panel and E2E test generation.",
+  "epics": [
+    {
+      "id": "EP-001",
+      "title": "Library → DAW Navigation",
+      "description": "User discovers a track in the library and opens it for editing in the DAW",
+      "priority": "P0"
+    },
+    {
+      "id": "EP-002",
+      "title": "DAW Multi-Track Import",
+      "description": "User imports multiple tracks at once from library, crate, or playlist into a DAW project",
+      "priority": "P0"
+    },
+    {
+      "id": "EP-003",
+      "title": "Crate → DAW",
+      "description": "User moves tracks from a Crate Digger playlist into a DAW project",
+      "priority": "P1"
+    },
+    {
+      "id": "EP-004",
+      "title": "DAW Project Management",
+      "description": "User creates, switches, and manages multiple DAW projects",
+      "priority": "P1"
+    },
+    {
+      "id": "EP-005",
+      "title": "Track Classification & Metadata",
+      "description": "Track types are classified automatically and overridable by the user",
+      "priority": "P2"
+    },
+    {
+      "id": "EP-006",
+      "title": "Cross-Feature Navigation",
+      "description": "User moves between Library, DJ, Crate, and DAW without losing state",
+      "priority": "P1"
+    }
+  ],
+  "stories": [
+    {
+      "id": "US-001",
+      "epic": "EP-001",
+      "title": "Edit downloaded track in DAW from library row",
+      "role": "user",
+      "goal": "click 'Edit in DAW' on a downloaded track row in the library",
+      "outcome": "the DAW opens with that track auto-loaded in a project",
+      "priority": "P0",
+      "status": "pending",
+      "preconditions": [
+        "User is authenticated",
+        "Track is downloaded (has local file)",
+        "User has 0 or more existing DAW projects"
+      ],
+      "steps": [
+        "User navigates to /tracks or dashboard tracks tab",
+        "User sees track list with title, artist, BPM, duration columns",
+        "User hovers or right-clicks a downloaded track row",
+        "'Edit in DAW' button/action appears",
+        "User clicks 'Edit in DAW'",
+        "Browser navigates to /daw/:track_id",
+        "DAW auto-creates or opens existing project",
+        "Track appears in DAW project track list at position 0",
+        "Flash message: 'Track added to project'"
+      ],
+      "acceptance_criteria": [
+        "GIVEN a downloaded track in the library WHEN user clicks 'Edit in DAW' THEN navigates to /daw with DAW showing that track",
+        "GIVEN user has no projects WHEN opening track in DAW THEN a new project is auto-created named after the track",
+        "GIVEN user has an existing project WHEN opening track in DAW THEN track is added to that project (or user is prompted)",
+        "GIVEN track is already in the project WHEN opening same track in DAW THEN DAW opens without duplicating the track",
+        "GIVEN DAW page loads with track_id param THEN track appears in the track list within 2 seconds"
+      ],
+      "test_route": "/daw/:track_id",
+      "test_data": {
+        "requires_downloaded_track": true
+      },
+      "variants": ["US-001a", "US-001b", "US-001c"]
+    },
+    {
+      "id": "US-001a",
+      "epic": "EP-001",
+      "title": "Edit in DAW — first time (no existing project)",
+      "role": "user",
+      "goal": "open my first track in DAW as a new user with no projects",
+      "outcome": "a new project is auto-created and the track is loaded",
+      "priority": "P0",
+      "status": "pending",
+      "preconditions": [
+        "User is authenticated",
+        "User has 0 DAW projects",
+        "Track is downloaded"
+      ],
+      "steps": [
+        "User clicks 'Edit in DAW' on any downloaded track",
+        "System creates new DAW project titled '[Track Title] — Project'",
+        "Track is added at position 0",
+        "DAW renders with the new project selected in the sidebar",
+        "Track is visible in the track list"
+      ],
+      "acceptance_criteria": [
+        "GIVEN no existing projects WHEN track opened in DAW THEN projects sidebar shows 1 new project",
+        "GIVEN new auto-created project THEN project title contains the track's title",
+        "GIVEN new project THEN track appears at position 1 (index 0)"
+      ],
+      "test_route": "/daw/:track_id",
+      "variants": []
+    },
+    {
+      "id": "US-001b",
+      "epic": "EP-001",
+      "title": "Edit in DAW — existing project (auto-add)",
+      "role": "user",
+      "goal": "open a track in DAW when I already have one project",
+      "outcome": "track is added to my existing project",
+      "priority": "P0",
+      "status": "pending",
+      "preconditions": [
+        "User is authenticated",
+        "User has exactly 1 DAW project",
+        "Track is downloaded",
+        "Track is NOT already in the project"
+      ],
+      "steps": [
+        "User clicks 'Edit in DAW' on a downloaded track",
+        "System identifies user's single existing project",
+        "Track is appended to the project",
+        "DAW renders with existing project + new track"
+      ],
+      "acceptance_criteria": [
+        "GIVEN 1 existing project WHEN track opened in DAW THEN project track count increases by 1",
+        "GIVEN added track THEN it appears at the end of the track list",
+        "GIVEN added track THEN flash shows 'Track added to [Project Name]'"
+      ],
+      "test_route": "/daw/:track_id",
+      "variants": []
+    },
+    {
+      "id": "US-001c",
+      "epic": "EP-001",
+      "title": "Edit in DAW — track already in project (dedup)",
+      "role": "user",
+      "goal": "open a track in DAW that is already in my project",
+      "outcome": "DAW opens showing the project without duplicating the track",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": [
+        "User is authenticated",
+        "User has a DAW project containing the target track"
+      ],
+      "steps": [
+        "User clicks 'Edit in DAW' on a track already in their project",
+        "System detects the track is already present",
+        "DAW opens without adding a duplicate",
+        "Flash: 'Track already in project'"
+      ],
+      "acceptance_criteria": [
+        "GIVEN track already in project WHEN opened in DAW THEN track count does NOT increase",
+        "GIVEN dedup scenario THEN no duplicate track entry appears"
+      ],
+      "test_route": "/daw/:track_id",
+      "variants": []
+    },
+    {
+      "id": "US-002",
+      "epic": "EP-001",
+      "title": "Edit Spotify-only track in DAW shows download prompt",
+      "role": "user",
+      "goal": "open a Spotify-only (not downloaded) track in DAW",
+      "outcome": "I see a prompt to download the track first, or the DAW informs me it can't load without a local file",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": [
+        "User is authenticated",
+        "Track exists in library but has NOT been downloaded (no local file)"
+      ],
+      "steps": [
+        "User clicks 'Edit in DAW' on a Spotify-only track",
+        "System detects track has no local audio file",
+        "User sees: 'This track must be downloaded before editing in DAW. Download now?'",
+        "User clicks Download",
+        "Download job queued",
+        "After download completes, track auto-loads in DAW"
+      ],
+      "acceptance_criteria": [
+        "GIVEN Spotify-only track WHEN opened in DAW THEN download prompt shown",
+        "GIVEN download prompt THEN 'Download Now' and 'Cancel' buttons present",
+        "GIVEN user cancels THEN no DAW project created"
+      ],
+      "test_route": "/daw/:track_id",
+      "variants": []
+    },
+    {
+      "id": "US-003",
+      "epic": "EP-001",
+      "title": "Edit in DAW from Sample Library (/samples)",
+      "role": "user",
+      "goal": "open a sample in the DAW from the Sample Library view",
+      "outcome": "the DAW opens with that sample as a track",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": [
+        "User is on /samples page",
+        "Sample file is available"
+      ],
+      "steps": [
+        "User browses sample library at /samples",
+        "User sees 'Edit in DAW' icon/button on sample row",
+        "User clicks it",
+        "Navigates to /daw with sample loaded"
+      ],
+      "acceptance_criteria": [
+        "GIVEN sample in library WHEN 'Edit in DAW' clicked THEN navigates to /daw with sample loaded"
+      ],
+      "test_route": "/samples",
+      "variants": []
+    },
+    {
+      "id": "US-004",
+      "epic": "EP-002",
+      "title": "Select multiple tracks from library for DAW import",
+      "role": "user",
+      "goal": "select 3 tracks in the DAW import panel and add them all at once",
+      "outcome": "all 3 tracks are added to my project in one batch operation",
+      "priority": "P0",
+      "status": "pending",
+      "preconditions": [
+        "User is in DAW view with a project open",
+        "Import panel is open on Library tab",
+        "Library contains at least 3 tracks"
+      ],
+      "steps": [
+        "User opens import panel via '+ Add Track' button",
+        "Panel shows Library tab with track list and checkboxes",
+        "User clicks track row 1 → row highlights, checkbox checked",
+        "User clicks track row 2 → also selected",
+        "User clicks track row 3 → also selected",
+        "Footer shows '3 selected'",
+        "User clicks 'Add 3 Tracks'",
+        "All 3 tracks appear in project, panel closes",
+        "Flash: 'Added 3 track(s)'"
+      ],
+      "acceptance_criteria": [
+        "GIVEN 3 tracks selected WHEN 'Add 3 Tracks' clicked THEN project track count increases by 3",
+        "GIVEN mixed selection WHEN adding THEN only selected tracks are added",
+        "GIVEN 0 tracks selected THEN 'Add Tracks' button is disabled",
+        "GIVEN successful batch add THEN panel closes and flash shows count"
+      ],
+      "test_route": "/daw",
+      "variants": ["US-004a", "US-004b"]
+    },
+    {
+      "id": "US-004a",
+      "epic": "EP-002",
+      "title": "Select All tracks from library",
+      "role": "user",
+      "goal": "click 'Select all' to select every track in the filtered library view",
+      "outcome": "all visible tracks are selected and the count is reflected in the footer",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": ["Import panel open on Library tab", "Library has tracks"],
+      "steps": [
+        "User opens import panel",
+        "Clicks 'Select all' in footer",
+        "All track rows show checked checkboxes",
+        "Footer shows 'N selected' where N = total visible tracks",
+        "User can then click 'Add N Tracks'"
+      ],
+      "acceptance_criteria": [
+        "GIVEN 'Select all' clicked THEN all visible track rows are selected",
+        "GIVEN search filter active THEN 'Select all' selects only filtered results",
+        "GIVEN 'Clear' clicked after select all THEN all deselected"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-004b",
+      "epic": "EP-002",
+      "title": "Search and select filtered subset",
+      "role": "user",
+      "goal": "search for 'Kendrick' in the import panel and select all matching tracks",
+      "outcome": "only the Kendrick tracks are added to my project",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": ["Import panel open", "Library has tracks matching search term"],
+      "steps": [
+        "User opens import panel",
+        "Types 'Kendrick' in search bar",
+        "Track list filters to matching results",
+        "User clicks 'Select all'",
+        "Clicks 'Add N Tracks'",
+        "Only Kendrick tracks appear in project"
+      ],
+      "acceptance_criteria": [
+        "GIVEN search active THEN select all only selects filtered tracks",
+        "GIVEN batch add from filtered THEN project gets only those tracks"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-005",
+      "epic": "EP-003",
+      "title": "Browse and select specific tracks from a Crate for DAW import",
+      "role": "user",
+      "goal": "open a crate in the import panel and select specific tracks (not the whole crate)",
+      "outcome": "only the selected crate tracks are added to my DAW project",
+      "priority": "P0",
+      "status": "pending",
+      "preconditions": [
+        "User has at least one Crate in Crate Digger",
+        "Crate has at least 2 downloaded tracks in library",
+        "DAW project is open"
+      ],
+      "steps": [
+        "User opens import panel via 'Import from Crate' button or '+ Add Track' → Crate tab",
+        "Panel shows Crate tab with list of user's crates",
+        "User clicks a crate name",
+        "Panel drills into crate: shows only that crate's downloaded tracks with checkboxes",
+        "Breadcrumb shows: Crates / [Crate Name]",
+        "User selects specific tracks (not all)",
+        "Clicks 'Add N Tracks'",
+        "Only selected tracks added to project"
+      ],
+      "acceptance_criteria": [
+        "GIVEN crate selected in import panel THEN only tracks from that crate are shown",
+        "GIVEN partial selection from crate THEN only selected tracks added",
+        "GIVEN 'Back to Crates' clicked THEN returns to crate list",
+        "GIVEN crate has no downloaded tracks THEN message: 'No downloaded tracks from this crate'"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-006",
+      "epic": "EP-003",
+      "title": "Import entire crate to DAW",
+      "role": "user",
+      "goal": "click 'Select all' when browsing a crate and add every track",
+      "outcome": "all downloaded tracks from the crate are in my project",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": [
+        "User has a Crate with multiple downloaded tracks",
+        "DAW project is open"
+      ],
+      "steps": [
+        "User opens import panel → Crate tab",
+        "Clicks a crate",
+        "Clicks 'Select all'",
+        "Clicks 'Add N Tracks'",
+        "All crate tracks added to project"
+      ],
+      "acceptance_criteria": [
+        "GIVEN crate with 5 tracks WHEN select all + add THEN project gains 5 tracks",
+        "GIVEN duplicate check WHEN track already in project THEN skipped (not duplicated)"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-007",
+      "epic": "EP-001",
+      "title": "Edit in DAW from CrateDigger track panel",
+      "role": "user",
+      "goal": "open a specific track from CrateDigger's slide panel directly in the DAW",
+      "outcome": "navigates to DAW with that track loaded",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": [
+        "User is on /crate page",
+        "A track is selected/open in the side panel",
+        "Track is downloaded"
+      ],
+      "steps": [
+        "User is on /crate with a track's side panel open",
+        "User sees 'Edit in DAW' button in the track panel",
+        "Clicks it",
+        "Navigates to /daw/:track_id",
+        "Track auto-loads in project"
+      ],
+      "acceptance_criteria": [
+        "GIVEN CrateDigger track panel WHEN 'Edit in DAW' clicked THEN navigates to /daw with track loaded"
+      ],
+      "test_route": "/crate",
+      "variants": []
+    },
+    {
+      "id": "US-008",
+      "epic": "EP-004",
+      "title": "Create a new DAW project",
+      "role": "user",
+      "goal": "click '+ New Project' in the DAW sidebar",
+      "outcome": "a new empty project is created and selected",
+      "priority": "P0",
+      "status": "pending",
+      "preconditions": ["User is authenticated and on /daw"],
+      "steps": [
+        "User clicks '+ New Project' in left sidebar",
+        "New project 'Untitled Project' appears in project list",
+        "Main area shows empty state: 'No tracks yet'",
+        "Project is selected (highlighted) in sidebar"
+      ],
+      "acceptance_criteria": [
+        "GIVEN '+ New Project' clicked THEN project list gains 1 entry",
+        "GIVEN new project THEN title is 'Untitled Project' by default",
+        "GIVEN new project THEN 0 tracks initially"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-009",
+      "epic": "EP-004",
+      "title": "Switch between DAW projects",
+      "role": "user",
+      "goal": "click a different project in the sidebar",
+      "outcome": "the main content area switches to show that project's tracks",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": ["User has 2+ DAW projects"],
+      "steps": [
+        "User is on /daw with Project A selected",
+        "User clicks Project B in the sidebar",
+        "Main area updates to show Project B's tracks",
+        "Project B is highlighted in sidebar"
+      ],
+      "acceptance_criteria": [
+        "GIVEN 2 projects WHEN project B clicked THEN track list shows B's tracks",
+        "GIVEN project switch THEN track count badge in sidebar is correct"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-010",
+      "epic": "EP-004",
+      "title": "Edit DAW project title inline",
+      "role": "user",
+      "goal": "click the title field and rename my project",
+      "outcome": "project title is updated in the sidebar and in the DB",
+      "priority": "P2",
+      "status": "pending",
+      "preconditions": ["User has an active DAW project"],
+      "steps": [
+        "User clicks the Title input in the project settings area",
+        "Types new name, presses Tab or clicks away",
+        "Sidebar updates to show new name",
+        "Page reload preserves new name"
+      ],
+      "acceptance_criteria": [
+        "GIVEN title input blur event THEN project title saved",
+        "GIVEN page refresh after rename THEN new title persists"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-011",
+      "epic": "EP-004",
+      "title": "Remove track from DAW project",
+      "role": "user",
+      "goal": "remove a track from my project using the × button",
+      "outcome": "track is removed from the project track list",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": ["User has a project with at least 1 track"],
+      "steps": [
+        "User hovers a track row",
+        "× remove button appears (opacity-0 → opacity-100)",
+        "User clicks ×",
+        "Confirmation dialog: 'Remove this track from the project?'",
+        "User confirms",
+        "Track removed, track count decreases by 1"
+      ],
+      "acceptance_criteria": [
+        "GIVEN hover on track row THEN × button becomes visible",
+        "GIVEN × clicked AND confirmed THEN track removed",
+        "GIVEN × clicked AND cancelled THEN track remains"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-012",
+      "epic": "EP-005",
+      "title": "Auto-classify track type after adding",
+      "role": "user",
+      "goal": "add a track to DAW and have it auto-classified",
+      "outcome": "track shows a type badge (Full Track, Loop, Drum Loop) after classification job runs",
+      "priority": "P2",
+      "status": "pending",
+      "preconditions": ["User has added a track to DAW project"],
+      "steps": [
+        "Track is added to project with type 'unknown'",
+        "Oban background job DawClassifyWorker queued",
+        "After job runs, track type badge updates"
+      ],
+      "acceptance_criteria": [
+        "GIVEN track added THEN DawClassifyWorker job is enqueued",
+        "GIVEN classification complete THEN track type badge is not 'Unknown'"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-013",
+      "epic": "EP-005",
+      "title": "Manually override track type",
+      "role": "user",
+      "goal": "click a track's type badge to change it manually",
+      "outcome": "track type is updated and locked with a padlock icon",
+      "priority": "P2",
+      "status": "pending",
+      "preconditions": ["Track in project has a type badge", "Track type not manually set"],
+      "steps": [
+        "User clicks the type badge on a track row",
+        "Inline dropdown appears with type options",
+        "User selects 'Loop'",
+        "Badge updates to 'Loop' with a padlock icon",
+        "Dropdown disappears"
+      ],
+      "acceptance_criteria": [
+        "GIVEN non-manual track WHEN badge clicked THEN dropdown shown",
+        "GIVEN type selected THEN badge updates immediately",
+        "GIVEN manual override THEN padlock icon appears on badge",
+        "GIVEN manual override THEN clicking badge has no effect (locked)"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-014",
+      "epic": "EP-006",
+      "title": "Navigate back to library from DAW without losing project",
+      "role": "user",
+      "goal": "navigate away from DAW to the library and back",
+      "outcome": "my DAW project and tracks are still there when I return",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": ["User has a DAW project with tracks"],
+      "steps": [
+        "User is on /daw with project open",
+        "User clicks 'Library' nav tab",
+        "User sees the library track list",
+        "User clicks 'DAW' nav tab",
+        "DAW re-loads with same project active"
+      ],
+      "acceptance_criteria": [
+        "GIVEN project with 3 tracks WHEN navigate away + back THEN still shows 3 tracks",
+        "GIVEN navigation THEN no data loss (projects saved in DB)"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-015",
+      "epic": "EP-006",
+      "title": "Unauthenticated user redirected to login when accessing DAW",
+      "role": "unauthenticated user",
+      "goal": "access /daw without being logged in",
+      "outcome": "redirected to login page, then back to DAW after login",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": ["User is NOT authenticated"],
+      "steps": [
+        "User navigates to /daw directly",
+        "System detects no session",
+        "Redirect to /users/log_in",
+        "User logs in",
+        "Redirected back to /daw"
+      ],
+      "acceptance_criteria": [
+        "GIVEN no session WHEN accessing /daw THEN redirect to /users/log_in",
+        "GIVEN login THEN redirect to originally requested URL"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-016",
+      "epic": "EP-002",
+      "title": "Import panel search filters track list",
+      "role": "user",
+      "goal": "type a search query in the import panel search bar",
+      "outcome": "track list filters in real-time to matching titles/artists",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": ["Import panel open on Library tab", "Library has 5+ tracks"],
+      "steps": [
+        "User opens import panel",
+        "Types 'Diamonds' in search bar",
+        "After 300ms debounce, track list shows only matching tracks",
+        "Selection is cleared when search changes"
+      ],
+      "acceptance_criteria": [
+        "GIVEN search input THEN list filters after 300ms debounce",
+        "GIVEN search with no matches THEN 'No results for ...' message shown",
+        "GIVEN empty search THEN full library shown"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    },
+    {
+      "id": "US-017",
+      "epic": "EP-002",
+      "title": "Switch between Library and Crate tabs in import panel",
+      "role": "user",
+      "goal": "click the 'Crate' tab in the import panel while on the Library tab",
+      "outcome": "panel switches to show crate list, selection is reset",
+      "priority": "P1",
+      "status": "pending",
+      "preconditions": ["Import panel open", "User has crates"],
+      "steps": [
+        "User has 2 tracks selected on Library tab",
+        "Clicks 'Crate' tab",
+        "Selection clears (MapSet.new())",
+        "Panel shows crate list",
+        "User can then browse crates"
+      ],
+      "acceptance_criteria": [
+        "GIVEN Library tab with selection WHEN Crate tab clicked THEN selection resets to 0",
+        "GIVEN Crate tab THEN crate list shown",
+        "GIVEN Crate tab → Library tab THEN library reloads"
+      ],
+      "test_route": "/daw",
+      "variants": []
+    }
+  ],
+  "test_matrix": {
+    "browsers": ["chromium"],
+    "viewports": [{"name": "desktop", "width": 1440, "height": 900}],
+    "auth_states": ["authenticated", "unauthenticated"],
+    "data_states": {
+      "no_projects": "User with 0 DAW projects",
+      "one_project_empty": "User with 1 empty DAW project",
+      "one_project_with_tracks": "User with 1 project containing 3 tracks",
+      "with_crates": "User with downloaded tracks in a crate"
+    }
+  },
+  "routes": {
+    "daw": "/daw",
+    "daw_with_track": "/daw/:track_id",
+    "library": "/tracks",
+    "samples": "/samples",
+    "crate": "/crate",
+    "prototype": "/prototype"
+  }
+}

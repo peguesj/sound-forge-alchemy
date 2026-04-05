@@ -17,8 +17,10 @@ const TransportLocalAudio = {
 
     const self = this
 
-    // Keep window.__audioPlayerTransport in sync (TransportBar reads this)
+    // Keep window.__audioPlayerTransport in sync (TransportBar reads this).
+    // Guard against null — destroyed() nulls self.audio before the element is GC'd.
     this.audio.addEventListener("timeupdate", () => {
+      if (!self.audio) return
       window.__audioPlayerTransport = {
         currentTime: self.audio.currentTime,
         duration: self.audio.duration || 0,
@@ -27,6 +29,7 @@ const TransportLocalAudio = {
     })
 
     this.audio.addEventListener("loadedmetadata", () => {
+      if (!self.audio) return
       self._loaded = true
       window.__audioPlayerTransport = {
         currentTime: 0,
@@ -37,6 +40,7 @@ const TransportLocalAudio = {
     })
 
     this.audio.addEventListener("ended", () => {
+      if (!self.audio) return
       window.__audioPlayerTransport = {
         currentTime: 0,
         duration: self.audio.duration || 0,
@@ -46,11 +50,13 @@ const TransportLocalAudio = {
     })
 
     this.audio.addEventListener("error", () => {
+      if (!self.audio) return
       console.warn("[TransportLocalAudio] Playback error for:", self.audio.src)
     })
 
     // Relay commands from TransportBar hook (dispatched as window "sfa:transport" events)
     this._onTransport = (e) => {
+      if (!self.audio) return
       const { action, value } = e.detail || {}
       switch (action) {
         case "play":
@@ -80,7 +86,7 @@ const TransportLocalAudio = {
 
     // Load a new track URL from the server
     this.handleEvent("load_local_track", ({ url }) => {
-      if (!url) return
+      if (!url || !self.audio) return
       const wasPlaying = !self.audio.paused && self._loaded
       self._loaded = false
       self.audio.pause()
@@ -90,7 +96,7 @@ const TransportLocalAudio = {
         // Resume playback on new src if it was already playing
         self.audio.addEventListener(
           "canplay",
-          () => self.audio.play().catch(() => {}),
+          () => self.audio && self.audio.play().catch(() => {}),
           { once: true }
         )
       }

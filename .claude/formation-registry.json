@@ -1,6 +1,6 @@
 {
   "formation_id": "fmt-sfa-full-stack-001",
-  "name": "SFA Full Stack — UI + DAW + APM Infra",
+  "name": "SFA Full Stack \u2014 UI + DAW + APM Infra",
   "branch": "ralph/sfa-ui-daw-modules",
   "created_at": "2026-04-03T18:32:00Z",
   "max_concurrency": 3,
@@ -11,59 +11,164 @@
   "squadrons": [
     {
       "id": "squadron-alpha",
-      "name": "Squadron Alpha — SwiftUI Custom UI",
+      "name": "Squadron Alpha \u2014 SwiftUI Custom UI",
       "wave": "A",
       "status": "active",
       "worktree": "../sfa-worktree-swiftui",
       "members": [
-        { "id": "agent-A01", "story": "US-A01", "role": "NSWindow custom chrome", "status": "in_progress" },
-        { "id": "agent-A02", "story": "US-A02", "role": "SwiftUI tab navigator", "status": "in_progress" },
-        { "id": "agent-A03", "story": "US-A03", "role": "Full-screen toolbar", "status": "queued" },
-        { "id": "agent-A04", "story": "US-A04", "role": "Helper Agent panel", "status": "queued" },
-        { "id": "agent-A05", "story": "US-A05", "role": "WKWebView hash routing", "status": "queued" },
-        { "id": "agent-A06", "story": "US-A06", "role": "Audio Unit v3 wrapper", "status": "queued" },
-        { "id": "agent-A07", "story": "US-A07", "role": "Native notification telemetry", "status": "queued" }
+        {
+          "id": "agent-A01",
+          "story": "US-A01",
+          "role": "NSWindow custom chrome",
+          "status": "done"
+        },
+        {
+          "id": "agent-A02",
+          "story": "US-A02",
+          "role": "SwiftUI tab navigator",
+          "status": "done"
+        },
+        {
+          "id": "agent-A03",
+          "story": "US-A03",
+          "role": "Full-screen toolbar",
+          "status": "done"
+        },
+        {
+          "id": "agent-A04",
+          "story": "US-A04",
+          "role": "Helper Agent panel",
+          "status": "done"
+        },
+        {
+          "id": "agent-A05",
+          "story": "US-A05",
+          "role": "WKWebView hash routing",
+          "status": "done"
+        },
+        {
+          "id": "agent-A06",
+          "story": "US-A06",
+          "role": "Audio Unit v3 wrapper",
+          "status": "done"
+        },
+        {
+          "id": "agent-A07",
+          "story": "US-A07",
+          "role": "Native notification telemetry",
+          "status": "done"
+        }
       ],
       "tsc_gate": "xcodebuild build -project sfa-macos/SoundForgeAlchemy.xcodeproj -scheme SoundForgeAlchemy",
       "checkpoint_range": "CP-156 to CP-162"
     },
     {
       "id": "squadron-bravo",
-      "name": "Squadron Bravo — DAW/Library Web Integration",
+      "name": "Squadron Bravo \u2014 DAW/Library Web Integration",
       "wave": "B",
       "status": "active",
       "worktree": "../sfa-worktree-daw",
       "members": [
-        { "id": "agent-B01", "story": "US-B01", "role": "Open in DAW button", "status": "in_progress" },
-        { "id": "agent-B02", "story": "US-B02", "role": "DAW library pullout", "status": "in_progress" },
-        { "id": "agent-B03", "story": "US-B03", "role": "DJ library pullout", "status": "in_progress" },
-        { "id": "agent-B04", "story": "US-B04", "role": "Analysis library pullout", "status": "queued" },
-        { "id": "agent-B05", "story": "US-B05", "role": "Stem assets library", "status": "queued" },
-        { "id": "agent-B06", "story": "US-B06", "role": "MIDI assets library", "status": "queued" },
-        { "id": "agent-B07", "story": "US-B07", "role": "Cross-module asset sharing", "status": "queued" }
+        {
+          "id": "agent-B01",
+          "story": "US-B01",
+          "role": "Open in DAW button",
+          "status": "done"
+        },
+        {
+          "id": "agent-B02",
+          "story": "US-B02",
+          "role": "DAW library pullout",
+          "status": "done"
+        },
+        {
+          "id": "agent-B03",
+          "story": "US-B03",
+          "role": "DJ library pullout",
+          "status": "done"
+        },
+        {
+          "id": "agent-B04",
+          "story": "US-B04",
+          "role": "Analysis library pullout",
+          "status": "done"
+        },
+        {
+          "id": "agent-B05",
+          "story": "US-B05",
+          "role": "Stem assets library",
+          "status": "done"
+        },
+        {
+          "id": "agent-B06",
+          "story": "US-B06",
+          "role": "MIDI assets library",
+          "status": "done"
+        },
+        {
+          "id": "agent-B07",
+          "story": "US-B07",
+          "role": "Cross-module asset sharing",
+          "status": "done"
+        }
       ],
       "tsc_gate": "mix compile --warnings-as-errors",
       "checkpoint_range": "CP-163 to CP-169"
     },
     {
       "id": "squadron-charlie",
-      "name": "Squadron Charlie — APM/Formation Infra",
+      "name": "Squadron Charlie \u2014 APM/Formation Infra",
       "wave": "C",
       "status": "active",
       "worktree": "main",
       "members": [
-        { "id": "agent-C01", "story": "US-C01", "role": "Plane post-commit hook", "status": "done" },
-        { "id": "agent-C02", "story": "US-C02", "role": "APM PostToolUse hook", "status": "in_progress" },
-        { "id": "agent-C03", "story": "US-C03", "role": "UPM/Plane bidirectional sync", "status": "queued" },
-        { "id": "agent-C04", "story": "US-C04", "role": "Formation member registry (this file)", "status": "done" }
+        {
+          "id": "agent-C01",
+          "story": "US-C01",
+          "role": "Plane post-commit hook",
+          "status": "done"
+        },
+        {
+          "id": "agent-C02",
+          "story": "US-C02",
+          "role": "APM PostToolUse hook",
+          "status": "done"
+        },
+        {
+          "id": "agent-C03",
+          "story": "US-C03",
+          "role": "UPM/Plane bidirectional sync",
+          "status": "done"
+        },
+        {
+          "id": "agent-C04",
+          "story": "US-C04",
+          "role": "Formation member registry (this file)",
+          "status": "done"
+        }
       ],
       "tsc_gate": "bash -c 'test -f .git/hooks/post-commit && curl -sf http://localhost:3032/health'",
       "checkpoint_range": "CP-170 to CP-173"
     }
   ],
   "lifecycle_events": [
-    { "event": "formation_created", "timestamp": "2026-04-03T18:32:00Z", "agent": "orchestrator" },
-    { "event": "post_commit_hook_installed", "timestamp": "2026-04-03T18:45:00Z", "agent": "agent-C01" },
-    { "event": "formation_registry_written", "timestamp": "2026-04-03T18:50:00Z", "agent": "agent-C04" }
-  ]
+    {
+      "event": "formation_created",
+      "timestamp": "2026-04-03T18:32:00Z",
+      "agent": "orchestrator"
+    },
+    {
+      "event": "post_commit_hook_installed",
+      "timestamp": "2026-04-03T18:45:00Z",
+      "agent": "agent-C01"
+    },
+    {
+      "event": "formation_registry_written",
+      "timestamp": "2026-04-03T18:50:00Z",
+      "agent": "agent-C04"
+    }
+  ],
+  "status": "complete",
+  "completed_at": "2026-04-03T00:00:00Z",
+  "stories_complete": "18/18"
 }

@@ -344,6 +344,303 @@ defmodule SoundForge.MIDI.Mappings do
     |> Repo.delete_all()
   end
 
+  # ---------------------------------------------------------------------------
+  # Universal preset functions
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns the full universal preset mappings for an Akai MPC Live II.
+
+  Covers all tab contexts: transport, DJ, DAW, Library, and Sampler.
+  Uses CC 118=play, CC 117=stop, CC 119=rec as the MPC Live II transport
+  fingerprint (channel 0), plus pad Note triggers (Notes 36–51).
+
+  Returned maps include `preset_name: "mpc_live2_universal"` and
+  `tab_context` per-mapping so the UI can filter by active tab.
+  """
+  @spec default_mpc_live2_preset(term()) :: [map()]
+  def default_mpc_live2_preset(user_id) do
+    device = "Akai MPC Live II"
+    preset = "mpc_live2_universal"
+
+    [
+      # --- Transport (universal) ---
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 118,
+        action: :play,
+        params: %{},
+        tab_context: "universal",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 117,
+        action: :stop,
+        params: %{},
+        tab_context: "universal",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 119,
+        action: :bpm_tap,
+        params: %{},
+        tab_context: "universal",
+        preset_name: preset
+      },
+      # --- DJ context ---
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 113,
+        action: :dj_loop_toggle,
+        params: %{"deck" => "1"},
+        tab_context: "dj",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 1,
+        action: :dj_crossfader,
+        params: %{},
+        tab_context: "dj",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 7,
+        action: :dj_pitch,
+        params: %{"deck" => "1"},
+        tab_context: "dj",
+        preset_name: preset
+      },
+      # --- DAW context ---
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 114,
+        action: :daw_loop,
+        params: %{},
+        tab_context: "daw",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 115,
+        action: :daw_record,
+        params: %{},
+        tab_context: "daw",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 116,
+        action: :daw_metronome,
+        params: %{},
+        tab_context: "daw",
+        preset_name: preset
+      },
+      # --- Library context ---
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 26,
+        action: :library_next,
+        params: %{},
+        tab_context: "library",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 27,
+        action: :library_prev,
+        params: %{},
+        tab_context: "library",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :cc,
+        channel: 0,
+        number: 28,
+        action: :library_select,
+        params: %{},
+        tab_context: "library",
+        preset_name: preset
+      },
+      # --- Sampler pads (Notes 36-51) ---
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :note_on,
+        channel: 0,
+        number: 36,
+        action: :sampler_pad,
+        params: %{"pad" => 1},
+        tab_context: "sampler",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :note_on,
+        channel: 0,
+        number: 37,
+        action: :sampler_pad,
+        params: %{"pad" => 2},
+        tab_context: "sampler",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :note_on,
+        channel: 0,
+        number: 38,
+        action: :sampler_pad,
+        params: %{"pad" => 3},
+        tab_context: "sampler",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :note_on,
+        channel: 0,
+        number: 39,
+        action: :sampler_pad,
+        params: %{"pad" => 4},
+        tab_context: "sampler",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :note_on,
+        channel: 0,
+        number: 40,
+        action: :sampler_pad,
+        params: %{"pad" => 5},
+        tab_context: "sampler",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :note_on,
+        channel: 0,
+        number: 41,
+        action: :sampler_pad,
+        params: %{"pad" => 6},
+        tab_context: "sampler",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :note_on,
+        channel: 0,
+        number: 42,
+        action: :sampler_pad,
+        params: %{"pad" => 7},
+        tab_context: "sampler",
+        preset_name: preset
+      },
+      %{
+        user_id: user_id,
+        device_name: device,
+        midi_type: :note_on,
+        channel: 0,
+        number: 43,
+        action: :sampler_pad,
+        params: %{"pad" => 8},
+        tab_context: "sampler",
+        preset_name: preset
+      }
+    ]
+  end
+
+  @doc """
+  Inserts the full MPC Live II universal preset for a user.
+
+  Returns a list of `{:ok, Mapping.t()}` or `{:error, Ecto.Changeset.t()}`.
+  """
+  @spec insert_mpc_live2_preset(term()) ::
+          [{:ok, Mapping.t()} | {:error, Ecto.Changeset.t()}]
+  def insert_mpc_live2_preset(user_id) do
+    user_id
+    |> default_mpc_live2_preset()
+    |> Enum.map(&create_mapping/1)
+  end
+
+  @doc """
+  Deletes all mappings belonging to a named preset for a user.
+
+  Use this to cleanly remove a universal preset before reloading it.
+  """
+  @spec delete_preset(term(), String.t()) :: {non_neg_integer(), nil}
+  def delete_preset(user_id, preset_name) do
+    Mapping
+    |> where([m], m.user_id == ^user_id and m.preset_name == ^preset_name)
+    |> Repo.delete_all()
+  end
+
+  @doc """
+  Dispatches to the correct universal preset builder for the given controller model.
+
+  Supported controller names (case-insensitive match):
+  - `"Akai MPC Live II"` / `"mpc_live2"` — full 18-mapping universal preset
+
+  Returns `{:ok, results}` where `results` is the list of insert outcomes,
+  or `{:error, :unknown_controller}` if the model has no preset.
+  """
+  @spec insert_preset_for_controller(term(), String.t()) ::
+          {:ok, [{:ok, Mapping.t()} | {:error, Ecto.Changeset.t()}]}
+          | {:error, :unknown_controller}
+  def insert_preset_for_controller(user_id, controller_name) do
+    normalized = String.downcase(controller_name)
+
+    cond do
+      String.contains?(normalized, "mpc live ii") or normalized == "mpc_live2" ->
+        {:ok, insert_mpc_live2_preset(user_id)}
+
+      true ->
+        {:error, :unknown_controller}
+    end
+  end
+
   defp normalize_midi_type(:note), do: :note_on
   defp normalize_midi_type(:cc), do: :cc
   defp normalize_midi_type(:program_change), do: :cc

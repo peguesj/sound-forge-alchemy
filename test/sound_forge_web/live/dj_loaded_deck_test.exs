@@ -148,17 +148,15 @@ defmodule SoundForgeWeb.DjLoadedDeckTest do
   end
 
   describe "preset section" do
-    test "toggle opens", %{conn: conn} do
+    test "export_preset button exists and is clickable", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/?tab=dj")
-      html = view |> element("[phx-click='toggle_preset_section']") |> render_click()
+      html = view |> element("[phx-click='export_preset']") |> render_click()
       assert is_binary(html)
     end
 
-    test "double toggle closes", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/?tab=dj")
-      view |> element("[phx-click='toggle_preset_section']") |> render_click()
-      html = view |> element("[phx-click='toggle_preset_section']") |> render_click()
-      assert is_binary(html)
+    test "export_preset button is present in rendered html", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/?tab=dj")
+      assert html =~ "phx-click=\"export_preset\""
     end
   end
 
@@ -167,7 +165,7 @@ defmodule SoundForgeWeb.DjLoadedDeckTest do
       {:ok, view, _html} = live(conn, ~p"/?tab=dj")
       # Open all panels to maximize template coverage
       view |> element("#dj-tab [phx-click='toggle_chef_panel']") |> render_click()
-      view |> element("[phx-click='toggle_preset_section']") |> render_click()
+      view |> element("[phx-click='export_preset']") |> render_click()
       html = view |> element("#dj-tab [phx-click='toggle_browser']") |> render_click()
       assert is_binary(html)
     end

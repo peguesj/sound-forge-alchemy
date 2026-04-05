@@ -82,6 +82,10 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       |> assign(:sequence_arc, :rise)
       # v2: Pagination
       |> assign(:track_page, 1)
+      # Playlist → crate import
+      |> assign(:importing_playlist, false)
+      |> assign(:playlist_import_url, "")
+      |> assign(:playlist_import_error, nil)
 
     if Phoenix.LiveView.connected?(socket) do
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "midi:actions")
@@ -540,6 +544,22 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
      |> push_navigate(to: ~p"/?tab=#{tab}&preload_track=#{spotify_id}")}
   end
 
+  def handle_event("open_in_daw_project", %{"spotify_id" => spotify_id}, socket) do
+    case SoundForge.Music.get_track_by_spotify_id(spotify_id) do
+      nil ->
+        {:noreply,
+         socket
+         |> assign(:context_menu_track_idx, nil)
+         |> put_flash(:error, "Track not in library — download it first")}
+
+      track ->
+        {:noreply,
+         socket
+         |> assign(:context_menu_track_idx, nil)
+         |> push_navigate(to: ~p"/daw/#{track.id}")}
+    end
+  end
+
   def handle_event("filter_tracks", %{"query" => query}, socket) do
     {:noreply, assign(socket, :track_filter, query)}
   end
@@ -775,7 +795,7 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
         {:ok, ordered_tracks} ->
           {:noreply, assign(socket, :crate_sequence, ordered_tracks)}
 
-        {:error, _} ->
+        _ ->
           {:noreply, socket}
       end
     else
@@ -867,6 +887,40 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
     end
 
     {:noreply, socket}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — import Spotify playlist tracks into active crate
+  # ---------------------------------------------------------------------------
+
+  def handle_event("update_playlist_import_url", %{"url" => url}, socket) do
+    {:noreply, assign(socket, :playlist_import_url, url)}
+  end
+
+  def handle_event("import_spotify_playlist", %{"playlist_url" => url}, socket) do
+    url = String.trim(url)
+    crate = socket.assigns.active_crate
+    user = socket.assigns.current_user
+
+    cond do
+      url == "" ->
+        {:noreply, assign(socket, :playlist_import_error, "Enter a Spotify playlist URL or ID")}
+
+      is_nil(crate) ->
+        {:noreply, assign(socket, :playlist_import_error, "Select or create a crate first")}
+
+      is_nil(user) ->
+        {:noreply, assign(socket, :playlist_import_error, "You must be logged in")}
+
+      true ->
+        socket =
+          socket
+          |> assign(:importing_playlist, true)
+          |> assign(:playlist_import_error, nil)
+
+        send(self(), {:do_import_spotify_playlist, url, crate.id, user.id})
+        {:noreply, socket}
+    end
   end
 
   def handle_event(_event, _params, socket), do: {:noreply, socket}
@@ -1134,6 +1188,90 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
     {:noreply, socket}
   end
 
+  # Import Spotify playlist tracks into existing active crate
+  def handle_info({:do_import_spotify_playlist, url, crate_id, user_id}, socket) do
+    alias SoundForge.Spotify
+
+    result =
+      with {:ok, playlist_id} <- Spotify.extract_playlist_id(url),
+           {:ok, token} <- SoundForge.Spotify.OAuth.get_valid_access_token(user_id),
+           {:ok, new_tracks} <- Spotify.get_playlist_tracks(playlist_id, token) do
+        crate = CrateDigger.get_crate(crate_id)
+
+        if is_nil(crate) do
+          {:error, :crate_not_found}
+        else
+          existing_ids =
+            (crate.playlist_data || [])
+            |> Enum.map(& &1["spotify_id"])
+            |> MapSet.new()
+
+          deduplicated =
+            Enum.reject(new_tracks, fn t ->
+              is_nil(t["spotify_id"]) or MapSet.member?(existing_ids, t["spotify_id"])
+            end)
+
+          normalized =
+            Enum.map(deduplicated, fn t ->
+              %{
+                "spotify_id" => t["spotify_id"],
+                "title" => t["name"],
+                "artist" => t["artist"],
+                "album" => t["album"],
+                "duration_ms" => t["duration_ms"],
+                "preview_url" => t["preview_url"],
+                "artwork_url" => nil
+              }
+            end)
+
+          merged = (crate.playlist_data || []) ++ normalized
+
+          case CrateDigger.update_crate(crate, %{playlist_data: merged}) do
+            {:ok, updated} ->
+              CrateDigger.sync_tracks_to_library(normalized, user_id)
+              {:ok, updated, length(normalized)}
+
+            {:error, _} = err ->
+              err
+          end
+        end
+      end
+
+    socket =
+      case result do
+        {:ok, updated_crate, added_count} ->
+          crates =
+            Enum.map(socket.assigns.crates, fn c ->
+              if c.id == updated_crate.id, do: updated_crate, else: c
+            end)
+
+          socket
+          |> assign(:active_crate, updated_crate)
+          |> assign(:crates, crates)
+          |> assign(:importing_playlist, false)
+          |> assign(:playlist_import_url, "")
+          |> assign(:playlist_import_error, nil)
+          |> put_flash(:info, "Added #{added_count} track(s) to crate.")
+
+        {:error, :invalid_playlist_id} ->
+          socket
+          |> assign(:importing_playlist, false)
+          |> assign(:playlist_import_error, "Invalid Spotify playlist URL or ID")
+
+        {:error, :not_authenticated} ->
+          socket
+          |> assign(:importing_playlist, false)
+          |> assign(:playlist_import_error, "Spotify account not connected")
+
+        {:error, reason} ->
+          socket
+          |> assign(:importing_playlist, false)
+          |> assign(:playlist_import_error, "Import failed: #{inspect(reason)}")
+      end
+
+    {:noreply, socket}
+  end
+
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
@@ -1371,6 +1509,32 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
             </div>
           </div>
 
+          <!-- Import Spotify Playlist into active crate -->
+          <div :if={@active_crate} class="px-4 py-2 border-b border-gray-800/50 shrink-0">
+            <form
+              phx-submit="import_spotify_playlist"
+              phx-change="update_playlist_import_url"
+              class="flex items-center gap-2"
+            >
+              <input
+                type="text"
+                name="playlist_url"
+                value={@playlist_import_url}
+                placeholder="Spotify playlist URL"
+                disabled={@importing_playlist}
+                class="flex-1 min-w-0 px-2.5 py-1 text-xs bg-gray-800 border border-gray-700 rounded text-gray-200 placeholder-gray-600 focus:outline-none focus:border-green-500 transition-colors disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={@importing_playlist or @playlist_import_url == ""}
+                class="shrink-0 px-3 py-1 text-xs font-medium bg-green-700 hover:bg-green-600 rounded text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <%= if @importing_playlist, do: "Importing...", else: "Add Tracks" %>
+              </button>
+            </form>
+            <p :if={@playlist_import_error} class="mt-1 text-[10px] text-red-400">{@playlist_import_error}</p>
+          </div>
+
           <!-- Track filter bar -->
           <div :if={@active_crate && length(@active_crate.playlist_data || []) > 5} class="px-4 py-2 border-b border-gray-800 shrink-0">
             <form phx-change="filter_tracks">
@@ -1546,7 +1710,12 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                     <button phx-click="load_in_tab" phx-value-tab="daw" phx-value-spotify_id={track["spotify_id"]}
                       class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
                       <svg class="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
-                      Load in DAW
+                      Preview in DAW
+                    </button>
+                    <button phx-click="open_in_daw_project" phx-value-spotify_id={track["spotify_id"]}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-cyan-300 flex items-center gap-2 transition-colors">
+                      <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10"/></svg>
+                      Edit in DAW Project
                     </button>
                     <button phx-click="load_in_tab" phx-value-tab="dj" phx-value-spotify_id={track["spotify_id"]}
                       class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
@@ -2300,10 +2469,6 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   end
 
   defp format_release_date(_), do: nil
-
-  defp format_popularity(nil), do: nil
-  defp format_popularity(n) when is_integer(n), do: "#{n}/100"
-  defp format_popularity(_), do: nil
 
   defp format_bpm(%{features: %{"tempo" => bpm}}) when is_number(bpm), do: "#{round(bpm)} BPM"
   defp format_bpm(_), do: nil

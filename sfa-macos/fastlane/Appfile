@@ -1,0 +1,12 @@
+# Sound Forge Alchemy — macOS Native
+# Appfile: app identity configuration for Fastlane
+
+app_identifier "com.soundforgealchemy.mac"
+
+# Apple Developer credentials
+# Set APPLE_ID and TEAM_ID as environment variables or in .env.fastlane
+apple_id ENV["APPLE_ID"]
+team_id  ENV["TEAM_ID"]
+
+# App Store Connect team (if different from Developer team)
+# itc_team_id ENV["ITC_TEAM_ID"]

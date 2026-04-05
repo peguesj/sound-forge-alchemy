@@ -53,9 +53,9 @@ defmodule SoundForgeWeb.DjTabLoadedTest do
       assert is_binary(html)
     end
 
-    test "toggle_preset_section via component target", %{conn: conn} do
+    test "export_preset via component target", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/?tab=dj")
-      html = view |> element("[phx-click='toggle_preset_section']") |> render_click()
+      html = view |> element("[phx-click='export_preset']") |> render_click()
       assert is_binary(html)
     end
 

@@ -334,6 +334,17 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
                       &#9654;
                     </button>
                   </td>
+                  <td class="w-8">
+                    <a
+                      href={"/daw/#{file.id}"}
+                      class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-cyan-400"
+                      title="Edit in DAW"
+                    >
+                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                      </svg>
+                    </a>
+                  </td>
                   <td class="font-mono text-xs truncate max-w-xs" title={file.name}><%= file.name %></td>
                   <td class="text-xs font-mono tabular-nums text-cyan-500/80"><%= format_bpm(file.bpm) %></td>
                   <td class="text-xs font-medium text-purple-400/80"><%= file.key || "—" %></td>

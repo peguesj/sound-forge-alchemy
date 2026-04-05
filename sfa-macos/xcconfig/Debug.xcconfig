@@ -1,0 +1,28 @@
+// Sound Forge Alchemy — macOS Native
+// Debug.xcconfig: local development configuration
+//
+// Wire this file to the "Debug" build configuration in Xcode:
+//   Project > Info > Configurations > Debug > SoundForgeAlchemy: xcconfig/Debug
+
+#include "Base.xcconfig"
+
+// Local Phoenix server (default port)
+SFA_SERVER_URL = http://localhost:4000
+
+// Optimisation and debug info
+GCC_OPTIMIZATION_LEVEL = 0
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+DEBUG_INFORMATION_FORMAT = dwarf
+STRIP_INSTALLED_PRODUCT = NO
+ENABLE_TESTABILITY = YES
+
+// Code signing — use automatic for local dev
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM =
+
+// Enable extra assertions in debug builds
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
+GCC_PREPROCESSOR_DEFINITIONS = DEBUG=1
+
+// Only build for the host architecture in debug (faster local builds)
+ONLY_ACTIVE_ARCH = YES

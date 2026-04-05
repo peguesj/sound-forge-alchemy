@@ -1,0 +1,393 @@
+{
+  "project_name": "Sound Forge Alchemy",
+  "version": "4.7.0",
+  "detected_at": "2026-03-30T00:00:00Z",
+  "repo": "peguesj/sound-forge-alchemy",
+  "pm_adapter": "plane",
+  "providers": {
+    "github": {
+      "repo": "peguesj/sound-forge-alchemy",
+      "branch": "main",
+      "files": [
+        "README.md",
+        "CHANGELOG.md",
+        "AGENTS.md",
+        "docs/"
+      ],
+      "status": "configured",
+      "last_sync": "2026-04-03T15:56:09Z"
+    },
+    "plane": {
+      "instance": "https://plane.lgtm.build",
+      "workspace": "lgtm",
+      "project_id": "6f35c181-4a86-476d-bb2a-fba869f68918",
+      "api_key_path": "~/.claude/skills/upm/plane-api-key",
+      "sync_wiki": true,
+      "status": "configured",
+      "last_sync": "2026-04-03T15:56:09Z"
+    },
+    "linear": {
+      "project_id": null,
+      "status": "unconfigured"
+    },
+    "notion": {
+      "page_id": null,
+      "status": "unconfigured"
+    },
+    "wiki": {
+      "provider": "plane",
+      "workspace": "lgtm",
+      "project_id": "6f35c181-4a86-476d-bb2a-fba869f68918",
+      "status": "configured",
+      "last_sync": "2026-04-03T15:56:09Z"
+    }
+  },
+  "hooks": {
+    "post_write": true,
+    "pre_push": true,
+    "post_commit_claude_md": true
+  },
+  "sync_sections": {
+    "overview": [
+      "github:README.md#overview",
+      "plane:wiki/overview"
+    ],
+    "architecture_overview": [
+      "github:docs/architecture/00_SYSTEM_OVERVIEW.md",
+      "plane:wiki/architecture-overview"
+    ],
+    "domain_model": [
+      "github:docs/architecture/01_DOMAIN_MODEL.md",
+      "plane:wiki/domain-model"
+    ],
+    "data_layer": [
+      "github:docs/architecture/02_DATA_LAYER.md",
+      "plane:wiki/data-layer"
+    ],
+    "functional_core": [
+      "github:docs/architecture/03_FUNCTIONAL_CORE.md",
+      "plane:wiki/functional-core"
+    ],
+    "boundaries": [
+      "github:docs/architecture/04_BOUNDARIES.md",
+      "plane:wiki/boundaries"
+    ],
+    "lifecycle": [
+      "github:docs/architecture/05_LIFECYCLE.md",
+      "plane:wiki/lifecycle"
+    ],
+    "workers": [
+      "github:docs/architecture/06_WORKERS.md",
+      "plane:wiki/workers"
+    ],
+    "integration_patterns": [
+      "github:docs/architecture/07_INTEGRATION_PATTERNS.md",
+      "plane:wiki/integration-patterns"
+    ],
+    "agents_architecture": [
+      "github:docs/architecture/agents.md",
+      "plane:wiki/agents"
+    ],
+    "database": [
+      "github:docs/architecture/database.md",
+      "plane:wiki/database"
+    ],
+    "feature_dj_daw": [
+      "github:docs/features/dj-daw.md",
+      "plane:wiki/feature-dj-daw"
+    ],
+    "feature_midi": [
+      "github:docs/features/midi.md",
+      "plane:wiki/feature-midi"
+    ],
+    "feature_analysis": [
+      "github:docs/features/analysis.md",
+      "plane:wiki/feature-analysis"
+    ],
+    "feature_stem_separation": [
+      "github:docs/features/stem-separation.md",
+      "plane:wiki/feature-stem-separation"
+    ],
+    "feature_import_pipeline": [
+      "github:docs/features/import-pipeline.md",
+      "plane:wiki/feature-import-pipeline"
+    ],
+    "feature_ai_agents": [
+      "github:docs/features/ai-agents.md",
+      "plane:wiki/feature-ai-agents"
+    ],
+    "feature_admin": [
+      "github:docs/features/admin.md",
+      "plane:wiki/feature-admin"
+    ],
+    "feature_platform_admin": [
+      "github:docs/features/platform-admin.md",
+      "plane:wiki/feature-platform-admin"
+    ],
+    "api_rest": [
+      "github:docs/api/rest.md",
+      "plane:wiki/api-rest"
+    ],
+    "api_websocket": [
+      "github:docs/api/websocket.md",
+      "plane:wiki/api-websocket"
+    ],
+    "guide_development": [
+      "github:docs/guides/development.md",
+      "plane:wiki/guide-development"
+    ],
+    "guide_deployment": [
+      "github:docs/guides/deployment.md",
+      "plane:wiki/guide-deployment"
+    ],
+    "guide_configuration": [
+      "github:docs/guides/configuration.md",
+      "plane:wiki/guide-configuration"
+    ],
+    "guide_quickstart": [
+      "github:docs/guides/quickstart.md",
+      "plane:wiki/guide-quickstart"
+    ],
+    "guide_installation": [
+      "github:docs/guides/installation.md",
+      "plane:wiki/guide-installation"
+    ],
+    "adr_001": [
+      "github:docs/decisions/ADR-001-framework-choice.md",
+      "plane:wiki/adr-001"
+    ],
+    "adr_002": [
+      "github:docs/decisions/ADR-002-python-integration.md",
+      "plane:wiki/adr-002"
+    ],
+    "adr_003": [
+      "github:docs/decisions/ADR-003-job-architecture.md",
+      "plane:wiki/adr-003"
+    ],
+    "adr_004": [
+      "github:docs/decisions/ADR-004-ux-overhaul-2026-03.md",
+      "plane:wiki/adr-004"
+    ],
+    "guardrails": [
+      "github:docs/guardrails/ALWAYS_DO.md",
+      "plane:wiki/guardrails"
+    ],
+    "code_review": [
+      "github:docs/guardrails/CODE_REVIEW_CHECKLIST.md",
+      "plane:wiki/code-review-checklist"
+    ],
+    "changelog": [
+      "github:CHANGELOG.md",
+      "plane:wiki/changelog"
+    ],
+    "claude_md": [
+      "github:.claude/CLAUDE.md",
+      "plane:wiki/claude-context"
+    ],
+    "guide_import_pipeline_runbook": [
+      "github:docs/guides/import-pipeline-runbook.md",
+      "plane:wiki/guide-import-pipeline"
+    ],
+    "guide_stem_separation_runbook": [
+      "github:docs/guides/stem-separation-runbook.md",
+      "plane:wiki/guide-stem-separation"
+    ],
+    "guide_midi_device_runbook": [
+      "github:docs/guides/midi-device-runbook.md",
+      "plane:wiki/guide-midi-device"
+    ],
+    "guide_daw_project_runbook": [
+      "github:docs/guides/daw-project-runbook.md",
+      "plane:wiki/guide-daw-project"
+    ],
+    "guide_deployment_runbook": [
+      "github:docs/guides/deployment-runbook.md",
+      "plane:wiki/guide-deployment-runbook"
+    ]
+  },
+  "checksums": {
+    "guide_import_pipeline_runbook": {
+      "local": "e931f3c52064",
+      "github": "e931f3c52064",
+      "plane": "e931f3c52064"
+    },
+    "guide_stem_separation_runbook": {
+      "local": "c13c77b78f23",
+      "github": "c13c77b78f23",
+      "plane": "c13c77b78f23"
+    },
+    "guide_midi_device_runbook": {
+      "local": "9cd4faa00371",
+      "github": "9cd4faa00371",
+      "plane": "9cd4faa00371"
+    },
+    "guide_daw_project_runbook": {
+      "local": "f72feea46d72",
+      "github": "f72feea46d72",
+      "plane": "f72feea46d72"
+    },
+    "guide_deployment_runbook": {
+      "local": "d93172a6bb56",
+      "github": "d93172a6bb56",
+      "plane": "d93172a6bb56"
+    }
+  },
+  "last_sync": {
+    "guide_import_pipeline_runbook": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "guide_stem_separation_runbook": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "guide_midi_device_runbook": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "guide_daw_project_runbook": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "guide_deployment_runbook": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "overview": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "architecture_overview": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "domain_model": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "data_layer": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "functional_core": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "boundaries": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "lifecycle": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "workers": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "integration_patterns": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "agents_architecture": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "database": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "feature_dj_daw": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "feature_midi": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "feature_analysis": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "feature_stem_separation": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "feature_import_pipeline": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "feature_ai_agents": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "feature_admin": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "feature_platform_admin": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "api_rest": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "api_websocket": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "guide_development": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "guide_deployment": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "guide_configuration": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "guide_quickstart": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "guide_installation": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "adr_001": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "adr_002": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "adr_003": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "adr_004": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "guardrails": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "code_review": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "changelog": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    },
+    "claude_md": {
+      "github": "2026-04-03T15:56:09Z",
+      "plane": "2026-04-03T15:56:09Z"
+    }
+  }
+}

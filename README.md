@@ -2,10 +2,10 @@
 
 **Professional audio engineering platform for DJs and producers — built on Elixir/Phoenix.**
 
-[![Version](https://img.shields.io/badge/version-4.3.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.0-blue.svg)](CHANGELOG.md)
 [![Elixir](https://img.shields.io/badge/elixir-~%3E1.15-purple.svg)](https://elixir-lang.org)
 [![Phoenix](https://img.shields.io/badge/phoenix-~%3E1.8-orange.svg)](https://phoenixframework.org)
-[![Tests](https://img.shields.io/badge/tests-707%20passing-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-4372%20discovered-brightgreen.svg)](test/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 > [!WARNING]
@@ -194,13 +194,21 @@ Analysis runs via `SoundForge.Audio.AnalyzerPort` — an Erlang port wrapping a 
 - Jog wheel emulation (`jog_wheel.js`)
 - DJ preset management (`SoundForge.DJ.Presets`)
 
-**MIDI Integration (`SoundForge.MIDI`)**
+**MIDI Integration (`SoundForge.MIDI` + `SoundForge.ControlSurface`)**
 - USB MIDI device enumeration via `midiex` (Rust NIF)
 - Network MIDI discovery (`NetworkDiscovery`)
 - MIDI clock sync (`Clock`)
-- Device-agnostic mapping system (`Mapping`, `Mappings`, `Dispatcher`)
+- Device-agnostic mapping system (`Mapping`, `Mappings`, `Dispatcher`) with `tab_context` and `preset_name` fields
 - Akai MPC profile: MPC Beats, MPC 2.0, iMPC Pro 2 (`Profiles.Mpc`, `Profiles.MpcApp`)
+- Universal controller preset + AI auto-detect (`ControllerFingerprints`, `AutoDetect`)
+- `controller_registry.json` seeded with Akai MPC Live II and MVAVE fingerprints
 - Custom mapping UI in `MidiLive`
+- **Control Surface Abstraction Layer** (`SoundForge.ControlSurface`):
+  - `Behaviour` — unified protocol for all adapters
+  - `MidiAdapter` / `OscAdapter` — protocol-level message routing
+  - `ActionTranslator` — vendor dictionaries (Serato, Traktor, generic)
+  - `ProfileLoader` — imports Serato XML, Traktor TSI, TouchOSC JSON layouts
+  - `DeviceProfile` Ecto schema — persisted per-user device configurations
 
 **OSC / TouchOSC**
 - UDP-based OSC 1.0 server on port 8000 (`SoundForge.OSC.Server`)

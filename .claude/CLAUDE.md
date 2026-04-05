@@ -1210,3 +1210,60 @@ Formation: fmt-sfa-full-stack-001 | Squadron Alpha (SwiftUI) + Bravo (DAW/Web) +
 - [x] **CP-172**: UPM plan/Plane PM bidirectional sync via /upm sync (US-C03)
 - [x] **CP-173**: Formation member registry in APM dashboard (US-C04)
 - After Squadron Charlie: All hooks active, APM tracks all formation members, Plane issues auto-synced
+
+### Phase 8 — UX/Library/MIDI/Crate Overhaul (Formation fmt-sfa-ux-overhaul, branch ralph/sfa-ux-library-midi-crate-overhaul)
+
+#### Squadron Alpha — Foundation (Wave 1, 3 concurrent)
+- [ ] **CP-174**: Global MIDI manager JS hook for app-wide MIDI access (US-001)
+- [ ] **CP-175**: Universal SfaLibraryPullout LiveComponent (US-002)
+- [ ] **CP-176**: Crate Digger stem-filtered per-track playback (US-003)
+- After Squadron Alpha: `mix compile` PASS, MIDI accessible on all tabs, library component reusable
+
+#### Squadron Bravo — Integration (Wave 2, 3 concurrent)
+- [ ] **CP-177**: DJ and Pads modules wired with SfaLibraryPulloutComponent (US-004)
+- [ ] **CP-178**: DAW module library pullout with unprocessed track process CTA (US-005)
+- [ ] **CP-179**: Crate Digger Process All + Play All queue (US-006)
+- After Squadron Bravo: `mix compile` PASS, all module tabs have library access
+
+#### Squadron Charlie — UX/Polish (Wave 3, 4 concurrent)
+- [ ] **CP-180**: Transport bar functional play/pause/next/prev (US-007)
+- [ ] **CP-181**: Footer and transport bar design overhaul (US-008)
+- [ ] **CP-182**: WCAG 2.1 AA compliance + design consistency (US-009)
+- [ ] **CP-183**: Crate Digger UX redesign import→configure→play (US-010)
+- After Squadron Charlie: `mix compile` PASS, WCAG pass, transport functional, crate UX cohesive
+
+#### Reserve Squadron — On Standby
+- autofix agent: routes compile/runtime errors automatically
+- smart-fix agent: handles multi-file complex issues
+- orchestrator agent: coordinates wave sequencing and conflict resolution
+- live-all agent: watches all environments, routes console errors to autofix/smart-fix
+
+### Phase 9 — Splice Native Integration (Formation fmt-sfa-splice-native, branch ralph/sfa-splice-native, worktree .claude/worktrees/splice-native)
+
+#### Squadron Alpha — Foundation (Wave 1, 3 concurrent haiku agents)
+- [ ] **CP-184**: Per-user SpliceScanner with FSEvents real-time watching (US-001)
+- [ ] **CP-185**: Splice pack hierarchy parser + BPM/key filename extraction (US-002)
+- [ ] **CP-186**: Generic directory watcher fallback (US-003)
+- After Squadron Alpha: `mix compile` PASS, per-user scanners running, metadata extracting
+
+#### Squadron Bravo — Integration (Wave 2, 3 concurrent haiku agents)
+- [ ] **CP-187**: Splice pack browser UI: pack → category → sound hierarchy (US-004)
+- [ ] **CP-188**: Sample preview player: in-browser auditioning without import (US-005)
+- [ ] **CP-189**: Real-time import status PubSub feed in sidebar + library (US-006)
+- After Squadron Bravo: `mix compile` PASS, full native Splice UX functional
+
+### Phase 10: DJ/Crate/UAT/DevTools (ralph/sfa-dj-crate-uat-2026-04-05)
+
+#### Squadron Alpha — Wave 1 (independent, concurrent)
+- [ ] **CP-190**: Fix Crate Digger playback with Stem Lab S/M application (US-001)
+- [ ] **CP-191**: Spotify playlist → Crate import with Stem Lab preset assignment (US-002)
+- [ ] **CP-193**: Remove redundant DJ library panel; hide by default, toggle overlay (US-004)
+- [ ] **CP-194**: DJ monitor output: CUE bus routed to secondary audio device (US-005)
+- [x] **CP-195**: Fix hot cue position (JS dispatch) + live SMPTE timecode display (US-006)
+- [ ] **CP-197**: In-app DJ dev tools panel: Ctrl+Shift+D, deck state inspector (US-008)
+- After Squadron Alpha: `mix compile` PASS, all Wave 1 stories functional
+
+#### Squadron Bravo — Wave 2 (depends on Alpha)
+- [ ] **CP-192**: Load Crate track to DJ deck with stem S/M and cue points (US-003)
+- [ ] **CP-196**: UAT Playwright E2E suite for DJ, Crate, and hot cue flows (US-007)
+- After Squadron Bravo: Full DJ→Crate→StemLab pipeline verified, E2E tests passing

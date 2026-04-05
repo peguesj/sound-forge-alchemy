@@ -10,6 +10,7 @@ import WaveSurfer from "wavesurfer.js"
 import RegionsPlugin from "wavesurfer.js/dist/plugins/regions.esm.js"
 import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline.esm.js"
 import MinimapPlugin from "wavesurfer.js/dist/plugins/minimap.esm.js"
+import AudioEngine from "../audio_engine.js"
 
 // Module-level decoded AudioBuffer cache keyed by URL.
 // Survives LiveView reconnects (hook destroy/remount cycles) so re-loading
@@ -40,10 +41,13 @@ const DjDeck = {
     // Unlock all AudioContexts on first user interaction (browser autoplay policy).
     // AudioContexts created outside a user gesture start suspended; this listener
     // resumes them as soon as the user clicks or taps anywhere on the page.
+    // We resume via AudioEngine so we target the singleton's contexts, not stale
+    // hook-local references.
     this._unlockAudio = () => {
-      Object.values(this.decks).forEach(deck => {
-        if (deck.audioContext && deck.audioContext.state === "suspended") {
-          deck.audioContext.resume().catch(() => {})
+      Object.keys(this.decks).forEach(deckNum => {
+        const deckState = AudioEngine.getDeck(parseInt(deckNum, 10))
+        if (deckState.audioContext && deckState.audioContext.state === "suspended") {
+          deckState.audioContext.resume().catch(() => {})
         }
       })
     }
@@ -259,6 +263,13 @@ const DjDeck = {
     }
     this.el.addEventListener("dj:set-hot-cue", this._onDjSetHotCue)
 
+    // Attach input listeners to persist slider/knob values to localStorage.
+    // Uses a small delay so the DOM is fully rendered before querying elements.
+    setTimeout(() => this._attachPersistListeners(), 100)
+
+    // Restore persisted slider values from a previous session.
+    setTimeout(() => this._restorePersistedValues(), 150)
+
     // Phoenix LiveView morphdom can eject sibling elements (non-component children
     // of the LiveComponent root) to the parent container during component updates.
     // Re-adopt any ejected siblings back into this element after each render.
@@ -317,8 +328,13 @@ const DjDeck = {
     const deckState = this.decks[deck]
     if (!deckState) return
 
-    // Cleanup previous audio for this deck
+    // Cleanup previous audio for this deck (tears down WaveSurfer + sources,
+    // but does NOT close the AudioContext — it lives in AudioEngine).
     this._cleanupDeck(deck)
+
+    // Restore the AudioContext from the singleton in case this is a remount
+    // after LiveView navigation.  AudioEngine.getContext() is idempotent.
+    deckState.audioContext = AudioEngine.getContext(deck)
 
     // Store analysis data for beat grid
     deckState.tempo = tempo || null
@@ -332,8 +348,8 @@ const DjDeck = {
     }
 
     try {
-      // Create a fresh AudioContext for this deck
-      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      // deckState.audioContext was restored from AudioEngine above — use it directly.
+      const ctx = deckState.audioContext
       const masterGain = ctx.createGain()
       masterGain.gain.value = 1.0
 
@@ -1345,11 +1361,10 @@ const DjDeck = {
       deckState.wavesurfer = null
     }
 
-    // Close AudioContext
-    if (deckState.audioContext) {
-      deckState.audioContext.close().catch(() => {})
-      deckState.audioContext = null
-    }
+    // Do NOT close the AudioContext — it is owned by the AudioEngine singleton
+    // and must survive hook destroy/remount cycles so audio continues playing
+    // while the user navigates away from the DJ tab.
+    deckState.audioContext = null
 
     deckState.masterGain = null
     deckState.stems = {}
@@ -1373,7 +1388,38 @@ const DjDeck = {
   },
 
   destroyed() {
-    console.log("[DjDeck] Hook destroyed, cleaning up")
+    console.log("[DjDeck] Hook destroyed — persisting deck state to AudioEngine, audio continues")
+
+    // Persist live audio state back into the singleton BEFORE clearing local
+    // refs.  This keeps isPlaying, startTime, pauseOffset, and stems accurate
+    // so getLivePositionMs() stays correct while the hook is unmounted.
+    ;[1, 2, 3, 4].forEach(deckNum => {
+      const localDeck = this.decks[deckNum]
+      if (!localDeck) return
+      AudioEngine.setDeck(deckNum, {
+        isPlaying: localDeck.isPlaying,
+        startTime: localDeck.startTime,
+        pauseOffset: localDeck.pauseOffset,
+        duration: localDeck.duration,
+        timeFactor: localDeck.timeFactor,
+        pitch: localDeck.pitch,
+        stems: localDeck.stems,
+        masterGain: localDeck.masterGain,
+        eqLow: localDeck.eqLow,
+        eqMid: localDeck.eqMid,
+        eqHigh: localDeck.eqHigh,
+        deckFilter: localDeck.deckFilter,
+        tempo: localDeck.tempo,
+        beatTimes: localDeck.beatTimes,
+        loop: localDeck.loop,
+        _loopChain: localDeck._loopChain,
+        _loopChainIndex: localDeck._loopChainIndex,
+        _cueSequence: localDeck._cueSequence,
+        _cueSeqActive: localDeck._cueSeqActive,
+        _rhythmicQuantize: localDeck._rhythmicQuantize,
+        _stemLoopGate: localDeck._stemLoopGate,
+      })
+    })
 
     // Remove interaction unlock listeners
     if (this._unlockAudio) {
@@ -1387,6 +1433,8 @@ const DjDeck = {
     if (this._onDjSeek) { this.el.removeEventListener("dj:seek", this._onDjSeek); this._onDjSeek = null }
     if (this._onDjSetHotCue) { this.el.removeEventListener("dj:set-hot-cue", this._onDjSetHotCue); this._onDjSetHotCue = null }
 
+    // _cleanupDeck tears down WaveSurfer + source nodes + local refs, but does
+    // NOT close the AudioContext (owned by AudioEngine).
     this._cleanupDeck(1)
     this._cleanupDeck(2)
 
@@ -1443,12 +1491,20 @@ const DjDeck = {
   /**
    * Return the current playhead position in milliseconds for the given deck,
    * using the live audio engine state (not the stale server assign).
+   *
+   * Falls back to the AudioEngine singleton when the hook's local audioContext
+   * has been cleared (e.g. immediately after destroyed() was called but before
+   * a remount completes).
    */
   _getLivePositionMs(deck) {
     const deckState = this.decks[deck]
-    if (!deckState) return 0
+    if (!deckState) return AudioEngine.getLivePositionMs(deck)
     if (deckState.isPlaying && deckState.audioContext && deckState.startTime != null) {
       return Math.trunc((deckState.audioContext.currentTime - deckState.startTime) * 1000)
+    }
+    // If local audioContext is gone (hook was destroyed), ask the singleton.
+    if (!deckState.audioContext) {
+      return AudioEngine.getLivePositionMs(deck)
     }
     return Math.trunc((deckState.pauseOffset || 0) * 1000)
   },
@@ -1778,6 +1834,180 @@ const DjDeck = {
     }
     if (window.__sfaBeatClock) {
       window.__sfaBeatClock.active = false
+    }
+  },
+
+  // --- localStorage persistence helpers ---
+
+  _persistKey(key) {
+    return `sfa_dj_${key}`
+  },
+
+  _persistValue(key, value) {
+    try { localStorage.setItem(this._persistKey(key), JSON.stringify(value)) } catch(e) {}
+  },
+
+  _getPersistedValue(key, defaultVal) {
+    try {
+      const v = localStorage.getItem(this._persistKey(key))
+      return v !== null ? JSON.parse(v) : defaultVal
+    } catch(e) { return defaultVal }
+  },
+
+  /**
+   * Attach input event listeners to sliders and knobs so values are saved to
+   * localStorage whenever the user adjusts them. The server handles the
+   * phx-change events; we simply intercept the same DOM events to persist.
+   */
+  _attachPersistListeners() {
+    // Master volume knob
+    const masterKnob = document.getElementById('master-vol-knob')
+    if (masterKnob) {
+      const input = masterKnob.querySelector('input[type="range"]')
+      if (input) {
+        input.addEventListener('input', (e) => {
+          this._persistValue('master_volume', Number(e.target.value))
+        })
+      }
+    }
+
+    // Crossfader
+    const xfaderInput = document.querySelector('input[type="range"][aria-label="Crossfader"]')
+    if (xfaderInput) {
+      xfaderInput.addEventListener('input', (e) => {
+        this._persistValue('crossfader', Number(e.target.value))
+      })
+    }
+
+    // Deck A volume fader
+    const deckAVol = document.querySelector('input[type="range"][aria-label="Deck A volume"]')
+    if (deckAVol) {
+      deckAVol.addEventListener('input', (e) => {
+        this._persistValue('deck_1_volume', Number(e.target.value))
+      })
+    }
+
+    // Deck B volume fader
+    const deckBVol = document.querySelector('input[type="range"][aria-label="Deck B volume"]')
+    if (deckBVol) {
+      deckBVol.addEventListener('input', (e) => {
+        this._persistValue('deck_2_volume', Number(e.target.value))
+      })
+    }
+
+    // EQ knobs for deck 1 (high/mid/low)
+    for (const band of ['high', 'mid', 'low']) {
+      const knob = document.getElementById(`d1-eq-${band}`)
+      if (knob) {
+        const input = knob.querySelector('input[type="range"]')
+        if (input) {
+          input.addEventListener('input', (e) => {
+            this._persistValue(`d1_eq_${band}`, Number(e.target.value))
+          })
+        }
+      }
+    }
+
+    // EQ knobs for deck 2 (high/mid/low)
+    for (const band of ['high', 'mid', 'low']) {
+      const knob = document.getElementById(`d2-eq-${band}`)
+      if (knob) {
+        const input = knob.querySelector('input[type="range"]')
+        if (input) {
+          input.addEventListener('input', (e) => {
+            this._persistValue(`d2_eq_${band}`, Number(e.target.value))
+          })
+        }
+      }
+    }
+  },
+
+  /**
+   * Restore persisted slider and knob values from localStorage and push them
+   * to the server so LiveView assigns stay in sync with the client UI.
+   */
+  _restorePersistedValues() {
+    // Master volume
+    const masterVol = this._getPersistedValue('master_volume', null)
+    if (masterVol !== null) {
+      const masterKnob = document.getElementById('master-vol-knob')
+      if (masterKnob) {
+        const input = masterKnob.querySelector('input[type="range"]')
+        if (input) {
+          input.value = masterVol
+          // Update knob indicator rotation
+          const r = -135 + 270 * ((masterVol - Number(input.min)) / (Number(input.max) - Number(input.min)))
+          const ind = masterKnob.querySelector('.djknob-ind')
+          if (ind) ind.style.transform = `rotate(${r}deg)`
+          this.pushEvent('set_master_volume', { value: String(masterVol) })
+        }
+      }
+    }
+
+    // Crossfader
+    const xfaderVal = this._getPersistedValue('crossfader', null)
+    if (xfaderVal !== null) {
+      const xfaderInput = document.querySelector('input[type="range"][aria-label="Crossfader"]')
+      if (xfaderInput) {
+        xfaderInput.value = xfaderVal
+        this.pushEvent('crossfader', { value: String(xfaderVal) })
+      }
+    }
+
+    // Deck A volume
+    const deckAVol = this._getPersistedValue('deck_1_volume', null)
+    if (deckAVol !== null) {
+      const input = document.querySelector('input[type="range"][aria-label="Deck A volume"]')
+      if (input) {
+        input.value = deckAVol
+        this.pushEvent('set_deck_volume', { deck: '1', level: String(deckAVol) })
+      }
+    }
+
+    // Deck B volume
+    const deckBVol = this._getPersistedValue('deck_2_volume', null)
+    if (deckBVol !== null) {
+      const input = document.querySelector('input[type="range"][aria-label="Deck B volume"]')
+      if (input) {
+        input.value = deckBVol
+        this.pushEvent('set_deck_volume', { deck: '2', level: String(deckBVol) })
+      }
+    }
+
+    // EQ knobs deck 1
+    for (const band of ['high', 'mid', 'low']) {
+      const gain = this._getPersistedValue(`d1_eq_${band}`, null)
+      if (gain !== null) {
+        const knob = document.getElementById(`d1-eq-${band}`)
+        if (knob) {
+          const input = knob.querySelector('input[type="range"]')
+          if (input) {
+            input.value = gain
+            const r = -135 + 270 * ((gain - Number(input.min)) / (Number(input.max) - Number(input.min)))
+            const ind = knob.querySelector('.djknob-ind')
+            if (ind) ind.style.transform = `rotate(${r}deg)`
+            this.pushEvent('set_eq_gain', { deck: 1, band, gain })
+          }
+        }
+      }
+    }
+
+    // EQ knobs deck 2
+    for (const band of ['high', 'mid', 'low']) {
+      const gain = this._getPersistedValue(`d2_eq_${band}`, null)
+      if (gain !== null) {
+        const knob = document.getElementById(`d2-eq-${band}`)
+        if (knob) {
+          const input = knob.querySelector('input[type="range"]')
+          if (input) {
+            input.value = gain
+            const r = -135 + 270 * ((gain - Number(input.min)) / (Number(input.max) - Number(input.min)))
+            const ind = knob.querySelector('.djknob-ind')
+            if (ind) ind.style.transform = `rotate(${r}deg)`
+            this.pushEvent('set_eq_gain', { deck: 2, band, gain })
+          }
+        }
+      }
     }
   }
 }

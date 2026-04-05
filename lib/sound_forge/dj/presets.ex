@@ -601,6 +601,29 @@ defmodule SoundForge.DJ.Presets do
     end
   end
 
+  defp get_child_text({:xmlElement, _, _, _, _, _, _, _, children, _, _, _}, tag_name) do
+    tag_atom = String.to_atom(tag_name)
+
+    case Enum.find(children, fn
+           {:xmlElement, name, _, _, _, _, _, _, _, _, _, _} -> name == tag_atom
+           _ -> false
+         end) do
+      nil ->
+        nil
+
+      {:xmlElement, _, _, _, _, _, _, _, sub_children, _, _, _} ->
+        text =
+          Enum.find_value(sub_children, fn
+            {:xmlText, _, _, _, value, _} -> to_string(value) |> String.trim()
+            _ -> nil
+          end)
+
+        if text == "", do: nil, else: text
+    end
+  end
+
+  defp get_child_text(_, _), do: nil
+
   defp get_attribute({:xmlElement, _, _, _, _, _, _, attrs, _, _, _, _}, attr_name) do
     attr_atom =
       case attr_name do
@@ -690,7 +713,7 @@ defmodule SoundForge.DJ.Presets do
   }
 
   defp extract_serato_mappings(doc, user_id) do
-    entries = :xmerl_xpath.string('//MidiMapping', doc)
+    entries = :xmerl_xpath.string(~c"//MidiMapping", doc)
 
     Enum.flat_map(entries, fn entry ->
       action_str = get_child_text(entry, "Action") || ""
@@ -719,29 +742,6 @@ defmodule SoundForge.DJ.Presets do
       ]
     end)
   end
-
-  defp get_child_text({:xmlElement, _, _, _, _, _, _, _, children, _, _, _}, tag_name) do
-    tag_atom = String.to_atom(tag_name)
-
-    case Enum.find(children, fn
-           {:xmlElement, name, _, _, _, _, _, _, _, _, _, _} -> name == tag_atom
-           _ -> false
-         end) do
-      nil ->
-        nil
-
-      {:xmlElement, _, _, _, _, _, _, _, sub_children, _, _, _} ->
-        text =
-          Enum.find_value(sub_children, fn
-            {:xmlText, _, _, _, value, _} -> to_string(value) |> String.trim()
-            _ -> nil
-          end)
-
-        if text == "", do: nil, else: text
-    end
-  end
-
-  defp get_child_text(_, _), do: nil
 
   # ==========================================================================
   # RekordBox XML Preset Parsing
@@ -798,7 +798,7 @@ defmodule SoundForge.DJ.Presets do
   }
 
   defp extract_rekordbox_mappings(doc, user_id) do
-    entries = :xmerl_xpath.string('//MIDI_ASSIGN', doc)
+    entries = :xmerl_xpath.string(~c"//MIDI_ASSIGN", doc)
     device_name = extract_rekordbox_device(doc)
 
     Enum.flat_map(entries, fn entry ->
@@ -829,14 +829,14 @@ defmodule SoundForge.DJ.Presets do
   end
 
   defp extract_rekordbox_name(doc) do
-    case :xmerl_xpath.string('//TEMPLATE/@NAME', doc) do
+    case :xmerl_xpath.string(~c"//TEMPLATE/@NAME", doc) do
       [{:xmlAttribute, _, _, _, _, _, _, _, value, _} | _] -> to_string(value)
       _ -> nil
     end
   end
 
   defp extract_rekordbox_device(doc) do
-    case :xmerl_xpath.string('//DEVICE/@NAME', doc) do
+    case :xmerl_xpath.string(~c"//DEVICE/@NAME", doc) do
       [{:xmlAttribute, _, _, _, _, _, _, _, value, _} | _] -> to_string(value)
       _ -> "RekordBox Controller"
     end

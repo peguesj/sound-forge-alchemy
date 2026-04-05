@@ -32,7 +32,7 @@ defmodule SoundForge.CrateDigger.Sequencer do
   @spec sequence(Crate.t(), arc_type()) :: {:ok, [map()]} | {:error, term()}
   def sequence(%Crate{playlist_data: []}, _arc), do: {:ok, []}
 
-  def sequence(%Crate{playlist_data: tracks} = crate, arc) do
+  def sequence(%Crate{playlist_data: tracks}, arc) do
     # Load analysis results for crate tracks
     spotify_ids = Enum.map(tracks, & &1["spotify_id"]) |> Enum.reject(&is_nil/1)
 

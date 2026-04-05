@@ -15,7 +15,6 @@ defmodule SoundForge.Sources.SpliceScanner do
   require Logger
 
   alias SoundForge.Jobs.SpliceImportWorker
-  alias SoundForge.Accounts
 
   @poll_interval_ms 30_000
   @audio_extensions ~w(.wav .mp3 .aif .aiff .flac)

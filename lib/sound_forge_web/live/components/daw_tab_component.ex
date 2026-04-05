@@ -825,12 +825,23 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
         <div class="p-6">
           <div class="mb-6">
             <h2 class="text-xl font-bold text-white mb-1">DAW Editor</h2>
-            <p class="text-sm text-gray-400">Select a track to edit stems</p>
+            <p class="text-sm text-gray-400">Select a track below to start editing stems</p>
           </div>
 
-          <div :if={@picker_tracks == []} class="text-center py-20 text-gray-500">
-            <p class="text-lg">No tracks in your library.</p>
-            <p class="text-sm mt-2">Add tracks from Spotify or upload audio files to get started.</p>
+          <div :if={@picker_tracks == []} class="flex flex-col items-center justify-center py-32 text-center">
+            <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4">
+              <svg class="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-200 mb-2">No tracks in your library</h3>
+            <p class="text-sm text-gray-500 mb-6 max-w-xs">Add tracks from Spotify or upload audio files, then come back here to edit stems.</p>
+            <button
+              phx-click="toggle_daw_library"
+              class="btn btn-sm btn-outline border-violet-600 text-violet-400 hover:bg-violet-600 hover:text-white"
+            >
+              Open Track Library
+            </button>
           </div>
 
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -1150,12 +1161,14 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
 
   defp list_user_tracks(scope) when is_map(scope) and not is_nil(scope) do
     Music.list_tracks(scope, sort_by: :title)
+    |> Enum.uniq_by(& &1.id)
   rescue
     _ -> []
   end
 
   defp list_user_tracks(_) do
     Music.list_tracks(sort_by: :title)
+    |> Enum.uniq_by(& &1.id)
   rescue
     _ -> []
   end

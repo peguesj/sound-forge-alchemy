@@ -32,7 +32,7 @@ defmodule SoundForge.MIDI.DeviceManager do
   require Logger
 
   @table :midi_devices
-  @poll_interval_ms 5_000
+  @poll_interval_ms 2_000
   @pubsub_topic "midi:devices"
 
   # -- Public API --
@@ -109,14 +109,14 @@ defmodule SoundForge.MIDI.DeviceManager do
 
     schedule_poll()
 
-    {:ok, %{table: table, midi_available: devices != []}}
+    {:ok, %{table: table, nif_ever_succeeded: devices != []}}
   end
 
   @impl true
   def handle_info(:poll_hotplug, state) do
-    poll_hotplug()
+    new_state = poll_hotplug(state)
     schedule_poll()
-    {:noreply, state}
+    {:noreply, new_state}
   end
 
   def handle_info(_msg, state) do
@@ -129,12 +129,36 @@ defmodule SoundForge.MIDI.DeviceManager do
     Process.send_after(self(), :poll_hotplug, @poll_interval_ms)
   end
 
-  defp poll_hotplug do
-    # If discover returns empty the NIF may be temporarily unavailable; skip diff
-    # to avoid falsely evicting valid ETS entries.
+  defp poll_hotplug(state) do
     case discover_devices() do
+      [] when not state.nif_ever_succeeded ->
+        # NIF has never returned data — hardware may not be present yet, skip diff
+        state
+
       [] ->
-        :ok
+        # NIF previously succeeded; empty list means all devices disconnected
+        previous_ids =
+          if :ets.whereis(@table) != :undefined do
+            @table
+            |> :ets.tab2list()
+            |> Enum.map(fn {port_id, _} -> port_id end)
+          else
+            []
+          end
+
+        for removed_id <- previous_ids do
+          case :ets.lookup(@table, removed_id) do
+            [{^removed_id, device}] ->
+              disconnected = %{device | status: :disconnected}
+              :ets.delete(@table, removed_id)
+              broadcast({:midi_device_disconnected, disconnected})
+
+            [] ->
+              :ok
+          end
+        end
+
+        state
 
       current_devices ->
         current_ids = MapSet.new(current_devices, & &1.port_id)
@@ -171,6 +195,8 @@ defmodule SoundForge.MIDI.DeviceManager do
               :ok
           end
         end
+
+        %{state | nif_ever_succeeded: true}
     end
   end
 

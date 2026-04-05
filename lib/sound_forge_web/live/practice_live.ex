@@ -86,6 +86,7 @@ defmodule SoundForgeWeb.PracticeLive do
   # Catch-all: ignore unhandled events (e.g. pwa_midi_available from root layout hook)
   def handle_event(_event, _params, socket), do: {:noreply, socket}
 
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="min-h-screen bg-gray-950 text-white flex flex-col">

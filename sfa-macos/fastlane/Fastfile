@@ -1,0 +1,253 @@
+# frozen_string_literal: true
+
+# Sound Forge Alchemy — macOS Native
+# Fastlane pipeline: local dev, TestFlight/Ad-hoc, App Store distribution
+#
+# Prerequisites:
+#   bundle exec fastlane [lane]
+#
+# Environment variables (set in .env or CI secrets):
+#   APPLE_ID          Apple ID used for App Store Connect
+#   TEAM_ID           Apple Developer team ID (10-char string)
+#   ASC_KEY_ID        App Store Connect API key ID
+#   ASC_ISSUER_ID     App Store Connect API issuer ID
+#   ASC_KEY_CONTENT   Base64-encoded .p8 API key content
+#   MATCH_GIT_URL     SSH/HTTPS URL of the certificates Git repo
+#   MATCH_PASSWORD    Encryption passphrase for Match repo
+#   NOTARIZE_KEYCHAIN_PROFILE  Keychain notarization profile name (local only)
+
+default_platform(:mac)
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+before_all do |lane|
+  ensure_xcode_version(version: "~> 15.0") rescue nil  # advisory only
+end
+
+# Load App Store Connect API key when credentials are available.
+# Allows CI to skip interactive Apple ID auth.
+def load_asc_api_key
+  return unless ENV["ASC_KEY_ID"] && ENV["ASC_ISSUER_ID"] && ENV["ASC_KEY_CONTENT"]
+
+  app_store_connect_api_key(
+    key_id: ENV["ASC_KEY_ID"],
+    issuer_id: ENV["ASC_ISSUER_ID"],
+    key_content: ENV["ASC_KEY_CONTENT"],   # base64-encoded .p8
+    is_key_content_base64: true,
+    in_house: false
+  )
+end
+
+# ---------------------------------------------------------------------------
+# Platform: mac
+# ---------------------------------------------------------------------------
+
+platform :mac do
+  # -------------------------------------------------------------------------
+  # test — run the full test suite
+  # -------------------------------------------------------------------------
+  desc "Build and run the full test suite"
+  lane :test do
+    run_tests(
+      project: "SoundForgeAlchemy.xcodeproj",
+      scheme: "SoundForgeAlchemy",
+      destination: "platform=macOS",
+      clean: true,
+      output_directory: "./build/test-results",
+      output_types: "html,junit",
+      result_bundle: true,
+      xcargs: "SWIFT_TREAT_WARNINGS_AS_ERRORS=NO"
+    )
+  end
+
+  # -------------------------------------------------------------------------
+  # lint — static analysis + SwiftLint (if installed)
+  # -------------------------------------------------------------------------
+  desc "Run SwiftLint static analysis"
+  lane :lint do
+    if File.exist?("../.swiftlint.yml") || system("which swiftlint > /dev/null 2>&1")
+      swiftlint(
+        mode: :lint,
+        config_file: ".swiftlint.yml",
+        raise_if_swiftlint_error: true,
+        ignore_exit_status: false
+      )
+    else
+      UI.important("SwiftLint not installed — skipping lint. Run `brew install swiftlint` to enable.")
+    end
+  end
+
+  # -------------------------------------------------------------------------
+  # build — debug build for local development
+  # -------------------------------------------------------------------------
+  desc "Compile a debug build (fast, no optimisation)"
+  lane :build do
+    build_mac_app(
+      project: "SoundForgeAlchemy.xcodeproj",
+      scheme: "SoundForgeAlchemy",
+      configuration: "Debug",
+      output_directory: "./build/Debug",
+      output_name: "SoundForgeAlchemy-Debug",
+      skip_package_pkg: true,
+      skip_codesigning: true,
+      derived_data_path: "./build/DerivedData",
+      xcargs: "SWIFT_TREAT_WARNINGS_AS_ERRORS=NO"
+    )
+    UI.success("Debug build: ./build/Debug/SoundForgeAlchemy-Debug.app")
+  end
+
+  # -------------------------------------------------------------------------
+  # certs — sync code signing via Match (read-only by default)
+  # -------------------------------------------------------------------------
+  desc "Sync certificates and provisioning profiles via Match"
+  lane :certs do |options|
+    load_asc_api_key
+    match(
+      type: options[:type] || "developer_id",
+      readonly: options[:readonly] != false,   # default read-only
+      verbose: false
+    )
+  end
+
+  # -------------------------------------------------------------------------
+  # archive — production archive (Developer ID, for direct distribution)
+  # -------------------------------------------------------------------------
+  desc "Build a signed, notarized .app archive for direct distribution"
+  lane :archive do |options|
+    load_asc_api_key
+    certs(type: "developer_id", readonly: true)
+
+    new_build = options[:skip_bump] ? get_build_number : increment_build_number(
+      xcodeproj: "SoundForgeAlchemy.xcodeproj"
+    )
+    UI.message("Build number: #{new_build}")
+
+    build_mac_app(
+      project: "SoundForgeAlchemy.xcodeproj",
+      scheme: "SoundForgeAlchemy",
+      configuration: "Release",
+      export_method: "developer-id",
+      output_directory: "./build/Archive",
+      output_name: "SoundForgeAlchemy",
+      archive_path: "./build/Archive/SoundForgeAlchemy.xcarchive",
+      derived_data_path: "./build/DerivedData",
+      include_symbols: true,
+      include_bitcode: false
+    )
+
+    notarize_app unless options[:skip_notarize]
+  end
+
+  # -------------------------------------------------------------------------
+  # notarize_app — notarize after archiving
+  # -------------------------------------------------------------------------
+  desc "Submit the .app to Apple Notary Service and staple"
+  lane :notarize_app do
+    load_asc_api_key
+
+    notarize(
+      package: "./build/Archive/SoundForgeAlchemy.app",
+      bundle_id: "com.soundforgealchemy.mac",
+      # Use stored keychain profile for local notarization:
+      # xcrun notarytool store-credentials "SFA-Notarize" --apple-id $APPLE_ID --team-id $TEAM_ID
+      # In CI: relies on ASC API key loaded via load_asc_api_key above.
+      print_log: true,
+      verbose: false
+    )
+    UI.success("Notarization complete. Staple ticket attached to .app.")
+  end
+
+  # -------------------------------------------------------------------------
+  # beta — TestFlight (macOS) distribution
+  # -------------------------------------------------------------------------
+  desc "Archive and submit to TestFlight (macOS)"
+  lane :beta do
+    load_asc_api_key
+    certs(type: "app-store", readonly: true)
+
+    increment_build_number(xcodeproj: "SoundForgeAlchemy.xcodeproj")
+
+    build_mac_app(
+      project: "SoundForgeAlchemy.xcodeproj",
+      scheme: "SoundForgeAlchemy",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build/Beta",
+      output_name: "SoundForgeAlchemy",
+      archive_path: "./build/Beta/SoundForgeAlchemy.xcarchive",
+      derived_data_path: "./build/DerivedData",
+      include_symbols: true,
+      include_bitcode: false
+    )
+
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      notify_external_testers: false,
+      changelog: changelog_from_git_commits(
+        merge_commit_filtering: "exclude_merges",
+        commits_count: 20,
+        pretty: "• %s"
+      )
+    )
+    UI.success("TestFlight upload complete.")
+  end
+
+  # -------------------------------------------------------------------------
+  # release — App Store submission
+  # -------------------------------------------------------------------------
+  desc "Archive and submit for App Store review"
+  lane :release do
+    load_asc_api_key
+    certs(type: "app-store", readonly: true)
+
+    increment_build_number(xcodeproj: "SoundForgeAlchemy.xcodeproj")
+
+    build_mac_app(
+      project: "SoundForgeAlchemy.xcodeproj",
+      scheme: "SoundForgeAlchemy",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build/Release",
+      output_name: "SoundForgeAlchemy",
+      archive_path: "./build/Release/SoundForgeAlchemy.xcarchive",
+      derived_data_path: "./build/DerivedData",
+      include_symbols: true,
+      include_bitcode: false
+    )
+
+    deliver(
+      submit_for_review: false,   # set true when ready to auto-submit
+      automatic_release: false,
+      force: true,
+      skip_screenshots: true,
+      skip_metadata: true
+    )
+    UI.success("App Store submission prepared.")
+  end
+
+  # -------------------------------------------------------------------------
+  # bump_version — semantic version management
+  # -------------------------------------------------------------------------
+  desc "Bump marketing version: type=[major|minor|patch]"
+  lane :bump_version do |options|
+    type = options[:type] || "patch"
+    version = get_version_number(xcodeproj: "SoundForgeAlchemy.xcodeproj")
+    parts = version.split(".").map(&:to_i)
+
+    case type
+    when "major" then parts[0] += 1; parts[1] = 0; parts[2] = 0
+    when "minor" then parts[1] += 1; parts[2] = 0
+    when "patch" then parts[2] += 1
+    else UI.user_error!("Unknown type: #{type}. Use major, minor, or patch.")
+    end
+
+    new_version = parts.join(".")
+    increment_version_number(
+      version_number: new_version,
+      xcodeproj: "SoundForgeAlchemy.xcodeproj"
+    )
+    UI.success("Version bumped to #{new_version}")
+  end
+end

@@ -40,7 +40,7 @@ config :sound_forge,
 
 # Configure the endpoint
 config :sound_forge, SoundForgeWeb.Endpoint,
-  url: [host: "localhost"],
+  url: [host: "127.0.0.1"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
     formats: [html: SoundForgeWeb.ErrorHTML, json: SoundForgeWeb.ErrorJSON],

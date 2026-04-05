@@ -1,0 +1,176 @@
+name: SFA macOS Native — Build & Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sfa-macos/**"
+      - ".github/workflows/build-mac.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "sfa-macos/**"
+      - ".github/workflows/build-mac.yml"
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "Fastlane lane to run (test | build | beta | archive)"
+        required: false
+        default: "test"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # test — run the Swift test suite on every push / PR
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test (macOS)
+    runs-on: macos-14        # Apple Silicon runner with Xcode 15
+
+    defaults:
+      run:
+        working-directory: sfa-macos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true         # caches gems in vendor/bundle
+          working-directory: sfa-macos
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: sfa-macos/build/DerivedData
+          key: derived-data-${{ runner.os }}-${{ hashFiles('sfa-macos/SoundForgeAlchemy.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            derived-data-${{ runner.os }}-
+
+      - name: Run tests
+        run: bundle exec fastlane test
+        env:
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_number }}
+          path: sfa-macos/build/test-results/
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # build — compile a debug build to catch compilation errors
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build Debug (macOS)
+    runs-on: macos-14
+    needs: test
+
+    defaults:
+      run:
+        working-directory: sfa-macos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: sfa-macos
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: sfa-macos/build/DerivedData
+          key: derived-data-${{ runner.os }}-${{ hashFiles('sfa-macos/SoundForgeAlchemy.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            derived-data-${{ runner.os }}-
+
+      - name: Build (Debug, skip codesigning)
+        run: bundle exec fastlane build
+        env:
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+
+  # ---------------------------------------------------------------------------
+  # beta — TestFlight upload on push to main only (manual dispatch supported)
+  # ---------------------------------------------------------------------------
+  beta:
+    name: TestFlight Beta
+    runs-on: macos-14
+    needs: [test, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    defaults:
+      run:
+        working-directory: sfa-macos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history needed for changelog_from_git_commits
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: sfa-macos
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: sfa-macos/build/DerivedData
+          key: derived-data-${{ runner.os }}-${{ hashFiles('sfa-macos/SoundForgeAlchemy.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            derived-data-${{ runner.os }}-
+
+      - name: Sync certificates (Match)
+        run: bundle exec fastlane certs type:app-store
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+
+      - name: Upload to TestFlight
+        run: bundle exec fastlane beta
+        env:
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          SFA_SERVER_URL: https://app.soundforgealchemy.com
+
+      - name: Upload dSYMs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsyms-${{ github.run_number }}
+          path: sfa-macos/build/Beta/*.dSYM
+          retention-days: 90

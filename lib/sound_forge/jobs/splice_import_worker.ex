@@ -21,14 +21,6 @@ defmodule SoundForge.Jobs.SpliceImportWorker do
 
   require Logger
 
-  @audio_mime_types %{
-    ".wav" => "audio/wav",
-    ".mp3" => "audio/mpeg",
-    ".aif" => "audio/aiff",
-    ".aiff" => "audio/aiff",
-    ".flac" => "audio/flac"
-  }
-
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"file_path" => file_path}}) do
     Logger.metadata(worker: "SpliceImportWorker", file_path: file_path)

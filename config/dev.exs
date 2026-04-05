@@ -20,6 +20,7 @@ config :sound_forge, SoundForgeWeb.Endpoint,
   # Bound to 0.0.0.0 so the server is reachable from all interfaces (LAN, Docker, etc.)
   # Port 4000 — authoritative dev port. NOTE: 5000 is NEVER used (macOS AirPlay/ControlCenter).
   http: [ip: {0, 0, 0, 0}, port: 4000],
+  url: [host: "127.0.0.1", port: 4000],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,

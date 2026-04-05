@@ -74,7 +74,10 @@ defmodule SoundForge.Application do
     [
       SoundForge.MIDI.DeviceManager,
       SoundForge.MIDI.Dispatcher,
-      SoundForge.MIDI.GlobalBroadcaster
+      SoundForge.MIDI.GlobalBroadcaster,
+      SoundForge.MIDI.DeviceResearch,
+      # ETS-backed registry of known controller fingerprints for signal-based auto-detect
+      SoundForge.MIDI.ControllerFingerprints
     ]
   end
 

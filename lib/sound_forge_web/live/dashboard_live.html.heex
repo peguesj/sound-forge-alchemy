@@ -192,7 +192,7 @@
             <span class="hidden group-hover:inline">Library</span>
           </button>
           <%!-- DAW component --%>
-          <div class={["flex-1 transition-all duration-300", if(@daw_library_open, do: "ml-72", else: "ml-0")]}>
+          <div class={["flex-1 transition-all duration-300", if(@daw_library_open, do: "ml-72", else: "ml-0 pl-9")]}>
             <.live_component
               module={SoundForgeWeb.Live.Components.DawTabComponent}
               id="daw-tab"
