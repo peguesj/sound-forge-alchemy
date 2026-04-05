@@ -128,6 +128,7 @@ defmodule SoundForge.MIDI.Clock do
     Logger.info("MIDI Clock: received Start")
     state = %{state | transport_state: :playing, tick_count: 0, last_beat_at: monotonic_us()}
     broadcast_transport(:start)
+    SoundForge.Audio.PlaybackBus.play(nil, :midi_clock)
     {:noreply, state}
   end
 
@@ -135,6 +136,7 @@ defmodule SoundForge.MIDI.Clock do
     Logger.info("MIDI Clock: received Stop")
     state = %{state | transport_state: :stopped}
     broadcast_transport(:stop)
+    SoundForge.Audio.PlaybackBus.stop()
     {:noreply, state}
   end
 
@@ -142,6 +144,7 @@ defmodule SoundForge.MIDI.Clock do
     Logger.info("MIDI Clock: received Continue")
     state = %{state | transport_state: :playing}
     broadcast_transport(:continue)
+    SoundForge.Audio.PlaybackBus.play(nil, :midi_clock)
     {:noreply, state}
   end
 
