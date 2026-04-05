@@ -1203,6 +1203,8 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   def handle_event("nav_tab", %{"tab" => "library"}, socket) do
+    SoundForge.ControlSurface.ActionBus.set_active_tab("library")
+
     socket =
       socket
       |> assign(:nav_tab, :library)
@@ -1232,6 +1234,7 @@ defmodule SoundForgeWeb.DashboardLive do
     # Kick off prefetch early -- push_patch will trigger handle_params too,
     # but starting here shaves off the round-trip latency.
     Prefetch.prefetch_for_dj(socket.assigns[:current_user_id])
+    SoundForge.ControlSurface.ActionBus.set_active_tab("dj")
 
     {:noreply,
      socket
@@ -1242,6 +1245,7 @@ defmodule SoundForgeWeb.DashboardLive do
 
   def handle_event("nav_tab", %{"tab" => "daw"}, socket) do
     Prefetch.prefetch_for_daw(socket.assigns[:current_user_id])
+    SoundForge.ControlSurface.ActionBus.set_active_tab("daw")
 
     {:noreply,
      socket
