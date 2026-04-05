@@ -10,6 +10,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
 
   alias SoundForge.Music
   alias SoundForge.DAW
+  alias SoundForgeWeb.Helpers.TrackHelpers
   alias SoundForge.Audio.AnalysisHelpers
   alias SoundForge.Audio.Prefetch
   alias SoundForge.Settings
@@ -55,7 +56,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
     track_id = assigns[:track_id]
 
     if not socket.assigns.initialized do
-      picker_tracks = list_user_tracks(assigns[:current_scope])
+      picker_tracks = TrackHelpers.list_user_tracks(assigns[:current_scope])
       socket = assign(socket, picker_tracks: picker_tracks, initialized: true)
 
       if track_id do
@@ -1357,17 +1358,4 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
 
   defp time_grid_markers(_), do: []
 
-  defp list_user_tracks(scope) when is_map(scope) and not is_nil(scope) do
-    Music.list_tracks(scope, sort_by: :title)
-    |> Enum.uniq_by(& &1.id)
-  rescue
-    _ -> []
-  end
-
-  defp list_user_tracks(_) do
-    Music.list_tracks(sort_by: :title)
-    |> Enum.uniq_by(& &1.id)
-  rescue
-    _ -> []
-  end
 end

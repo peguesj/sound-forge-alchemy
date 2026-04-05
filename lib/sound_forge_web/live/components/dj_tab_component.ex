@@ -14,6 +14,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   alias SoundForge.DJ.PerformanceSets
   alias SoundForge.Music
   alias SoundForge.DJ
+  alias SoundForgeWeb.Helpers.TrackHelpers
   alias SoundForge.DJ.{Chef, Presets, Timecode, CueSets}
   alias SoundForge.DJ.PresetsContext
   alias SoundForge.DJ.Layouts.Rekordbox
@@ -310,7 +311,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     socket = assign(socket, :id, assigns[:id])
 
     if not socket.assigns.initialized do
-      tracks = list_user_tracks(assigns[:current_scope])
+      tracks = TrackHelpers.list_user_tracks(assigns[:current_scope])
       user_id = assigns[:current_user_id]
       saved_presets = if user_id, do: PresetsContext.list_presets(user_id), else: []
       alchemy_sets = if user_id, do: SoundForge.BigLoopy.list_alchemy_sets(user_id), else: []
@@ -6402,18 +6403,6 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   end
 
   defp position_to_bar_beat(_, _), do: "1.1.01"
-
-  defp list_user_tracks(scope) when is_map(scope) and not is_nil(scope) do
-    Music.list_tracks(scope, sort_by: :title)
-  rescue
-    _ -> []
-  end
-
-  defp list_user_tracks(_) do
-    Music.list_tracks(sort_by: :title)
-  rescue
-    _ -> []
-  end
 
   # -- Chef Helpers --
 
