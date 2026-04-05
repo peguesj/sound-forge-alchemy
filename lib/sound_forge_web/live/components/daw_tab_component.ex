@@ -12,6 +12,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   alias SoundForge.DAW
   alias SoundForge.Audio.AnalysisHelpers
   alias SoundForge.Audio.Prefetch
+  alias SoundForge.Settings
 
   @operation_colors %{
     crop: "#3b82f6",
@@ -41,7 +42,8 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
      |> assign(:snap_to_bar, false)
      |> assign(:structure_segments, [])
      |> assign(:bar_times, [])
-     |> assign(:stem_mixer, %{})}
+     |> assign(:stem_mixer, %{})
+     |> assign(:pipeline_status, track_pipeline_status(nil))}
   end
 
   @impl true
@@ -79,7 +81,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
     try do
       track =
         Music.get_track!(track_id)
-        |> SoundForge.Repo.preload([:stems, :analysis_results])
+        |> SoundForge.Repo.preload([:stems, :analysis_results, :download_jobs])
 
       stems = track.stems
 
@@ -123,6 +125,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
       |> assign(:structure_segments, structure_segments)
       |> assign(:bar_times, bar_times)
       |> assign(:stem_mixer, stem_mixer)
+      |> assign(:pipeline_status, track_pipeline_status(track))
     rescue
       Ecto.NoResultsError ->
         put_flash(socket, :error, "Track not found")
@@ -147,7 +150,57 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
      |> assign(:previewing, false)
      |> assign(:export_status, nil)
      |> assign(:structure_segments, [])
-     |> assign(:bar_times, [])}
+     |> assign(:bar_times, [])
+     |> assign(:pipeline_status, track_pipeline_status(nil))}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Pipeline action events (DAW contextual actions)
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_event("daw_download_track", %{"track-id" => track_id}, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    case dispatch_download(track_id, user_id) do
+      {:ok, _} ->
+        {:noreply, put_flash(socket, :info, "Download started")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not start download")}
+    end
+  end
+
+  @impl true
+  def handle_event("daw_analyze_track", %{"track-id" => track_id}, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    case dispatch_analysis(track_id, user_id) do
+      {:ok, _} ->
+        {:noreply, put_flash(socket, :info, "Analysis started")}
+
+      {:error, :no_completed_download} ->
+        {:noreply, put_flash(socket, :error, "Download the track before analyzing")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not start analysis")}
+    end
+  end
+
+  @impl true
+  def handle_event("daw_separate_stems", %{"track-id" => track_id}, socket) do
+    user_id = socket.assigns[:current_user_id]
+
+    case dispatch_stem_separation(track_id, user_id) do
+      {:ok, _} ->
+        {:noreply, put_flash(socket, :info, "Stem separation started")}
+
+      {:error, :no_completed_download} ->
+        {:noreply, put_flash(socket, :error, "Download the track before separating stems")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not start stem separation")}
+    end
   end
 
   @impl true
@@ -590,6 +643,13 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                   {@track.title}
                   <span :if={@track.artist} class="text-gray-500">- {@track.artist}</span>
                 </p>
+                <%!-- Pipeline status badges --%>
+                <div class="flex flex-wrap gap-1.5 mt-1.5">
+                  <span :if={@pipeline_status.on_spotify} class="badge badge-sm bg-purple-600 text-white border-0">Spotify</span>
+                  <span :if={@pipeline_status.downloaded} class="badge badge-sm bg-blue-600 text-white border-0">Downloaded</span>
+                  <span :if={@pipeline_status.analyzed} class="badge badge-sm bg-teal-600 text-white border-0">Analyzed</span>
+                  <span :if={@pipeline_status.processed} class="badge badge-sm bg-green-600 text-white border-0">Processed</span>
+                </div>
               </div>
 
               <%!-- Global Operation Selector --%>
@@ -665,9 +725,51 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
 
           <%!-- Stem Tracks --%>
           <div class="p-6 pt-0 space-y-4">
+            <%!-- Contextual pipeline action panel (shown only when no stems) --%>
             <div :if={@stems == []} class="text-center py-20 text-gray-500">
-              <p class="text-lg">No stems available for this track.</p>
-              <p class="text-sm mt-2">Process the track first to separate stems.</p>
+              <p class="text-lg font-medium text-gray-400">No stems available for this track.</p>
+              <p class="text-sm mt-2 mb-6">Complete the pipeline steps below to prepare this track for editing.</p>
+
+              <div class="flex flex-col items-center gap-3 mt-4">
+                <%!-- Step 1: Download --%>
+                <div :if={not @pipeline_status.downloaded} class="w-full max-w-sm">
+                  <button
+                    phx-click="daw_download_track"
+                    phx-target={@myself}
+                    phx-value-track-id={@track.id}
+                    class="btn btn-sm btn-primary w-full"
+                  >
+                    Download Track
+                  </button>
+                  <p class="text-xs text-gray-600 mt-1">Fetch the audio file from Spotify</p>
+                </div>
+
+                <%!-- Step 2: Analyze (only shown if downloaded) --%>
+                <div :if={@pipeline_status.downloaded and not @pipeline_status.analyzed} class="w-full max-w-sm">
+                  <button
+                    phx-click="daw_analyze_track"
+                    phx-target={@myself}
+                    phx-value-track-id={@track.id}
+                    class="btn btn-sm btn-secondary w-full"
+                  >
+                    Analyze Track
+                  </button>
+                  <p class="text-xs text-gray-600 mt-1">Detect BPM, key, and structure</p>
+                </div>
+
+                <%!-- Step 3: Separate stems (only shown if downloaded) --%>
+                <div :if={@pipeline_status.downloaded and not @pipeline_status.processed} class="w-full max-w-sm">
+                  <button
+                    phx-click="daw_separate_stems"
+                    phx-target={@myself}
+                    phx-value-track-id={@track.id}
+                    class="btn btn-sm btn-accent w-full"
+                  >
+                    Separate Stems
+                  </button>
+                  <p class="text-xs text-gray-600 mt-1">Split into vocals, drums, bass, and more</p>
+                </div>
+              </div>
             </div>
 
             <div
@@ -914,6 +1016,102 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
     end
   rescue
     _ -> false
+  end
+
+  # ---------------------------------------------------------------------------
+  # Pipeline status helpers
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns a map of boolean flags describing the pipeline state for a track.
+
+  Fields:
+    - `on_spotify`  — track has a spotify_url
+    - `downloaded`  — track has at least one completed download job
+    - `analyzed`    — track has at least one analysis result
+    - `processed`   — track has at least one stem
+  """
+  defp track_pipeline_status(nil) do
+    %{on_spotify: false, downloaded: false, analyzed: false, processed: false}
+  end
+
+  defp track_pipeline_status(track) do
+    on_spotify = not is_nil(track.spotify_url)
+
+    downloaded =
+      track.download_status == "completed" or
+        (is_list(track.download_jobs) and
+           Enum.any?(track.download_jobs, &(&1.status == :completed)))
+
+    analyzed =
+      not is_nil(track.bpm) or
+        (is_list(track.analysis_results) and track.analysis_results != [])
+
+    processed = is_list(track.stems) and track.stems != []
+
+    %{on_spotify: on_spotify, downloaded: downloaded, analyzed: analyzed, processed: processed}
+  end
+
+  defp dispatch_download(track_id, user_id) do
+    track = Music.get_track!(track_id)
+
+    with {:ok, job} <- Music.create_download_job(%{track_id: track_id, status: :queued}) do
+      %{
+        "track_id" => track_id,
+        "spotify_url" => track.spotify_url,
+        "quality" => Settings.get(user_id, :download_quality),
+        "job_id" => job.id
+      }
+      |> SoundForge.Jobs.DownloadWorker.new()
+      |> Oban.insert()
+    end
+  end
+
+  defp dispatch_analysis(track_id, user_id) do
+    with {:ok, file_path} <- Music.get_download_path(track_id),
+         {:ok, job} <- Music.create_analysis_job(%{track_id: track_id, status: :queued}) do
+      %{
+        "track_id" => track_id,
+        "job_id" => job.id,
+        "file_path" => file_path,
+        "features" => Settings.get(user_id, :analysis_features)
+      }
+      |> SoundForge.Jobs.AnalysisWorker.new()
+      |> Oban.insert()
+    end
+  end
+
+  defp dispatch_stem_separation(track_id, user_id) do
+    model = Settings.get(user_id, :demucs_model)
+
+    with {:ok, file_path} <- Music.get_download_path(track_id),
+         {:ok, job} <-
+           Music.create_processing_job(%{
+             track_id: track_id,
+             model: model,
+             status: :queued,
+             engine: "demucs",
+             preview: false
+           }),
+         {:ok, _oban_job} <-
+           (%{
+              "track_id" => track_id,
+              "job_id" => job.id,
+              "file_path" => file_path,
+              "model" => model,
+              "engine" => "demucs",
+              "preview" => false,
+              "lalalai_mode" => "stem_separator",
+              "multistem_stems" => [],
+              "noise_level" => 0,
+              "voice_pack_id" => nil,
+              "accent" => 0.5,
+              "dereverb" => false
+            }
+            |> SoundForge.Jobs.ProcessingWorker.new()
+            |> Oban.insert()) do
+      {:ok, job}
+    end
   end
 
   defp encode_all_operations(stem_operations) do
