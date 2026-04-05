@@ -47,7 +47,10 @@ defmodule SoundForge.Application do
       {Phoenix.PubSub, name: SoundForge.PubSub},
       {Task.Supervisor, name: SoundForge.TaskSupervisor},
       SoundForge.Audio.PortSupervisor,
-      {Oban, Application.fetch_env!(:sound_forge, Oban)}
+      {Oban, Application.fetch_env!(:sound_forge, Oban)},
+      SoundForge.ControlSurface.Supervisor,
+      SoundForge.ControlSurface.ActionBus,
+      SoundForge.Audio.PlaybackBus
     ]
   end
 
