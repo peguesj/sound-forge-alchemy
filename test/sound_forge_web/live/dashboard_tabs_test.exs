@@ -16,7 +16,7 @@ defmodule SoundForgeWeb.DashboardTabsTest do
     test "navigates to /?tab=daw and renders DAW component", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/?tab=daw")
       assert html =~ "daw-tab"
-      assert html =~ "Select a track to edit stems"
+      assert html =~ "Select a track below to start editing stems"
     end
 
     test "navigates to /?tab=pads and sets pads nav state", %{conn: conn} do

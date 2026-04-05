@@ -2467,7 +2467,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
 
   @impl true
   def handle_event("load_default_preset", _params, socket) do
-    user_id = socket.assigns[:current_user_id]
+    user_id = to_string(socket.assigns[:current_user_id] || "")
 
     preset_path = Application.app_dir(:sound_forge, "priv/static/presets/scorin.tsi")
 

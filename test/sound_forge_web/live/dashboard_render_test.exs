@@ -39,7 +39,7 @@ defmodule SoundForgeWeb.DashboardRenderTest do
     test "DAW tab renders without track selected", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/?tab=daw")
       assert html =~ "daw-tab"
-      assert html =~ "Select a track to edit stems"
+      assert html =~ "Select a track below to start editing stems"
     end
 
     test "DAW tab renders with track_id param", %{conn: conn, user: user} do

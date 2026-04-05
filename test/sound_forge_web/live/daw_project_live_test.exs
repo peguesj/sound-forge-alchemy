@@ -16,6 +16,9 @@ defmodule SoundForgeWeb.DawProjectLiveTest do
   # Fixtures helpers
   # ---------------------------------------------------------------------------
 
+  # Minimal valid MP3 stub: ID3 header + zero padding to meet min_audio_size (1024 bytes)
+  @stub_audio_content "ID3" <> :binary.copy(<<0>>, 1021)
+
   defp track_with_completed_download(user_id) do
     track =
       track_fixture(%{
@@ -23,11 +26,15 @@ defmodule SoundForgeWeb.DawProjectLiveTest do
         spotify_url: "https://open.spotify.com/track/testdownloaded"
       })
 
+    stub_path = "/tmp/test_#{track.id}.mp3"
+    File.write!(stub_path, @stub_audio_content)
+    on_exit(fn -> File.rm(stub_path) end)
+
     {:ok, _job} =
       SoundForge.Music.create_download_job(%{
         track_id: track.id,
         status: :completed,
-        output_path: "/tmp/test_#{track.id}.mp3"
+        output_path: stub_path
       })
 
     track

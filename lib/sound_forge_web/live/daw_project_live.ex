@@ -47,15 +47,16 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
   def handle_params(%{"track_id" => track_id}, _uri, socket) do
     user_id = socket.assigns.current_user_id
 
+    uuid_format = ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
     with true <- user_id != nil,
-         {:ok, _uuid} <- Ecto.UUID.cast(track_id),
+         true <- String.match?(track_id, uuid_format),
          {:ok, kind, project} <- DAW.get_or_create_project_with_track(user_id, track_id) do
       projects = DAW.list_projects(user_id)
       msg = if kind == :added, do: "Track added to \"#{project.title}\"", else: "Track already in project"
       {:noreply, socket |> assign(active_project: project, projects: projects) |> put_flash(:info, msg)}
     else
-      false -> {:noreply, socket}
-      :error -> {:noreply, put_flash(socket, :error, "Invalid track ID")}
+      false -> {:noreply, put_flash(socket, :error, "Invalid track ID")}
       {:error, _} -> {:noreply, put_flash(socket, :error, "Could not load track in DAW")}
     end
   end

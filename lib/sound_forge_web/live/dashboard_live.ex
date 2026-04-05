@@ -1504,16 +1504,89 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, push_event(socket, "spotify_seek", %{position_ms: position_ms})}
   end
 
-  @impl true
-  @impl true
   # -- Auto Cue PubSub forwarding to DjTabComponent and ChromaticPadsComponent --
 
   @impl true
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "auto_cues_complete", payload: payload},
+        socket
+      ) do
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab-root",
+        auto_cues_complete: payload
+      )
+    end
+
+    if socket.assigns.nav_tab == :pads do
+      send_update(SoundForgeWeb.Live.Components.ChromaticPadsComponent,
+        id: "pads-tab",
+        auto_cues_complete: payload
+      )
+    end
+
+    {:noreply, socket}
+  end
+
   # -- Chef PubSub forwarding to DjTabComponent --
 
   @impl true
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "chef_progress", payload: payload},
+        socket
+      ) do
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab-root",
+        chef_progress: payload
+      )
+    end
+
+    {:noreply, socket}
+  end
+
   @impl true
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "chef_complete", payload: payload},
+        socket
+      ) do
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab-root",
+        chef_complete: payload
+      )
+    end
+
+    track_count = payload[:track_count] || 0
+    set_id = payload[:performance_set_id]
+    set_name = get_in(payload, [:recipe_meta, :prompt]) || "Chef Set (#{track_count} tracks)"
+
+    {:noreply,
+     socket
+     |> push_notification(:success, "Set Ready", set_name, %{
+       type: :chef_complete,
+       performance_set_id: set_id,
+       track_count: track_count
+     })}
+  end
+
   @impl true
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "chef_failed", payload: payload},
+        socket
+      ) do
+    if socket.assigns.nav_tab == :dj do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab-root",
+        chef_failed: payload
+      )
+    end
+
+    {:noreply,
+     socket
+     |> put_flash(:error, "Chef recipe failed: #{payload[:reason] || "unknown error"}")}
+  end
+
   # -- MIDI handle_info callbacks --
 
   @impl true
