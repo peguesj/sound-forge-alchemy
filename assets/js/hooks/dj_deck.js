@@ -249,6 +249,16 @@ const DjDeck = {
     this.el.addEventListener("dj:play", this._onDjPlay)
     this.el.addEventListener("dj:seek", this._onDjSeek)
 
+    // Set hot cue at the LIVE playhead position (not the stale server-side deck.position).
+    // The empty hot cue pad dispatches this event so we can inject position_ms from
+    // the JS audio engine before the server round-trip occurs.
+    this._onDjSetHotCue = (e) => {
+      const { deck, letter } = e.detail
+      const posMs = this._getLivePositionMs(parseInt(deck, 10))
+      this.pushEvent("set_hot_cue", { deck: String(deck), letter, position_ms: String(posMs) })
+    }
+    this.el.addEventListener("dj:set-hot-cue", this._onDjSetHotCue)
+
     // Phoenix LiveView morphdom can eject sibling elements (non-component children
     // of the LiveComponent root) to the parent container during component updates.
     // Re-adopt any ejected siblings back into this element after each render.
@@ -685,6 +695,9 @@ const DjDeck = {
           }
           // Update transport bridge for TransportBar
           window.__djTransport = { currentTime, duration: deckState.duration, playing: true, deck }
+          // Live SMPTE display in status bar (bypasses server round-trip)
+          const smpteEl = document.getElementById(`smpte-deck-${deck}-display`)
+          if (smpteEl) smpteEl.textContent = this._formatSmpteMs(currentTimeMs)
         }
       }
     }, 50) // 50ms for tighter loop accuracy (was 250ms)
@@ -1372,6 +1385,7 @@ const DjDeck = {
     // Remove instant-action listeners
     if (this._onDjPlay) { this.el.removeEventListener("dj:play", this._onDjPlay); this._onDjPlay = null }
     if (this._onDjSeek) { this.el.removeEventListener("dj:seek", this._onDjSeek); this._onDjSeek = null }
+    if (this._onDjSetHotCue) { this.el.removeEventListener("dj:set-hot-cue", this._onDjSetHotCue); this._onDjSetHotCue = null }
 
     this._cleanupDeck(1)
     this._cleanupDeck(2)
@@ -1410,6 +1424,33 @@ const DjDeck = {
     const s = Math.floor(seconds % 60)
     const pad = (n) => String(n).padStart(2, "0")
     return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
+  },
+
+  /**
+   * Format milliseconds to SMPTE HH:MM:SS:FF (30fps).
+   * Used for the live status bar timecode display.
+   */
+  _formatSmpteMs(ms) {
+    const totalSec = ms / 1000
+    const h = Math.floor(totalSec / 3600)
+    const m = Math.floor((totalSec % 3600) / 60)
+    const s = Math.floor(totalSec % 60)
+    const f = Math.floor((totalSec % 1) * 30)
+    const pad = (n) => String(n).padStart(2, "0")
+    return `${pad(h)}:${pad(m)}:${pad(s)}:${pad(f)}`
+  },
+
+  /**
+   * Return the current playhead position in milliseconds for the given deck,
+   * using the live audio engine state (not the stale server assign).
+   */
+  _getLivePositionMs(deck) {
+    const deckState = this.decks[deck]
+    if (!deckState) return 0
+    if (deckState.isPlaying && deckState.audioContext && deckState.startTime != null) {
+      return Math.trunc((deckState.audioContext.currentTime - deckState.startTime) * 1000)
+    }
+    return Math.trunc((deckState.pauseOffset || 0) * 1000)
   },
 
   /**

@@ -276,7 +276,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   end
 
   def update(%{activate_performance_set_id: set_id}, socket) do
-    user_id = socket.assigns[:user_id] || socket.assigns[:current_user_id]
+    _user_id = socket.assigns[:user_id] || socket.assigns[:current_user_id]
 
     case PerformanceSets.get(set_id) do
       nil ->
@@ -315,11 +315,13 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
       saved_presets = if user_id, do: PresetsContext.list_presets(user_id), else: []
       alchemy_sets = if user_id, do: SoundForge.BigLoopy.list_alchemy_sets(user_id), else: []
       performance_sets = if user_id, do: PerformanceSets.list_for_user(user_id), else: []
+      crossfader_split = if user_id, do: SoundForge.Settings.get(user_id, :dj_crossfader_split) || false, else: false
 
       socket =
         socket
         |> assign(tracks: tracks, initialized: true, saved_presets: saved_presets,
-                  alchemy_sets: alchemy_sets, performance_sets: performance_sets)
+                  alchemy_sets: alchemy_sets, performance_sets: performance_sets,
+                  crossfader_split: crossfader_split)
         |> restore_deck_from_db(user_id, 1)
         |> restore_deck_from_db(user_id, 2)
 
@@ -898,7 +900,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   # -- Cue Point Controls --
 
   @impl true
-  def handle_event("set_cue", %{"deck" => deck_str}, socket) do
+  def handle_event("set_cue", params, socket) do
+    deck_str = Map.get(params, "deck", "1")
     deck_number = String.to_integer(deck_str)
     deck_key = deck_assign_key(deck_number)
     cue_points_key = cue_points_assign_key(deck_number)
@@ -907,7 +910,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     existing_cues = Map.get(socket.assigns, cue_points_key)
 
     if deck.track && user_id && length(existing_cues) < 8 do
-      position_ms = trunc(deck.position * 1000)
+      # Use live JS position_ms if provided, else fall back to server assign
+      position_ms =
+        case Map.get(params, "position_ms") do
+          nil -> trunc(deck.position * 1000)
+          ms_str -> String.to_integer(ms_str)
+        end
       color = Enum.at(cue_point_colors(), length(existing_cues))
 
       case DJ.create_cue_point(%{
@@ -1043,7 +1051,7 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   # -- Hot Cue A-H Pads --
 
   @impl true
-  def handle_event("set_hot_cue", %{"deck" => deck_str, "letter" => letter}, socket) do
+  def handle_event("set_hot_cue", %{"deck" => deck_str, "letter" => letter} = params, socket) do
     deck_number = String.to_integer(deck_str)
     deck_key = deck_assign_key(deck_number)
     cue_points_key = cue_points_assign_key(deck_number)
@@ -1059,8 +1067,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         # Existing hot cue: JS dj:seek already handled the jump, no server action needed
         {:noreply, socket}
       else
-        # Create new hot cue at current playhead position
-        position_ms = trunc(deck.position * 1000)
+        # Use live JS position_ms if provided (from dj:set-hot-cue dispatch), else fall back to server assign
+        position_ms =
+          case Map.get(params, "position_ms") do
+            nil -> trunc(deck.position * 1000)
+            ms_str -> String.to_integer(ms_str)
+          end
         color = hot_cue_color(letter)
 
         attrs = %{
@@ -1704,7 +1716,10 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
 
   @impl true
   def handle_event("toggle_crossfader_split", _params, socket) do
-    {:noreply, assign(socket, :crossfader_split, !socket.assigns.crossfader_split)}
+    new_val = !socket.assigns.crossfader_split
+    user_id = socket.assigns[:current_user_id]
+    if user_id, do: SoundForge.Settings.put(user_id, :dj_crossfader_split, new_val)
+    {:noreply, assign(socket, :crossfader_split, new_val)}
   end
 
   # -- Chef Cue Set Handlers --
@@ -1846,16 +1861,6 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     else
       {:noreply, socket}
     end
-  end
-
-  @impl true
-  def handle_info({:agent_output, %{agent_id: "agent-sonic-analyst", result: result}}, socket) do
-    suggestion = case result do
-      {:ok, %SoundForge.Agents.Result{content: content}} -> content
-      _ -> nil
-    end
-
-    {:noreply, socket |> assign(:sonic_suggestion, suggestion) |> assign(:sonic_suggestion_loading, false)}
   end
 
   # ---------------------------------------------------------------------------
@@ -2939,8 +2944,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   @impl true
   def handle_event("activate_cue_sequence", %{"deck" => deck_str, "seq_id" => seq_id}, socket) do
     deck_number = String.to_integer(deck_str)
-    deck = Map.get(socket.assigns, deck_assign_key(deck_number))
-    cue_sequences_key = cue_sequences_assign_key(deck_number)
+    _deck = Map.get(socket.assigns, deck_assign_key(deck_number))
+    _cue_sequences_key = cue_sequences_assign_key(deck_number)
     cue_points = Map.get(socket.assigns, cue_points_assign_key(deck_number), [])
 
     case DJ.get_cue_sequence(seq_id) do
@@ -3087,6 +3092,15 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
 
   def handle_event("browser_search", %{"value" => q}, socket) do
     {:noreply, assign(socket, :browser_search, q)}
+  end
+
+  def handle_info({:agent_output, %{agent_id: "agent-sonic-analyst", result: result}}, socket) do
+    suggestion = case result do
+      {:ok, %SoundForge.Agents.Result{content: content}} -> content
+      _ -> nil
+    end
+
+    {:noreply, socket |> assign(:sonic_suggestion, suggestion) |> assign(:sonic_suggestion_loading, false)}
   end
 
   # -- Template --
@@ -3487,11 +3501,12 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           </div>
         </div>
 
-        <%!-- Loop Track Decks (C/D) - Simplified loop-focused decks --%>
-        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <%!-- Loop Track Decks (C/D) - Shown when crossfader is in split A/C ↔ B/D mode --%>
+        <div :if={@crossfader_split} class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="flex items-center gap-2 col-span-full mb-1">
-            <span class="text-xs text-gray-500 uppercase tracking-widest font-semibold">Loop Tracks</span>
-            <div class="flex-1 h-px bg-gray-700/50"></div>
+            <span class="text-xs text-amber-500/80 uppercase tracking-widest font-semibold">C / D — Loop Decks</span>
+            <div class="flex-1 h-px bg-amber-700/30"></div>
+            <span class="text-[9px] text-gray-600">Xfader channels A/C ↔ B/D</span>
           </div>
           <.loop_deck_panel
             deck_number={3}
@@ -3871,8 +3886,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             <span class="text-[10px] font-mono text-cyan-500/80 flex-shrink-0">
               {if @deck_1.tempo_bpm > 0, do: "#{Float.round(@deck_1.tempo_bpm * 1.0, 1)} BPM", else: "--"}
             </span>
-            <%!-- SMPTE timecode --%>
-            <span class="text-[10px] font-mono text-gray-400 flex-shrink-0 tabular-nums">
+            <%!-- SMPTE timecode — updated live by JS animation loop via id="smpte-deck-1-display" --%>
+            <span id="smpte-deck-1-display" class="text-[10px] font-mono text-gray-400 flex-shrink-0 tabular-nums">
               {Timecode.ms_to_smpte(trunc(@deck_1.position * 1000))}
             </span>
             <%!-- BAR.BEAT.TK --%>
@@ -3919,8 +3934,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
               title="Bar.Beat.Tick (4/4)">
               {d2_bar_beat}
             </span>
-            <%!-- SMPTE timecode --%>
-            <span class="text-[10px] font-mono text-gray-400 flex-shrink-0 tabular-nums">
+            <%!-- SMPTE timecode — updated live by JS animation loop via id="smpte-deck-2-display" --%>
+            <span id="smpte-deck-2-display" class="text-[10px] font-mono text-gray-400 flex-shrink-0 tabular-nums">
               {Timecode.ms_to_smpte(trunc(@deck_2.position * 1000))}
             </span>
             <span class="text-[10px] font-mono text-orange-500/80 flex-shrink-0">
@@ -4459,10 +4474,14 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
                 </button>
               <% else %>
                 <button
-                  phx-click="set_hot_cue"
-                  phx-target={@myself}
-                  phx-value-deck={@deck_number}
-                  phx-value-letter={letter}
+                  phx-click={
+                    if(is_nil(@deck.track), do: nil,
+                      else: JS.dispatch("dj:set-hot-cue",
+                        to: "#dj-tab",
+                        detail: %{deck: @deck_number, letter: letter}
+                      )
+                    )
+                  }
                   disabled={is_nil(@deck.track)}
                   class={"w-full h-12 rounded-md text-sm font-black transition-all flex items-center justify-center " <>
                     if(is_nil(@deck.track),
@@ -6062,13 +6081,6 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
 
   defp hot_cue_color(letter), do: Map.get(@hot_cue_colors, letter, "#6b7280")
 
-  # Stem type → Tailwind color name (used in dynamic class strings)
-  defp stem_color("vocals"), do: "purple"
-  defp stem_color("drums"), do: "orange"
-  defp stem_color("bass"), do: "green"
-  defp stem_color("guitar"), do: "yellow"
-  defp stem_color("piano"), do: "blue"
-  defp stem_color(_), do: "cyan"
 
   # Stem type → hex color for inline styles (where dynamic Tailwind classes won't purge)
   defp stem_color_hex("vocals"), do: "#8b5cf6"
@@ -6260,13 +6272,6 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   end
 
   defp format_pitch(_), do: "+0.0%"
-
-  defp format_adjusted_bpm(bpm, pitch) when is_number(bpm) and bpm > 0 and is_number(pitch) do
-    adjusted = bpm * (1.0 + pitch / 100.0)
-    :erlang.float_to_binary(adjusted / 1, decimals: 1)
-  end
-
-  defp format_adjusted_bpm(_, _), do: "---"
 
   defp parse_integer(val) when is_integer(val), do: val
 

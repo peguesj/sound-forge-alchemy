@@ -32,7 +32,8 @@ defmodule SoundForge.Settings do
     lalalai_dereverb: {:sound_forge, :lalalai_dereverb, false},
     lalalai_extraction_level: {:sound_forge, :lalalai_extraction_level, "clear_cut"},
     lalalai_output_format: {:sound_forge, :lalalai_output_format, nil},
-    debug_mode: {:sound_forge, :debug_mode, false}
+    debug_mode: {:sound_forge, :debug_mode, false},
+    dj_crossfader_split: {:sound_forge, :dj_crossfader_split, false}
   }
 
   @doc "Returns the global defaults map (key -> resolved default value)."
@@ -99,6 +100,11 @@ defmodule SoundForge.Settings do
     settings
     |> UserSettings.changeset(attrs)
     |> Repo.update()
+  end
+
+  @doc "Set a single setting key for a user. Upserts the user_settings row."
+  def put(user_id, key, value) when is_atom(key) and is_integer(user_id) do
+    save_user_settings(user_id, %{key => value})
   end
 
   def save_user_settings(user_id, attrs) when is_integer(user_id) do

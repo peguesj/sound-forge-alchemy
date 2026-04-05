@@ -20,6 +20,8 @@ defmodule SoundForge.MIDI.Mapping do
           source: String.t() | nil,
           bank_id: binary() | nil,
           parameter_index: integer() | nil,
+          tab_context: String.t() | nil,
+          preset_name: String.t() | nil,
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()
         }
@@ -46,7 +48,18 @@ defmodule SoundForge.MIDI.Mapping do
     :pad_volume,
     :pad_pitch,
     :pad_velocity,
-    :pad_master_volume
+    :pad_master_volume,
+    # DAW actions
+    :daw_play,
+    :daw_stop,
+    :daw_record,
+    :daw_loop,
+    :daw_metronome,
+    # Library navigation
+    :library_next,
+    :library_prev,
+    :library_select,
+    :library_search
   ]
 
   schema "midi_mappings" do
@@ -60,12 +73,14 @@ defmodule SoundForge.MIDI.Mapping do
     field :source, :string
     field :bank_id, :binary_id
     field :parameter_index, :integer
+    field :tab_context, :string
+    field :preset_name, :string
 
     timestamps(type: :utc_datetime)
   end
 
   @required_fields ~w(user_id device_name midi_type channel number action)a
-  @optional_fields ~w(params source bank_id parameter_index)a
+  @optional_fields ~w(params source bank_id parameter_index tab_context preset_name)a
 
   @doc false
   def changeset(mapping, attrs) do

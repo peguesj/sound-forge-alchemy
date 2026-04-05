@@ -71,6 +71,9 @@ defmodule SoundForge.Accounts.UserSettings do
     field :midi_bar_position, :string, default: "bottom"
     field :midi_bar_visible, :boolean, default: true
 
+    # DJ settings
+    field :dj_crossfader_split, :boolean, default: false
+
     timestamps(type: :utc_datetime)
   end
 
@@ -104,7 +107,8 @@ defmodule SoundForge.Accounts.UserSettings do
     :auto_rescan_on_login,
     :debug_mode,
     :midi_bar_position,
-    :midi_bar_visible
+    :midi_bar_visible,
+    :dj_crossfader_split
   ]
 
   def changeset(settings, attrs) do

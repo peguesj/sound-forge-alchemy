@@ -1,0 +1,125 @@
+{
+  "controllers": [
+    {
+      "model": "Akai MPC Live II",
+      "manufacturer": "Akai Professional",
+      "slug": "mpc_live2",
+      "signatures": [
+        {"msg_type": "cc", "channel": 0, "number": 118, "label": "play"},
+        {"msg_type": "cc", "channel": 0, "number": 117, "label": "stop"},
+        {"msg_type": "cc", "channel": 0, "number": 119, "label": "rec"}
+      ],
+      "cc_map": {
+        "117": "stop",
+        "118": "play",
+        "119": "rec",
+        "113": "overdub",
+        "114": "loop",
+        "115": "goto_beginning",
+        "116": "goto_end",
+        "26": "pad_bank_a",
+        "27": "pad_bank_b",
+        "28": "pad_bank_c",
+        "29": "pad_bank_d",
+        "1": "master_volume",
+        "7": "track_volume",
+        "10": "pan"
+      },
+      "note_map": {
+        "36": "pad_1",
+        "37": "pad_2",
+        "38": "pad_3",
+        "39": "pad_4",
+        "40": "pad_5",
+        "41": "pad_6",
+        "42": "pad_7",
+        "43": "pad_8",
+        "44": "pad_9",
+        "45": "pad_10",
+        "46": "pad_11",
+        "47": "pad_12",
+        "48": "pad_13",
+        "49": "pad_14",
+        "50": "pad_15",
+        "51": "pad_16"
+      }
+    },
+    {
+      "model": "Ableton Push 2",
+      "manufacturer": "Ableton",
+      "slug": "push2",
+      "signatures": [
+        {"msg_type": "cc", "channel": 0, "number": 85, "label": "play"},
+        {"msg_type": "cc", "channel": 0, "number": 86, "label": "rec"},
+        {"msg_type": "cc", "channel": 0, "number": 87, "label": "overdub"}
+      ],
+      "cc_map": {
+        "85": "play",
+        "86": "rec",
+        "87": "overdub",
+        "14": "master_volume",
+        "79": "tempo"
+      },
+      "note_map": {}
+    },
+    {
+      "model": "Novation Launchpad X",
+      "manufacturer": "Novation",
+      "slug": "launchpad_x",
+      "signatures": [
+        {"msg_type": "note_on", "channel": 0, "number": 19, "label": "play"},
+        {"msg_type": "note_on", "channel": 0, "number": 9, "label": "stop"}
+      ],
+      "cc_map": {},
+      "note_map": {
+        "19": "play",
+        "9": "stop",
+        "11": "pad_1_1",
+        "12": "pad_1_2",
+        "13": "pad_1_3",
+        "14": "pad_1_4",
+        "15": "pad_1_5",
+        "16": "pad_1_6",
+        "17": "pad_1_7",
+        "18": "pad_1_8"
+      }
+    },
+    {
+      "model": "Akai APC40 Mk2",
+      "manufacturer": "Akai Professional",
+      "slug": "apc40_mk2",
+      "signatures": [
+        {"msg_type": "note_on", "channel": 0, "number": 91, "label": "play"},
+        {"msg_type": "note_on", "channel": 0, "number": 92, "label": "stop"},
+        {"msg_type": "note_on", "channel": 0, "number": 93, "label": "rec"}
+      ],
+      "cc_map": {
+        "14": "master_volume",
+        "15": "crossfader",
+        "16": "cue_level"
+      },
+      "note_map": {
+        "91": "play",
+        "92": "stop",
+        "93": "rec",
+        "94": "up",
+        "95": "down",
+        "96": "right",
+        "97": "left"
+      }
+    },
+    {
+      "model": "Generic MIDI",
+      "manufacturer": "Generic",
+      "slug": "generic",
+      "signatures": [],
+      "cc_map": {
+        "1": "modulation",
+        "7": "volume",
+        "10": "pan",
+        "64": "sustain"
+      },
+      "note_map": {}
+    }
+  ]
+}
