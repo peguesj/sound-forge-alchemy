@@ -339,27 +339,28 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   # Normalize to "track-id" (hyphen) and delegate to the main clause.
   def handle_event("reprocess_track", %{"track-id" => track_id}, socket) do
     track = Music.get_track!(track_id)
-    file_path = track.download_path
 
-    if file_path && File.exists?(file_path) do
-      case Music.create_processing_job(%{track_id: track.id, model: "htdemucs", status: :queued}) do
-        {:ok, processing_job} ->
-          %{
-            "track_id" => track.id,
-            "job_id" => processing_job.id,
-            "file_path" => file_path,
-            "model" => processing_job.model
-          }
-          |> SoundForge.Jobs.ProcessingWorker.new()
-          |> Oban.insert()
+    case Music.get_download_path(track.id) do
+      {:ok, file_path} ->
+        case Music.create_processing_job(%{track_id: track.id, model: "htdemucs", status: :queued}) do
+          {:ok, processing_job} ->
+            %{
+              "track_id" => track.id,
+              "job_id" => processing_job.id,
+              "file_path" => file_path,
+              "model" => processing_job.model
+            }
+            |> SoundForge.Jobs.ProcessingWorker.new()
+            |> Oban.insert()
 
-          {:noreply, put_flash(socket, :info, "Reprocessing started for \"#{track.title}\"")}
+            {:noreply, put_flash(socket, :info, "Reprocessing started for \"#{track.title}\"")}
 
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to queue reprocessing job")}
-      end
-    else
-      {:noreply, put_flash(socket, :error, "File not found — re-download the track first")}
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to queue reprocessing job")}
+        end
+
+      {:error, :no_completed_download} ->
+        {:noreply, put_flash(socket, :error, "File not found — re-download the track first")}
     end
   end
 
@@ -4497,9 +4498,9 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         </div>
       </div>
 
-      <%!-- Reprocess banner — shown when track file is missing --%>
+      <%!-- Reprocess banner — shown when track loaded but no audio URLs resolved --%>
       <div
-        :if={@deck.track && (!@deck.track.download_path || !File.exists?(@deck.track.download_path))}
+        :if={@deck.track && @deck.audio_urls == []}
         class="flex items-center gap-2 mb-2 px-2 py-1.5 rounded bg-red-900/40 border border-red-700/50 text-xs"
       >
         <svg class="w-3.5 h-3.5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
