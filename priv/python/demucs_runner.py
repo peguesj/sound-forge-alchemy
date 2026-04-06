@@ -47,8 +47,10 @@ def run_demucs(audio_path: str, model: str = "htdemucs", output_dir: str = "/tmp
         })
         sys.exit(1)
 
-    # Create output directory
+    # Create output directory — handle stale symlinks that block makedirs
     try:
+        if os.path.islink(output_dir) and not os.path.isdir(output_dir):
+            os.unlink(output_dir)
         os.makedirs(output_dir, exist_ok=True)
     except Exception as e:
         emit_error({
