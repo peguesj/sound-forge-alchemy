@@ -27,6 +27,10 @@ const ChromaticPads = {
     this.midiAvailable = false;
     this.lastMidiActivity = 0;
 
+    // Step sequencer state (Story 2.1): pad_index (string) → 16 booleans
+    this.padSequences = {};
+    this.seqMode = false;
+
     this.initAudioContext();
     this.initWebMIDI();
     this.setupDragAndDrop();
@@ -59,6 +63,34 @@ const ChromaticPads = {
     this.handleEvent("load_midi_mappings", ({mappings}) => {
       this.midiMappings = mappings || [];
     });
+
+    // Step sequencer (Story 2.1): server pushes pad_sequences when bank changes
+    this.handleEvent("set_pad_sequences", ({sequences, active}) => {
+      this.padSequences = sequences || {};
+      this.seqMode = active !== false;
+    });
+
+    // Beat-driven pad sequencer: fire pads per step pattern
+    this._onPadSeqBeat = (e) => {
+      if (!this.seqMode || Object.keys(this.padSequences).length === 0) return;
+      const step = e.detail.step;
+      this.el.querySelectorAll("[data-pad-id]").forEach(padEl => {
+        const padIdx = String(padEl.dataset.padIndex);
+        const steps = this.padSequences[padIdx];
+        if (!steps || !steps[step]) return;
+        const padId = padEl.dataset.padId;
+        const opts = {
+          volume: padEl.dataset.padVolume,
+          pitch: padEl.dataset.padPitch,
+          velocity: padEl.dataset.padVelocity,
+          start_time: padEl.dataset.padStartTime,
+          end_time: padEl.dataset.padEndTime,
+          synthConfig: padEl.dataset.padSynthConfig
+        };
+        this.triggerPad(padId, opts);
+      });
+    };
+    window.addEventListener("sfa:beat", this._onPadSeqBeat);
   },
 
   updated() {
@@ -67,6 +99,12 @@ const ChromaticPads = {
   },
 
   destroyed() {
+    if (this._onPadSeqBeat) {
+      window.removeEventListener("sfa:beat", this._onPadSeqBeat);
+    }
+    if (this.activeOscillators) {
+      Object.values(this.activeOscillators).forEach(osc => { try { osc.stop(); } catch (_) {} });
+    }
     if (this.audioCtx) {
       this.audioCtx.close();
     }
@@ -251,7 +289,8 @@ const ChromaticPads = {
           pitch: padEl.dataset.padPitch,
           velocity: (value / 127).toFixed(4),
           start_time: padEl.dataset.padStartTime,
-          end_time: padEl.dataset.padEndTime
+          end_time: padEl.dataset.padEndTime,
+          synthConfig: padEl.dataset.padSynthConfig
         };
         this.triggerPad(padId, opts);
         this.pushEventTo(this.el, "pad_triggered", { pad_id: padId });
@@ -304,6 +343,16 @@ const ChromaticPads = {
   },
 
   triggerPad(padId, opts = {}) {
+    // Synth path: if pad has synthConfig, use oscillator instead of buffer
+    if (opts.synthConfig) {
+      let synthConfig = null;
+      try { synthConfig = JSON.parse(opts.synthConfig); } catch (_) {}
+      if (synthConfig && typeof synthConfig === "object") {
+        this._triggerSynth(padId, opts, synthConfig);
+        return;
+      }
+    }
+
     if (!this.audioCtx || !this.buffers[padId]) return;
 
     // Resume audio context if suspended (autoplay policy)
@@ -357,6 +406,66 @@ const ChromaticPads = {
   },
 
   // =========================================================================
+  // Synth Oscillator Engine
+  // =========================================================================
+
+  _triggerSynth(padId, opts, synthConfig) {
+    if (!this.audioCtx) return;
+    if (this.audioCtx.state === "suspended") this.audioCtx.resume();
+
+    if (!this.activeOscillators) this.activeOscillators = {};
+
+    // Stop existing oscillator for this pad
+    if (this.activeOscillators[padId]) {
+      try { this.activeOscillators[padId].stop(); } catch (_) {}
+      delete this.activeOscillators[padId];
+    }
+
+    const now = this.audioCtx.currentTime;
+    const osc = this.audioCtx.createOscillator();
+    const gainNode = this.audioCtx.createGain();
+
+    osc.type = synthConfig.type || "sine";
+
+    // Base frequency with pitch offset from pad settings
+    const pitch = parseFloat(opts.pitch || 0);
+    const baseFreq = parseFloat(synthConfig.frequency || 440);
+    osc.frequency.value = baseFreq * Math.pow(2, pitch / 12);
+
+    // ADSR envelope
+    const attack  = parseFloat(synthConfig.attack  ?? 0.01);
+    const decay   = parseFloat(synthConfig.decay   ?? 0.1);
+    const sustain = parseFloat(synthConfig.sustain  ?? 0.7);
+    const release = parseFloat(synthConfig.release  ?? 0.2);
+    const velocity = parseFloat(opts.velocity ?? 1.0);
+    const volume   = parseFloat(opts.volume   ?? 1.0) * parseFloat(synthConfig.gain || 1.0);
+
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(volume * velocity, now + attack);
+    gainNode.gain.linearRampToValueAtTime(volume * velocity * sustain, now + attack + decay);
+
+    osc.connect(gainNode);
+    gainNode.connect(this.masterGain);
+    osc.start(now);
+
+    // Release after a fixed note duration then stop
+    const noteDuration = attack + decay + 0.3;
+    gainNode.gain.setValueAtTime(volume * velocity * sustain, now + noteDuration);
+    gainNode.gain.linearRampToValueAtTime(0, now + noteDuration + release);
+    osc.stop(now + noteDuration + release + 0.01);
+
+    this.activeOscillators[padId] = osc;
+    osc.onended = () => { delete this.activeOscillators[padId]; };
+
+    // Visual flash
+    const padEl = this.el.querySelector(`[data-pad-id="${padId}"]`);
+    if (padEl) {
+      padEl.classList.add("ring-2", "ring-white", "scale-95");
+      setTimeout(() => padEl.classList.remove("ring-2", "ring-white", "scale-95"), 150);
+    }
+  },
+
+  // =========================================================================
   // Pad Triggers, Keyboard, Drag & Drop
   // =========================================================================
 
@@ -371,7 +480,8 @@ const ChromaticPads = {
           pitch: padEl.dataset.padPitch,
           velocity: padEl.dataset.padVelocity,
           start_time: padEl.dataset.padStartTime,
-          end_time: padEl.dataset.padEndTime
+          end_time: padEl.dataset.padEndTime,
+          synthConfig: padEl.dataset.padSynthConfig
         };
         this.triggerPad(padId, opts);
         this.pushEventTo(this.el, "pad_triggered", { pad_id: padId });
@@ -412,7 +522,8 @@ const ChromaticPads = {
         pitch: padEl.dataset.padPitch,
         velocity: padEl.dataset.padVelocity,
         start_time: padEl.dataset.padStartTime,
-        end_time: padEl.dataset.padEndTime
+        end_time: padEl.dataset.padEndTime,
+        synthConfig: padEl.dataset.padSynthConfig
       };
       this.triggerPad(padId, opts);
       this.pushEvent("pad_triggered", { pad_id: padId });

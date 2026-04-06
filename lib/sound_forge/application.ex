@@ -58,6 +58,8 @@ defmodule SoundForge.Application do
   defp web_children(_mode) do
     [
       SoundForge.Notifications,
+      SoundForge.Agents.AgentRegistry,
+      SoundForge.Agents.AgentRunner,
       SoundForge.Audio.Prefetch,
       SoundForge.Telemetry.ObanHandler,
       SoundForge.LLM.ModelRegistry,

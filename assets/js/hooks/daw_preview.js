@@ -20,8 +20,16 @@ const DawPreview = {
     this._previewPlaying = false
     this._previewStartTime = 0
     this._previewCursorInterval = null
+    this._stemMixer = {} // { [stemId]: { volume, muted, solo, pan } }
 
     this.handleEvent("daw_preview", (payload) => this._handlePreview(payload))
+
+    // Listen for stem mix updates from the LiveComponent
+    this.handleEvent("stem_mix_update", ({ stem_id, mix }) => {
+      this._stemMixer[stem_id] = mix
+      // Apply to active sources immediately if playing
+      this._applyMixerToActiveSources()
+    })
 
     // Initialize transport bridge for DAW
     window.__dawTransport = { currentTime: 0, duration: 0, playing: false }
@@ -119,6 +127,10 @@ const DawPreview = {
       const source = ctx.createBufferSource()
       source.buffer = buffer
 
+      // Apply mixer state (volume, mute, solo, pan)
+      const mix = this._stemMixer[stemId] || { volume: 1.0, muted: false, solo: false, pan: 0.0 }
+      const hasSolo = Object.values(this._stemMixer).some((m) => m && m.solo)
+
       const gainNode = ctx.createGain()
       let baseGain = 1.0
 
@@ -127,34 +139,61 @@ const DawPreview = {
           baseGain = op.params.level
         }
       })
-      gainNode.gain.value = baseGain
 
-      if (fadeInOp && fadeInOp.params) {
-        const fadeDuration = (fadeInOp.params.duration_ms || 1000) / 1000
-        gainNode.gain.setValueAtTime(0, ctx.currentTime)
-        gainNode.gain.linearRampToValueAtTime(
-          baseGain,
-          ctx.currentTime + fadeDuration
-        )
-      }
+      // Mute: silence if muted, or if another stem is soloed and this one isn't
+      const effectiveMuted = mix.muted || (hasSolo && !mix.solo)
+      gainNode.gain.value = effectiveMuted ? 0 : baseGain * mix.volume
 
-      if (fadeOutOp && fadeOutOp.params) {
-        const fadeDuration = (fadeOutOp.params.duration_ms || 1000) / 1000
-        const fadeStart = duration - fadeDuration
-        if (fadeStart > 0) {
-          gainNode.gain.setValueAtTime(baseGain, ctx.currentTime + fadeStart)
-          gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + duration)
+      if (!effectiveMuted) {
+        if (fadeInOp && fadeInOp.params) {
+          const fadeDuration = (fadeInOp.params.duration_ms || 1000) / 1000
+          gainNode.gain.setValueAtTime(0, ctx.currentTime)
+          gainNode.gain.linearRampToValueAtTime(
+            baseGain * mix.volume,
+            ctx.currentTime + fadeDuration
+          )
+        }
+
+        if (fadeOutOp && fadeOutOp.params) {
+          const fadeDuration = (fadeOutOp.params.duration_ms || 1000) / 1000
+          const fadeStart = duration - fadeDuration
+          if (fadeStart > 0) {
+            gainNode.gain.setValueAtTime(baseGain * mix.volume, ctx.currentTime + fadeStart)
+            gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + duration)
+          }
         }
       }
 
+      // Pan/balance via StereoPannerNode
+      const panNode = ctx.createStereoPanner ? ctx.createStereoPanner() : null
+      if (panNode) panNode.pan.value = mix.pan || 0
+
       source.connect(gainNode)
-      gainNode.connect(ctx.destination)
+      if (panNode) {
+        gainNode.connect(panNode)
+        panNode.connect(ctx.destination)
+      } else {
+        gainNode.connect(ctx.destination)
+      }
       source.start(0, startTime, duration)
 
-      this._previewSources.push({ source, gainNode, duration, stemId })
+      this._previewSources.push({ source, gainNode, panNode, duration, stemId })
     })
 
     this._startPreviewCursor()
+  },
+
+  _applyMixerToActiveSources() {
+    if (!this._previewPlaying || !this._previewContext) return
+    const hasSolo = Object.values(this._stemMixer).some((m) => m && m.solo)
+    const ctx = this._previewContext
+
+    this._previewSources.forEach(({ gainNode, panNode, stemId }) => {
+      const mix = this._stemMixer[stemId] || { volume: 1.0, muted: false, solo: false, pan: 0.0 }
+      const effectiveMuted = mix.muted || (hasSolo && !mix.solo)
+      gainNode.gain.setTargetAtTime(effectiveMuted ? 0 : mix.volume, ctx.currentTime, 0.015)
+      if (panNode) panNode.pan.setTargetAtTime(mix.pan || 0, ctx.currentTime, 0.015)
+    })
   },
 
   _stopPreview() {

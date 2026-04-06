@@ -23,14 +23,17 @@ defmodule SoundForge.Jobs.AnalysisWorker do
           "job_id" => job_id,
           "file_path" => file_path,
           "features" => features
-        }
+        } = args
       }) do
+    playlist_id = Map.get(args, "playlist_id")
+
     Logger.metadata(track_id: track_id, job_id: job_id, worker: "AnalysisWorker")
     Logger.info("Starting analysis, features=#{inspect(features)}")
 
     job = Music.get_analysis_job!(job_id)
     Music.update_analysis_job(job, %{status: :processing, progress: 0})
     PipelineBroadcaster.broadcast_stage_started(track_id, job_id, :analysis)
+    PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :analysis, status: :processing, progress: 0})
     broadcast_progress(job_id, :processing, 0)
     broadcast_track_progress(track_id, :analysis, :processing, 0)
 
@@ -39,17 +42,18 @@ defmodule SoundForge.Jobs.AnalysisWorker do
 
     # Validate input file exists
     if File.exists?(resolved_path) do
-      do_analysis(job, track_id, job_id, resolved_path, features)
+      do_analysis(job, track_id, job_id, resolved_path, features, playlist_id)
     else
       error_msg = "Audio file not found: #{resolved_path}"
       Logger.error(error_msg)
       Music.update_analysis_job(job, %{status: :failed, error: error_msg})
       PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :analysis)
+      PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :analysis, status: :failed, progress: 0})
       {:error, error_msg}
     end
   end
 
-  defp do_analysis(job, track_id, job_id, file_path, features) do
+  defp do_analysis(job, track_id, job_id, file_path, features, playlist_id) do
     result =
       try do
         # Start a dedicated port process for this job
@@ -87,7 +91,7 @@ defmodule SoundForge.Jobs.AnalysisWorker do
         })
 
         # US-007: Update track with drum_categories and bpm derived from analysis
-        with track when not is_nil(track) <- Music.get_track(track_id) do
+        with {:ok, track} <- Music.get_track(track_id) do
           drum_events = results["drum_events"] || []
           drum_categories = drum_events |> Enum.map(& &1["category"]) |> Enum.uniq()
           bpm = results["tempo"]
@@ -104,6 +108,7 @@ defmodule SoundForge.Jobs.AnalysisWorker do
 
         Logger.info("Analysis complete")
         PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :analysis)
+        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :analysis, status: :completed, progress: 100})
 
         # Auto-trigger MIDI/chord detection if user settings enable it
         maybe_auto_trigger_extensions(track_id, file_path)
@@ -118,6 +123,7 @@ defmodule SoundForge.Jobs.AnalysisWorker do
         Logger.error("Analysis failed: #{error_msg}")
         Music.update_analysis_job(job, %{status: :failed, error: error_msg})
         PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :analysis)
+        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :analysis, status: :failed, progress: 0})
         {:error, error_msg}
     end
   end

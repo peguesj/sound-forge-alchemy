@@ -48,6 +48,9 @@ defmodule SoundForge.Music.Track do
     field :bpm, :float
     field :duration_ms, :integer
 
+    # Stem arrangement grid (Story 3.2) — keyed by stem_type → [{start_sec, end_sec, muted}]
+    field :stem_arrangement, :map
+
     # Virtual field populated by list_tracks query with latest download job status
     field :download_status, :string, virtual: true
 
@@ -78,7 +81,8 @@ defmodule SoundForge.Music.Track do
       :sample_type,
       :drum_categories,
       :bpm,
-      :duration_ms
+      :duration_ms,
+      :stem_arrangement
     ])
     |> validate_required([:title])
     |> validate_length(:title, min: 1, max: 500)

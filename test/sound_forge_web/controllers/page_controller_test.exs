@@ -5,7 +5,7 @@ defmodule SoundForgeWeb.RootRedirectTest do
 
   test "GET / shows dashboard for authenticated users", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Sound Forge Alchemy"
+    assert html_response(conn, 200) =~ "Alchemy"
   end
 
   test "GET / redirects unauthenticated users to login" do

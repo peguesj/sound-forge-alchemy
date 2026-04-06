@@ -469,8 +469,13 @@ def _download_from_youtube(query, duration_hint, args, output_template_default):
 
 
 def cmd_download(args):
-    """Download audio from a Spotify URL via YouTube."""
-    sp = get_spotify_client()
+    """Download audio from a Spotify URL via YouTube.
+
+    Fallback chain:
+      1. Spotify embed page scraping (no API credentials required)
+      2. Spotify Web API via spotipy (requires SPOTIPY_CLIENT_ID/SECRET)
+      3. YouTube search + yt-dlp download
+    """
     item_type, item_id = extract_spotify_info(args.url)
 
     if not item_type:
@@ -481,7 +486,23 @@ def cmd_download(args):
         emit_error({"error": "Download only supports single tracks"})
         sys.exit(1)
 
-    meta = fetch_track_metadata(sp, item_id)
+    # Step 1: embed page (no credentials).
+    meta = None
+    try:
+        meta = fetch_track_metadata_no_creds(item_id)
+    except Exception as embed_err:
+        emit_error({"warning": "embed_page_failed", "error": str(embed_err)})
+    # Step 2: Fall back to Spotify API if embed failed.
+    if meta is None:
+        try:
+            sp = get_spotify_client()
+            meta = fetch_track_metadata(sp, item_id)
+        except ValueError as cred_err:
+            emit_error({"error": f"Embed failed, no Spotify credentials: {cred_err}"})
+            sys.exit(1)
+        except Exception as api_err:
+            emit_error({"error": f"Both embed and Spotify API failed: {api_err}"})
+            sys.exit(1)
     artist_str = ", ".join(meta["artists"])
     search_query = f"{meta['name']} {artist_str}"
 

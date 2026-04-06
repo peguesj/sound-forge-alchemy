@@ -34,6 +34,8 @@ const PianoRoll = {
     this.scrollOffset = 0
     this.zoom = 1.0
     this.hoveredNote = null
+    // User-drawn notes (Story 2.4) — keyed by id for optimistic updates
+    this.userNotes = this._parseUserNotes()
 
     // Tooltip
     this.tooltip = document.createElement('div')
@@ -63,10 +65,76 @@ const PianoRoll = {
       this.hoveredNote = null
     })
 
+    // Note edit click handler (Story 2.4)
+    this.canvas.addEventListener('click', (e) => {
+      if (!this.el.dataset.editable) return
+      const rect = this.canvas.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      this.handleNoteClick(x, y)
+    })
+
+    // Receive user notes from server
+    this.handleEvent('set_user_notes', ({ notes }) => {
+      this.userNotes = notes || []
+      this.draw()
+    })
+
     this.draw()
   },
 
   updated() {
+    this.userNotes = this._parseUserNotes()
+    this.draw()
+  },
+
+  _parseUserNotes() {
+    const raw = this.el.dataset.userNotes
+    if (!raw) return []
+    try { return JSON.parse(raw) } catch { return [] }
+  },
+
+  handleNoteClick(mx, my) {
+    const notes = this.parseNotes()
+    const rect = this.canvas.getBoundingClientRect()
+    const W = rect.width
+    const H = rect.height
+    const pianoWidth = 40
+    const pitchRange = MAX_PITCH - MIN_PITCH
+    const noteHeight = (H - 20) / pitchRange
+    const maxTime = notes.length > 0 ? Math.max(...notes.map(n => n.offset)) + 1 : 10
+    const pxPerSec = ((W - pianoWidth) / maxTime) * this.zoom
+
+    if (mx < pianoWidth) return  // click on piano key area — ignore
+
+    // Map pixel coords back to pitch + onset
+    const pitch = MAX_PITCH - 1 - Math.floor((my / (H - 20)) * pitchRange) + MIN_PITCH
+    const onsetSec = (mx - pianoWidth + this.scrollOffset) / pxPerSec
+
+    if (pitch < MIN_PITCH || pitch > MAX_PITCH || onsetSec < 0) return
+
+    // Check if clicking on an existing user note to delete it
+    const existingIdx = this.userNotes.findIndex(n => {
+      const nx = pianoWidth + n.onset * pxPerSec - this.scrollOffset
+      const nw = Math.max(2, (n.duration || 0.25) * pxPerSec)
+      const ny = H - 20 - (n.note - MIN_PITCH + 1) * noteHeight
+      const nh = Math.max(1, noteHeight - 1)
+      return mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh
+    })
+
+    if (existingIdx >= 0) {
+      const noteToDelete = this.userNotes[existingIdx]
+      if (noteToDelete.id) {
+        this.pushEvent('delete_user_note', { note_id: noteToDelete.id })
+      }
+      this.userNotes.splice(existingIdx, 1)
+    } else {
+      // Add new note optimistically
+      const tempNote = { note: pitch, onset: onsetSec, offset: onsetSec + 0.25, duration: 0.25, velocity: 0.8, _temp: true }
+      this.userNotes.push(tempNote)
+      this.pushEvent('add_user_note', { note: pitch, onset_sec: onsetSec, duration_sec: 0.25, velocity: 0.8 })
+    }
+
     this.draw()
   },
 
@@ -170,6 +238,29 @@ const PianoRoll = {
         ctx.lineWidth = 1.5
         ctx.strokeRect(x, y, w, h)
       }
+    })
+
+    ctx.restore()
+
+    // Draw user-edited notes (Story 2.4) — teal, rendered above auto-detected notes
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(pianoWidth, 0, W - pianoWidth, H - 20)
+    ctx.clip()
+
+    ;(this.userNotes || []).forEach((note) => {
+      const x = pianoWidth + note.onset * pxPerSec - this.scrollOffset
+      const w = Math.max(2, (note.duration || 0.25) * pxPerSec)
+      const y = H - 20 - (note.note - MIN_PITCH + 1) * noteHeight
+      const h = Math.max(1, noteHeight - 1)
+
+      if (x + w < pianoWidth || x > W) return
+
+      ctx.fillStyle = note._temp ? '#6ee7b7' : '#34d399'
+      ctx.fillRect(x, y, w, h)
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = 1
+      ctx.strokeRect(x, y, w, h)
     })
 
     ctx.restore()

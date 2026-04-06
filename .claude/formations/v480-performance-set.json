@@ -1,0 +1,85 @@
+{
+  "formation_id": "fmt-20260325-v480-performance-set",
+  "version": "4.8.0",
+  "title": "PerformanceSet Schema + Chef Notifications",
+  "description": "Unifies ChefSet + AlchemySet + Recipe into a single schema-driven PerformanceSet type. Chef output is constrained to the PerformanceSet JSON schema. Chef completion triggers an in-app notification with View Details / Show / Activate actions.",
+  "status": "planned",
+  "waves": [
+    {
+      "wave": 1,
+      "title": "PerformanceSet Unified Schema",
+      "stories": [
+        {
+          "id": "4.8.1.1",
+          "title": "PerformanceSet Ecto schema + migration",
+          "description": "Create SoundForge.DJ.PerformanceSet with fields: id (uuid), user_id, track_id, name, set_type (:cueset|:loopset|:stemset|:hybrid), source (:chef|:manual|:imported), schema_version, items (jsonb array of PerformanceSetItem), metadata (jsonb), activated_at, generation_opts (jsonb). Items have: position_ms, end_ms, label, item_type, color, sort_order, loop_start_ms, loop_end_ms, stem_config, confidence.",
+          "files_to_create": [
+            "lib/sound_forge/dj/performance_set.ex",
+            "lib/sound_forge/dj/performance_sets.ex",
+            "priv/repo/migrations/TIMESTAMP_create_performance_sets.exs"
+          ],
+          "acceptance_criteria": [
+            "mix ecto.migrate runs without error",
+            "PerformanceSets.create/1 and list_for_user/1 work",
+            "JSON schema exported via PerformanceSet.json_schema/0 for Chef constraint",
+            "Items stored as embedded JSONB array (no separate table needed)"
+          ]
+        },
+        {
+          "id": "4.8.1.2",
+          "title": "Chef constrained to PerformanceSet schema",
+          "description": "Update ChefWorker and Chef.ex to produce output conforming to PerformanceSet structure. The LLM system prompt includes the JSON schema as a constraint. finalized_recipe is validated against the schema before broadcast. On success, persist as PerformanceSet record.",
+          "files_to_modify": [
+            "lib/sound_forge/jobs/chef_worker.ex",
+            "lib/sound_forge/dj/chef.ex"
+          ],
+          "acceptance_criteria": [
+            "Chef output validates against PerformanceSet.json_schema/0",
+            "Invalid outputs are rejected with :schema_violation error",
+            "On success, PerformanceSets.create/1 is called before broadcast",
+            "broadcast_complete passes persisted PerformanceSet id in payload"
+          ]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "title": "Chef Completion Notification with Actions",
+      "stories": [
+        {
+          "id": "4.8.2.1",
+          "title": "In-app notification on Chef completion",
+          "description": "When chef_complete fires, call Notifications.push/2 with type: :chef_complete, title: 'Set Ready', message: set name, metadata: %{performance_set_id: id, track_id: ...}. DashboardLive subscribes to notifications:{user_id} and shows a toast with three action buttons: View Details, Show, Activate.",
+          "files_to_modify": [
+            "lib/sound_forge/jobs/chef_worker.ex",
+            "lib/sound_forge_web/live/dashboard_live.ex",
+            "lib/sound_forge_web/live/dashboard_live.html.heex"
+          ],
+          "acceptance_criteria": [
+            "Chef completion triggers Notifications.push with chef_complete type",
+            "Toast notification appears with set name",
+            "Three action buttons: View Details, Show, Activate",
+            "View Details pushes show_set_detail event",
+            "Show scrolls/navigates to the set in the DJ tab",
+            "Activate immediately loads the set into the DJ deck"
+          ]
+        },
+        {
+          "id": "4.8.2.2",
+          "title": "Notification bell UI with unread count badge",
+          "description": "Add notification bell icon to AppHeader with unread count badge. Dropdown shows recent notifications. Mark as read on open. Chef notifications show set name + action buttons inline.",
+          "files_to_modify": [
+            "lib/sound_forge_web/live/components/app_header_component.ex",
+            "lib/sound_forge_web/live/dashboard_live.ex"
+          ],
+          "acceptance_criteria": [
+            "Bell icon in header shows red badge with count when unread > 0",
+            "Click opens dropdown with notification list",
+            "Chef notifications have View Details / Activate buttons",
+            "Notifications.mark_read called on open"
+          ]
+        }
+      ]
+    }
+  ]
+}

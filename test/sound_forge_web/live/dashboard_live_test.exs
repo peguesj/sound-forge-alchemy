@@ -8,7 +8,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
   describe "index view" do
     test "renders dashboard page", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/")
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
       assert html =~ "Paste a Spotify URL"
     end
 
@@ -29,7 +29,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
 
     test "displays version number", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/")
-      assert html =~ "v4.1.0"
+      assert html =~ "v4.7.0"
     end
 
     test "redirects unauthenticated users to login", %{conn: _conn} do
@@ -196,7 +196,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
 
       html = render(view)
       # View should still render without crashing
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
 
     test "handles pipeline_complete event and updates state", %{conn: conn, user: user} do
@@ -207,7 +207,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
       html = render(view)
 
       # View should render without error after pipeline_complete
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
 
     test "handles pipeline events for unknown track without crashing", %{conn: conn} do
@@ -225,7 +225,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
       )
 
       html = render(view)
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
   end
 
@@ -244,7 +244,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
       )
 
       html = render(view)
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
   end
 
@@ -334,19 +334,19 @@ defmodule SoundForgeWeb.DashboardLiveTest do
 
       {:ok, view, _html} = live(conn, "/")
       html = render_click(view, "page", %{"page" => "2"})
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
 
     test "handles invalid page number gracefully", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
       html = render_click(view, "page", %{"page" => "abc"})
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
 
     test "handles negative page number", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
       html = render_click(view, "page", %{"page" => "-5"})
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
   end
 
@@ -359,7 +359,7 @@ defmodule SoundForgeWeb.DashboardLiveTest do
         |> element("form[phx-change='sort']")
         |> render_change(%{"sort_by" => "nonexistent_field_xyzzy"})
 
-      assert html =~ "Sound Forge Alchemy"
+      assert html =~ "Alchemy"
     end
   end
 

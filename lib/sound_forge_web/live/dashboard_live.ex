@@ -10,6 +10,9 @@ defmodule SoundForgeWeb.DashboardLive do
   alias SoundForge.Audio.AnalysisHelpers
   alias SoundForge.Audio.LalalAI
   alias SoundForge.Audio.Prefetch
+  alias SoundForge.MIDI.NoteEdits
+
+  require Logger
 
   @max_debug_logs 500
   @max_midi_log 50
@@ -35,12 +38,16 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:analysis, nil)
       |> assign(:midi_result, nil)
       |> assign(:chord_result, nil)
+      |> assign(:user_notes, [])
       |> assign(:sort_by, :newest)
       |> assign(:view_mode, :grid)
       |> assign(:filters, %{status: "all", artist: "all"})
       |> assign(:artists, list_artists(scope))
       |> assign(:selected_ids, MapSet.new())
       |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
+     |> assign(:select_all_pages, false)
+      |> assign(:select_all_pages, false)
       |> assign(:batch_mode, false)
       |> assign(:batch_processing, false)
       |> assign(:batch_status, nil)
@@ -94,6 +101,10 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:last_bpm_ms, System.monotonic_time(:millisecond))
       |> assign(:midi_transport, :stopped)
       |> assign(:midi_log, [])
+      |> assign(:midi_monitor_open, false)
+      |> assign(:midi_monitor_listening, false)
+      |> assign(:midi_tailf, false)
+      |> assign(:midi_raw_log, [])
       |> assign(:trace_jobs, [])
       |> assign(:trace_selected_job, nil)
       |> assign(:trace_timeline, [])
@@ -181,7 +192,8 @@ defmodule SoundForgeWeb.DashboardLive do
        |> assign(:stems, track.stems)
        |> assign(:analysis, analysis)
        |> assign(:midi_result, Music.get_midi_result_for_track(id))
-       |> assign(:chord_result, Music.get_chord_result_for_track(id))}
+       |> assign(:chord_result, Music.get_chord_result_for_track(id))
+       |> assign(:user_notes, serialize_user_notes(NoteEdits.list_note_edits(id, socket.assigns.current_user_id)))}
     else
       {:noreply,
        socket
@@ -194,6 +206,44 @@ defmodule SoundForgeWeb.DashboardLive do
        socket
        |> put_flash(:error, "Track not found")
        |> push_navigate(to: ~p"/")}
+  end
+
+  def handle_params(%{"tab" => "dj", "activate_set_id" => set_id}, _uri, socket) do
+    Prefetch.prefetch_for_dj(socket.assigns[:current_user_id])
+
+    socket =
+      socket
+      |> assign(:live_action, :index)
+      |> assign(:nav_tab, :dj)
+      |> assign(:nav_context, :dj)
+
+    if connected?(socket) do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab-root",
+        activate_performance_set_id: set_id
+      )
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_params(%{"tab" => "dj", "set_id" => set_id}, _uri, socket) do
+    Prefetch.prefetch_for_dj(socket.assigns[:current_user_id])
+
+    socket =
+      socket
+      |> assign(:live_action, :index)
+      |> assign(:nav_tab, :dj)
+      |> assign(:nav_context, :dj)
+
+    if connected?(socket) do
+      send_update(SoundForgeWeb.Live.Components.DjTabComponent,
+        id: "dj-tab-root",
+        show_performance_set_id: set_id
+      )
+    end
+
+    {:noreply, socket}
   end
 
   def handle_params(%{"tab" => "dj"}, _uri, socket) do
@@ -314,24 +364,42 @@ defmodule SoundForgeWeb.DashboardLive do
       {:noreply,
        socket
        |> assign(:selected_ids, MapSet.new())
-       |> assign(:select_all, false)}
+       |> assign(:select_all, false)
+       |> assign(:select_all_pages, false)}
     else
-      # Select all track IDs on current page from the stream
+      # Default: select ALL tracks across all pages
       scope = socket.assigns[:current_scope]
-      per_page = socket.assigns.per_page
       sort_by = socket.assigns.sort_by
-      page = socket.assigns.page
 
-      track_ids =
-        list_tracks(scope, sort_by: sort_by, page: page, per_page: per_page)
+      all_track_ids =
+        list_tracks(scope, sort_by: sort_by, page: 1, per_page: 10_000)
         |> Enum.map(& &1.id)
         |> MapSet.new()
 
       {:noreply,
        socket
-       |> assign(:selected_ids, track_ids)
-       |> assign(:select_all, true)}
+       |> assign(:selected_ids, all_track_ids)
+       |> assign(:select_all, true)
+       |> assign(:select_all_pages, true)}
     end
+  end
+
+  @impl true
+  def handle_event("select_all_pages", _params, socket) do
+    scope = socket.assigns[:current_scope]
+    sort_by = socket.assigns.sort_by
+
+    # Select ALL track IDs across all pages
+    all_track_ids =
+      list_tracks(scope, sort_by: sort_by, page: 1, per_page: 10_000)
+      |> Enum.map(& &1.id)
+      |> MapSet.new()
+
+    {:noreply,
+     socket
+     |> assign(:selected_ids, all_track_ids)
+     |> assign(:select_all, true)
+     |> assign(:select_all_pages, true)}
   end
 
   @impl true
@@ -377,6 +445,7 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> put_flash(:info, "Analyzing #{count} tracks...")}
   end
 
@@ -397,6 +466,7 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> put_flash(:info, "Processing #{count} tracks...")}
   end
 
@@ -411,6 +481,7 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> put_flash(:info, "Deleted #{count} tracks")}
   end
 
@@ -426,6 +497,8 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:batch_mode, new_mode)
       |> assign(:selected_ids, MapSet.new())
       |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
+     |> assign(:select_all_pages, false)
 
     {:noreply, socket}
   end
@@ -475,6 +548,8 @@ defmodule SoundForgeWeb.DashboardLive do
          |> assign(:show_batch_modal, false)
          |> assign(:selected_ids, MapSet.new())
          |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
+     |> assign(:select_all_pages, false)
          |> put_flash(:info, "Batch processing started for \#{length(track_ids)} tracks")}
 
       {:error, :empty_batch} ->
@@ -495,7 +570,8 @@ defmodule SoundForgeWeb.DashboardLive do
     user_id = socket.assigns[:current_user_id]
 
     with {:ok, track} <- fetch_owned_track(socket, id),
-         true <- is_binary(track.spotify_url) do
+         true <- is_binary(track.spotify_url),
+         false <- has_completed_download?(id) do
       {:ok, download_job} = Music.create_download_job(%{track_id: track.id, status: :queued})
 
       %{
@@ -525,6 +601,9 @@ defmodule SoundForgeWeb.DashboardLive do
 
       {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, "Track not found")}
+
+      true ->
+        {:noreply, put_flash(socket, :info, "Track has already been downloaded.")}
     end
   end
 
@@ -938,6 +1017,7 @@ defmodule SoundForgeWeb.DashboardLive do
      socket
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> put_flash(:info, "Downloading #{downloaded} of #{count} selected tracks...")}
   end
 
@@ -1113,6 +1193,10 @@ defmodule SoundForgeWeb.DashboardLive do
   # -- Navigation --
 
   @impl true
+  def handle_event("nav_tab", %{"tab" => "home"}, socket) do
+    {:noreply, assign(socket, :nav_tab, :home)}
+  end
+
   def handle_event("nav_tab", %{"tab" => "library"}, socket) do
     socket =
       socket
@@ -1123,6 +1207,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:filters, %{status: "all", artist: "all"})
       |> assign(:selected_ids, MapSet.new())
       |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
 
     reload_tracks(socket, page: 1, filters: %{status: "all", artist: "all"})
   end
@@ -1134,7 +1219,8 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:nav_context, :artist)
      |> assign(:browse_filter, nil)
      |> assign(:selected_ids, MapSet.new())
-     |> assign(:select_all, false)}
+     |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)}
   end
 
   def handle_event("nav_tab", %{"tab" => "dj"}, socket) do
@@ -1273,6 +1359,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)
      |> push_patch(to: ~p"/")}
   end
@@ -1280,7 +1367,27 @@ defmodule SoundForgeWeb.DashboardLive do
   @impl true
   def handle_event("nav_playlist", %{"id" => id}, socket) do
     playlist = Music.get_playlist!(id)
-    tracks = Music.list_tracks_for_playlist(playlist.id)
+    tracks = Music.list_playlist_tracks_with_status(playlist.id)
+
+    # Subscribe to playlist-level pipeline topic for real-time batch updates
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(SoundForge.PubSub, "playlist_pipeline:#{playlist.id}")
+      # Subscribe to each track's individual topic so existing handlers fire
+      Enum.each(tracks, fn track ->
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, "track_pipeline:#{track.id}")
+      end)
+    end
+
+    # Merge DB-derived initial pipeline state into existing pipelines assign
+    initial_pipelines =
+      Enum.reduce(tracks, socket.assigns.pipelines, fn track, acc ->
+        pipeline = build_initial_pipeline(track)
+        if map_size(pipeline) > 0, do: Map.put(acc, track.id, pipeline), else: acc
+      end)
+
+    # Auto-resume any tracks that are partially complete (download done, analysis missing)
+    user_id = socket.assigns[:current_user_id]
+    maybe_resume_incomplete_pipelines(tracks, user_id)
 
     {:noreply,
      socket
@@ -1291,6 +1398,8 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
+     |> assign(:pipelines, initial_pipelines)
      |> stream(:tracks, tracks, reset: true)
      |> push_patch(to: ~p"/")}
   end
@@ -1311,6 +1420,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)
      |> push_patch(to: ~p"/")}
   end
@@ -1329,6 +1439,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)}
   end
 
@@ -1369,6 +1480,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)}
   end
 
@@ -1405,6 +1517,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:track_count, length(tracks))
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)}
   end
 
@@ -1422,6 +1535,8 @@ defmodule SoundForgeWeb.DashboardLive do
          |> assign(:track_count, 0)
          |> assign(:selected_ids, MapSet.new())
          |> assign(:select_all, false)
+      |> assign(:select_all_pages, false)
+     |> assign(:select_all_pages, false)
          |> stream(:tracks, [], reset: true)}
 
       {:error, _} ->
@@ -1525,6 +1640,37 @@ defmodule SoundForgeWeb.DashboardLive do
   @impl true
   def handle_event("clear_midi_log", _params, socket) do
     {:noreply, assign(socket, :midi_log, [])}
+  end
+
+  # MIDI Monitor (always-available floating panel)
+  @impl true
+  def handle_event("toggle_midi_monitor", _params, socket) do
+    {:noreply, update(socket, :midi_monitor_open, &(!&1))}
+  end
+
+  @impl true
+  def handle_event("toggle_midi_monitor_listen", _params, socket) do
+    if socket.assigns.midi_monitor_listening do
+      for device <- socket.assigns.midi_devices do
+        port_id = device[:port_id] || device.port_id
+        Phoenix.PubSub.unsubscribe(SoundForge.PubSub, SoundForge.MIDI.Dispatcher.topic(port_id))
+      end
+
+      {:noreply, assign(socket, :midi_monitor_listening, false)}
+    else
+      devices = SoundForge.MIDI.DeviceManager.list_devices()
+
+      for device <- devices, device.direction in [:input, :duplex] do
+        Phoenix.PubSub.subscribe(SoundForge.PubSub, SoundForge.MIDI.Dispatcher.topic(device.port_id))
+      end
+
+      {:noreply, assign(socket, :midi_monitor_listening, true)}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_midi_tailf", _params, socket) do
+    {:noreply, update(socket, :midi_tailf, &(!&1))}
   end
 
   @impl true
@@ -1871,6 +2017,59 @@ defmodule SoundForgeWeb.DashboardLive do
      |> put_flash(:info, "Pipeline reset (#{cancelled_count} job(s) cancelled). Use Retry to restart stages.")}
   end
 
+  # Piano Roll note editing (Story 2.4)
+  @impl true
+  def handle_event("add_user_note", %{"note" => note, "onset_sec" => onset_sec, "duration_sec" => duration_sec, "velocity" => velocity}, socket) do
+    track = socket.assigns.track
+    user_id = socket.assigns.current_user_id
+
+    if track && user_id do
+      case NoteEdits.create_note_edit(%{
+        note: note,
+        onset_sec: onset_sec,
+        duration_sec: duration_sec,
+        velocity: velocity,
+        track_id: track.id,
+        user_id: user_id
+      }) do
+        {:ok, _edit} ->
+          user_notes = serialize_user_notes(NoteEdits.list_note_edits(track.id, user_id))
+          {:noreply,
+           socket
+           |> assign(:user_notes, user_notes)
+           |> push_event("set_user_notes", %{notes: user_notes})}
+
+        {:error, _changeset} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_user_note", %{"note_id" => note_id}, socket) do
+    track = socket.assigns.track
+    user_id = socket.assigns.current_user_id
+
+    if track && user_id do
+      case NoteEdits.get_note_edit(note_id) do
+        nil ->
+          {:noreply, socket}
+
+        edit ->
+          NoteEdits.delete_note_edit(edit)
+          user_notes = serialize_user_notes(NoteEdits.list_note_edits(track.id, user_id))
+          {:noreply,
+           socket
+           |> assign(:user_notes, user_notes)
+           |> push_event("set_user_notes", %{notes: user_notes})}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
   # Catch-all for events bubbled from child components (e.g. AudioPlayer time_update)
   @impl true
   def handle_event(_event, _params, socket) do
@@ -2165,6 +2364,15 @@ defmodule SoundForgeWeb.DashboardLive do
      |> put_flash(:info, "Pipeline complete! Track is ready.")}
   end
 
+  # Playlist-level pipeline update (from playlist_pipeline:{playlist_id} topic)
+  @impl true
+  def handle_info({:playlist_track_update, %{track_id: track_id, stage: stage, status: status, progress: progress}}, socket) do
+    pipelines = socket.assigns.pipelines
+    pipeline = Map.get(pipelines, track_id, %{})
+    updated_pipeline = Map.put(pipeline, stage, %{status: status, progress: progress})
+    {:noreply, assign(socket, :pipelines, Map.put(pipelines, track_id, updated_pipeline))}
+  end
+
   @impl true
   def handle_info({:job_progress, payload}, socket) do
     jobs = Map.put(socket.assigns.active_jobs, payload.job_id, payload)
@@ -2305,9 +2513,17 @@ defmodule SoundForgeWeb.DashboardLive do
       )
     end
 
+    track_count = payload[:track_count] || 0
+    set_id = payload[:performance_set_id]
+    set_name = get_in(payload, [:recipe_meta, :prompt]) || "Chef Set (#{track_count} tracks)"
+
     {:noreply,
      socket
-     |> put_flash(:info, "Chef recipe ready! #{payload[:track_count] || 0} tracks prepared.")}
+     |> push_notification(:success, "Set Ready", set_name, %{
+       type: :chef_complete,
+       performance_set_id: set_id,
+       track_count: track_count
+     })}
   end
 
   @impl true
@@ -2427,9 +2643,56 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   @impl true
+  def handle_info({:midi_action, :play, _params}, socket) do
+    send_update(SoundForgeWeb.Live.Components.TransportBarComponent,
+      id: "transport-bar", midi_event: "transport_play")
+    log_entry = midi_log_entry("play -> TransportBar")
+    {:noreply, append_midi_log(socket, log_entry)}
+  end
+
+  def handle_info({:midi_action, :stop, _params}, socket) do
+    send_update(SoundForgeWeb.Live.Components.TransportBarComponent,
+      id: "transport-bar", midi_event: "transport_stop")
+    log_entry = midi_log_entry("stop -> TransportBar")
+    {:noreply, append_midi_log(socket, log_entry)}
+  end
+
+  def handle_info({:midi_action, :next_track, _params}, socket) do
+    send_update(SoundForgeWeb.Live.Components.TransportBarComponent,
+      id: "transport-bar", midi_event: "transport_next")
+    log_entry = midi_log_entry("next_track -> TransportBar")
+    {:noreply, append_midi_log(socket, log_entry)}
+  end
+
+  def handle_info({:midi_action, :prev_track, _params}, socket) do
+    send_update(SoundForgeWeb.Live.Components.TransportBarComponent,
+      id: "transport-bar", midi_event: "transport_prev")
+    log_entry = midi_log_entry("prev_track -> TransportBar")
+    {:noreply, append_midi_log(socket, log_entry)}
+  end
+
+  @impl true
   def handle_info({:midi_action, action, params}, socket) do
     log_entry = midi_log_entry("#{action}: #{inspect(params, limit: 3)}")
     {:noreply, append_midi_log(socket, log_entry)}
+  end
+
+  # Raw MIDI events from Dispatcher (when monitor is listening, Story v4.7.0)
+  @impl true
+  def handle_info({:midi_message, port_id, message}, socket) do
+    if socket.assigns.midi_monitor_listening do
+      event = build_raw_midi_event(port_id, message)
+      # Push to floating monitor component
+      send_update(SoundForgeWeb.Live.Components.MidiMonitorComponent,
+        id: "midi-monitor",
+        new_event: event
+      )
+      # Also keep a buffer in assigns for hydration on reconnect
+      raw_log = [event | socket.assigns.midi_raw_log] |> Enum.take(200)
+      {:noreply, assign(socket, :midi_raw_log, raw_log)}
+    else
+      {:noreply, socket}
+    end
   end
 
 
@@ -3129,6 +3392,7 @@ defmodule SoundForgeWeb.DashboardLive do
      |> assign(:filters, filters)
      |> assign(:selected_ids, MapSet.new())
      |> assign(:select_all, false)
+     |> assign(:select_all_pages, false)
      |> stream(:tracks, tracks, reset: true)}
   end
 
@@ -3184,6 +3448,71 @@ defmodule SoundForgeWeb.DashboardLive do
     )
   end
 
+  # Build a pipeline stage map from preloaded job associations on a Track struct.
+  # Used to seed @pipelines when navigating to a playlist.
+  defp build_initial_pipeline(track) do
+    %{}
+    |> add_pipeline_stage(:download, Map.get(track, :download_jobs, []))
+    |> add_pipeline_stage(:processing, Map.get(track, :processing_jobs, []))
+    |> add_pipeline_stage(:analysis, Map.get(track, :analysis_jobs, []))
+  end
+
+  defp add_pipeline_stage(pipeline, _stage, jobs) when not is_list(jobs), do: pipeline
+  defp add_pipeline_stage(pipeline, _stage, []), do: pipeline
+
+  defp add_pipeline_stage(pipeline, stage, jobs) do
+    latest = Enum.max_by(jobs, & &1.inserted_at, DateTime, fn -> nil end)
+
+    if latest do
+      progress = if latest.status == :completed, do: 100, else: latest.progress || 0
+      Map.put(pipeline, stage, %{status: latest.status, progress: progress})
+    else
+      pipeline
+    end
+  end
+
+  # Auto-enqueue missing pipeline stages for tracks in a playlist.
+  # Targets tracks that have a completed download but no completed analysis.
+  defp maybe_resume_incomplete_pipelines(tracks, user_id) do
+    model = Application.get_env(:sound_forge, :default_demucs_model, "htdemucs")
+
+    Enum.each(tracks, fn track ->
+      djs = Map.get(track, :download_jobs, [])
+      ajs = Map.get(track, :analysis_jobs, [])
+      pjs = Map.get(track, :processing_jobs, [])
+
+      has_complete_download = Enum.any?(djs, &(&1.status == :completed))
+      has_complete_analysis = Enum.any?(ajs, &(&1.status == :completed))
+      has_active_processing = Enum.any?(pjs, &(&1.status in [:queued, :processing]))
+
+      completed_download = has_complete_download && Enum.find(djs, &(&1.status == :completed))
+
+      if has_complete_download and not has_complete_analysis and not has_active_processing and completed_download do
+        file_path = completed_download.output_path
+
+        if file_path && File.exists?(file_path) do
+          Logger.info("[DashboardLive] Auto-resuming pipeline for track #{track.id}")
+
+          case Music.create_processing_job(%{track_id: track.id, model: model, status: :queued}) do
+            {:ok, processing_job} ->
+              %{
+                "track_id" => track.id,
+                "job_id" => processing_job.id,
+                "file_path" => file_path,
+                "model" => model,
+                "user_id" => user_id
+              }
+              |> SoundForge.Jobs.ProcessingWorker.new()
+              |> Oban.insert()
+
+            {:error, reason} ->
+              Logger.warning("[DashboardLive] Could not resume pipeline for #{track.id}: #{inspect(reason)}")
+          end
+        end
+      end
+    end)
+  end
+
   defp spotify_linked?(nil), do: false
 
   defp spotify_linked?(user_id) do
@@ -3219,6 +3548,62 @@ defmodule SoundForgeWeb.DashboardLive do
       timestamp: DateTime.utc_now()
     }
   end
+
+  # Builds a raw MIDI event map for the floating monitor panel
+  defp build_raw_midi_event(port_id, message) do
+    {type, channel, label, value} = decode_midi_message(message)
+    short_port = port_id |> to_string() |> String.split(":") |> List.last() |> String.slice(0, 8)
+
+    %{
+      id: System.unique_integer([:positive]),
+      port: short_port,
+      type: type,
+      channel: channel,
+      label: label,
+      value: value,
+      time: Calendar.strftime(DateTime.utc_now(), "%H:%M:%S")
+    }
+  end
+
+  defp decode_midi_message(%{status: status, data1: d1, data2: d2}) do
+    import Bitwise
+    channel = (status &&& 0x0F) + 1
+    type_nibble = status &&& 0xF0
+
+    case type_nibble do
+      0x90 when d2 > 0 -> {"note_on", channel, note_name(d1), d2}
+      0x90 -> {"note_off", channel, note_name(d1), 0}
+      0x80 -> {"note_off", channel, note_name(d1), d2}
+      0xB0 -> {"cc", channel, "CC#{d1}", d2}
+      0xA0 -> {"aftertouch", channel, note_name(d1), d2}
+      0xD0 -> {"pressure", channel, "CH pressure", d1}
+      0xE0 -> {"pitchbend", channel, "PB", d1 + d2 * 128}
+      0xC0 -> {"program", channel, "PC#{d1}", 0}
+      _ ->
+        case status do
+          0xF8 -> {"clock", 0, "tick", 0}
+          0xFA -> {"clock", 0, "start", 0}
+          0xFC -> {"clock", 0, "stop", 0}
+          0xFE -> {"clock", 0, "sense", 0}
+          0xF0 -> {"sysex", 0, "SysEx", byte_size(d1 || <<>>)}
+          _ -> {"other", 0, "0x#{Integer.to_string(status, 16)}", d1}
+        end
+    end
+  end
+
+  defp decode_midi_message(msg) do
+    {"raw", 0, inspect(msg, limit: 2), 0}
+  end
+
+  @note_names ~w(C C# D D# E F F# G G# A A# B)
+
+  defp note_name(midi_note) when is_integer(midi_note) do
+    oct = div(midi_note, 12) - 1
+    name = Enum.at(@note_names, rem(midi_note, 12))
+    "#{name}#{oct}"
+  end
+
+  defp note_name(_), do: "?"
 
   defp append_midi_log(socket, entry) do
     logs = [entry | socket.assigns.midi_log] |> Enum.take(@max_midi_log)
@@ -3584,6 +3969,13 @@ defmodule SoundForgeWeb.DashboardLive do
     )
 
     {:noreply, socket}
+  end
+
+  # Serialize NoteEdit structs to JS-friendly maps (onset_sec→onset, duration_sec→duration)
+  defp serialize_user_notes(note_edits) do
+    Enum.map(note_edits, fn n ->
+      %{id: n.id, note: n.note, onset: n.onset_sec, duration: n.duration_sec, velocity: n.velocity}
+    end)
   end
 
 end
