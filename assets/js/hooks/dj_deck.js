@@ -2015,12 +2015,7 @@ const DjDeck = {
         }
       }
     }
-  }
-  /**
-   * Attach vertical-drag interaction to all .djknob elements so they respond
-   * to up/down pointer movement (up = increase, down = decrease).
-   * Each knob has a hidden <input type="range"> that we drive programmatically.
-   */
+  },
   /**
    * Attach vertical pointer-drag interaction to channel strip faders.
    * The faders are CSS-rotated <input type="range"> elements; the native
@@ -2071,7 +2066,7 @@ const DjDeck = {
         document.addEventListener('pointerup', onPointerUp)
       })
     })
-  }
+  },
 
   _attachKnobDrag() {
     const knobs = this.el.querySelectorAll('.djknob')
