@@ -270,6 +270,9 @@ const DjDeck = {
     // Attach vertical drag interaction to circular knobs.
     setTimeout(() => this._attachKnobDrag(), 120)
 
+    // Attach vertical drag interaction to channel faders.
+    setTimeout(() => this._attachFaderDrag(), 130)
+
     // Restore persisted slider values from a previous session.
     setTimeout(() => this._restorePersistedValues(), 150)
 
@@ -2018,6 +2021,58 @@ const DjDeck = {
    * to up/down pointer movement (up = increase, down = decrease).
    * Each knob has a hidden <input type="range"> that we drive programmatically.
    */
+  /**
+   * Attach vertical pointer-drag interaction to channel strip faders.
+   * The faders are CSS-rotated <input type="range"> elements; the native
+   * browser drag goes horizontal in the element's rotated frame. We
+   * override with vertical clientY drag: up = increase, down = decrease.
+   */
+  _attachFaderDrag() {
+    // Target the containing div (height:80px) that wraps the fader input
+    const faderContainers = this.el.querySelectorAll('input[type="range"][aria-label$="volume"]')
+    faderContainers.forEach((input) => {
+      if (input._faderDragAttached) return
+      input._faderDragAttached = true
+
+      // The parent div is the hit area
+      const container = input.closest('div[style*="height: 80px"]') || input.parentElement
+      if (!container) return
+
+      let startY = 0
+      let startValue = 0
+      let dragging = false
+      const sensitivity = 0.8 // px per unit — faders need fine control
+
+      const onPointerMove = (e) => {
+        if (!dragging) return
+        const delta = (startY - e.clientY) / sensitivity
+        const range = Number(input.max) - Number(input.min)
+        const newVal = Math.min(Number(input.max), Math.max(Number(input.min),
+          startValue + delta * (range / 100)))
+        input.value = newVal
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+        input.dispatchEvent(new Event('change', { bubbles: true }))
+      }
+
+      const onPointerUp = () => {
+        if (!dragging) return
+        dragging = false
+        document.removeEventListener('pointermove', onPointerMove)
+        document.removeEventListener('pointerup', onPointerUp)
+      }
+
+      container.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return
+        e.preventDefault()
+        dragging = true
+        startY = e.clientY
+        startValue = Number(input.value)
+        document.addEventListener('pointermove', onPointerMove)
+        document.addEventListener('pointerup', onPointerUp)
+      })
+    })
+  }
+
   _attachKnobDrag() {
     const knobs = this.el.querySelectorAll('.djknob')
     knobs.forEach((knob) => {

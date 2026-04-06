@@ -337,6 +337,32 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   @impl true
   # Form-based select (deck 3/4 soundboard): sends "track_id" (underscore).
   # Normalize to "track-id" (hyphen) and delegate to the main clause.
+  def handle_event("reprocess_track", %{"track-id" => track_id}, socket) do
+    track = Music.get_track!(track_id)
+    file_path = track.download_path
+
+    if file_path && File.exists?(file_path) do
+      case Music.create_processing_job(%{track_id: track.id, model: "htdemucs", status: :queued}) do
+        {:ok, processing_job} ->
+          %{
+            "track_id" => track.id,
+            "job_id" => processing_job.id,
+            "file_path" => file_path,
+            "model" => processing_job.model
+          }
+          |> SoundForge.Jobs.ProcessingWorker.new()
+          |> Oban.insert()
+
+          {:noreply, put_flash(socket, :info, "Reprocessing started for \"#{track.title}\"")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to queue reprocessing job")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "File not found — re-download the track first")}
+    end
+  end
+
   def handle_event("load_track", %{"deck" => _d, "track_id" => _t} = params, socket)
       when not is_map_key(params, "track-id") do
     handle_event("load_track", Map.put(params, "track-id", params["track_id"]), socket)
@@ -3648,30 +3674,28 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           </div>
         </div>
 
-        <%!-- Metronome --%>
-        <div class="mt-4 bg-gray-900 rounded-xl p-4 flex items-center gap-4">
-          <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Metronome</span>
+        <%!-- Metronome (compact, centered under master) --%>
+        <div class="flex items-center justify-center gap-2 mt-2 px-3 py-1.5 bg-gray-900/60 rounded-lg border border-gray-700/40">
+          <span class="text-[8px] text-gray-600 uppercase tracking-widest">CLICK</span>
           <button
             phx-click="toggle_metronome"
             phx-target={@myself}
-            class={"px-4 py-2 text-sm font-bold rounded-lg transition-colors " <>
+            class={"w-6 h-6 rounded-full flex items-center justify-center text-[11px] transition-colors " <>
               if(@metronome_active,
-                do: "bg-green-600 text-white ring-1 ring-green-400/30 animate-pulse",
-                else: "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                do: "bg-green-600 text-white ring-1 ring-green-400/40 animate-pulse",
+                else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
               )}
+            title={if @metronome_active, do: "Metronome ON — click to stop", else: "Metronome OFF — click to start"}
           >
-            {if @metronome_active, do: "◉ CLICK ON", else: "◎ CLICK OFF"}
+            {if @metronome_active, do: "◉", else: "◎"}
           </button>
-          <div class="flex items-center gap-2 flex-1">
-            <span class="text-[10px] text-gray-600">Vol</span>
-            <form phx-change="set_metronome_volume" phx-target={@myself} class="flex-1">
-              <input type="range" name="volume" min="0" max="100" value={@metronome_volume}
-                class="w-full h-1.5 rounded appearance-none cursor-pointer accent-green-500" />
-            </form>
-            <span class="text-[10px] text-gray-500 w-8 text-right">{@metronome_volume}%</span>
-          </div>
-          <span class="text-xs text-gray-500 font-mono">
-            {if @deck_1.tempo_bpm > 0, do: "#{Float.round(@deck_1.tempo_bpm, 1)} BPM", else: "—"}
+          <form phx-change="set_metronome_volume" phx-target={@myself} class="flex items-center gap-1">
+            <input type="range" name="volume" min="0" max="100" value={@metronome_volume}
+              class="w-16 h-1 rounded appearance-none cursor-pointer accent-green-500"
+              aria-label="Metronome volume" />
+          </form>
+          <span class="text-[9px] text-gray-500 font-mono w-12 text-center">
+            {if @deck_1.tempo_bpm > 0, do: "#{Float.round(@deck_1.tempo_bpm, 1)}", else: "—"} BPM
           </span>
         </div>
 
@@ -4471,6 +4495,27 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
           </span>
           <span class="text-[9px] text-gray-600 uppercase">BPM</span>
         </div>
+      </div>
+
+      <%!-- Reprocess banner — shown when track file is missing --%>
+      <div
+        :if={@deck.track && (!@deck.track.download_path || !File.exists?(@deck.track.download_path))}
+        class="flex items-center gap-2 mb-2 px-2 py-1.5 rounded bg-red-900/40 border border-red-700/50 text-xs"
+      >
+        <svg class="w-3.5 h-3.5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        <span class="text-red-300 flex-1">File missing — track needs reprocessing</span>
+        <button
+          phx-click="reprocess_track"
+          phx-target={@myself}
+          phx-value-track-id={@deck.track.id}
+          phx-value-deck={@deck_number}
+          class="px-2 py-0.5 text-[9px] font-bold rounded bg-red-700 text-white hover:bg-red-600 transition-colors uppercase tracking-wide"
+          title="Re-download and reprocess this track"
+        >
+          Reprocess
+        </button>
       </div>
 
       <%!-- Current Section Label --%>
