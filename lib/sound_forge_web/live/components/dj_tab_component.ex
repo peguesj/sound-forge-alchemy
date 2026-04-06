@@ -454,6 +454,78 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   end
 
   @impl true
+  def handle_event(
+        "bigloopy_load_to_deck",
+        %{"deck" => deck_str, "track_id" => track_id, "path" => path} = params,
+        socket
+      ) do
+    deck_number = String.to_integer(deck_str)
+    user_id = socket.assigns[:current_user_id]
+
+    case DJ.load_track_to_deck(user_id, deck_number, track_id) do
+      {:ok, session} ->
+        track = session.track
+        stems = if track, do: track.stems || [], else: []
+
+        # Override audio with the BigLoopy loop file path
+        audio_urls =
+          if path && path != "" && File.exists?(path) do
+            stem_type = Map.get(params, "stem", "other")
+            [{String.to_existing_atom(stem_type), "/files/#{Path.basename(path)}"}]
+          else
+            build_stem_urls(stems, track)
+          end
+
+        # Use loop BPM from params if provided
+        loop_bpm =
+          case Map.get(params, "bpm") do
+            bpm when is_binary(bpm) -> String.to_float(bpm)
+            bpm when is_number(bpm) -> bpm * 1.0
+            _ -> session.tempo_bpm || 0.0
+          end
+
+        {_tempo, beat_times, structure, loop_points, bar_times, arrangement_markers} =
+          extract_analysis_data(track)
+
+        # Load CuePoints of type :loop_in for this track
+        cue_points =
+          if track do
+            SoundForge.DJ.list_cue_points(track.id, user_id)
+            |> Enum.filter(&(&1.cue_type == :loop_in))
+          else
+            []
+          end
+
+        deck_state = %{
+          track: track,
+          playing: false,
+          tempo_bpm: loop_bpm,
+          pitch_adjust: session.pitch_adjust || 0.0,
+          audio_urls: audio_urls,
+          beat_times: beat_times,
+          bar_times: bar_times,
+          structure: structure,
+          loop_points: loop_points,
+          arrangement_markers: arrangement_markers,
+          cue_points: cue_points,
+          loop_active: false,
+          loop_start: nil,
+          loop_end: nil,
+          midi_sync: false,
+          volume: socket.assigns[deck_assign_key(deck_number)][:volume] || 100
+        }
+
+        {:noreply, assign(socket, deck_assign_key(deck_number), deck_state)}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to load BigLoopy track to deck #{deck_number}")}
+    end
+  rescue
+    ArgumentError ->
+      {:noreply, put_flash(socket, :error, "Invalid deck parameters")}
+  end
+
+  @impl true
   def handle_event("toggle_play", %{"deck" => deck_str}, socket) do
     deck_number = String.to_integer(deck_str)
     deck_key = deck_assign_key(deck_number)

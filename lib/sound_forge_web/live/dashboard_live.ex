@@ -1171,8 +1171,6 @@ defmodule SoundForgeWeb.DashboardLive do
 
   # -- Debug Panel --
 
-  @valid_debug_tabs ~w(logs tracing midi devtools uat)a
-
   # MIDI Monitor (always-available floating panel)
 
   # ── DevTools Tab Events ──────────────────────────────────────────────
@@ -1212,15 +1210,6 @@ defmodule SoundForgeWeb.DashboardLive do
     end
   end
 
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-
-
-  @impl true
-  @impl true
   # Piano Roll note editing (Story 2.4)
   @impl true
   def handle_event("add_user_note", %{"note" => note, "onset_sec" => onset_sec, "duration_sec" => duration_sec, "velocity" => velocity}, socket) do
@@ -1253,7 +1242,6 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   # Catch-all for events bubbled from child components (e.g. AudioPlayer time_update)
-  @impl true
   def handle_event(_event, _params, socket) do
     {:noreply, socket}
   end
@@ -1334,12 +1322,8 @@ defmodule SoundForgeWeb.DashboardLive do
   # Handle lalal.ai modal key test result
   @impl true
   # Handle lalal.ai connection test result (system/resolved key)
-  @impl true
   # Handle Task.Supervisor task failures (e.g., if spotdl process crashes)
-  @impl true
-  @impl true
   # Track-level pipeline progress (from workers)
-  @impl true
   def handle_info({:pipeline_progress, %{track_id: track_id, stage: stage} = payload}, socket) do
     pipelines = socket.assigns.pipelines
     pipeline = Map.get(pipelines, track_id, %{})
@@ -1416,7 +1400,6 @@ defmodule SoundForgeWeb.DashboardLive do
 
   @impl true
   # Notification forwarding to bell component
-  @impl true
   def handle_info({:new_notification, _notification}, socket) do
     send_update(SoundForgeWeb.Live.Components.NotificationBell,
       id: "notification-bell",
@@ -1564,16 +1547,8 @@ defmodule SoundForgeWeb.DashboardLive do
   # {10:, 17:} diffs at MIDI clock rate (~2 Hz). last_bpm_ms is only reset when
   # we actually update midi_bpm, effectively rate-limiting to 0.2 Hz.
 
-
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
   # Raw MIDI events from Dispatcher (when monitor is listening, Story v4.7.0)
-  @impl true
   # Global MIDI bar control messages
-  @impl true
   # GlobalBroadcaster events (on pages other than dashboard)
 
   @impl true
