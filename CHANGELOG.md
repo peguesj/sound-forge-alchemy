@@ -11,6 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.2.0] - 2026-04-05
+
+### Added
+- DAW track status badges — visual pipeline state indicators (Spotify, Downloaded, Processed, Analyzed, File Missing) on the DAW header bar
+- DAW contextual pipeline actions — smart action buttons appear based on track state: Download Track, Separate Stems, Analyze Track; hidden when track is fully processed
+- `Music.get_download_path_validated/1` — validates audio file existence and header before exposing download-dependent actions; surfaces "File Missing" amber badge for orphaned job records
+- `TrackHelpers` shared module (US-C01) — deduplicated `list_user_tracks/1` across DashboardLive and dependent components; single source of truth for user track queries
+- `ControlSurface.Supervisor` DynamicSupervisor (US-C02) — supervised lifecycle for adapter processes; hot-start/stop of MIDI and OSC adapters at runtime
+- `ActionBus` tab-context routing (US-C03) — MIDI actions now routed to the active tab context (DJ, DAW, Library) rather than broadcast globally; eliminates cross-tab interference
+- `PlaybackBus` unified transport state (US-C04) — single GenServer owns play/pause/seek/BPM state shared across DJ, DAW, and Pads tabs; eliminates duplicated assigns
+
+### Refactored
+- `DashboardLive` decomposed from 4,048-line monolith into 3 injected domain modules (US-C05/Wave 3): `DashboardHandlers.Library`, `DashboardHandlers.DawHandlers`, `DashboardHandlers.MidiHandlers` — 206 handler clauses extracted, all injected via `defmacro __using__`
+
+### Fixed
+- File existence guard — DAW Separate Stems and Analyze Track buttons now disabled when audio file is missing from disk, preventing opaque job failures
+- UUID cast guard in `DawProjectLive` — replaced `Ecto.UUID.cast/1` with UUID format regex to prevent `Ecto.Query.CastError` on 16-byte non-UUID strings
+- `parse_tsi/2` guard — `load_default_preset` handler now converts integer user IDs to binary before TSI parsing
+- Restored 4 stripped PubSub broadcast handlers (`auto_cues_complete`, `chef_progress`, `chef_complete`, `chef_failed`) lost during Wave 3 extraction script
+- 22 test regressions from Wave 3 resolved across `DjTabUpdateTest`, `DashboardHandleInfoExtended2Test`, `PadsTabUpdateTest`, assertion text mismatches, and stub audio fixture gaps
+- Test suite: 4,384 tests, 0 failures
+
+---
+
 ## [5.1.0] - 2026-04-05
 
 ### Added

@@ -1,0 +1,257 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700" font-family="ui-monospace, 'SF Mono', monospace">
+  <rect width="1200" height="700" fill="#0f0f0f"/>
+
+  <text x="600" y="36" text-anchor="middle" fill="#a78bfa" font-size="18" font-weight="bold">DAW Tab — Stem Editor + Status Badges</text>
+  <text x="600" y="56" text-anchor="middle" fill="#6b7280" font-size="11">Sound Forge Alchemy v5.2.0 — US-DAW-001</text>
+
+  <!-- Frame dividers -->
+  <line x1="400" y1="70" x2="400" y2="680" stroke="#1f2937" stroke-width="1"/>
+  <line x1="800" y1="70" x2="800" y2="680" stroke="#1f2937" stroke-width="1"/>
+  <line x1="0" y1="380" x2="400" y2="380" stroke="#1f2937" stroke-width="1"/>
+  <line x1="400" y1="380" x2="800" y2="380" stroke="#1f2937" stroke-width="1"/>
+  <line x1="800" y1="380" x2="1200" y2="380" stroke="#1f2937" stroke-width="1"/>
+
+  <!-- === FRAME 1: Track Status Badges === -->
+  <text x="200" y="90" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">1. TRACK STATUS BADGES</text>
+  <rect x="20" y="100" width="360" height="260" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+
+  <!-- DAW header with badges -->
+  <rect x="35" y="115" width="330" height="50" rx="4" fill="#1f2937"/>
+  <text x="50" y="138" fill="#e5e7eb" font-size="11" font-weight="bold">Glass Animals — Heat Waves</text>
+  <!-- Badge row -->
+  <rect x="50" y="146" width="45" height="14" rx="3" fill="#1e3a5f"/>
+  <text x="72" y="157" text-anchor="middle" fill="#93c5fd" font-size="8" font-weight="bold">Spotify</text>
+  <rect x="100" y="146" width="62" height="14" rx="3" fill="#14532d"/>
+  <text x="131" y="157" text-anchor="middle" fill="#4ade80" font-size="8" font-weight="bold">Downloaded</text>
+  <rect x="167" y="146" width="58" height="14" rx="3" fill="#4c1d95"/>
+  <text x="196" y="157" text-anchor="middle" fill="#c4b5fd" font-size="8" font-weight="bold">Processed</text>
+  <rect x="230" y="146" width="50" height="14" rx="3" fill="#1c1917"/>
+  <text x="255" y="157" text-anchor="middle" fill="#a78bfa" font-size="8" font-weight="bold">Analyzed</text>
+
+  <!-- File Missing badge example -->
+  <rect x="35" y="178" width="330" height="40" rx="4" fill="#1c1917" stroke="#374151" stroke-width="1"/>
+  <text x="50" y="196" fill="#9ca3af" font-size="10">Unknown Artist — Orphaned Track</text>
+  <rect x="50" y="201" width="45" height="14" rx="3" fill="#1e3a5f"/>
+  <text x="72" y="212" text-anchor="middle" fill="#93c5fd" font-size="8" font-weight="bold">Spotify</text>
+  <rect x="100" y="201" width="72" height="14" rx="3" fill="#422006"/>
+  <text x="136" y="212" text-anchor="middle" fill="#fb923c" font-size="8" font-weight="bold">File Missing</text>
+
+  <!-- Badge legend -->
+  <text x="200" y="240" text-anchor="middle" fill="#6b7280" font-size="9" font-weight="bold">Badge States</text>
+  <rect x="50" y="248" width="45" height="12" rx="3" fill="#1e3a5f"/>
+  <text x="72" y="258" text-anchor="middle" fill="#93c5fd" font-size="7">Spotify</text>
+  <text x="100" y="258" fill="#6b7280" font-size="8">spotify_url present</text>
+  <rect x="50" y="265" width="62" height="12" rx="3" fill="#14532d"/>
+  <text x="81" y="275" text-anchor="middle" fill="#4ade80" font-size="7">Downloaded</text>
+  <text x="118" y="275" fill="#6b7280" font-size="8">job complete + file_ok</text>
+  <rect x="50" y="282" width="72" height="12" rx="3" fill="#422006"/>
+  <text x="86" y="292" text-anchor="middle" fill="#fb923c" font-size="7">File Missing</text>
+  <text x="128" y="292" fill="#6b7280" font-size="8">job complete, file absent</text>
+  <rect x="50" y="299" width="58" height="12" rx="3" fill="#4c1d95"/>
+  <text x="79" y="309" text-anchor="middle" fill="#c4b5fd" font-size="7">Processed</text>
+  <text x="114" y="309" fill="#6b7280" font-size="8">at least one stem</text>
+  <rect x="50" y="316" width="50" height="12" rx="3" fill="#1c1917"/>
+  <text x="75" y="326" text-anchor="middle" fill="#a78bfa" font-size="7">Analyzed</text>
+  <text x="106" y="326" fill="#6b7280" font-size="8">bpm field set</text>
+
+  <!-- === FRAME 2: Contextual Actions === -->
+  <text x="600" y="90" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">2. CONTEXTUAL PIPELINE ACTIONS</text>
+  <rect x="420" y="100" width="360" height="260" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+
+  <!-- State A: not downloaded -->
+  <text x="600" y="120" text-anchor="middle" fill="#9ca3af" font-size="9">State A: Spotify only, not downloaded</text>
+  <rect x="435" y="126" width="330" height="55" rx="4" fill="#1f2937"/>
+  <text x="450" y="145" fill="#e5e7eb" font-size="10">Drake — Passionfruit</text>
+  <rect x="450" y="148" width="45" height="14" rx="3" fill="#1e3a5f"/>
+  <text x="472" y="159" text-anchor="middle" fill="#93c5fd" font-size="8">Spotify</text>
+  <rect x="630" y="144" width="90" height="22" rx="4" fill="#2563eb"/>
+  <text x="675" y="159" text-anchor="middle" fill="white" font-size="8" font-weight="bold">Download Track</text>
+
+  <!-- State B: downloaded, no stems -->
+  <text x="600" y="200" text-anchor="middle" fill="#9ca3af" font-size="9">State B: downloaded, no stems yet</text>
+  <rect x="435" y="206" width="330" height="55" rx="4" fill="#1f2937"/>
+  <text x="450" y="225" fill="#e5e7eb" font-size="10">Tame Impala — Elephant</text>
+  <rect x="450" y="228" width="45" height="14" rx="3" fill="#1e3a5f"/>
+  <text x="472" y="239" text-anchor="middle" fill="#93c5fd" font-size="8">Spotify</text>
+  <rect x="500" y="228" width="62" height="14" rx="3" fill="#14532d"/>
+  <text x="531" y="239" text-anchor="middle" fill="#4ade80" font-size="8">Downloaded</text>
+  <rect x="560" y="224" width="90" height="22" rx="4" fill="#7c3aed"/>
+  <text x="605" y="239" text-anchor="middle" fill="white" font-size="8" font-weight="bold">Separate Stems</text>
+  <rect x="658" y="224" width="82" height="22" rx="4" fill="#0f766e"/>
+  <text x="699" y="239" text-anchor="middle" fill="white" font-size="8" font-weight="bold">Analyze Track</text>
+
+  <!-- State C: fully processed -->
+  <text x="600" y="280" text-anchor="middle" fill="#9ca3af" font-size="9">State C: fully processed — no action buttons</text>
+  <rect x="435" y="286" width="330" height="55" rx="4" fill="#1f2937"/>
+  <text x="450" y="305" fill="#e5e7eb" font-size="10">Dua Lipa — Levitating</text>
+  <rect x="450" y="308" width="45" height="14" rx="3" fill="#1e3a5f"/>
+  <text x="472" y="319" text-anchor="middle" fill="#93c5fd" font-size="8">Spotify</text>
+  <rect x="500" y="308" width="62" height="14" rx="3" fill="#14532d"/>
+  <text x="531" y="319" text-anchor="middle" fill="#4ade80" font-size="8">Downloaded</text>
+  <rect x="567" y="308" width="58" height="14" rx="3" fill="#4c1d95"/>
+  <text x="596" y="319" text-anchor="middle" fill="#c4b5fd" font-size="8">Processed</text>
+  <rect x="630" y="308" width="50" height="14" rx="3" fill="#1c1917"/>
+  <text x="655" y="319" text-anchor="middle" fill="#a78bfa" font-size="8">Analyzed</text>
+  <text x="720" y="332" fill="#4b5563" font-size="9" text-anchor="middle">——</text>
+
+  <!-- === FRAME 3: Stem Mixer === -->
+  <text x="1000" y="90" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">3. STEM TRACK MIXER</text>
+  <rect x="820" y="100" width="360" height="260" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+
+  <!-- Stem tracks -->
+  <g>
+    <!-- Vocals -->
+    <rect x="835" y="115" width="330" height="38" rx="3" fill="#1f2937"/>
+    <rect x="835" y="115" width="4" height="38" rx="2" fill="#ec4899"/>
+    <text x="848" y="132" fill="#f9a8d4" font-size="10">Vocals</text>
+    <text x="848" y="147" fill="#6b7280" font-size="9">vocals_stem.wav  •  44.1kHz</text>
+    <!-- Controls -->
+    <circle cx="1090" cy="128" r="10" fill="#374151" stroke="#4b5563" stroke-width="1"/>
+    <text x="1090" y="132" text-anchor="middle" fill="#d1d5db" font-size="8">M</text>
+    <circle cx="1112" cy="128" r="10" fill="#374151" stroke="#4b5563" stroke-width="1"/>
+    <text x="1112" y="132" text-anchor="middle" fill="#d1d5db" font-size="8">S</text>
+    <rect x="1130" y="120" width="5" height="16" rx="2" fill="#6b7280"/>
+    <rect x="1130" y="126" width="5" height="10" rx="2" fill="#ec4899"/>
+    <!-- Waveform mini -->
+    <g fill="#ec4899" opacity="0.5">
+      <rect x="960" y="120" width="2" height="22"/>
+      <rect x="964" y="118" width="2" height="26"/>
+      <rect x="968" y="122" width="2" height="18"/>
+      <rect x="972" y="116" width="2" height="30"/>
+      <rect x="976" y="120" width="2" height="22"/>
+      <rect x="980" y="124" width="2" height="14"/>
+      <rect x="984" y="119" width="2" height="24"/>
+      <rect x="988" y="121" width="2" height="20"/>
+    </g>
+
+    <!-- Drums -->
+    <rect x="835" y="158" width="330" height="38" rx="3" fill="#1f2937"/>
+    <rect x="835" y="158" width="4" height="38" rx="2" fill="#f59e0b"/>
+    <text x="848" y="175" fill="#fde68a" font-size="10">Drums</text>
+    <text x="848" y="190" fill="#6b7280" font-size="9">drums_stem.wav  •  44.1kHz</text>
+    <circle cx="1090" cy="171" r="10" fill="#374151" stroke="#4b5563" stroke-width="1"/>
+    <text x="1090" y="175" text-anchor="middle" fill="#d1d5db" font-size="8">M</text>
+    <circle cx="1112" cy="171" r="10" fill="#374151" stroke="#4b5563" stroke-width="1"/>
+    <text x="1112" y="175" text-anchor="middle" fill="#d1d5db" font-size="8">S</text>
+    <rect x="1130" y="163" width="5" height="16" rx="2" fill="#6b7280"/>
+    <rect x="1130" y="169" width="5" height="10" rx="2" fill="#f59e0b"/>
+    <g fill="#f59e0b" opacity="0.5">
+      <rect x="960" y="163" width="2" height="22"/>
+      <rect x="964" y="160" width="2" height="28"/>
+      <rect x="968" y="165" width="2" height="18"/>
+      <rect x="972" y="159" width="2" height="30"/>
+      <rect x="976" y="163" width="2" height="22"/>
+      <rect x="980" y="167" width="2" height="14"/>
+      <rect x="984" y="162" width="2" height="24"/>
+      <rect x="988" y="164" width="2" height="20"/>
+    </g>
+
+    <!-- Bass -->
+    <rect x="835" y="201" width="330" height="38" rx="3" fill="#1f2937"/>
+    <rect x="835" y="201" width="4" height="38" rx="2" fill="#22d3ee"/>
+    <text x="848" y="218" fill="#a5f3fc" font-size="10">Bass</text>
+    <text x="848" y="233" fill="#6b7280" font-size="9">bass_stem.wav  •  44.1kHz</text>
+    <circle cx="1090" cy="214" r="10" fill="#374151" stroke="#4b5563" stroke-width="1"/>
+    <text x="1090" y="218" text-anchor="middle" fill="#d1d5db" font-size="8">M</text>
+    <circle cx="1112" cy="214" r="10" fill="#059669" stroke="#059669" stroke-width="1"/>
+    <text x="1112" y="218" text-anchor="middle" fill="white" font-size="8">S</text>
+    <rect x="1130" y="206" width="5" height="16" rx="2" fill="#6b7280"/>
+    <rect x="1130" y="212" width="5" height="10" rx="2" fill="#22d3ee"/>
+
+    <!-- Other -->
+    <rect x="835" y="244" width="330" height="38" rx="3" fill="#1f2937"/>
+    <rect x="835" y="244" width="4" height="38" rx="2" fill="#a78bfa"/>
+    <text x="848" y="261" fill="#c4b5fd" font-size="10">Other</text>
+    <text x="848" y="276" fill="#6b7280" font-size="9">other_stem.wav  •  44.1kHz</text>
+    <circle cx="1090" cy="257" r="10" fill="#374151" stroke="#4b5563" stroke-width="1"/>
+    <text x="1090" y="261" text-anchor="middle" fill="#d1d5db" font-size="8">M</text>
+    <circle cx="1112" cy="257" r="10" fill="#374151" stroke="#4b5563" stroke-width="1"/>
+    <text x="1112" y="261" text-anchor="middle" fill="#d1d5db" font-size="8">S</text>
+  </g>
+  <text x="1000" y="310" text-anchor="middle" fill="#6b7280" font-size="9">htdemucs 4-stem or lalal.ai 9-stem</text>
+  <text x="1000" y="325" text-anchor="middle" fill="#6b7280" font-size="9">M = mute, S = solo, fader = per-stem volume</text>
+
+  <!-- === FRAME 4: Empty State === -->
+  <text x="200" y="400" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">4. EMPTY STATE</text>
+  <rect x="20" y="410" width="360" height="250" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <rect x="35" y="425" width="330" height="220" rx="4" fill="#0f172a"/>
+  <text x="200" y="510" text-anchor="middle" fill="#374151" font-size="40">&#9835;</text>
+  <text x="200" y="550" text-anchor="middle" fill="#6b7280" font-size="13">Select a track below</text>
+  <text x="200" y="568" text-anchor="middle" fill="#6b7280" font-size="13">to start editing stems</text>
+  <text x="200" y="595" text-anchor="middle" fill="#374151" font-size="9">Scrollable track library renders below the DAW panel</text>
+  <text x="200" y="610" text-anchor="middle" fill="#374151" font-size="9">URL param: /?tab=daw&amp;track_id=&lt;uuid&gt;</text>
+
+  <!-- === FRAME 5: DAW Projects === -->
+  <text x="600" y="400" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">5. DAW PROJECT MANAGEMENT</text>
+  <rect x="420" y="410" width="360" height="250" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <!-- Project selector -->
+  <rect x="435" y="425" width="250" height="28" rx="4" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="450" y="443" fill="#d1d5db" font-size="10">My Summer Mix 2026</text>
+  <path d="M 670 435 L 680 439 L 670 443 Z" fill="#6b7280"/>
+  <rect x="692" y="425" width="70" height="28" rx="4" fill="#7c3aed"/>
+  <text x="727" y="443" text-anchor="middle" fill="white" font-size="9">+ Project</text>
+
+  <!-- Track list in project -->
+  <rect x="435" y="460" width="330" height="22" rx="3" fill="#1e3a5f"/>
+  <text x="448" y="475" fill="#93c5fd" font-size="9">01 — Dua Lipa — Levitating</text>
+  <rect x="435" y="486" width="330" height="22" rx="3" fill="#111827"/>
+  <text x="448" y="501" fill="#d1d5db" font-size="9">02 — Glass Animals — Heat Waves</text>
+  <rect x="435" y="508" width="330" height="22" rx="3" fill="#111827"/>
+  <text x="448" y="523" fill="#d1d5db" font-size="9">03 — Tame Impala — Elephant</text>
+  <text x="448" y="545" fill="#374151" font-size="9">Drag to reorder • Right-click to remove</text>
+
+  <!-- Export button -->
+  <rect x="435" y="558" width="120" height="26" rx="4" fill="#0f766e"/>
+  <text x="495" y="574" text-anchor="middle" fill="white" font-size="9" font-weight="bold">Export Project</text>
+  <rect x="565" y="558" width="80" height="26" rx="4" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="605" y="574" text-anchor="middle" fill="#d1d5db" font-size="9">Rename</text>
+  <rect x="655" y="558" width="70" height="26" rx="4" fill="#7f1d1d"/>
+  <text x="690" y="574" text-anchor="middle" fill="#fca5a5" font-size="9">Delete</text>
+  <text x="600" y="620" text-anchor="middle" fill="#6b7280" font-size="9">Projects scoped per user — DAW.get_or_create_project</text>
+  <text x="600" y="634" text-anchor="middle" fill="#6b7280" font-size="9">UUID validated before DB lookup</text>
+
+  <!-- === FRAME 6: File Validation Flow === -->
+  <text x="1000" y="400" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">6. FILE VALIDATION FLOW</text>
+  <rect x="820" y="410" width="360" height="250" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+
+  <!-- Flow diagram -->
+  <rect x="875" y="425" width="250" height="25" rx="4" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+  <text x="1000" y="441" text-anchor="middle" fill="#d1d5db" font-size="9">Music.get_download_path_validated(track_id)</text>
+
+  <line x1="1000" y1="450" x2="1000" y2="465" stroke="#4b5563" stroke-width="1.5"/>
+  <rect x="875" y="465" width="250" height="25" rx="4" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+  <text x="1000" y="481" text-anchor="middle" fill="#d1d5db" font-size="9">Storage.validate_download_path(path)</text>
+
+  <line x1="1000" y1="490" x2="1000" y2="505" stroke="#4b5563" stroke-width="1.5"/>
+  <!-- Decision diamond -->
+  <polygon points="1000,505 1050,525 1000,545 950,525" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="1000" y="529" text-anchor="middle" fill="#9ca3af" font-size="8">File exists?</text>
+
+  <!-- Yes path -->
+  <line x1="950" y1="525" x2="900" y2="525" stroke="#4b5563" stroke-width="1.5"/>
+  <rect x="840" y="512" width="60" height="26" rx="4" fill="#14532d"/>
+  <text x="870" y="529" text-anchor="middle" fill="#4ade80" font-size="8" font-weight="bold">file_ok</text>
+  <text x="870" y="543" text-anchor="middle" fill="#4ade80" font-size="7">= true</text>
+
+  <!-- No path -->
+  <line x1="1050" y1="525" x2="1100" y2="525" stroke="#4b5563" stroke-width="1.5"/>
+  <rect x="1100" y="512" width="65" height="26" rx="4" fill="#7f1d1d"/>
+  <text x="1132" y="529" text-anchor="middle" fill="#fca5a5" font-size="8" font-weight="bold">file_ok</text>
+  <text x="1132" y="543" text-anchor="middle" fill="#fca5a5" font-size="7">= false</text>
+
+  <!-- Header check -->
+  <line x1="870" y1="538" x2="870" y2="558" stroke="#4b5563" stroke-width="1.5"/>
+  <rect x="840" y="558" width="60" height="26" rx="4" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+  <text x="870" y="572" text-anchor="middle" fill="#9ca3af" font-size="8">Header?</text>
+  <text x="870" y="583" text-anchor="middle" fill="#6b7280" font-size="7">ID3/MP3/WAV</text>
+  <text x="870" y="595" text-anchor="middle" fill="#6b7280" font-size="7">FLAC/OGG</text>
+
+  <!-- File Missing outcome -->
+  <line x1="1132" y1="538" x2="1132" y2="558" stroke="#4b5563" stroke-width="1.5"/>
+  <rect x="1090" y="558" width="80" height="26" rx="4" fill="#422006"/>
+  <text x="1130" y="572" text-anchor="middle" fill="#fb923c" font-size="8">File Missing</text>
+  <text x="1130" y="583" text-anchor="middle" fill="#fb923c" font-size="7">badge shown</text>
+
+  <text x="1000" y="630" text-anchor="middle" fill="#6b7280" font-size="9">validate_audio_header checks magic bytes</text>
+  <text x="1000" y="644" text-anchor="middle" fill="#6b7280" font-size="9">min_audio_size: 1024 bytes enforced</text>
+</svg>

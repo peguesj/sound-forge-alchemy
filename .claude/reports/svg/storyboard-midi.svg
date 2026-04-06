@@ -1,0 +1,255 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700" font-family="ui-monospace, 'SF Mono', monospace">
+  <rect width="1200" height="700" fill="#0f0f0f"/>
+
+  <text x="600" y="36" text-anchor="middle" fill="#a78bfa" font-size="18" font-weight="bold">MIDI Control Surface Abstraction Layer</text>
+  <text x="600" y="56" text-anchor="middle" fill="#6b7280" font-size="11">US-012 + US-C02/C03 — ControlSurface, ActionBus, Supervisor</text>
+
+  <!-- Two-tier architecture diagram -->
+  <text x="600" y="85" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">Architecture: Physical Layer → Translation → Domain Actions</text>
+
+  <!-- Tier 1: Physical Devices -->
+  <rect x="40" y="95" width="200" height="100" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <text x="140" y="115" text-anchor="middle" fill="#9ca3af" font-size="9" font-weight="bold">PHYSICAL DEVICES</text>
+  <text x="140" y="135" text-anchor="middle" fill="#6b7280" font-size="9">Akai MPC Live II</text>
+  <text x="140" y="150" text-anchor="middle" fill="#6b7280" font-size="9">Pioneer DDJ-400</text>
+  <text x="140" y="165" text-anchor="middle" fill="#6b7280" font-size="9">MVAVE Chocolate</text>
+  <text x="140" y="180" text-anchor="middle" fill="#6b7280" font-size="9">TouchOSC (network)</text>
+
+  <!-- Tier 2: Adapters -->
+  <rect x="280" y="95" width="200" height="100" rx="6" fill="#111827" stroke="#7c3aed" stroke-width="2"/>
+  <text x="380" y="115" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="bold">CONTROL SURFACE</text>
+  <text x="380" y="132" text-anchor="middle" fill="#c4b5fd" font-size="9">MidiAdapter</text>
+  <text x="380" y="148" text-anchor="middle" fill="#c4b5fd" font-size="9">OscAdapter</text>
+  <text x="380" y="164" text-anchor="middle" fill="#6b7280" font-size="9">Behaviour (protocol)</text>
+  <text x="380" y="180" text-anchor="middle" fill="#6b7280" font-size="9">ProfileLoader (XML/TSI/JSON)</text>
+
+  <!-- Tier 3: Translation -->
+  <rect x="520" y="95" width="200" height="100" rx="6" fill="#111827" stroke="#2563eb" stroke-width="2"/>
+  <text x="620" y="115" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="bold">TRANSLATION</text>
+  <text x="620" y="132" text-anchor="middle" fill="#93c5fd" font-size="9">ActionTranslator</text>
+  <text x="620" y="148" text-anchor="middle" fill="#6b7280" font-size="9">Serato dictionary</text>
+  <text x="620" y="164" text-anchor="middle" fill="#6b7280" font-size="9">Traktor dictionary</text>
+  <text x="620" y="180" text-anchor="middle" fill="#6b7280" font-size="9">Generic CC → action</text>
+
+  <!-- Tier 4: ActionBus -->
+  <rect x="760" y="95" width="200" height="100" rx="6" fill="#111827" stroke="#059669" stroke-width="2"/>
+  <text x="860" y="115" text-anchor="middle" fill="#4ade80" font-size="9" font-weight="bold">ACTION BUS (US-C03)</text>
+  <text x="860" y="132" text-anchor="middle" fill="#4ade80" font-size="9">Tab-context routing</text>
+  <text x="860" y="148" text-anchor="middle" fill="#6b7280" font-size="9">midi:actions:dj</text>
+  <text x="860" y="164" text-anchor="middle" fill="#6b7280" font-size="9">midi:actions:daw</text>
+  <text x="860" y="180" text-anchor="middle" fill="#6b7280" font-size="9">midi:actions:library</text>
+
+  <!-- Tier 5: Domain Handlers -->
+  <rect x="1000" y="95" width="170" height="100" rx="6" fill="#111827" stroke="#f59e0b" stroke-width="2"/>
+  <text x="1085" y="115" text-anchor="middle" fill="#fde68a" font-size="9" font-weight="bold">DOMAIN HANDLERS</text>
+  <text x="1085" y="132" text-anchor="middle" fill="#fde68a" font-size="9">DashboardHandlers</text>
+  <text x="1085" y="148" text-anchor="middle" fill="#fde68a" font-size="9">  .MidiHandlers</text>
+  <text x="1085" y="164" text-anchor="middle" fill="#6b7280" font-size="9">67 handler clauses</text>
+  <text x="1085" y="180" text-anchor="middle" fill="#6b7280" font-size="9">injected via macro</text>
+
+  <!-- Connection arrows -->
+  <path d="M 240 145 L 280 145" stroke="#4b5563" stroke-width="2"/>
+  <polygon points="278,140 288,145 278,150" fill="#4b5563"/>
+  <path d="M 480 145 L 520 145" stroke="#4b5563" stroke-width="2"/>
+  <polygon points="518,140 528,145 518,150" fill="#4b5563"/>
+  <path d="M 720 145 L 760 145" stroke="#4b5563" stroke-width="2"/>
+  <polygon points="758,140 768,145 758,150" fill="#4b5563"/>
+  <path d="M 960 145 L 1000 145" stroke="#4b5563" stroke-width="2"/>
+  <polygon points="998,140 1008,145 998,150" fill="#4b5563"/>
+
+  <!-- Frame divider -->
+  <line x1="0" y1="220" x2="1200" y2="220" stroke="#1f2937" stroke-width="1"/>
+  <line x1="400" y1="220" x2="400" y2="680" stroke="#1f2937" stroke-width="1"/>
+  <line x1="800" y1="220" x2="800" y2="680" stroke="#1f2937" stroke-width="1"/>
+  <line x1="0" y1="450" x2="400" y2="450" stroke="#1f2937" stroke-width="1"/>
+  <line x1="400" y1="450" x2="800" y2="450" stroke="#1f2937" stroke-width="1"/>
+  <line x1="800" y1="450" x2="1200" y2="450" stroke="#1f2937" stroke-width="1"/>
+
+  <!-- === FRAME 1: Device Detection === -->
+  <text x="200" y="240" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">1. AUTO-DETECT</text>
+  <rect x="20" y="250" width="360" height="185" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <rect x="35" y="265" width="330" height="30" rx="4" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+  <text x="200" y="284" text-anchor="middle" fill="#10b981" font-size="9" font-weight="bold">USB MIDI device connected</text>
+  <!-- Fingerprint check -->
+  <text x="200" y="316" text-anchor="middle" fill="#6b7280" font-size="9">ControllerFingerprints.lookup_by_fingerprint/1</text>
+  <rect x="50" y="325" width="280" height="45" rx="4" fill="#1f2937"/>
+  <text x="70" y="342" fill="#9ca3af" font-size="9">manufacturer_id: "Akai"</text>
+  <text x="70" y="358" fill="#9ca3af" font-size="9">product_id: "MPC Live II" → matched</text>
+  <!-- Result -->
+  <rect x="35" y="380" width="330" height="40" rx="4" fill="#1e3a5f"/>
+  <text x="200" y="397" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="bold">DeviceProfile loaded: "MPC Default - DJ"</text>
+  <text x="200" y="412" text-anchor="middle" fill="#6b7280" font-size="8">preset_name: "mpc-dj" • tab_context: :dj</text>
+
+  <!-- === FRAME 2: Mapping UI === -->
+  <text x="600" y="240" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">2. MIDI MAPPING UI</text>
+  <rect x="420" y="250" width="360" height="185" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <!-- Mapping table -->
+  <rect x="435" y="265" width="330" height="18" rx="2" fill="#1f2937"/>
+  <text x="450" y="277" fill="#6b7280" font-size="8">CC / Note</text>
+  <text x="550" y="277" fill="#6b7280" font-size="8">Channel</text>
+  <text x="620" y="277" fill="#6b7280" font-size="8">Tab Context</text>
+  <text x="710" y="277" fill="#6b7280" font-size="8">Action</text>
+
+  <rect x="435" y="285" width="330" height="18" rx="2" fill="#1e3a5f"/>
+  <text x="450" y="297" fill="#93c5fd" font-size="8">CC 7</text>
+  <text x="550" y="297" fill="#93c5fd" font-size="8">1</text>
+  <text x="620" y="297" fill="#93c5fd" font-size="8">:dj</text>
+  <text x="710" y="297" fill="#93c5fd" font-size="8">deck_a_volume</text>
+
+  <rect x="435" y="305" width="330" height="18" rx="2" fill="#111827"/>
+  <text x="450" y="317" fill="#d1d5db" font-size="8">CC 8</text>
+  <text x="550" y="317" fill="#d1d5db" font-size="8">1</text>
+  <text x="620" y="317" fill="#d1d5db" font-size="8">:dj</text>
+  <text x="710" y="317" fill="#d1d5db" font-size="8">deck_b_volume</text>
+
+  <rect x="435" y="323" width="330" height="18" rx="2" fill="#111827"/>
+  <text x="450" y="335" fill="#d1d5db" font-size="8">Note 60</text>
+  <text x="550" y="335" fill="#d1d5db" font-size="8">1</text>
+  <text x="620" y="335" fill="#d1d5db" font-size="8">:dj</text>
+  <text x="710" y="335" fill="#d1d5db" font-size="8">hot_cue_1_set</text>
+
+  <rect x="435" y="341" width="330" height="18" rx="2" fill="#111827"/>
+  <text x="450" y="353" fill="#d1d5db" font-size="8">CC 64</text>
+  <text x="550" y="353" fill="#d1d5db" font-size="8">1</text>
+  <text x="620" y="353" fill="#d1d5db" font-size="8">:daw</text>
+  <text x="710" y="353" fill="#d1d5db" font-size="8">stem_solo_vocals</text>
+
+  <!-- MIDI Learn mode button -->
+  <rect x="435" y="368" width="140" height="22" rx="4" fill="#7c3aed"/>
+  <text x="505" y="383" text-anchor="middle" fill="white" font-size="9" font-weight="bold">MIDI Learn Mode</text>
+  <rect x="583" y="368" width="120" height="22" rx="4" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="643" y="383" text-anchor="middle" fill="#d1d5db" font-size="9">Import Preset</text>
+  <text x="600" y="415" text-anchor="middle" fill="#6b7280" font-size="8">Yellow rings highlight learnable controls</text>
+
+  <!-- === FRAME 3: ControlSurface.Supervisor === -->
+  <text x="1000" y="240" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">3. CS SUPERVISOR (US-C02)</text>
+  <rect x="820" y="250" width="360" height="185" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <!-- Supervision tree -->
+  <rect x="900" y="265" width="160" height="22" rx="4" fill="#4c1d95"/>
+  <text x="980" y="280" text-anchor="middle" fill="#c4b5fd" font-size="9">ControlSurface.Supervisor</text>
+  <text x="980" y="295" text-anchor="middle" fill="#6b7280" font-size="8">DynamicSupervisor</text>
+
+  <line x1="925" y1="302" x2="890" y2="322" stroke="#4b5563" stroke-width="1"/>
+  <line x1="980" y1="302" x2="980" y2="322" stroke="#4b5563" stroke-width="1"/>
+  <line x1="1035" y1="302" x2="1080" y2="322" stroke="#4b5563" stroke-width="1"/>
+
+  <rect x="840" y="322" width="100" height="35" rx="3" fill="#1f2937" stroke="#7c3aed" stroke-width="1"/>
+  <text x="890" y="337" text-anchor="middle" fill="#c4b5fd" font-size="8">MidiAdapter</text>
+  <text x="890" y="350" text-anchor="middle" fill="#6b7280" font-size="7">USB MIDI</text>
+
+  <rect x="930" y="322" width="100" height="35" rx="3" fill="#1f2937" stroke="#7c3aed" stroke-width="1"/>
+  <text x="980" y="337" text-anchor="middle" fill="#c4b5fd" font-size="8">OscAdapter</text>
+  <text x="980" y="350" text-anchor="middle" fill="#6b7280" font-size="7">Network OSC</text>
+
+  <rect x="1050" y="322" width="100" height="35" rx="3" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+  <text x="1100" y="337" text-anchor="middle" fill="#9ca3af" font-size="8">+ future</text>
+  <text x="1100" y="350" text-anchor="middle" fill="#6b7280" font-size="7">hot-start</text>
+
+  <!-- Hot start/stop -->
+  <rect x="840" y="370" width="100" height="22" rx="3" fill="#059669"/>
+  <text x="890" y="384" text-anchor="middle" fill="white" font-size="8">Start Adapter</text>
+  <rect x="950" y="370" width="100" height="22" rx="3" fill="#7f1d1d"/>
+  <text x="1000" y="384" text-anchor="middle" fill="#fca5a5" font-size="8">Stop Adapter</text>
+  <text x="1000" y="415" text-anchor="middle" fill="#6b7280" font-size="8">No restart required; adapters isolated</text>
+  <text x="1000" y="428" text-anchor="middle" fill="#6b7280" font-size="8">Behaviour contract enforced at compile time</text>
+
+  <!-- === FRAME 4: Profile Import === -->
+  <text x="200" y="470" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">4. PROFILE IMPORT</text>
+  <rect x="20" y="480" width="360" height="185" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <text x="200" y="502" text-anchor="middle" fill="#9ca3af" font-size="9">ProfileLoader supports 3 formats</text>
+  <!-- Format cards -->
+  <rect x="35" y="510" width="100" height="55" rx="4" fill="#1f2937" stroke="#f59e0b" stroke-width="1"/>
+  <text x="85" y="530" text-anchor="middle" fill="#fde68a" font-size="9" font-weight="bold">Serato DJ</text>
+  <text x="85" y="545" text-anchor="middle" fill="#6b7280" font-size="8">XML format</text>
+  <text x="85" y="558" text-anchor="middle" fill="#6b7280" font-size="8">.serato-crate</text>
+
+  <rect x="150" y="510" width="100" height="55" rx="4" fill="#1f2937" stroke="#3b82f6" stroke-width="1"/>
+  <text x="200" y="530" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="bold">Traktor</text>
+  <text x="200" y="545" text-anchor="middle" fill="#6b7280" font-size="8">TSI format</text>
+  <text x="200" y="558" text-anchor="middle" fill="#6b7280" font-size="8">Controller XML</text>
+
+  <rect x="265" y="510" width="100" height="55" rx="4" fill="#1f2937" stroke="#22d3ee" stroke-width="1"/>
+  <text x="315" y="530" text-anchor="middle" fill="#a5f3fc" font-size="9" font-weight="bold">TouchOSC</text>
+  <text x="315" y="545" text-anchor="middle" fill="#6b7280" font-size="8">JSON layout</text>
+  <text x="315" y="558" text-anchor="middle" fill="#6b7280" font-size="8">Network MIDI</text>
+
+  <rect x="35" y="575" width="330" height="22" rx="4" fill="#1f2937"/>
+  <text x="200" y="590" text-anchor="middle" fill="#6b7280" font-size="9">Mapping stored in midi_mappings table (Ecto)</text>
+  <rect x="35" y="603" width="330" height="22" rx="4" fill="#1f2937"/>
+  <text x="200" y="618" text-anchor="middle" fill="#6b7280" font-size="9">tab_context + preset_name fields guide routing</text>
+  <text x="200" y="645" text-anchor="middle" fill="#374151" font-size="8">scorin.tsi default profile seeded on first boot</text>
+
+  <!-- === FRAME 5: MIDI Monitor === -->
+  <text x="600" y="470" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">5. MIDI MONITOR OVERLAY</text>
+  <rect x="420" y="480" width="360" height="185" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <rect x="435" y="495" width="330" height="22" rx="3" fill="#1f2937"/>
+  <text x="450" y="509" fill="#6b7280" font-size="8">Channel</text>
+  <text x="530" y="509" fill="#6b7280" font-size="8">Type</text>
+  <text x="600" y="509" fill="#6b7280" font-size="8">Note/CC</text>
+  <text x="680" y="509" fill="#6b7280" font-size="8">Value</text>
+  <text x="730" y="509" fill="#6b7280" font-size="8">Time</text>
+
+  <!-- Live messages -->
+  <rect x="435" y="519" width="330" height="16" rx="2" fill="#0f172a"/>
+  <text x="450" y="531" fill="#4ade80" font-size="8">Ch 1</text>
+  <text x="530" y="531" fill="#4ade80" font-size="8">note_on</text>
+  <text x="600" y="531" fill="#4ade80" font-size="8">60</text>
+  <text x="680" y="531" fill="#4ade80" font-size="8">127</text>
+  <text x="730" y="531" fill="#6b7280" font-size="8">00:00.123</text>
+
+  <rect x="435" y="537" width="330" height="16" rx="2" fill="#0f172a"/>
+  <text x="450" y="549" fill="#d1d5db" font-size="8">Ch 1</text>
+  <text x="530" y="549" fill="#d1d5db" font-size="8">cc</text>
+  <text x="600" y="549" fill="#d1d5db" font-size="8">7</text>
+  <text x="680" y="549" fill="#d1d5db" font-size="8">98</text>
+  <text x="730" y="549" fill="#6b7280" font-size="8">00:00.245</text>
+
+  <rect x="435" y="555" width="330" height="16" rx="2" fill="#0f172a"/>
+  <text x="450" y="567" fill="#f59e0b" font-size="8">Ch 1</text>
+  <text x="530" y="567" fill="#f59e0b" font-size="8">cc</text>
+  <text x="600" y="567" fill="#f59e0b" font-size="8">64</text>
+  <text x="680" y="567" fill="#f59e0b" font-size="8">127</text>
+  <text x="730" y="567" fill="#6b7280" font-size="8">00:00.401</text>
+
+  <!-- Filter bar -->
+  <rect x="435" y="580" width="200" height="20" rx="3" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="445" y="594" fill="#6b7280" font-size="8">Filter: all channels</text>
+  <rect x="645" y="580" width="120" height="20" rx="3" fill="#7c3aed"/>
+  <text x="705" y="594" text-anchor="middle" fill="white" font-size="8">Clear Log</text>
+
+  <text x="600" y="625" text-anchor="middle" fill="#6b7280" font-size="9">Global overlay — floating panel; shown via shortcut</text>
+  <text x="600" y="640" text-anchor="middle" fill="#6b7280" font-size="9">PubSub midi_monitor topic; ring buffer 200 msgs</text>
+
+  <!-- === FRAME 6: ActionBus Routing === -->
+  <text x="1000" y="470" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">6. ACTION BUS ROUTING (US-C03)</text>
+  <rect x="820" y="480" width="360" height="185" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+
+  <!-- Routing diagram -->
+  <text x="1000" y="502" text-anchor="middle" fill="#6b7280" font-size="9">MIDI CC arrives → ActionBus topic resolves</text>
+
+  <rect x="880" y="510" width="240" height="22" rx="4" fill="#4c1d95"/>
+  <text x="1000" y="525" text-anchor="middle" fill="#c4b5fd" font-size="9">ActionBus.broadcast(action, context: nav_tab)</text>
+
+  <!-- Branch lines -->
+  <line x1="900" y1="532" x2="860" y2="552" stroke="#4b5563" stroke-width="1.5"/>
+  <line x1="1000" y1="532" x2="1000" y2="552" stroke="#4b5563" stroke-width="1.5"/>
+  <line x1="1100" y1="532" x2="1140" y2="552" stroke="#4b5563" stroke-width="1.5"/>
+
+  <rect x="835" y="552" width="70" height="35" rx="3" fill="#1e3a5f"/>
+  <text x="870" y="567" text-anchor="middle" fill="#93c5fd" font-size="8">:dj topic</text>
+  <text x="870" y="580" text-anchor="middle" fill="#6b7280" font-size="7">DjTabComponent</text>
+
+  <rect x="955" y="552" width="90" height="35" rx="3" fill="#1c1917"/>
+  <text x="1000" y="567" text-anchor="middle" fill="#a78bfa" font-size="8">:daw topic</text>
+  <text x="1000" y="580" text-anchor="middle" fill="#6b7280" font-size="7">DawTabComponent</text>
+
+  <rect x="1105" y="552" width="80" height="35" rx="3" fill="#1c1917"/>
+  <text x="1145" y="567" text-anchor="middle" fill="#9ca3af" font-size="8">:library</text>
+  <text x="1145" y="580" text-anchor="middle" fill="#6b7280" font-size="7">LibraryPanel</text>
+
+  <!-- Benefit callout -->
+  <rect x="835" y="598" width="330" height="40" rx="4" fill="#0f2e1a" stroke="#059669" stroke-width="1"/>
+  <text x="1000" y="614" text-anchor="middle" fill="#4ade80" font-size="9" font-weight="bold">No cross-tab interference</text>
+  <text x="1000" y="629" text-anchor="middle" fill="#6b7280" font-size="8">DJ CUE pad doesn't accidentally trigger DAW solo</text>
+  <text x="1000" y="655" text-anchor="middle" fill="#374151" font-size="8">Before: global PubSub broadcast hit all tabs simultaneously</text>
+</svg>

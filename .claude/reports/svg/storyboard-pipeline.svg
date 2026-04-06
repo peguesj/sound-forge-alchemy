@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700" font-family="ui-monospace, 'SF Mono', monospace">
+  <rect width="1200" height="700" fill="#0f0f0f"/>
+
+  <text x="600" y="36" text-anchor="middle" fill="#a78bfa" font-size="18" font-weight="bold">Stem Separation Pipeline</text>
+  <text x="600" y="56" text-anchor="middle" fill="#6b7280" font-size="11">Spotify → Download → Demucs/lalal.ai → Analyze → DAW</text>
+
+  <!-- Pipeline flow line -->
+  <line x1="100" y1="200" x2="1100" y2="200" stroke="#374151" stroke-width="2" stroke-dasharray="6,4"/>
+
+  <!-- Stage 1: Spotify Import -->
+  <rect x="40" y="120" width="160" height="160" rx="8" fill="#111827" stroke="#1e3a5f" stroke-width="2"/>
+  <circle cx="120" cy="165" r="25" fill="#1e3a5f"/>
+  <text x="120" y="170" text-anchor="middle" fill="#93c5fd" font-size="20" font-weight="bold">S</text>
+  <text x="120" y="205" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="bold">Spotify Import</text>
+  <text x="120" y="220" text-anchor="middle" fill="#6b7280" font-size="9">Paste URL</text>
+  <text x="120" y="234" text-anchor="middle" fill="#6b7280" font-size="9">Metadata fetch</text>
+  <text x="120" y="248" text-anchor="middle" fill="#6b7280" font-size="9">Track created in DB</text>
+  <!-- Connector dot -->
+  <circle cx="200" cy="200" r="6" fill="#3b82f6"/>
+
+  <!-- Arrow -->
+  <path d="M 206 200 L 228 200" stroke="#4b5563" stroke-width="2"/>
+  <polygon points="228,195 238,200 228,205" fill="#4b5563"/>
+
+  <!-- Stage 2: Download -->
+  <rect x="240" y="120" width="160" height="160" rx="8" fill="#111827" stroke="#1e4020" stroke-width="2"/>
+  <circle cx="320" cy="165" r="25" fill="#14532d"/>
+  <text x="320" y="172" text-anchor="middle" fill="#4ade80" font-size="22">&#8595;</text>
+  <text x="320" y="205" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="bold">SpotDL Download</text>
+  <text x="320" y="220" text-anchor="middle" fill="#6b7280" font-size="9">Oban DownloadWorker</text>
+  <text x="320" y="234" text-anchor="middle" fill="#6b7280" font-size="9">MP3/WAV to disk</text>
+  <text x="320" y="248" text-anchor="middle" fill="#6b7280" font-size="9">output_path stored</text>
+  <circle cx="400" cy="200" r="6" fill="#4ade80"/>
+
+  <path d="M 406 200 L 428 200" stroke="#4b5563" stroke-width="2"/>
+  <polygon points="428,195 438,200 428,205" fill="#4b5563"/>
+
+  <!-- Stage 3: Stem Separation -->
+  <rect x="440" y="120" width="160" height="160" rx="8" fill="#111827" stroke="#4c1d95" stroke-width="2"/>
+  <circle cx="520" cy="165" r="25" fill="#4c1d95"/>
+  <text x="520" y="172" text-anchor="middle" fill="#c4b5fd" font-size="20">&#9881;</text>
+  <text x="520" y="205" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="bold">Stem Separation</text>
+  <text x="520" y="220" text-anchor="middle" fill="#6b7280" font-size="9">Demucs (local)</text>
+  <text x="520" y="234" text-anchor="middle" fill="#6b7280" font-size="9">lalal.ai (cloud)</text>
+  <text x="520" y="248" text-anchor="middle" fill="#6b7280" font-size="9">4–9 stem types</text>
+  <circle cx="600" cy="200" r="6" fill="#c4b5fd"/>
+
+  <path d="M 606 200 L 628 200" stroke="#4b5563" stroke-width="2"/>
+  <polygon points="628,195 638,200 628,205" fill="#4b5563"/>
+
+  <!-- Stage 4: Analysis -->
+  <rect x="640" y="120" width="160" height="160" rx="8" fill="#111827" stroke="#1c3540" stroke-width="2"/>
+  <circle cx="720" cy="165" r="25" fill="#0f4c5c"/>
+  <text x="720" y="172" text-anchor="middle" fill="#22d3ee" font-size="18">&#9698;</text>
+  <text x="720" y="205" text-anchor="middle" fill="#22d3ee" font-size="11" font-weight="bold">Audio Analysis</text>
+  <text x="720" y="220" text-anchor="middle" fill="#6b7280" font-size="9">Python analyzer.py</text>
+  <text x="720" y="234" text-anchor="middle" fill="#6b7280" font-size="9">BPM, key, chroma</text>
+  <text x="720" y="248" text-anchor="middle" fill="#6b7280" font-size="9">MFCC, spectral</text>
+  <circle cx="800" cy="200" r="6" fill="#22d3ee"/>
+
+  <path d="M 806 200 L 828 200" stroke="#4b5563" stroke-width="2"/>
+  <polygon points="828,195 838,200 828,205" fill="#4b5563"/>
+
+  <!-- Stage 5: DAW -->
+  <rect x="840" y="120" width="160" height="160" rx="8" fill="#111827" stroke="#422006" stroke-width="2"/>
+  <circle cx="920" cy="165" r="25" fill="#422006"/>
+  <text x="920" y="172" text-anchor="middle" fill="#fb923c" font-size="16">DAW</text>
+  <text x="920" y="205" text-anchor="middle" fill="#fb923c" font-size="11" font-weight="bold">DAW Editor</text>
+  <text x="920" y="220" text-anchor="middle" fill="#6b7280" font-size="9">Stem mixer</text>
+  <text x="920" y="234" text-anchor="middle" fill="#6b7280" font-size="9">Status badges</text>
+  <text x="920" y="248" text-anchor="middle" fill="#6b7280" font-size="9">Pipeline actions</text>
+  <circle cx="1000" cy="200" r="6" fill="#fb923c"/>
+
+  <!-- Stage 6: Export -->
+  <rect x="1040" y="120" width="130" height="160" rx="8" fill="#111827" stroke="#374151" stroke-width="2"/>
+  <circle cx="1105" cy="165" r="25" fill="#1f2937"/>
+  <text x="1105" y="172" text-anchor="middle" fill="#d1d5db" font-size="16">&#8679;</text>
+  <text x="1105" y="205" text-anchor="middle" fill="#d1d5db" font-size="11" font-weight="bold">Export</text>
+  <text x="1105" y="220" text-anchor="middle" fill="#6b7280" font-size="9">Rekordbox XML</text>
+  <text x="1105" y="234" text-anchor="middle" fill="#6b7280" font-size="9">Stems ZIP</text>
+  <text x="1105" y="248" text-anchor="middle" fill="#6b7280" font-size="9">Project export</text>
+
+  <!-- Progress visualization -->
+  <text x="600" y="320" text-anchor="middle" fill="#9ca3af" font-size="11" font-weight="bold">Oban Job Progress — PubSub Broadcast</text>
+
+  <!-- Job states -->
+  <g transform="translate(60, 340)">
+    <rect x="0" y="0" width="100" height="55" rx="4" fill="#111827" stroke="#374151" stroke-width="1"/>
+    <rect x="0" y="0" width="100" height="5" rx="2" fill="#374151"/>
+    <text x="50" y="22" text-anchor="middle" fill="#9ca3af" font-size="9">pending</text>
+    <rect x="10" y="30" width="80" height="15" rx="3" fill="#1f2937"/>
+    <text x="50" y="41" text-anchor="middle" fill="#6b7280" font-size="8">Oban queue</text>
+
+    <rect x="120" y="0" width="100" height="55" rx="4" fill="#111827" stroke="#2563eb" stroke-width="1"/>
+    <rect x="120" y="0" width="100" height="5" rx="2" fill="#2563eb"/>
+    <text x="170" y="22" text-anchor="middle" fill="#93c5fd" font-size="9">executing</text>
+    <rect x="130" y="30" width="80" height="15" rx="3" fill="#1e3a5f"/>
+    <rect x="130" y="30" width="50" height="15" rx="3" fill="#2563eb"/>
+    <text x="170" y="41" text-anchor="middle" fill="#93c5fd" font-size="8">0%→100%</text>
+
+    <rect x="240" y="0" width="100" height="55" rx="4" fill="#111827" stroke="#059669" stroke-width="1"/>
+    <rect x="240" y="0" width="100" height="5" rx="2" fill="#059669"/>
+    <text x="290" y="22" text-anchor="middle" fill="#4ade80" font-size="9">completed</text>
+    <rect x="250" y="30" width="80" height="15" rx="3" fill="#14532d"/>
+    <text x="290" y="41" text-anchor="middle" fill="#4ade80" font-size="8">stems saved</text>
+
+    <rect x="360" y="0" width="100" height="55" rx="4" fill="#111827" stroke="#dc2626" stroke-width="1"/>
+    <rect x="360" y="0" width="100" height="5" rx="2" fill="#dc2626"/>
+    <text x="410" y="22" text-anchor="middle" fill="#fca5a5" font-size="9">failed</text>
+    <rect x="370" y="30" width="80" height="15" rx="3" fill="#7f1d1d"/>
+    <text x="410" y="41" text-anchor="middle" fill="#fca5a5" font-size="8">retry → discard</text>
+
+    <!-- Transition arrows -->
+    <path d="M 100 27 L 120 27" stroke="#374151" stroke-width="1.5"/>
+    <path d="M 220 27 L 240 27" stroke="#374151" stroke-width="1.5"/>
+    <path d="M 340 27 L 360 27" stroke="#374151" stroke-width="1.5"/>
+  </g>
+
+  <!-- Demucs engine details -->
+  <rect x="60" y="440" width="500" height="120" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <text x="310" y="462" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">Demucs Local Models</text>
+  <g font-size="9" fill="#6b7280">
+    <text x="90" y="485">htdemucs</text>
+    <text x="90" y="500">4 stems: vocals, drums, bass, other</text>
+    <text x="90" y="515">Fastest; good general separation</text>
+
+    <text x="290" y="485">htdemucs_ft</text>
+    <text x="290" y="500">Fine-tuned variant; higher accuracy</text>
+    <text x="290" y="515">Recommended for production</text>
+
+    <text x="90" y="535">htdemucs_6s</text>
+    <text x="90" y="548">6 stems: + guitar, piano</text>
+
+    <text x="290" y="535">mdx_extra</text>
+    <text x="290" y="548">Bleeding edge MDX-Net; slowest</text>
+  </g>
+
+  <!-- lalal.ai details -->
+  <rect x="580" y="440" width="560" height="120" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <text x="860" y="462" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">lalal.ai Cloud Stems</text>
+  <g font-size="9" fill="#6b7280">
+    <text x="610" y="485">9 stem types: vocals, drums, bass,</text>
+    <text x="610" y="500">electric guitar, acoustic guitar, piano,</text>
+    <text x="610" y="515">synth, strings, wind instruments</text>
+    <text x="610" y="532">60-second preview before full processing</text>
+    <text x="610" y="547">Requires LALALAI_API_KEY in .env</text>
+
+    <text x="860" y="485">REST API: upload → poll → download</text>
+    <text x="860" y="500">Stems returned as WAV files</text>
+    <text x="860" y="515">file_path stored as relative priv/... path</text>
+    <text x="860" y="532">Clean /files/stems/... URL routing</text>
+    <text x="860" y="547">Engine toggle in user settings</text>
+  </g>
+
+  <!-- Footer note -->
+  <text x="600" y="590" text-anchor="middle" fill="#374151" font-size="9">Storage.validate_audio_header: ID3 | 0xFF 0xFB (MP3) | RIFF (WAV) | fLaC | OggS</text>
+  <text x="600" y="605" text-anchor="middle" fill="#374151" font-size="9">All relative paths resolved via Path.join(File.cwd!(), path) in Storage.resolve_path/1</text>
+</svg>

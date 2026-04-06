@@ -1,0 +1,235 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700" font-family="ui-monospace, 'SF Mono', monospace">
+  <!-- Background -->
+  <rect width="1200" height="700" fill="#0f0f0f"/>
+
+  <!-- Title -->
+  <text x="600" y="36" text-anchor="middle" fill="#a78bfa" font-size="18" font-weight="bold">DJ Tab — Dual Deck Workflow</text>
+  <text x="600" y="56" text-anchor="middle" fill="#6b7280" font-size="11">Sound Forge Alchemy v5.2.0</text>
+
+  <!-- Frame dividers -->
+  <line x1="400" y1="70" x2="400" y2="680" stroke="#1f2937" stroke-width="1"/>
+  <line x1="800" y1="70" x2="800" y2="680" stroke="#1f2937" stroke-width="1"/>
+  <line x1="0" y1="380" x2="400" y2="380" stroke="#1f2937" stroke-width="1"/>
+  <line x1="400" y1="380" x2="800" y2="380" stroke="#1f2937" stroke-width="1"/>
+  <line x1="800" y1="380" x2="1200" y2="380" stroke="#1f2937" stroke-width="1"/>
+
+  <!-- === FRAME 1: Library Browser === -->
+  <text x="200" y="90" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">1. LIBRARY BROWSER</text>
+  <!-- Panel outline -->
+  <rect x="20" y="100" width="360" height="260" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <!-- Search bar -->
+  <rect x="35" y="115" width="200" height="22" rx="3" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="45" y="130" fill="#6b7280" font-size="10">Search tracks...</text>
+  <!-- Track rows -->
+  <rect x="35" y="148" width="330" height="20" rx="2" fill="#1e3a5f"/>
+  <text x="45" y="162" fill="#93c5fd" font-size="9">Dua Lipa — Levitating</text>
+  <text x="330" y="162" fill="#4b5563" font-size="9" text-anchor="end">128 BPM</text>
+  <rect x="35" y="174" width="330" height="20" rx="2" fill="#111827"/>
+  <text x="45" y="188" fill="#d1d5db" font-size="9">The Weeknd — Blinding Lights</text>
+  <text x="330" y="188" fill="#4b5563" font-size="9" text-anchor="end">171 BPM</text>
+  <rect x="35" y="200" width="330" height="20" rx="2" fill="#111827"/>
+  <text x="45" y="214" fill="#d1d5db" font-size="9">Tame Impala — The Less I Know</text>
+  <text x="330" y="214" fill="#4b5563" font-size="9" text-anchor="end">116 BPM</text>
+  <rect x="35" y="226" width="330" height="20" rx="2" fill="#111827"/>
+  <text x="45" y="240" fill="#d1d5db" font-size="9">Disclosure — Latch</text>
+  <text x="330" y="240" fill="#4b5563" font-size="9" text-anchor="end">122 BPM</text>
+  <!-- Load button callout -->
+  <rect x="280" y="148" width="50" height="20" rx="3" fill="#7c3aed"/>
+  <text x="305" y="162" text-anchor="middle" fill="white" font-size="8" font-weight="bold">LOAD 1</text>
+  <!-- Arrow -->
+  <path d="M 305 168 L 305 178" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="200" y="310" text-anchor="middle" fill="#6b7280" font-size="9">Click LOAD 1 / LOAD 2 to assign track to deck</text>
+  <text x="200" y="325" text-anchor="middle" fill="#6b7280" font-size="9">Drag from library also supported</text>
+
+  <!-- === FRAME 2: Deck A === -->
+  <text x="600" y="90" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">2. DECK A — TRACK LOADED</text>
+  <rect x="420" y="100" width="360" height="260" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <!-- Waveform area -->
+  <rect x="435" y="115" width="330" height="60" rx="3" fill="#0f172a"/>
+  <!-- Waveform bars -->
+  <g fill="#3b82f6" opacity="0.7">
+    <rect x="440" y="145" width="3" height="20"/>
+    <rect x="445" y="135" width="3" height="35"/>
+    <rect x="450" y="128" width="3" height="42"/>
+    <rect x="455" y="132" width="3" height="38"/>
+    <rect x="460" y="120" width="3" height="50"/>
+    <rect x="465" y="130" width="3" height="40"/>
+    <rect x="470" y="125" width="3" height="45"/>
+    <rect x="475" y="138" width="3" height="30"/>
+    <rect x="480" y="142" width="3" height="26"/>
+    <rect x="485" y="118" width="3" height="52"/>
+    <rect x="490" y="128" width="3" height="42"/>
+    <rect x="495" y="135" width="3" height="35"/>
+    <rect x="500" y="122" width="3" height="48"/>
+    <rect x="505" y="132" width="3" height="38"/>
+    <rect x="510" y="140" width="3" height="30"/>
+    <rect x="515" y="148" width="3" height="22"/>
+    <rect x="520" y="130" width="3" height="40"/>
+    <rect x="525" y="118" width="3" height="52"/>
+    <rect x="530" y="125" width="3" height="45"/>
+    <rect x="535" y="138" width="3" height="32"/>
+  </g>
+  <!-- Playhead -->
+  <line x1="540" y1="115" x2="540" y2="175" stroke="#f59e0b" stroke-width="2"/>
+  <!-- Track info -->
+  <text x="445" y="192" fill="#93c5fd" font-size="10" font-weight="bold">Dua Lipa — Levitating</text>
+  <text x="445" y="206" fill="#6b7280" font-size="9">128.0 BPM  •  A minor  •  3:43</text>
+  <!-- Controls row -->
+  <rect x="445" y="218" width="30" height="20" rx="3" fill="#374151"/>
+  <text x="460" y="231" text-anchor="middle" fill="#d1d5db" font-size="9">|&lt;&lt;</text>
+  <rect x="480" y="218" width="30" height="20" rx="3" fill="#7c3aed"/>
+  <text x="495" y="231" text-anchor="middle" fill="white" font-size="10">&#9654;</text>
+  <rect x="515" y="218" width="30" height="20" rx="3" fill="#374151"/>
+  <text x="530" y="231" text-anchor="middle" fill="#d1d5db" font-size="9">&gt;&gt;|</text>
+  <!-- BPM display -->
+  <rect x="640" y="218" width="60" height="20" rx="3" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="670" y="231" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="bold">128.0</text>
+  <!-- EQ knobs -->
+  <circle cx="455" cy="258" r="12" fill="#1f2937" stroke="#6366f1" stroke-width="2"/>
+  <text x="455" y="262" text-anchor="middle" fill="#a5b4fc" font-size="8">HI</text>
+  <circle cx="485" cy="258" r="12" fill="#1f2937" stroke="#6366f1" stroke-width="2"/>
+  <text x="485" y="262" text-anchor="middle" fill="#a5b4fc" font-size="8">MID</text>
+  <circle cx="515" cy="258" r="12" fill="#1f2937" stroke="#6366f1" stroke-width="2"/>
+  <text x="515" y="262" text-anchor="middle" fill="#a5b4fc" font-size="8">LOW</text>
+  <text x="600" y="315" text-anchor="middle" fill="#6b7280" font-size="9">Independent waveform + transport per deck</text>
+  <text x="600" y="330" text-anchor="middle" fill="#6b7280" font-size="9">EQ HI/MID/LOW + gain knobs, cue buttons</text>
+
+  <!-- === FRAME 3: Crossfader === -->
+  <text x="1000" y="90" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">3. CROSSFADER + BPM SYNC</text>
+  <rect x="820" y="100" width="360" height="260" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <!-- Crossfader track -->
+  <rect x="850" y="200" width="300" height="8" rx="4" fill="#1f2937"/>
+  <circle cx="985" cy="204" r="12" fill="#7c3aed"/>
+  <text x="985" y="208" text-anchor="middle" fill="white" font-size="8">X</text>
+  <text x="855" y="225" fill="#6b7280" font-size="9">A</text>
+  <text x="1145" y="225" fill="#6b7280" font-size="9" text-anchor="end">B</text>
+  <text x="1000" y="225" text-anchor="middle" fill="#9ca3af" font-size="9">CENTER</text>
+  <!-- BPM Sync -->
+  <rect x="870" y="140" width="100" height="40" rx="4" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
+  <text x="920" y="157" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="bold">DECK A</text>
+  <text x="920" y="172" text-anchor="middle" fill="#f59e0b" font-size="13" font-weight="bold">128.0</text>
+  <rect x="985" y="140" width="100" height="40" rx="4" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+  <text x="1035" y="157" text-anchor="middle" fill="#9ca3af" font-size="9" font-weight="bold">DECK B</text>
+  <text x="1035" y="172" text-anchor="middle" fill="#d1d5db" font-size="13" font-weight="bold">124.0</text>
+  <!-- Sync button -->
+  <rect x="940" y="245" width="70" height="22" rx="4" fill="#059669"/>
+  <text x="975" y="260" text-anchor="middle" fill="white" font-size="9" font-weight="bold">SYNC BPM</text>
+  <!-- Split crossfader toggle -->
+  <rect x="870" y="280" width="130" height="20" rx="3" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="935" y="293" text-anchor="middle" fill="#9ca3af" font-size="9">Split Crossfader</text>
+  <rect x="1010" y="280" width="28" height="20" rx="10" fill="#7c3aed"/>
+  <circle cx="1029" cy="290" r="8" fill="white"/>
+  <text x="1000" y="320" text-anchor="middle" fill="#6b7280" font-size="9">dj_crossfader_split persisted to user_settings</text>
+
+  <!-- === FRAME 4: Hot Cues === -->
+  <text x="200" y="400" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">4. HOT CUES + LOOP</text>
+  <rect x="20" y="410" width="360" height="250" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <!-- Hot cue buttons -->
+  <g>
+    <rect x="35" y="425" width="40" height="35" rx="4" fill="#dc2626"/>
+    <text x="55" y="448" text-anchor="middle" fill="white" font-size="10" font-weight="bold">CUE 1</text>
+    <rect x="82" y="425" width="40" height="35" rx="4" fill="#d97706"/>
+    <text x="102" y="448" text-anchor="middle" fill="white" font-size="10" font-weight="bold">CUE 2</text>
+    <rect x="129" y="425" width="40" height="35" rx="4" fill="#059669"/>
+    <text x="149" y="448" text-anchor="middle" fill="white" font-size="10" font-weight="bold">CUE 3</text>
+    <rect x="176" y="425" width="40" height="35" rx="4" fill="#2563eb"/>
+    <text x="196" y="448" text-anchor="middle" fill="white" font-size="10" font-weight="bold">CUE 4</text>
+    <rect x="223" y="425" width="40" height="35" rx="4" fill="#7c3aed"/>
+    <text x="243" y="448" text-anchor="middle" fill="white" font-size="10" font-weight="bold">CUE 5</text>
+    <rect x="270" y="425" width="40" height="35" rx="4" fill="#db2777"/>
+    <text x="290" y="448" text-anchor="middle" fill="white" font-size="10" font-weight="bold">CUE 6</text>
+    <rect x="317" y="425" width="40" height="35" rx="4" fill="#0891b2"/>
+    <text x="337" y="448" text-anchor="middle" fill="white" font-size="10" font-weight="bold">CUE 7</text>
+  </g>
+  <!-- Loop controls -->
+  <text x="200" y="490" text-anchor="middle" fill="#6b7280" font-size="9">Loop Controls</text>
+  <rect x="50" y="498" width="55" height="22" rx="3" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="77" y="512" text-anchor="middle" fill="#d1d5db" font-size="9">1/2 bar</text>
+  <rect x="112" y="498" width="55" height="22" rx="3" fill="#7c3aed"/>
+  <text x="139" y="512" text-anchor="middle" fill="white" font-size="9">1 bar</text>
+  <rect x="174" y="498" width="55" height="22" rx="3" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="201" y="512" text-anchor="middle" fill="#d1d5db" font-size="9">2 bars</text>
+  <rect x="236" y="498" width="55" height="22" rx="3" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <text x="263" y="512" text-anchor="middle" fill="#d1d5db" font-size="9">4 bars</text>
+  <!-- Set/Active loop markers on mini waveform -->
+  <rect x="35" y="535" width="330" height="30" rx="3" fill="#0f172a"/>
+  <rect x="130" y="535" width="80" height="30" fill="#7c3aed" opacity="0.3"/>
+  <line x1="130" y1="535" x2="130" y2="565" stroke="#a78bfa" stroke-width="2"/>
+  <line x1="210" y1="535" x2="210" y2="565" stroke="#a78bfa" stroke-width="2"/>
+  <text x="170" y="554" text-anchor="middle" fill="#a78bfa" font-size="9">LOOP</text>
+  <text x="200" y="600" text-anchor="middle" fill="#6b7280" font-size="9">Hot cues stored per track; loop in/out persisted</text>
+  <text x="200" y="614" text-anchor="middle" fill="#6b7280" font-size="9">Right-click to delete cue; double-click to rename</text>
+
+  <!-- === FRAME 5: AI Chef Suggestions === -->
+  <text x="600" y="400" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">5. AI CHEF SUGGESTIONS</text>
+  <rect x="420" y="410" width="360" height="250" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <rect x="435" y="425" width="330" height="50" rx="4" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
+  <text x="470" y="445" fill="#93c5fd" font-size="10" font-weight="bold">Chef AI — Harmonic Analysis</text>
+  <text x="470" y="460" fill="#6b7280" font-size="9">Analyzing Deck A key: A minor</text>
+  <!-- Suggestion cards -->
+  <rect x="435" y="483" width="155" height="55" rx="4" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+  <text x="450" y="500" fill="#d1d5db" font-size="9" font-weight="bold">Glass Animals</text>
+  <text x="450" y="514" fill="#6b7280" font-size="8">Heat Waves</text>
+  <text x="450" y="526" fill="#4ade80" font-size="8">A minor  •  Energy: 87%</text>
+  <rect x="435" y="482" width="155" height="4" rx="2" fill="#7c3aed"/>
+
+  <rect x="598" y="483" width="155" height="55" rx="4" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+  <text x="613" y="500" fill="#d1d5db" font-size="9" font-weight="bold">Disclosure</text>
+  <text x="613" y="514" fill="#6b7280" font-size="8">Latch ft. Sam Smith</text>
+  <text x="613" y="526" fill="#4ade80" font-size="8">A major  •  Energy: 75%</text>
+  <rect x="598" y="482" width="155" height="4" rx="2" fill="#059669"/>
+
+  <!-- Progress bar -->
+  <rect x="435" y="546" width="330" height="8" rx="4" fill="#1f2937"/>
+  <rect x="435" y="546" width="220" height="8" rx="4" fill="#7c3aed"/>
+  <text x="600" y="565" text-anchor="middle" fill="#6b7280" font-size="9">chef_progress broadcast  67%</text>
+  <text x="600" y="615" text-anchor="middle" fill="#6b7280" font-size="9">PubSub: chef_progress → chef_complete → toast</text>
+  <text x="600" y="629" text-anchor="middle" fill="#6b7280" font-size="9">ActionBus routes suggestions to active tab only</text>
+
+  <!-- === FRAME 6: MIDI Controller === -->
+  <text x="1000" y="400" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">6. MIDI CONTROL SURFACE</text>
+  <rect x="820" y="410" width="360" height="250" rx="6" fill="#111827" stroke="#374151" stroke-width="1"/>
+  <!-- Device detected banner -->
+  <rect x="835" y="425" width="330" height="30" rx="4" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+  <text x="1000" y="445" text-anchor="middle" fill="#10b981" font-size="9" font-weight="bold">Akai MPC Live II detected — preset loaded</text>
+  <!-- Mapping visual -->
+  <text x="1000" y="476" text-anchor="middle" fill="#9ca3af" font-size="9">Active MIDI Mapping: "MPC Default - DJ"</text>
+  <!-- Pads grid -->
+  <g>
+    <rect x="840" y="485" width="30" height="30" rx="3" fill="#dc2626" opacity="0.8"/>
+    <rect x="876" y="485" width="30" height="30" rx="3" fill="#d97706" opacity="0.8"/>
+    <rect x="912" y="485" width="30" height="30" rx="3" fill="#059669" opacity="0.8"/>
+    <rect x="948" y="485" width="30" height="30" rx="3" fill="#2563eb" opacity="0.8"/>
+    <rect x="840" y="521" width="30" height="30" rx="3" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+    <rect x="876" y="521" width="30" height="30" rx="3" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+    <rect x="912" y="521" width="30" height="30" rx="3" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+    <rect x="948" y="521" width="30" height="30" rx="3" fill="#1f2937" stroke="#374151" stroke-width="1"/>
+    <text x="855" y="504" text-anchor="middle" fill="white" font-size="7">CUE1</text>
+    <text x="891" y="504" text-anchor="middle" fill="white" font-size="7">CUE2</text>
+    <text x="927" y="504" text-anchor="middle" fill="white" font-size="7">CUE3</text>
+    <text x="963" y="504" text-anchor="middle" fill="white" font-size="7">CUE4</text>
+    <text x="855" y="540" text-anchor="middle" fill="#6b7280" font-size="7">LOOP</text>
+    <text x="891" y="540" text-anchor="middle" fill="#6b7280" font-size="7">SYNC</text>
+    <text x="927" y="540" text-anchor="middle" fill="#6b7280" font-size="7">PLAY</text>
+    <text x="963" y="540" text-anchor="middle" fill="#6b7280" font-size="7">CUE</text>
+  </g>
+  <!-- CC faders -->
+  <rect x="1000" y="485" width="12" height="66" rx="3" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <rect x="1000" y="515" width="12" height="36" rx="3" fill="#7c3aed"/>
+  <text x="1006" y="570" text-anchor="middle" fill="#9ca3af" font-size="7">VOL</text>
+  <rect x="1022" y="485" width="12" height="66" rx="3" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <rect x="1022" y="505" width="12" height="46" rx="3" fill="#6366f1"/>
+  <text x="1028" y="570" text-anchor="middle" fill="#9ca3af" font-size="7">EQ HI</text>
+  <rect x="1044" y="485" width="12" height="66" rx="3" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <rect x="1044" y="510" width="12" height="41" rx="3" fill="#06b6d4"/>
+  <text x="1050" y="570" text-anchor="middle" fill="#9ca3af" font-size="7">EQ MID</text>
+  <text x="1000" y="612" text-anchor="middle" fill="#6b7280" font-size="9">ControlSurface.MidiAdapter translates CC → action</text>
+  <text x="1000" y="626" text-anchor="middle" fill="#6b7280" font-size="9">DeviceProfile persisted; auto-loads on reconnect</text>
+
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#a78bfa"/>
+    </marker>
+  </defs>
+</svg>
