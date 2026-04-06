@@ -267,6 +267,9 @@ const DjDeck = {
     // Uses a small delay so the DOM is fully rendered before querying elements.
     setTimeout(() => this._attachPersistListeners(), 100)
 
+    // Attach vertical drag interaction to circular knobs.
+    setTimeout(() => this._attachKnobDrag(), 120)
+
     // Restore persisted slider values from a previous session.
     setTimeout(() => this._restorePersistedValues(), 150)
 
@@ -2009,6 +2012,55 @@ const DjDeck = {
         }
       }
     }
+  }
+  /**
+   * Attach vertical-drag interaction to all .djknob elements so they respond
+   * to up/down pointer movement (up = increase, down = decrease).
+   * Each knob has a hidden <input type="range"> that we drive programmatically.
+   */
+  _attachKnobDrag() {
+    const knobs = this.el.querySelectorAll('.djknob')
+    knobs.forEach((knob) => {
+      // Avoid double-attaching
+      if (knob._knobDragAttached) return
+      knob._knobDragAttached = true
+
+      const input = knob.querySelector('input[type="range"]')
+      if (!input) return
+
+      let startY = 0
+      let startValue = 0
+      let dragging = false
+      const sensitivity = 1.5 // px per unit
+
+      const onPointerMove = (e) => {
+        if (!dragging) return
+        const delta = (startY - e.clientY) / sensitivity
+        const range = Number(input.max) - Number(input.min)
+        const newVal = Math.min(Number(input.max), Math.max(Number(input.min), startValue + delta * (range / 100)))
+        input.value = newVal
+        // Update the indicator rotation via the inline oninput handler
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+
+      const onPointerUp = () => {
+        if (!dragging) return
+        dragging = false
+        document.removeEventListener('pointermove', onPointerMove)
+        document.removeEventListener('pointerup', onPointerUp)
+      }
+
+      knob.addEventListener('pointerdown', (e) => {
+        // Only primary button
+        if (e.button !== 0) return
+        e.preventDefault()
+        dragging = true
+        startY = e.clientY
+        startValue = Number(input.value)
+        document.addEventListener('pointermove', onPointerMove)
+        document.addEventListener('pointerup', onPointerUp)
+      })
+    })
   }
 }
 

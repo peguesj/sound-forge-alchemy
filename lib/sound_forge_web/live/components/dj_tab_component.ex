@@ -4387,14 +4387,90 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         </div>
       </div>
 
-      <%!-- Track Title --%>
-      <div class="mb-3">
-        <p class="text-white font-medium truncate text-lg">
-          {if @deck.track, do: @deck.track.title, else: "Empty"}
-        </p>
-        <p :if={@deck.track && @deck.track.artist} class="text-gray-400 text-sm truncate">
-          {@deck.track.artist}
-        </p>
+      <%!-- Track Title + Inline Transport --%>
+      <div class="flex items-center gap-2 mb-3 min-w-0">
+        <%!-- Play button --%>
+        <button
+          phx-click={
+            JS.dispatch("dj:play",
+              to: "#dj-tab",
+              detail: %{deck: @deck_number, playing: !@deck.playing}
+            )
+            |> JS.push("toggle_play",
+              value: %{deck: to_string(@deck_number)},
+              target: @myself
+            )
+          }
+          disabled={is_nil(@deck.track)}
+          aria-label={if @deck.playing, do: "Pause deck #{@deck_number}", else: "Play deck #{@deck_number}"}
+          class={"w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center transition-colors " <>
+            if(is_nil(@deck.track),
+              do: "bg-gray-700 text-gray-600 cursor-not-allowed",
+              else: "bg-purple-600 hover:bg-purple-500 text-white"
+            )}
+        >
+          <svg :if={!@deck.playing} class="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          <svg :if={@deck.playing} class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+          </svg>
+        </button>
+        <%!-- Title + Artist --%>
+        <div class="flex-1 min-w-0">
+          <p class="text-white font-medium truncate text-base leading-tight">
+            {if @deck.track, do: @deck.track.title, else: "Empty"}
+          </p>
+          <p :if={@deck.track && @deck.track.artist} class="text-gray-400 text-xs truncate">
+            {@deck.track.artist}
+          </p>
+        </div>
+        <%!-- Compact transport controls --%>
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <span class="text-[10px] text-gray-400 font-mono hidden sm:inline">
+            {format_position(@deck.position)}
+          </span>
+          <button
+            phx-click="toggle_midi_sync"
+            phx-target={@myself}
+            phx-value-deck={@deck_number}
+            class={"px-1.5 py-0.5 text-[9px] font-bold rounded transition-colors " <>
+              if(@midi_sync,
+                do: "bg-green-600 text-white ring-1 ring-green-400/50",
+                else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+              )}
+            title="Sync deck to external MIDI clock"
+          >
+            SYNC
+          </button>
+          <button
+            phx-click="toggle_dj_midi_learn"
+            phx-target={@myself}
+            class={"px-1.5 py-0.5 text-[9px] font-bold rounded transition-colors " <>
+              if(@midi_learn_mode,
+                do: "bg-yellow-500 text-black ring-1 ring-yellow-300/60 animate-pulse",
+                else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+              )}
+            title="DJ MIDI Learn"
+          >
+            LEARN
+          </button>
+          <button
+            id={"tap-tempo-btn-#{@deck_number}"}
+            phx-click="tap_tempo"
+            phx-target={@myself}
+            phx-value-deck={@deck_number}
+            title="Tap tempo"
+            class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-gray-700 text-gray-400 hover:bg-amber-700 hover:text-white active:bg-amber-500 transition-colors select-none"
+          >
+            TAP
+          </button>
+          <span class={"text-sm font-bold font-mono " <>
+            if(@deck.tempo_bpm > 0, do: "text-white", else: "text-gray-600")}>
+            {format_bpm(@deck.tempo_bpm)}
+          </span>
+          <span class="text-[9px] text-gray-600 uppercase">BPM</span>
+        </div>
       </div>
 
       <%!-- Current Section Label --%>
@@ -4955,122 +5031,6 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         >
           Clear chain
         </button>
-      </div>
-
-      <%!-- Transport Controls --%>
-      <div class="flex items-center gap-3 mb-4">
-        <button
-          phx-click={
-            JS.dispatch("dj:play",
-              to: "#dj-tab",
-              detail: %{deck: @deck_number, playing: !@deck.playing}
-            )
-            |> JS.push("toggle_play",
-              value: %{deck: to_string(@deck_number)},
-              target: @myself
-            )
-          }
-          disabled={is_nil(@deck.track)}
-          aria-label={if @deck.playing, do: "Pause deck #{@deck_number}", else: "Play deck #{@deck_number}"}
-          class={"w-12 h-12 rounded-full flex items-center justify-center transition-colors " <>
-            if(is_nil(@deck.track),
-              do: "bg-gray-700 text-gray-600 cursor-not-allowed",
-              else: "bg-purple-600 hover:bg-purple-500 text-white"
-            )}
-        >
-          <svg :if={!@deck.playing} class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-          <svg :if={@deck.playing} class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-          </svg>
-        </button>
-
-        <span class="text-sm text-gray-400 font-mono">
-          {format_position(@deck.position)}
-        </span>
-        <span class="text-xs text-gray-500 font-mono ml-1" title="SMPTE timecode (30fps)">
-          {Timecode.ms_to_smpte(@deck.position * 1000)}
-        </span>
-
-        <button
-          phx-click="toggle_midi_sync"
-          phx-target={@myself}
-          phx-value-deck={@deck_number}
-          class={"px-2 py-1 text-xs font-bold rounded transition-colors ml-2 " <>
-            if(@midi_sync,
-              do: "bg-green-600 text-white ring-1 ring-green-400/50",
-              else: "bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-300"
-            )}
-          title="Sync deck to external MIDI clock"
-        >
-          MIDI SYNC
-        </button>
-
-        <button
-          phx-click="toggle_dj_midi_learn"
-          phx-target={@myself}
-          class={"px-2 py-1 text-xs font-bold rounded transition-colors ml-1 " <>
-            if(@midi_learn_mode,
-              do: "bg-yellow-500 text-black ring-1 ring-yellow-300/60 animate-pulse",
-              else: "bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-300"
-            )}
-          title="DJ MIDI Learn: click to enable, then click a control to assign MIDI"
-        >
-          LEARN
-        </button>
-
-        <%!-- Section Skip Buttons --%>
-        <div :if={@structure["segments"]} class="flex items-center gap-0.5 ml-2">
-          <button
-            phx-click="skip_section"
-            phx-target={@myself}
-            phx-value-deck={@deck_number}
-            phx-value-direction="back"
-            disabled={is_nil(@deck.track)}
-            class={"px-1.5 py-1 text-xs font-bold rounded transition-colors " <>
-              if(is_nil(@deck.track),
-                do: "bg-gray-700 text-gray-600 cursor-not-allowed",
-                else: "bg-gray-700 text-gray-300 hover:bg-gray-600"
-              )}
-            title="Previous section"
-          >
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" transform="scale(-1,1) translate(-24,0)" /></svg>
-          </button>
-          <button
-            phx-click="skip_section"
-            phx-target={@myself}
-            phx-value-deck={@deck_number}
-            phx-value-direction="forward"
-            disabled={is_nil(@deck.track)}
-            class={"px-1.5 py-1 text-xs font-bold rounded transition-colors " <>
-              if(is_nil(@deck.track),
-                do: "bg-gray-700 text-gray-600 cursor-not-allowed",
-                else: "bg-gray-700 text-gray-300 hover:bg-gray-600"
-              )}
-            title="Next section"
-          >
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
-          </button>
-        </div>
-
-        <div class="ml-auto flex items-center gap-1.5">
-          <button
-            id={"tap-tempo-btn-#{@deck_number}"}
-            phx-click="tap_tempo"
-            phx-target={@myself}
-            phx-value-deck={@deck_number}
-            title="Tap tempo to sync BPM"
-            class="px-2 py-1 text-[10px] font-bold rounded bg-gray-700 text-gray-400 hover:bg-amber-700 hover:text-white active:bg-amber-500 transition-colors select-none"
-          >
-            TAP
-          </button>
-          <span class="text-xs text-gray-500 uppercase">BPM</span>
-          <span class={"text-lg font-bold font-mono " <>
-            if(@deck.tempo_bpm > 0, do: "text-white", else: "text-gray-600")}>
-            {format_bpm(@deck.tempo_bpm)}
-          </span>
-        </div>
       </div>
 
       <%!-- MIDI Learn Panel (shown when learn mode is active) --%>
