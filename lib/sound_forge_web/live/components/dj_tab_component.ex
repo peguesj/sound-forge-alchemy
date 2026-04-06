@@ -123,6 +123,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
      |> assign(:saved_presets, [])
      |> assign(:preset_name_input, "")
      |> assign(:rekordbox_import_result, nil)
+     |> assign(:dj_layout, "classic")
+     |> assign(:show_browser_panel, false)
      |> allow_upload(:preset_file,
        accept: ~w(.tsi .touchosc),
        max_entries: 1,
@@ -3194,6 +3196,15 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
     {:noreply, assign(socket, :browser_search, q)}
   end
 
+  def handle_event("set_layout", %{"layout" => layout}, socket)
+      when layout in ["classic", "traktor"] do
+    {:noreply, assign(socket, dj_layout: layout)}
+  end
+
+  def handle_event("toggle_browser_panel", _params, socket) do
+    {:noreply, assign(socket, show_browser_panel: !socket.assigns.show_browser_panel)}
+  end
+
   def handle_info({:agent_output, %{agent_id: "agent-sonic-analyst", result: result}}, socket) do
     suggestion = case result do
       {:ok, %SoundForge.Agents.Result{content: content}} -> content
@@ -3206,6 +3217,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   # -- Template --
 
   @impl true
+  def render(%{dj_layout: "traktor"} = assigns), do: render_traktor(assigns)
+
   def render(assigns) do
     ~H"""
     <div
@@ -3218,8 +3231,8 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
         class="p-4 md:p-6 pb-10"
       >
       <div class="w-full max-w-7xl mx-auto overflow-x-hidden">
-        <%!-- Track Browser Toggle --%>
-        <div class="flex items-center mb-4">
+        <%!-- Track Browser Toggle + Layout Switcher --%>
+        <div class="flex items-center justify-between mb-4">
           <button
             phx-click="toggle_browser"
             phx-target={@myself}
@@ -3234,6 +3247,21 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
             </svg>
             Library Browser
           </button>
+          <div class="flex items-center gap-1">
+            <span class="text-xs text-gray-600 mr-1">Layout</span>
+            <button
+              phx-click="set_layout"
+              phx-value-layout="classic"
+              phx-target={@myself}
+              class="px-2 py-1 text-xs rounded bg-purple-600 text-white font-medium"
+            >Classic</button>
+            <button
+              phx-click="set_layout"
+              phx-value-layout="traktor"
+              phx-target={@myself}
+              class="px-2 py-1 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white transition-colors font-medium"
+            >Traktor</button>
+          </div>
         </div>
 
         <%!-- Track Browser Panel --%>
@@ -6545,4 +6573,352 @@ defmodule SoundForgeWeb.Live.Components.DjTabComponent do
   defp deck_letter(3), do: "C"
   defp deck_letter(4), do: "D"
   defp deck_letter(n), do: to_string(n)
+
+  # ---------------------------------------------------------------------------
+  # Traktor Pro Plus-inspired 4-deck layout
+  # ---------------------------------------------------------------------------
+
+  defp render_traktor(assigns) do
+    assigns =
+      assigns
+      |> assign_new(:deck_a, fn -> assigns[:deck_1] end)
+      |> assign_new(:deck_b, fn -> assigns[:deck_2] end)
+      |> assign_new(:deck_c, fn -> assigns[:deck_3] end)
+      |> assign_new(:deck_d, fn -> assigns[:deck_4] end)
+      |> assign_new(:deck_a_playing, fn -> assigns[:deck_1_playing] || false end)
+      |> assign_new(:deck_b_playing, fn -> assigns[:deck_2_playing] || false end)
+      |> assign_new(:deck_c_playing, fn -> assigns[:deck_3_playing] || false end)
+      |> assign_new(:deck_d_playing, fn -> assigns[:deck_4_playing] || false end)
+      |> assign_new(:show_browser_panel, fn -> false end)
+      |> assign_new(:tracks, fn -> [] end)
+
+    ~H"""
+    <div id="dj-tab-root" phx-target={@myself} class="h-screen flex flex-col bg-[#1a1a1a] text-white overflow-hidden">
+
+      <%!-- Header: FX rack + master BPM + layout switcher --%>
+      <div class="flex items-stretch bg-[#111] border-b border-gray-800 px-2 py-1 gap-2">
+        <div class="flex items-center gap-1 mr-2">
+          <span class="text-[10px] font-bold text-orange-400 tracking-widest uppercase">Traktor</span>
+        </div>
+        <%!-- FX slots --%>
+        <%= for {name, _idx} <- [{"PHASER", 1}, {"DELAY", 2}, {"REVERB", 3}, {"BEATJUMPER", 4}] do %>
+          <div class="flex items-center gap-1 bg-[#2a2a2a] rounded px-2 py-0.5 border border-gray-700">
+            <div class="w-2.5 h-2.5 rounded-full bg-orange-500 cursor-pointer hover:bg-orange-400 flex-shrink-0"></div>
+            <span class="text-[10px] font-mono text-gray-300 w-16"><%= name %></span>
+            <div class="w-4 h-4 rounded-full border border-orange-600 bg-black cursor-pointer"></div>
+            <div class="flex gap-px">
+              <%= for d <- ["A","B","C","D"] do %>
+                <span class="text-[8px] px-0.5 py-px rounded bg-gray-700 text-gray-500 cursor-pointer hover:text-white"><%= d %></span>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+        <%!-- Master BPM + controls --%>
+        <div class="ml-auto flex items-center gap-2">
+          <div class="flex flex-col items-end">
+            <span class="text-[9px] text-gray-500 uppercase">Master</span>
+            <span class="text-lg font-mono font-bold text-yellow-400 leading-tight">
+              <%= cond do
+                @deck_a && @deck_a.bpm -> :erlang.float_to_binary(@deck_a.bpm * 1.0, decimals: 2)
+                true -> "---.--"
+              end %>
+            </span>
+          </div>
+          <button phx-click="master_sync" phx-target={@myself}
+            class="px-2 py-1 text-xs font-bold bg-yellow-700 hover:bg-yellow-600 rounded text-white transition-colors">
+            MASTER SYNC
+          </button>
+          <div class="flex gap-1">
+            <button class="px-1.5 py-0.5 text-[10px] rounded border border-yellow-600 text-yellow-500 hover:bg-yellow-900">SNAP</button>
+            <button phx-click="toggle_rhythmic_quantize" phx-target={@myself}
+              class="px-1.5 py-0.5 text-[10px] rounded border border-yellow-600 text-yellow-500 hover:bg-yellow-900">QUANT</button>
+          </div>
+          <%!-- Layout switcher --%>
+          <div class="flex gap-1 ml-2 border-l border-gray-700 pl-2">
+            <button phx-click="set_layout" phx-value-layout="classic" phx-target={@myself}
+              class="px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white transition-colors">Classic</button>
+            <button phx-click="set_layout" phx-value-layout="traktor" phx-target={@myself}
+              class="px-2 py-0.5 text-xs rounded bg-orange-600 text-white font-medium">Traktor</button>
+          </div>
+          <button phx-click="toggle_browser_panel" phx-target={@myself}
+            class={"px-2 py-0.5 text-xs rounded border transition-colors " <>
+              if(@show_browser_panel, do: "border-orange-500 text-orange-400 bg-orange-900/20", else: "border-gray-700 text-gray-400 hover:border-gray-500")}>
+            BROWSER
+          </button>
+        </div>
+      </div>
+
+      <%!-- 4-deck main area --%>
+      <div class="flex flex-1 overflow-hidden min-h-0">
+        <%!-- Left column: Deck A (full) + Deck C (compact) --%>
+        <div class="flex flex-col flex-1 min-w-0 border-r border-gray-800">
+          <div class="flex-1 min-h-0">
+            <.traktor_deck_full deck={@deck_a} deck_num={1} label="A" color="blue"
+              myself={@myself} is_playing={@deck_a_playing} />
+          </div>
+          <div class="h-14 border-t border-gray-800 flex-shrink-0">
+            <.traktor_deck_compact deck={@deck_c} deck_num={3} label="C" color="green"
+              myself={@myself} is_playing={@deck_c_playing} />
+          </div>
+        </div>
+
+        <%!-- Center mixer --%>
+        <.traktor_mixer myself={@myself} deck_a={@deck_a} deck_b={@deck_b} />
+
+        <%!-- Right column: Deck B (full) + Deck D (compact) --%>
+        <div class="flex flex-col flex-1 min-w-0 border-l border-gray-800">
+          <div class="flex-1 min-h-0">
+            <.traktor_deck_full deck={@deck_b} deck_num={2} label="B" color="red"
+              myself={@myself} is_playing={@deck_b_playing} />
+          </div>
+          <div class="h-14 border-t border-gray-800 flex-shrink-0">
+            <.traktor_deck_compact deck={@deck_d} deck_num={4} label="D" color="purple"
+              myself={@myself} is_playing={@deck_d_playing} />
+          </div>
+        </div>
+      </div>
+
+      <%!-- Browser panel (collapsible bottom) --%>
+      <div :if={@show_browser_panel} class="h-48 border-t border-gray-700 bg-[#111] flex overflow-hidden flex-shrink-0">
+        <div class="w-40 border-r border-gray-800 overflow-y-auto flex flex-col">
+          <div class="px-2 py-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-800">Collection</div>
+          <%= for item <- ["All Tracks", "Playlists", "Explorer", "History"] do %>
+            <button class="text-left px-2 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors"><%= item %></button>
+          <% end %>
+        </div>
+        <div class="flex-1 overflow-auto">
+          <table class="w-full text-[11px]">
+            <thead class="bg-[#181818] border-b border-gray-800 sticky top-0">
+              <tr>
+                <%= for col <- ["#", "Key", "BPM", "Title", "Artist", "Album", "Genre"] do %>
+                  <th class="px-2 py-1 text-left text-gray-500 font-medium"><%= col %></th>
+                <% end %>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for {track, i} <- Enum.with_index(@tracks, 1) do %>
+                <tr class={"cursor-pointer hover:bg-gray-800 transition-colors #{if rem(i,2)==0, do: "bg-[#161616]", else: ""}"}
+                  phx-click="load_track" phx-value-track-id={track.id} phx-value-deck="1" phx-target={@myself}>
+                  <td class="px-2 py-0.5 text-gray-500"><%= i %></td>
+                  <td class="px-2 py-0.5 text-green-400 font-mono"><%= track.key || "—" %></td>
+                  <td class="px-2 py-0.5 text-yellow-400 font-mono"><%= if track.bpm, do: Float.round(track.bpm * 1.0, 1), else: "—" %></td>
+                  <td class="px-2 py-0.5 text-white truncate max-w-[140px]"><%= track.title %></td>
+                  <td class="px-2 py-0.5 text-gray-300 truncate max-w-[100px]"><%= track.artist %></td>
+                  <td class="px-2 py-0.5 text-gray-500 truncate max-w-[80px]"><%= track.album %></td>
+                  <td class="px-2 py-0.5 text-gray-600 truncate max-w-[70px]"><%= track.genre %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+    """
+  end
+
+  attr :deck, :map, default: nil
+  attr :deck_num, :integer, required: true
+  attr :label, :string, required: true
+  attr :color, :string, default: "blue"
+  attr :myself, :any, required: true
+  attr :is_playing, :boolean, default: false
+
+  defp traktor_deck_full(assigns) do
+    color_map = %{
+      "blue"   => %{badge: "bg-blue-700",   accent: "text-blue-400",   wv: "#3b82f6"},
+      "red"    => %{badge: "bg-red-700",     accent: "text-red-400",    wv: "#ef4444"},
+      "green"  => %{badge: "bg-green-700",   accent: "text-green-400",  wv: "#22c55e"},
+      "purple" => %{badge: "bg-purple-700",  accent: "text-purple-400", wv: "#a855f7"}
+    }
+    assigns = assign(assigns, :c, Map.get(color_map, assigns.color, color_map["blue"]))
+    ~H"""
+    <div class="h-full flex flex-col bg-[#1e1e1e] p-2 gap-1.5 overflow-hidden">
+      <%!-- Deck header --%>
+      <div class="flex items-center gap-1.5">
+        <div class={"w-6 h-6 rounded text-xs font-bold flex items-center justify-center flex-shrink-0 #{@c.badge}"}>
+          <%= @label %>
+        </div>
+        <%= if @deck do %>
+          <div class="w-7 h-7 rounded bg-gray-800 overflow-hidden flex-shrink-0">
+            <div class="w-full h-full flex items-center justify-center text-gray-600">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold text-white truncate"><%= @deck.title %></div>
+            <div class="text-[10px] text-gray-400 truncate"><%= @deck.artist %></div>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <div class="text-center leading-tight">
+              <div class={"text-xs font-mono font-bold #{@c.accent}"}><%= @deck.key || "—" %></div>
+              <div class="text-[8px] text-gray-600">KEY</div>
+            </div>
+            <div class="text-center leading-tight">
+              <div class="text-sm font-mono font-bold text-yellow-400">
+                <%= if @deck.bpm, do: Float.round(@deck.bpm * 1.0, 1), else: "--.-" %>
+              </div>
+              <div class="text-[8px] text-gray-600">BPM</div>
+            </div>
+            <div class="font-mono text-xs text-white bg-black px-1.5 py-0.5 rounded">
+              <%= if @deck.duration, do: "-#{format_position(@deck.duration)}", else: "-00:00" %>
+            </div>
+            <button phx-click="toggle_midi_sync" phx-value-deck={@deck_num} phx-target={@myself}
+              class={"px-2 py-0.5 text-xs font-bold rounded text-white transition-colors #{@c.badge}"}>SYNC</button>
+            <button phx-click="set_master_deck" phx-value-deck={@deck_num} phx-target={@myself}
+              class="px-2 py-0.5 text-[10px] rounded border border-yellow-500 text-yellow-400 hover:bg-yellow-900 transition-colors">MASTER</button>
+          </div>
+        <% else %>
+          <div class="flex-1 text-xs text-gray-600 italic">No track loaded</div>
+        <% end %>
+      </div>
+
+      <%!-- Waveform --%>
+      <div class="flex-1 relative rounded overflow-hidden bg-black min-h-[36px]">
+        <%= if @deck && @deck.bpm do %>
+          <div class="absolute inset-0 flex items-end gap-px px-0.5 pb-0.5">
+            <%= for i <- 1..120 do %>
+              <div class="flex-1 rounded-t opacity-75" style={"height:#{15 + rem(i * 37 + @deck_num * 13, 70)}%;background:#{cond do i < 30 -> "#3b82f6"; i < 60 -> "#22c55e"; i < 90 -> "#f59e0b"; true -> "#ef4444" end}"}>
+              </div>
+            <% end %>
+          </div>
+          <div class="absolute top-0 bottom-0 w-px bg-white/70" style="left:50%"></div>
+          <div class="absolute bottom-1 right-2 text-[9px] font-mono text-white/50"><%= @deck.title |> String.slice(0, 20) %></div>
+        <% else %>
+          <div class="absolute inset-0 flex items-center justify-center text-gray-700 text-xs">No waveform</div>
+        <% end %>
+      </div>
+
+      <%!-- Controls: transport + cue buttons + loop --%>
+      <div class="flex items-center gap-1 flex-wrap">
+        <button phx-click={if @is_playing, do: "toggle_play", else: "toggle_play"}
+          phx-value-deck={@deck_num} phx-target={@myself}
+          class={"px-2.5 py-1 text-xs font-bold rounded text-white transition-colors #{if @is_playing, do: "bg-green-600 hover:bg-green-700", else: "bg-gray-700 hover:bg-gray-600"}"}>
+          <%= if @is_playing, do: "■", else: "▶" %>
+        </button>
+        <div class="flex gap-0.5">
+          <button phx-click="set_hot_cue" phx-value-letter="A" phx-value-deck={@deck_num} phx-target={@myself}
+            class="px-1.5 py-0.5 text-[10px] font-bold bg-gray-700 hover:bg-gray-600 rounded text-white transition-colors">CUE</button>
+          <button class="px-1.5 py-0.5 text-[10px] font-bold bg-gray-700 hover:bg-gray-600 rounded text-white transition-colors">CUP</button>
+          <button class="px-1.5 py-0.5 text-[10px] font-bold rounded text-cyan-300 border border-cyan-700 hover:bg-cyan-900 transition-colors">FLX</button>
+          <button class="px-1.5 py-0.5 text-[10px] font-bold rounded text-orange-300 border border-orange-700 hover:bg-orange-900 transition-colors">REV</button>
+        </div>
+        <div class="w-px h-4 bg-gray-700"></div>
+        <%= for size <- ["1/4","1/2","1","2","4","8","16","32"] do %>
+          <button phx-click="loop_size" phx-value-size={size} phx-value-deck={@deck_num} phx-target={@myself}
+            class="px-1 py-0.5 text-[9px] font-mono bg-gray-800 hover:bg-gray-700 rounded text-gray-300 hover:text-white border border-gray-700 transition-colors">
+            <%= size %>
+          </button>
+        <% end %>
+        <div class="flex gap-0.5 ml-0.5">
+          <button phx-click="loop_in" phx-value-deck={@deck_num} phx-target={@myself}
+            class="px-1.5 py-0.5 text-[10px] font-bold rounded text-blue-300 border border-blue-700 bg-blue-900/40 hover:bg-blue-900 transition-colors">IN</button>
+          <button phx-click="loop_out" phx-value-deck={@deck_num} phx-target={@myself}
+            class="px-1.5 py-0.5 text-[10px] font-bold rounded text-blue-300 border border-blue-700 bg-blue-900/40 hover:bg-blue-900 transition-colors">OUT</button>
+          <button phx-click="loop_toggle" phx-value-deck={@deck_num} phx-target={@myself}
+            class="px-1.5 py-0.5 text-[10px] font-bold rounded text-green-300 border border-green-700 bg-green-900/40 hover:bg-green-900 transition-colors">ACTIVE</button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :deck, :map, default: nil
+  attr :deck_num, :integer, required: true
+  attr :label, :string, required: true
+  attr :color, :string, default: "green"
+  attr :myself, :any, required: true
+  attr :is_playing, :boolean, default: false
+
+  defp traktor_deck_compact(assigns) do
+    color_map = %{
+      "blue" => "bg-blue-700", "red" => "bg-red-700",
+      "green" => "bg-green-700", "purple" => "bg-purple-700"
+    }
+    assigns = assign(assigns, :badge_cls, Map.get(color_map, assigns.color, "bg-gray-700"))
+    ~H"""
+    <div class="h-full flex items-center gap-1.5 px-2 bg-[#161616]">
+      <div class={"w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center flex-shrink-0 #{@badge_cls}"}><%= @label %></div>
+      <button phx-click="toggle_midi_sync" phx-value-deck={@deck_num} phx-target={@myself}
+        class="px-1.5 py-0.5 text-[9px] font-bold bg-gray-700 hover:bg-gray-600 rounded text-white flex-shrink-0 transition-colors">SYNC</button>
+      <div class="flex-1 min-w-0 text-xs text-white truncate">
+        <%= if @deck, do: "#{@deck.title} — #{@deck.artist}", else: "— No Track —" %>
+      </div>
+      <span class="text-[10px] font-mono text-yellow-400 flex-shrink-0">
+        <%= if @deck && @deck.bpm, do: Float.round(@deck.bpm * 1.0, 1), else: "--.-" %>
+      </span>
+      <div class="w-16 h-5 bg-black rounded overflow-hidden flex items-end gap-px px-0.5 flex-shrink-0">
+        <%= for i <- 1..16 do %>
+          <div class="flex-1 rounded-t bg-blue-500/60" style={"height:#{20 + rem(i * 31 + @deck_num * 7, 65)}%"}></div>
+        <% end %>
+      </div>
+      <span class="text-[10px] font-mono text-gray-400 flex-shrink-0">
+        <%= if @deck && @deck.duration, do: "-#{format_position(@deck.duration)}", else: "-00:00" %>
+      </span>
+      <button phx-click="set_hot_cue" phx-value-letter="A" phx-value-deck={@deck_num} phx-target={@myself}
+        class="px-1.5 py-0.5 text-[9px] font-bold bg-gray-700 hover:bg-gray-600 rounded text-white flex-shrink-0">CUE</button>
+      <button phx-click="loop_toggle" phx-value-deck={@deck_num} phx-target={@myself}
+        class="px-1.5 py-0.5 text-[9px] font-bold rounded text-green-300 border border-green-700 flex-shrink-0">LOOP</button>
+      <button phx-click="toggle_play" phx-value-deck={@deck_num} phx-target={@myself}
+        class={"px-1.5 py-0.5 text-[9px] font-bold rounded flex-shrink-0 text-white transition-colors #{if @is_playing, do: "bg-green-600", else: "bg-gray-700 hover:bg-gray-600"}"}>
+        <%= if @is_playing, do: "■", else: "▶" %>
+      </button>
+    </div>
+    """
+  end
+
+  attr :myself, :any, required: true
+  attr :deck_a, :map, default: nil
+  attr :deck_b, :map, default: nil
+
+  defp traktor_mixer(assigns) do
+    ~H"""
+    <div class="w-28 flex-shrink-0 flex flex-col bg-[#181818] border-x border-gray-800 overflow-y-auto">
+      <%!-- Master BPM --%>
+      <div class="flex flex-col items-center py-1.5 border-b border-gray-800">
+        <span class="text-[9px] text-gray-600 uppercase">BPM</span>
+        <span class="text-xl font-mono font-bold text-yellow-400 leading-tight">
+          <%= if @deck_a && @deck_a.bpm, do: Float.round(@deck_a.bpm * 1.0, 1), else: "--.-" %>
+        </span>
+      </div>
+      <%!-- Channel A EQ + fader --%>
+      <%= for {label, _deck} <- [{"A", @deck_a}, {"B", @deck_b}] do %>
+        <div class="flex flex-col items-center py-1.5 border-b border-gray-700 gap-1">
+          <span class="text-[10px] font-bold text-gray-400"><%= label %></span>
+          <%= for {eq, col} <- [{"HI", "border-orange-600"}, {"MID", "border-gray-500"}, {"LO", "border-blue-600"}] do %>
+            <div class="flex items-center gap-1 w-full justify-center">
+              <span class="text-[8px] text-gray-600 w-4 text-right"><%= eq %></span>
+              <div class={"w-5 h-5 rounded-full border-2 #{col} bg-[#1a1a1a] cursor-pointer hover:border-white transition-colors flex items-center justify-center"}>
+                <div class="w-px h-2 bg-gray-400 rounded"></div>
+              </div>
+            </div>
+          <% end %>
+          <div class="flex items-center gap-1 w-full justify-center mt-0.5">
+            <span class="text-[8px] text-gray-600 w-4 text-right">FLT</span>
+            <div class="w-5 h-5 rounded-full border-2 border-purple-700 bg-[#1a1a1a] cursor-pointer hover:border-purple-400 transition-colors"></div>
+          </div>
+          <div class="flex flex-col items-center gap-0.5 mt-1">
+            <div class="h-12 w-3 bg-gray-800 rounded-full relative flex items-end justify-center pb-1 cursor-pointer">
+              <div class="w-2.5 h-6 bg-gray-400 rounded-full hover:bg-white transition-colors"></div>
+            </div>
+            <span class="text-[8px] text-gray-600">100</span>
+          </div>
+        </div>
+      <% end %>
+      <%!-- Crossfader --%>
+      <div class="flex flex-col items-center py-1.5 gap-1">
+        <span class="text-[9px] text-gray-500 uppercase">X</span>
+        <div class="w-16 h-2.5 bg-gray-800 rounded-full relative cursor-pointer">
+          <div class="absolute top-0 bottom-0 w-4 bg-gray-400 rounded-full hover:bg-white transition-colors" style="left:calc(50% - 8px)"></div>
+        </div>
+        <div class="flex justify-between w-16">
+          <span class="text-[8px] text-blue-400 font-bold">A</span>
+          <span class="text-[8px] text-red-400 font-bold">B</span>
+        </div>
+      </div>
+    </div>
+    """
+  end
 end
