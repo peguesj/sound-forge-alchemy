@@ -1048,16 +1048,6 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   # Pipeline status helpers
   # ---------------------------------------------------------------------------
 
-  @doc """
-  Returns a map of boolean flags describing the pipeline state for a track.
-
-  Fields:
-    - `on_spotify`  — track has a spotify_url
-    - `downloaded`  — track has at least one completed download job (DB record)
-    - `file_ok`     — downloaded file actually exists on disk (false = file missing)
-    - `analyzed`    — track has at least one analysis result
-    - `processed`   — track has at least one stem
-  """
   defp track_pipeline_status(track, file_ok \\ true)
 
   defp track_pipeline_status(nil, _file_ok) do

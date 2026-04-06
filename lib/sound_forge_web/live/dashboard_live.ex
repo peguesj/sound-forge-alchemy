@@ -8,7 +8,6 @@ defmodule SoundForgeWeb.DashboardLive do
   alias SoundForge.Notifications
   alias SoundForge.Settings
   alias SoundForge.Audio.AnalysisHelpers
-  alias SoundForge.Audio.LalalAI
   alias SoundForge.Audio.Prefetch
   alias SoundForge.MIDI.NoteEdits
 
@@ -574,17 +573,6 @@ defmodule SoundForgeWeb.DashboardLive do
 
   # -- Download Actions --
 
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
   @impl true
   def handle_event("batch_download", _params, socket) do
     selected = socket.assigns.selected_ids
@@ -1183,41 +1171,13 @@ defmodule SoundForgeWeb.DashboardLive do
 
   # -- Debug Panel --
 
-  @impl true
-  @impl true
   @valid_debug_tabs ~w(logs tracing midi devtools uat)a
 
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
   # MIDI Monitor (always-available floating panel)
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
-  @impl true
+
   # ── DevTools Tab Events ──────────────────────────────────────────────
 
-  @impl true
-  @impl true
-  @impl true
-  @impl true
   # ── UAT Tab Events ──────────────────────────────────────────────────
-
-  @impl true
-  @impl true
-  @impl true
-  @impl true
   def handle_event("page", %{"page" => page_str}, socket) do
     page =
       case Integer.parse(page_str) do
@@ -1257,7 +1217,7 @@ defmodule SoundForgeWeb.DashboardLive do
   @impl true
   @impl true
   @impl true
-  @valid_pipeline_stages ~w(download processing analysis)a
+
 
   @impl true
   @impl true
@@ -1603,7 +1563,7 @@ defmodule SoundForgeWeb.DashboardLive do
   # every beat even when midi_bpm hasn't changed, flooding the WebSocket with
   # {10:, 17:} diffs at MIDI clock rate (~2 Hz). last_bpm_ms is only reset when
   # we actually update midi_bpm, effectively rate-limiting to 0.2 Hz.
-  @bpm_update_interval_ms 5_000
+
 
   @impl true
   @impl true
@@ -1651,7 +1611,7 @@ defmodule SoundForgeWeb.DashboardLive do
 
   # -- Template helpers --
 
-  @pipeline_stages [:download, :processing, :analysis]
+
 
   def radar_features(analysis, chord_result \\ nil) do
     features = analysis.features || %{}
@@ -1937,13 +1897,13 @@ defmodule SoundForgeWeb.DashboardLive do
   # -- MIDI helpers --
 
   # Builds a raw MIDI event map for the floating monitor panel
-  @note_names ~w(C C# D D# E F F# G G# A A# B)
+
 
   # -- DevTools helpers --
 
   # -- UAT helpers --
 
-  @max_uat_log 100
+
 
   # Step executors return {status, detail_string}
   # Catch-all for undefined steps
