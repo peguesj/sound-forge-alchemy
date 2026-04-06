@@ -160,6 +160,9 @@ defmodule SoundForgeWeb.PrototypeLive do
     {:noreply, assign(socket, :llm_messages, [])}
   end
 
+  # Catch-all: ignore unhandled events (e.g. pwa_midi_available from root layout hook)
+  def handle_event(_event, _params, socket), do: {:noreply, socket}
+
   # ============================================================
   # Info handlers (async results)
   # ============================================================
