@@ -1383,12 +1383,6 @@ defmodule SoundForgeWeb.DashboardLive do
     {:noreply, assign(socket, :pipelines, pipelines)}
   end
 
-  # MIDI conversion complete - reload midi_result
-  @impl true
-  # Chord detection complete - reload chord_result
-  @impl true
-  # Pipeline complete - reload the track to get fresh data
-  @impl true
   # Playlist-level pipeline update (from playlist_pipeline:{playlist_id} topic)
   @impl true
   def handle_info({:playlist_track_update, %{track_id: track_id, stage: stage, status: status, progress: progress}}, socket) do
@@ -1532,8 +1526,6 @@ defmodule SoundForgeWeb.DashboardLive do
 
   # -- MIDI handle_info callbacks --
 
-  @impl true
-  @impl true
   # Throttle BPM updates to 2 Hz max and only when value changes by ≥0.5 BPM.
   # MIDI clock (0xF8) fires at 24 PPQN — ~54 Hz at 134 BPM. Without throttling
   # this causes a LiveView diff on every tick even when the BPM reading is stable.
