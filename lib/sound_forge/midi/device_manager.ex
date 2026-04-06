@@ -60,6 +60,26 @@ defmodule SoundForge.MIDI.DeviceManager do
     end
   end
 
+  @doc """
+  Returns connected physical MIDI devices by grouping raw ports by their
+  physical device name. Each entry represents one hardware device.
+
+  Physical device maps include:
+    - `:name` / `:physical_name` — human-readable device name (normalized)
+    - `:direction` — `:input`, `:output`, or `:duplex`
+    - `:type` — `:usb`, `:virtual`, or `:unknown`
+    - `:status` — `:connected` or `:disconnected`
+    - `:port_count` — number of underlying MIDI ports
+    - `:port_ids` — list of raw port IDs for PubSub subscriptions
+    - `:port_id` — first input port_id (for backwards-compat UI bindings)
+    - `:ports` — full list of raw port maps
+  """
+  @spec list_physical_devices() :: [map()]
+  def list_physical_devices do
+    list_devices()
+    |> group_by_physical_device()
+  end
+
   @doc "Look up a single device by port_id. Returns the device map or nil."
   def get_device_by_port(port_id) do
     if :ets.whereis(@table) != :undefined do
@@ -124,6 +144,88 @@ defmodule SoundForge.MIDI.DeviceManager do
   end
 
   # -- Private Helpers --
+
+  defp normalize_device_name(name) when is_binary(name) do
+    name
+    |> String.replace(~r/\s+MPC\s+(Public|Private|MIDI\s+Port\s+[A-Z0-9]+)$/i, "")
+    |> String.replace(~r/[-\s]+(Private|Master|Public)$/i, "")
+    |> String.replace(~r/\s+Port\s+\d+$/i, "")
+    |> String.trim()
+  end
+
+  defp normalize_device_name(_), do: "Unknown"
+
+  # After basic normalization, merge groups whose name is a prefix of a longer
+  # group name — e.g. "SINCO" merges into "SINCO SMC-PAD".
+  defp coalesce_by_prefix(groups) do
+    names_longest_first = groups |> Map.keys() |> Enum.sort_by(&byte_size/1, :desc)
+
+    Enum.reduce(names_longest_first, groups, fn name, acc ->
+      if Map.has_key?(acc, name) do
+        parent =
+          Enum.find(names_longest_first, fn longer ->
+            longer != name and
+              byte_size(longer) > byte_size(name) and
+              String.starts_with?(longer, name) and
+              Map.has_key?(acc, longer)
+          end)
+
+        if parent do
+          acc |> Map.update!(parent, &(&1 ++ acc[name])) |> Map.delete(name)
+        else
+          acc
+        end
+      else
+        acc
+      end
+    end)
+  end
+
+  defp group_by_physical_device(ports) do
+    ports
+    |> Enum.group_by(fn port -> normalize_device_name(port.name) end)
+    |> coalesce_by_prefix()
+    |> Enum.map(fn {physical_name, port_list} ->
+      has_input = Enum.any?(port_list, &(&1.direction in [:input, :duplex]))
+      has_output = Enum.any?(port_list, &(&1.direction in [:output, :duplex]))
+      any_connected = Enum.any?(port_list, &(&1.status == :connected))
+
+      direction =
+        cond do
+          has_input and has_output -> :duplex
+          has_input -> :input
+          has_output -> :output
+          true -> :unknown
+        end
+
+      type =
+        Enum.find_value(port_list, :unknown, fn p ->
+          if p.type != :unknown, do: p.type
+        end)
+
+      # Prefer an input port_id for backwards-compat UI bindings (e.g. toggles).
+      primary_port_id =
+        Enum.find_value(port_list, fn p ->
+          if p.direction in [:input, :duplex], do: p.port_id
+        end) || hd(port_list).port_id
+
+      %{
+        physical_name: physical_name,
+        name: physical_name,
+        port_names: Enum.map(port_list, & &1.name),
+        port_count: length(port_list),
+        has_input: has_input,
+        has_output: has_output,
+        direction: direction,
+        type: type,
+        status: if(any_connected, do: :connected, else: :disconnected),
+        port_ids: Enum.map(port_list, & &1.port_id),
+        port_id: primary_port_id,
+        ports: port_list
+      }
+    end)
+    |> Enum.sort_by(& &1.physical_name)
+  end
 
   defp schedule_poll do
     Process.send_after(self(), :poll_hotplug, @poll_interval_ms)

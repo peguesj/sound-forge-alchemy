@@ -120,7 +120,8 @@ defmodule SoundForgeWeb.SettingsLive do
   def handle_event("close_midi_settings", _params, socket), do: {:noreply, socket}
 
   def handle_event("refresh_midi_devices", _params, socket) do
-    {:noreply, assign(socket, :refreshing_midi, false)}
+    devices = SoundForge.MIDI.DeviceManager.list_physical_devices()
+    {:noreply, socket |> assign(:midi_devices, devices) |> assign(:refreshing_midi, false)}
   end
 
   def handle_event("save", %{"user_settings" => params}, socket) do

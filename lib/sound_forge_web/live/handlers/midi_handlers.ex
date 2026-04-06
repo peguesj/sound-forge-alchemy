@@ -31,42 +31,31 @@ defmodule SoundForgeWeb.Live.Handlers.MidiHandlers do
       end
 
       def handle_event("client_midi_devices_updated", %{"devices" => client_devices}, socket) do
-        server_devices =
-          safe_list_midi_devices()
-          |> Enum.map(fn d ->
-            %{
-              "name" => to_string(d.name || "Unknown"),
-              "type" => to_string(d.type || ""),
-              "direction" => to_string(d.direction || ""),
-              "port_id" => to_string(d.port_id || ""),
-              "status" => to_string(d.status || "connected"),
-              "source" => "server"
-            }
-          end)
+        server_physical = safe_list_midi_devices()
+        server_names = MapSet.new(server_physical, & &1.name)
 
-        tagged_client =
+        # Web MIDI devices from the browser that aren't already in the server list
+        client_only =
           (client_devices || [])
+          |> Enum.reject(fn d -> MapSet.member?(server_names, d["name"] || "") end)
           |> Enum.map(fn d ->
             %{
-              "name" => d["name"] || "Unknown",
-              "type" => d["type"] || "",
-              "direction" => d["type"] || "",
-              "port_id" => d["id"] || "",
-              "status" => d["state"] || "connected",
-              "manufacturer" => d["manufacturer"] || "",
-              "source" => "client"
+              name: d["name"] || "Unknown",
+              physical_name: d["name"] || "Unknown",
+              direction: :duplex,
+              type: :unknown,
+              status: :connected,
+              port_count: 1,
+              has_input: true,
+              has_output: true,
+              port_id: d["id"] || "",
+              port_ids: [d["id"] || ""],
+              ports: [],
+              source: :client
             }
           end)
 
-        client_keys = MapSet.new(tagged_client, &{&1["name"], &1["direction"]})
-
-        server_only =
-          Enum.reject(server_devices, fn d ->
-            MapSet.member?(client_keys, {d["name"], d["direction"]})
-          end)
-
-        all_devices = tagged_client ++ server_only
-        {:noreply, assign(socket, :midi_devices, all_devices)}
+        {:noreply, assign(socket, :midi_devices, server_physical ++ client_only)}
       end
 
       # ── MIDI Monitor Events ───────────────────────────────────────────────
@@ -77,8 +66,8 @@ defmodule SoundForgeWeb.Live.Handlers.MidiHandlers do
 
       def handle_event("toggle_midi_monitor_listen", _params, socket) do
         if socket.assigns.midi_monitor_listening do
-          for device <- socket.assigns.midi_devices do
-            port_id = device[:port_id] || device.port_id
+          for device <- socket.assigns.midi_devices,
+              port_id <- (Map.get(device, :port_ids) || [Map.get(device, :port_id, "")]) do
             Phoenix.PubSub.unsubscribe(
               SoundForge.PubSub,
               SoundForge.MIDI.Dispatcher.topic(port_id)
@@ -311,7 +300,7 @@ defmodule SoundForgeWeb.Live.Handlers.MidiHandlers do
       # ── Private: MIDI helpers ─────────────────────────────────────────────
 
       defp safe_list_midi_devices do
-        SoundForge.MIDI.DeviceManager.list_devices()
+        SoundForge.MIDI.DeviceManager.list_physical_devices()
       catch
         :exit, _ -> []
       end

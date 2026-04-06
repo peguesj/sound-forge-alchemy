@@ -1,0 +1,586 @@
+     warning: no route path for SoundForgeWeb.Router matches "/dev/impersonate/#{user.id}"
+     │
+ 327 │                   action={~p"/dev/impersonate/#{user.id}"}
+     │                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/prototype_live.ex:327: SoundForgeWeb.PrototypeLive.render/1
+
+     warning: redefining @impl attribute previously set at line 577
+     │
+ 578 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:578: SoundForgeWeb.DashboardLive (module)
+
+     warning: redefining @impl attribute previously set at line 578
+     │
+ 579 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:579: SoundForgeWeb.DashboardLive (module)
+
+     warning: redefining @impl attribute previously set at line 579
+     │
+ 580 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:580: SoundForgeWeb.DashboardLive (module)
+
+     warning: redefining @impl attribute previously set at line 580
+     │
+ 581 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:581: SoundForgeWeb.DashboardLive (module)
+
+     warning: redefining @impl attribute previously set at line 581
+     │
+ 582 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:582: SoundForgeWeb.DashboardLive (module)
+
+     warning: redefining @impl attribute previously set at line 582
+     │
+ 583 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:583: SoundForgeWeb.DashboardLive (module)
+
+     warning: redefining @impl attribute previously set at line 583
+     │
+ 584 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:584: SoundForgeWeb.DashboardLive (module)
+
+     warning: redefining @impl attribute previously set at line 584
+     │
+ 585 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:585: SoundForgeWeb.DashboardLive (module)
+
+     warning: redefining @impl attribute previously set at line 585
+     │
+ 586 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:586: SoundForgeWeb.DashboardLive (module)
+
+     warning: redefining @impl attribute previously set at line 586
+     │
+ 587 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:587: SoundForgeWeb.DashboardLive (module)
+
+     warning: redefining @impl attribute previously set at line 587
+     │
+ 588 │   @impl true
+     │   ~~~~~~~~~~
+     │
+     └─ lib/sound_forge_web/live/dashboard_live.ex:588: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1186
+      │
+ 1187 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1187: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1187
+      │
+ 1190 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1190: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1190
+      │
+ 1191 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1191: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1191
+      │
+ 1192 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1192: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1192
+      │
+ 1193 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1193: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1193
+      │
+ 1194 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1194: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1194
+      │
+ 1195 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1195: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1195
+      │
+ 1196 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1196: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1196
+      │
+ 1197 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1197: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1197
+      │
+ 1199 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1199: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1199
+      │
+ 1200 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1200: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1200
+      │
+ 1201 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1201: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1201
+      │
+ 1202 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1202: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1202
+      │
+ 1203 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1203: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1203
+      │
+ 1204 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1204: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1204
+      │
+ 1205 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1205: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1205
+      │
+ 1206 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1206: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1206
+      │
+ 1207 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1207: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1207
+      │
+ 1208 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1208: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1208
+      │
+ 1211 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1211: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1211
+      │
+ 1212 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1212: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1212
+      │
+ 1213 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1213: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1213
+      │
+ 1214 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1214: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1214
+      │
+ 1217 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1217: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1217
+      │
+ 1218 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1218: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1218
+      │
+ 1219 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1219: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1219
+      │
+ 1220 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1220: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1255
+      │
+ 1256 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1256: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1256
+      │
+ 1257 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1257: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1257
+      │
+ 1258 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1258: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1258
+      │
+ 1259 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1259: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1259
+      │
+ 1262 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1262: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1262
+      │
+ 1263 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1263: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1263
+      │
+ 1265 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1265: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1294
+      │
+ 1296 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1296: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1375
+      │
+ 1377 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1377: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1377
+      │
+ 1379 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1379: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1379
+      │
+ 1380 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1380: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1380
+      │
+ 1382 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1382: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1443
+      │
+ 1445 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1445: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1445
+      │
+ 1447 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1447: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1447
+      │
+ 1449 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1449: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1457
+      │
+ 1459 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1459: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1592
+      │
+ 1593 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1593: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1593
+      │
+ 1608 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1608: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1608
+      │
+ 1609 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1609: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1609
+      │
+ 1610 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1610: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1610
+      │
+ 1611 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1611: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1611
+      │
+ 1612 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1612: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1612
+      │
+ 1614 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1614: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1614
+      │
+ 1616 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1616: SoundForgeWeb.DashboardLive (module)
+
+      warning: redefining @impl attribute previously set at line 1616
+      │
+ 1619 │   @impl true
+      │   ~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1619: SoundForgeWeb.DashboardLive (module)
+
+      warning: module attribute @pipeline_stages was set but never used
+      │
+ 1654 │   @pipeline_stages [:download, :processing, :analysis]
+      │   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1654: SoundForgeWeb.DashboardLive (module)
+
+      warning: module attribute @valid_pipeline_stages was set but never used
+      │
+ 1260 │   @valid_pipeline_stages ~w(download processing analysis)a
+      │   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1260: SoundForgeWeb.DashboardLive (module)
+
+      warning: module attribute @max_uat_log was set but never used
+      │
+ 1946 │   @max_uat_log 100
+      │   ~~~~~~~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1946: SoundForgeWeb.DashboardLive (module)
+
+      warning: module attribute @valid_debug_tabs was set but never used
+      │
+ 1188 │   @valid_debug_tabs ~w(logs tracing midi devtools uat)a
+      │   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1188: SoundForgeWeb.DashboardLive (module)
+
+      warning: module attribute @note_names was set but never used
+      │
+ 1940 │   @note_names ~w(C C# D D# E F F# G G# A A# B)
+      │   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1940: SoundForgeWeb.DashboardLive (module)
+
+      warning: module attribute @bpm_update_interval_ms was set but never used
+      │
+ 1606 │   @bpm_update_interval_ms 5_000
+      │   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/dashboard_live.ex:1606: SoundForgeWeb.DashboardLive (module)
+
+    warning: unused alias LalalAI
+    │
+ 11 │   alias SoundForge.Audio.LalalAI
+    │   ~
+    │
+    └─ lib/sound_forge_web/live/dashboard_live.ex:11:3
+
+      warning: defp track_pipeline_status/2 is private, @doc attribute is always discarded for private functions/macros/types
+      │
+ 1051 │   @doc """
+      │   ~~~~~~~~
+      │
+      └─ lib/sound_forge_web/live/components/daw_tab_component.ex:1051: SoundForgeWeb.Live.Components.DawTabComponent.track_pipeline_status/2
+
+Running ExUnit with seed: 546406, max_cases: 24
+
+    warning: unused import SoundForge.AccountsFixtures
+    │
+  8 │   import SoundForge.AccountsFixtures
+    │   ~
+    │
+    └─ test/sound_forge_web/live/chromatic_pads_render_test.exs:8:3
+
+.    warning: unused import SoundForge.MusicFixtures
+    │
+  9 │   import SoundForge.MusicFixtures
+    │   ~
+    │
+    └─ test/sound_forge_web/live/chromatic_pads_render_test.exs:9:3
+
+......................................................................................     warning: variable "dl" is unused (if the variable is not meant to be used, prefix it with an underscore)
+     │
+ 447 │       dl = download_job_fixture(%{track_id: track.id, status: :completed, output_path: "/tmp/test.mp3"})
+     │       ~~
+     │
+     └─ test/sound_forge_web/live/dashboard_extended_test.exs:447:7: SoundForgeWeb.DashboardExtendedTest."test confirm_batch_process with selected tracks"/1
+
+.......................................................     warning: variable "b1" is unused (if the variable is not meant to be used, prefix it with an underscore)
+     │
+ 347 │       {:ok, b1} = Sampler.create_bank(bank_attrs(user.id, %{name: "Bank C", position: 2}))
+     │             ~~
+     │
+     └─ test/sound_forge/sampler_full_test.exs:347:13: SoundForge.SamplerFullTest."test list_banks ordering returns banks in position order"/1
+
+..     warning: variable "b2" is unused (if the variable is not meant to be used, prefix it with an underscore)
+     │
+ 348 │       {:ok, b2} = Sampler.create_bank(bank_attrs(user.id, %{name: "Bank A", position: 0}))
+     │             ~~
+     │
+     └─ test/sound_forge/sampler_full_test.exs:348:13: SoundForge.SamplerFullTest."test list_banks ordering returns banks in position order"/1
+
+......     warning: variable "b3" is unused (if the variable is not meant to be used, prefix it with an underscore)
+     │
+ 349 │       {:ok, b3} = Sampler.create_bank(bank_attrs(user.id, %{name: "Bank B", position: 1}))
+     │             ~~
+     │
+     └─ test/sound_forge/sampler_full_test.exs:349:13: SoundForge.SamplerFullTest."test list_banks ordering returns banks in position order"/1
+
+................................................................................................................................................................................23:08:39.993 [error] Failed to open MIDI output port port:0: "no function clause matching in Midiex.open/1"
+.23:08:39.994 [error] Failed to open MIDI output port port:0: "no function clause matching in Midiex.open/1"
+.23:08:39.994 [error] Failed to open MIDI output port port:0: "no function clause matching in Midiex.open/1"
+.23:08:39.994 [error] Failed to open MIDI output port port:0: "no function clause matching in Midiex.open/1"
+.23:08:39.994 [error] Failed to open MIDI output port port:0: "no function clause matching in Midiex.open/1"
+.........    warning: variable "other_user" is unused (if the variable is not meant to be used, prefix it with an underscore)
+    │
+ 34 │       other_user = user_fixture(%{email: "searchme@example.com"})
+    │       ~~~~~~~~~~
+    │
+    └─ test/sound_forge_web/live/admin_live_extended_test.exs:34:7: SoundForgeWeb.AdminLiveExtendedTest."test users tab - search search_users event updates user list"/1
+
+..................................................................................................................    warning: unused import SoundForge.AccountsFixtures
+    │
+  5 │   import SoundForge.AccountsFixtures
+    │   ~
+    │
+    └─ test/sound_forge_web/live/settings_live_extended_test.exs:5:3
+
+..............................................................................................................................................................................    warning: variable "view" is unused (if the variable is not meant to be used, prefix it with an underscore)
+    │
+ 34 │       {:ok, view, html} = live(conn, ~p"/")
+    │             ~~~~
+    │
+    └─ test/sound_forge_web/live/dashboard_smoke_test.exs:34:13: SoundForgeWeb.DashboardSmokeTest."test full dashboard navigation library tab renders with tracks"/1
+
+.    error: cannot define module SoundForgeWeb.AudioPlayerLiveTest because it is currently being defined in test/sound_forge_web/live/audio_player_live_test.exs:1
+    │
+  1 │ defmodule SoundForgeWeb.AudioPlayerLiveTest do
+    │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    │
+    └─ test/sound_forge_web/live/audio_player_test.exs:1: SoundForgeWeb.AudioPlayerLiveTest (module)
+
+
+== Compilation error in file test/sound_forge_web/live/audio_player_test.exs ==
+** (CompileError) test/sound_forge_web/live/audio_player_test.exs: cannot compile module SoundForgeWeb.AudioPlayerLiveTest (errors have been logged)
+    (elixir 1.19.5) lib/kernel/parallel_compiler.ex:648: Kernel.ParallelCompiler.require_file/2
+    (elixir 1.19.5) lib/kernel/parallel_compiler.ex:531: anonymous fn/5 in Kernel.ParallelCompiler.spawn_workers/8

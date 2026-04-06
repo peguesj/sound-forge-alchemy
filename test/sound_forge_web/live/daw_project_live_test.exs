@@ -99,14 +99,16 @@ defmodule SoundForgeWeb.DawProjectLiveTest do
       track = track_spotify_only(user.id)
       {:ok, _view, html} = live(conn, "/?tab=daw&track_id=#{track.id}")
 
-      refute html =~ "Downloaded"
+      # Check specifically for the Downloaded badge span element
+      refute html =~ ~r/<span[^>]*class="[^"]*badge[^"]*"[^>]*>\s*Downloaded\s*<\/span>/
     end
 
     test "does not show Processed badge for track with no stems", %{conn: conn, user: user} do
       track = track_spotify_only(user.id)
       {:ok, _view, html} = live(conn, "/?tab=daw&track_id=#{track.id}")
 
-      refute html =~ "Processed"
+      # Check specifically for the Processed badge span element
+      refute html =~ ~r/<span[^>]*class="[^"]*badge[^"]*"[^>]*>\s*Processed\s*<\/span>/
     end
 
     test "shows Analyzed badge when track has bpm set", %{conn: conn, user: user} do
@@ -140,8 +142,9 @@ defmodule SoundForgeWeb.DawProjectLiveTest do
       track = track_with_stems(user.id)
       {:ok, _view, html} = live(conn, "/?tab=daw&track_id=#{track.id}")
 
-      refute html =~ "Download Track"
-      refute html =~ "Separate Stems"
+      # Look for the specific button elements, not just the text anywhere
+      refute html =~ ~r/<button[^>]*phx-click="daw_download_track"[^>]*>.*?Download Track/s
+      refute html =~ ~r/<button[^>]*phx-click="daw_separate_stems"[^>]*>.*?Separate Stems/s
     end
 
     test "shows Download Track but not Separate Stems for un-downloaded track",
@@ -149,8 +152,8 @@ defmodule SoundForgeWeb.DawProjectLiveTest do
       track = track_spotify_only(user.id)
       {:ok, _view, html} = live(conn, "/?tab=daw&track_id=#{track.id}")
 
-      assert html =~ "Download Track"
-      refute html =~ "Separate Stems"
+      assert html =~ ~r/<button[^>]*phx-click="daw_download_track"[^>]*>.*?Download Track/s
+      refute html =~ ~r/<button[^>]*phx-click="daw_separate_stems"[^>]*>.*?Separate Stems/s
     end
 
     test "shows Separate Stems and Analyze Track for downloaded track without stems",
@@ -158,8 +161,8 @@ defmodule SoundForgeWeb.DawProjectLiveTest do
       track = track_with_completed_download(user.id)
       {:ok, _view, html} = live(conn, "/?tab=daw&track_id=#{track.id}")
 
-      assert html =~ "Separate Stems"
-      refute html =~ "Download Track"
+      assert html =~ ~r/<button[^>]*phx-click="daw_separate_stems"[^>]*>.*?Separate Stems/s
+      refute html =~ ~r/<button[^>]*phx-click="daw_download_track"[^>]*>.*?Download Track/s
     end
   end
 

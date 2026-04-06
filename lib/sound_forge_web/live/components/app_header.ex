@@ -203,7 +203,9 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                         ]}></div>
                         <div class="min-w-0 flex-1">
                           <p class="text-xs text-gray-300 truncate">{device.name}</p>
-                          <p class="text-[10px] text-gray-600">{device.direction} / {device.type}</p>
+                          <p class="text-[10px] text-gray-600">
+                            {device.direction}<%= if Map.get(device, :port_count, 1) > 1 do %> · {device.port_count} ports<% else %> / {device.type}<% end %>
+                          </p>
                         </div>
                       </div>
                     </div>

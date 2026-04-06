@@ -3,7 +3,8 @@ defmodule SoundForge.StorageTest do
 
   alias SoundForge.Storage
 
-  @tmp_dir System.tmp_dir!() |> Path.join("sound_forge_storage_test")
+  # Use unique temp dir per test to avoid conflicts with async tests
+  @tmp_dir System.tmp_dir!() |> Path.join("sound_forge_storage_test_#{System.unique_integer()}")
 
   setup do
     File.rm_rf!(@tmp_dir)

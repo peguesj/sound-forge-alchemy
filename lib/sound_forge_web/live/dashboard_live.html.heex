@@ -3772,7 +3772,14 @@
         ]}></div>
         <div class="min-w-0 flex-1">
           <p class="text-sm text-gray-200 truncate">{device.name}</p>
-          <p class="text-xs text-gray-500">{device.direction} · {device.type}</p>
+          <p class="text-xs text-gray-500">
+            {device.direction}
+            <%= if Map.get(device, :port_count, 1) > 1 do %>
+              · {device.port_count} ports
+            <% else %>
+              · {device.type}
+            <% end %>
+          </p>
         </div>
         <span class={[
           "text-[10px] font-medium px-1.5 py-0.5 rounded",

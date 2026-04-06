@@ -33,6 +33,7 @@ defmodule SoundForgeWeb.MidiLive do
 
     current_user_id = resolve_user_id(socket.assigns[:current_user], session)
     devices = DeviceManager.list_devices()
+    physical_devices = DeviceManager.list_physical_devices()
     network_devices = NetworkDiscovery.list_network_devices()
     mappings = if current_user_id, do: Mappings.list_mappings(current_user_id), else: []
 
@@ -54,8 +55,8 @@ defmodule SoundForgeWeb.MidiLive do
       |> assign(:current_user_id, current_user_id)
       |> assign(:nav_tab, :library)
       |> assign(:nav_context, :all_tracks)
-      # AppHeader assigns
-      |> assign(:midi_devices, devices)
+      # AppHeader uses physical devices (grouped); functional code uses raw `devices`
+      |> assign(:midi_devices, physical_devices)
       |> assign(:midi_bpm, nil)
       |> assign(:midi_transport, :stopped)
       |> assign(:pipelines, %{})

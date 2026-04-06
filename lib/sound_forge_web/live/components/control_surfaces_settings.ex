@@ -97,7 +97,9 @@ defmodule SoundForgeWeb.Live.Components.ControlSurfacesSettings do
             <div class={"w-2.5 h-2.5 rounded-full " <> if(device.status == :connected, do: "bg-green-500", else: "bg-red-500")} />
             <div>
               <p class="text-sm text-gray-300">{device.name}</p>
-              <p class="text-xs text-gray-500">{device.direction} - {device.type}</p>
+              <p class="text-xs text-gray-500">
+                {device.direction}<%= if Map.get(device, :port_count, 1) > 1 do %> · {device.port_count} ports<% else %> · {device.type}<% end %>
+              </p>
             </div>
           </div>
           <button
