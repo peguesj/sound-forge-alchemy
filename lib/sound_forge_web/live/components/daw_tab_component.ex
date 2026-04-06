@@ -150,6 +150,17 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   end
 
   @impl true
+  def handle_event("verify_file", %{"track-id" => track_id}, socket) do
+    track = SoundForge.Music.get_track!(track_id)
+    file_exists = track.file_path && File.exists?(track.file_path)
+
+    case SoundForge.Music.update_track(track, %{file_ok: file_exists}) do
+      {:ok, t} -> {:noreply, assign(socket, :track, t)}
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
   def handle_event("back_to_picker", _params, socket) do
     {:noreply,
      socket
@@ -614,9 +625,9 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id="daw-tab" phx-target={@myself}>
+    <div id="daw-tab" phx-target={@myself} class="flex-1 min-w-0 overflow-hidden">
       <%= if @track do %>
-        <div id="daw-preview-container" phx-hook="DawPreview" class="text-white">
+        <div id="daw-preview-container" phx-hook="DawPreview" class="text-white flex-1 min-w-0 overflow-hidden">
           <%!-- Header --%>
           <div class="bg-gray-800 border-b border-gray-700 px-6 py-4">
             <div class="flex items-center gap-4">
@@ -666,6 +677,14 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
               <%!-- Global Operation Selector --%>
               <div class="ml-auto flex items-center gap-2">
                 <%!-- Import Stem from Library (US-B07) --%>
+                <button
+                  phx-click="verify_file"
+                  phx-target={@myself}
+                  phx-value-track-id={@track && @track.id}
+                  class="btn btn-xs btn-outline"
+                >
+                  Verify File
+                </button>
                 <button
                   phx-click="toggle_daw_library"
                   class="flex items-center gap-1 px-2 py-1 text-xs rounded bg-violet-900/40 hover:bg-violet-900/70 text-violet-300 transition-colors"

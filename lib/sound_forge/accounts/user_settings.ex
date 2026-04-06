@@ -74,6 +74,9 @@ defmodule SoundForge.Accounts.UserSettings do
     # DJ settings
     field :dj_crossfader_split, :boolean, default: false
 
+    # DAW / Library
+    field :auto_verify_on_library_open, :boolean, default: false
+
     timestamps(type: :utc_datetime)
   end
 
@@ -108,7 +111,8 @@ defmodule SoundForge.Accounts.UserSettings do
     :debug_mode,
     :midi_bar_position,
     :midi_bar_visible,
-    :dj_crossfader_split
+    :dj_crossfader_split,
+    :auto_verify_on_library_open
   ]
 
   def changeset(settings, attrs) do
