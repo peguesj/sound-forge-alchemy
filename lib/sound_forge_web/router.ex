@@ -117,6 +117,22 @@ defmodule SoundForgeWeb.Router do
     get "/processing/models", ProcessingController, :models
 
     get "/analysis/job/:id", AnalysisController, :show
+    get "/native/lalalai/quota", LalalaiController, :quota
+  end
+
+  # Realtime tracker + chat bridge (SSE streams; EventSource cannot send
+  # Bearer headers, so these use the plain :api pipeline)
+  scope "/api", SoundForgeWeb.API do
+    pipe_through :api
+
+    get "/tracker/health", TrackerController, :health
+    get "/tracker/state", TrackerController, :state
+    get "/tracker/events", TrackerController, :events
+    post "/tracker/cards", TrackerController, :create_card
+
+    get "/chat/presence", ChatController, :presence
+    get "/chat/events", ChatController, :events
+    post "/chat/messages", ChatController, :create_message
   end
 
   # Heavy API routes (stricter rate limit for resource-intensive operations)

@@ -67,6 +67,8 @@ defmodule SoundForge.Application do
       SoundForge.Telemetry.ObanHandler,
       SoundForge.LLM.ModelRegistry,
       SoundForge.Sources.SpliceScanner,
+      SoundForge.Tracker.Store,
+      SoundForge.Chat.Bridge,
       SoundForgeWeb.Endpoint
     ]
   end
