@@ -189,7 +189,7 @@ defmodule SoundForge.DJ.CueSets do
   end
 
   defp apply_item_sort(query, :intelligent) do
-    order_by(query, [i], [asc_nulls_last: i.sort_order, desc_nulls_last: i.confidence])
+    order_by(query, [i], asc_nulls_last: i.sort_order, desc_nulls_last: i.confidence)
   end
 
   defp apply_item_sort(query, _), do: apply_item_sort(query, :confidence)

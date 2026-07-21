@@ -8,7 +8,8 @@ defmodule SoundForge.Agents.CuePointAgent do
 
   @impl true
   def description,
-    do: "Suggests optimal cue point timestamps and loop regions by analysing beats, energy, and phrase structure."
+    do:
+      "Suggests optimal cue point timestamps and loop regions by analysing beats, energy, and phrase structure."
 
   @impl true
   def capabilities,

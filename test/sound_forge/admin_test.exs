@@ -50,7 +50,12 @@ defmodule SoundForge.AdminTest do
   describe "log_action/5" do
     test "creates audit log entry" do
       user = user_fixture()
-      assert {:ok, log} = Admin.log_action(user.id, "create", "track", Ecto.UUID.generate(), %{title: "New Track"})
+
+      assert {:ok, log} =
+               Admin.log_action(user.id, "create", "track", Ecto.UUID.generate(), %{
+                 title: "New Track"
+               })
+
       assert log.action == "create"
       assert log.resource_type == "track"
     end

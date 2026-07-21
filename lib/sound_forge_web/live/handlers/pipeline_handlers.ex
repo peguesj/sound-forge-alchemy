@@ -22,7 +22,8 @@ defmodule SoundForgeWeb.Live.Handlers.PipelineHandlers do
         with {:ok, track} <- fetch_owned_track(socket, id),
              true <- is_binary(track.spotify_url),
              false <- has_completed_download?(id) do
-          {:ok, download_job} = SoundForge.Music.create_download_job(%{track_id: track.id, status: :queued})
+          {:ok, download_job} =
+            SoundForge.Music.create_download_job(%{track_id: track.id, status: :queued})
 
           %{
             "track_id" => track.id,
@@ -42,7 +43,9 @@ defmodule SoundForgeWeb.Live.Handlers.PipelineHandlers do
 
           {:noreply,
            socket
-           |> push_notification(:info, "Download Started", "Downloading \"#{track.title}\"...", %{track_id: track.id})
+           |> push_notification(:info, "Download Started", "Downloading \"#{track.title}\"...", %{
+             track_id: track.id
+           })
            |> assign(:pipelines, pipelines)
            |> put_flash(:info, "Download started for #{track.title}")}
         else
@@ -100,7 +103,11 @@ defmodule SoundForgeWeb.Live.Handlers.PipelineHandlers do
 
         with {:ok, track} <- fetch_owned_track(socket, id),
              {:ok, job} <-
-               start_processing(track.id, user_id, [engine: engine, preview: preview] ++ lalalai_opts) do
+               start_processing(
+                 track.id,
+                 user_id,
+                 [engine: engine, preview: preview] ++ lalalai_opts
+               ) do
           maybe_subscribe(socket, track.id)
 
           pipelines = socket.assigns.pipelines
@@ -262,7 +269,10 @@ defmodule SoundForgeWeb.Live.Handlers.PipelineHandlers do
 
               socket =
                 update_pipeline_stage(socket, job.track_id, :processing, fn stage_data ->
-                  Map.merge(stage_data, %{status: :cancelled, progress: stage_data[:progress] || 0})
+                  Map.merge(stage_data, %{
+                    status: :cancelled,
+                    progress: stage_data[:progress] || 0
+                  })
                 end)
 
               {:noreply, put_flash(socket, :info, "Task cancelled")}
@@ -539,9 +549,7 @@ defmodule SoundForgeWeb.Live.Handlers.PipelineHandlers do
               SoundForge.MIDI.NoteEdits.delete_note_edit(edit)
 
               user_notes =
-                serialize_user_notes(
-                  SoundForge.MIDI.NoteEdits.list_note_edits(track.id, user_id)
-                )
+                serialize_user_notes(SoundForge.MIDI.NoteEdits.list_note_edits(track.id, user_id))
 
               {:noreply,
                socket
@@ -648,7 +656,12 @@ defmodule SoundForgeWeb.Live.Handlers.PipelineHandlers do
             stage_name = stage |> to_string() |> String.capitalize()
 
             socket
-            |> push_notification(:error, "#{stage_name} Failed", "#{stage_name} failed for track. Check server logs.", %{track_id: track_id})
+            |> push_notification(
+              :error,
+              "#{stage_name} Failed",
+              "#{stage_name} failed for track. Check server logs.",
+              %{track_id: track_id}
+            )
             |> put_flash(:error, "#{stage_name} failed. Check server logs for details.")
           else
             socket
@@ -749,7 +762,9 @@ defmodule SoundForgeWeb.Live.Handlers.PipelineHandlers do
 
         {:noreply,
          socket
-         |> push_notification(:success, "Pipeline Complete", "\"#{track_title}\" is ready.", %{track_id: track_id})
+         |> push_notification(:success, "Pipeline Complete", "\"#{track_title}\" is ready.", %{
+           track_id: track_id
+         })
          |> assign(:pipelines, pipelines)
          |> put_flash(:info, "Pipeline complete! Track is ready.")}
       end
@@ -850,22 +865,22 @@ defmodule SoundForgeWeb.Live.Handlers.PipelineHandlers do
                  preview: preview
                }),
              {:ok, _oban_job} <-
-               (%{
-                  "track_id" => track_id,
-                  "job_id" => job.id,
-                  "file_path" => file_path,
-                  "model" => model,
-                  "engine" => engine,
-                  "preview" => preview,
-                  "lalalai_mode" => lalalai_mode,
-                  "multistem_stems" => multistem_stems,
-                  "noise_level" => noise_level,
-                  "voice_pack_id" => voice_pack_id,
-                  "accent" => accent,
-                  "dereverb" => dereverb
-                }
-                |> SoundForge.Jobs.ProcessingWorker.new()
-                |> Oban.insert()) do
+               %{
+                 "track_id" => track_id,
+                 "job_id" => job.id,
+                 "file_path" => file_path,
+                 "model" => model,
+                 "engine" => engine,
+                 "preview" => preview,
+                 "lalalai_mode" => lalalai_mode,
+                 "multistem_stems" => multistem_stems,
+                 "noise_level" => noise_level,
+                 "voice_pack_id" => voice_pack_id,
+                 "accent" => accent,
+                 "dereverb" => dereverb
+               }
+               |> SoundForge.Jobs.ProcessingWorker.new()
+               |> Oban.insert() do
           {:ok, job}
         else
           {:error, :no_completed_download} -> {:error, :no_completed_download}
@@ -939,7 +954,15 @@ defmodule SoundForgeWeb.Live.Handlers.PipelineHandlers do
         end
       end
 
-      defp add_pipeline_track(socket, track_meta, url, uid, auto_download, playlist \\ nil, position \\ nil) do
+      defp add_pipeline_track(
+             socket,
+             track_meta,
+             url,
+             uid,
+             auto_download,
+             playlist \\ nil,
+             position \\ nil
+           ) do
         case start_single_pipeline(track_meta, url, uid, auto_download) do
           {:ok, track, pipeline} ->
             if playlist do
@@ -1151,7 +1174,10 @@ defmodule SoundForgeWeb.Live.Handlers.PipelineHandlers do
 
                 {:error, reason} ->
                   require Logger
-                  Logger.warning("[DashboardLive] Could not resume pipeline for #{track.id}: #{inspect(reason)}")
+
+                  Logger.warning(
+                    "[DashboardLive] Could not resume pipeline for #{track.id}: #{inspect(reason)}"
+                  )
               end
             end
           end

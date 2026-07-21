@@ -12,8 +12,12 @@ defmodule SoundForgeWeb.PrototypeLiveCoverageTest do
       result = live(conn, ~p"/prototype")
       # Should redirect or show error depending on role
       case result do
-        {:error, {:redirect, %{to: "/"}}} -> assert true
-        {:error, {:live_redirect, %{to: "/"}}} -> assert true
+        {:error, {:redirect, %{to: "/"}}} ->
+          assert true
+
+        {:error, {:live_redirect, %{to: "/"}}} ->
+          assert true
+
         {:ok, _view, html} ->
           # Some configs allow admin access in test env
           assert is_binary(html)

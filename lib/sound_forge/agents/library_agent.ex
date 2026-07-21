@@ -8,11 +8,18 @@ defmodule SoundForge.Agents.LibraryAgent do
 
   @impl true
   def description,
-    do: "Provides library search, track recommendations, playlist curation, genre classification, and mood tagging."
+    do:
+      "Provides library search, track recommendations, playlist curation, genre classification, and mood tagging."
 
   @impl true
   def capabilities,
-    do: [:library_search, :track_recommendations, :playlist_curation, :genre_classification, :mood_tagging]
+    do: [
+      :library_search,
+      :track_recommendations,
+      :playlist_curation,
+      :genre_classification,
+      :mood_tagging
+    ]
 
   @impl true
   def preferred_traits, do: [task: :generation, speed: :fast]

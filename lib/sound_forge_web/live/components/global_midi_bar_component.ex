@@ -77,8 +77,14 @@ defmodule SoundForgeWeb.Live.Components.GlobalMidiBarComponent do
      |> assign_new(:position, fn -> assigns[:position] || "bottom" end)
      |> assign_new(:visible, fn -> Map.get(assigns, :visible, true) end)
      |> assign(:bottom_offset, Map.get(assigns, :bottom_offset, socket.assigns.bottom_offset))
-     |> assign(:midi_monitor_open, assigns[:midi_monitor_open] || socket.assigns.midi_monitor_open)
-     |> assign(:midi_learn_active, assigns[:midi_learn_active] || socket.assigns.midi_learn_active)}
+     |> assign(
+       :midi_monitor_open,
+       assigns[:midi_monitor_open] || socket.assigns.midi_monitor_open
+     )
+     |> assign(
+       :midi_learn_active,
+       assigns[:midi_learn_active] || socket.assigns.midi_learn_active
+     )}
   end
 
   @impl true
@@ -116,7 +122,10 @@ defmodule SoundForgeWeb.Live.Components.GlobalMidiBarComponent do
     >
       <%!-- MIDI icon + device --%>
       <div class="flex items-center gap-1.5 min-w-0">
-        <div class={["w-2 h-2 rounded-full flex-shrink-0", if(@active_device, do: "bg-green-400 animate-pulse", else: "bg-gray-600")]}>
+        <div class={[
+          "w-2 h-2 rounded-full flex-shrink-0",
+          if(@active_device, do: "bg-green-400 animate-pulse", else: "bg-gray-600")
+        ]}>
         </div>
         <span class="text-gray-500 font-semibold uppercase tracking-widest text-[9px]">MIDI</span>
         <span class="text-gray-300 truncate max-w-[120px]">
@@ -134,14 +143,16 @@ defmodule SoundForgeWeb.Live.Components.GlobalMidiBarComponent do
             {event.type}
           </span>
           <span class="text-gray-400 font-mono text-[10px]">
-            Ch{event.channel + 1} · {event_label(event)} · <span class={value_color(event.value)}>{event.value}</span>
+            Ch{event.channel + 1} · {event_label(event)} ·
+            <span class={value_color(event.value)}>{event.value}</span>
           </span>
           <%!-- Value bar --%>
           <div class="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden flex-shrink-0">
             <div
               class={["h-full rounded-full transition-all duration-75", value_bar_color(event.value)]}
               style={"width: #{trunc(event.value / 127 * 100)}%;"}
-            ></div>
+            >
+            </div>
           </div>
         <% end %>
         <%= if @last_events == [] do %>
@@ -151,7 +162,9 @@ defmodule SoundForgeWeb.Live.Components.GlobalMidiBarComponent do
 
       <%!-- BPM --%>
       <div :if={@bpm} class="flex items-center gap-1 flex-shrink-0">
-        <span class="text-purple-400 font-bold font-mono text-[10px]">{Float.round(@bpm * 1.0, 1)} BPM</span>
+        <span class="text-purple-400 font-bold font-mono text-[10px]">
+          {Float.round(@bpm * 1.0, 1)} BPM
+        </span>
       </div>
 
       <%!-- Monitor toggle --%>

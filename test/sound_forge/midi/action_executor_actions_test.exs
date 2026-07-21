@@ -21,24 +21,52 @@ defmodule SoundForge.MIDI.ActionExecutorActionsTest do
       %{action: :next_track, channel: 0, number: 3, midi_type: :note_on},
       %{action: :prev_track, channel: 0, number: 4, midi_type: :note_on},
       %{action: :seek, channel: 0, number: 5, midi_type: :note_on},
-      %{action: :stem_volume, channel: 0, number: 10, midi_type: :cc,
-        params: %{"target" => "vocals", "track_id" => "track-123"}},
-      %{action: :stem_solo, channel: 0, number: 11, midi_type: :cc,
-        params: %{"stem" => "vocals", "track_id" => "track-123"}},
-      %{action: :stem_mute, channel: 0, number: 12, midi_type: :cc,
-        params: %{"stem" => "drums", "track_id" => "track-123"}},
+      %{
+        action: :stem_volume,
+        channel: 0,
+        number: 10,
+        midi_type: :cc,
+        params: %{"target" => "vocals", "track_id" => "track-123"}
+      },
+      %{
+        action: :stem_solo,
+        channel: 0,
+        number: 11,
+        midi_type: :cc,
+        params: %{"stem" => "vocals", "track_id" => "track-123"}
+      },
+      %{
+        action: :stem_mute,
+        channel: 0,
+        number: 12,
+        midi_type: :cc,
+        params: %{"stem" => "drums", "track_id" => "track-123"}
+      },
       %{action: :bpm_tap, channel: 0, number: 20, midi_type: :note_on},
-      %{action: :dj_play, channel: 1, number: 30, midi_type: :note_on,
-        params: %{"deck" => "1"}},
-      %{action: :dj_cue, channel: 1, number: 31, midi_type: :note_on,
-        params: %{"deck" => "1", "slot" => "1"}},
+      %{action: :dj_play, channel: 1, number: 30, midi_type: :note_on, params: %{"deck" => "1"}},
+      %{
+        action: :dj_cue,
+        channel: 1,
+        number: 31,
+        midi_type: :note_on,
+        params: %{"deck" => "1", "slot" => "1"}
+      },
       %{action: :dj_crossfader, channel: 1, number: 32, midi_type: :cc},
-      %{action: :dj_loop_toggle, channel: 1, number: 33, midi_type: :note_on,
-        params: %{"deck" => "1"}},
-      %{action: :dj_loop_size, channel: 1, number: 34, midi_type: :cc,
-        params: %{"deck" => "1", "beats" => "4.0"}},
-      %{action: :dj_pitch, channel: 1, number: 35, midi_type: :cc,
-        params: %{"deck" => "1"}},
+      %{
+        action: :dj_loop_toggle,
+        channel: 1,
+        number: 33,
+        midi_type: :note_on,
+        params: %{"deck" => "1"}
+      },
+      %{
+        action: :dj_loop_size,
+        channel: 1,
+        number: 34,
+        midi_type: :cc,
+        params: %{"deck" => "1", "beats" => "4.0"}
+      },
+      %{action: :dj_pitch, channel: 1, number: 35, midi_type: :cc, params: %{"deck" => "1"}},
       %{action: :pad_trigger, channel: 2, number: 40, midi_type: :note_on},
       %{action: :pad_volume, channel: 2, number: 41, midi_type: :cc},
       %{action: :pad_pitch, channel: 2, number: 42, midi_type: :cc},
@@ -69,9 +97,27 @@ defmodule SoundForge.MIDI.ActionExecutorActionsTest do
     Phoenix.PubSub.subscribe(SoundForge.PubSub, "dj:midi")
     Phoenix.PubSub.subscribe(SoundForge.PubSub, "sampler:midi")
 
-    on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid) end)
+    on_exit(fn -> stop_executor(pid) end)
 
     %{pid: pid, user: user}
+  end
+
+  defp stop_executor(pid) do
+    ref = Process.monitor(pid)
+
+    try do
+      GenServer.stop(pid, :normal, 5_000)
+    catch
+      :exit, _ -> :ok
+    end
+
+    receive do
+      {:DOWN, ^ref, :process, ^pid, _reason} -> :ok
+    after
+      100 ->
+        Process.demonitor(ref, [:flush])
+        :ok
+    end
   end
 
   defp send_note(pid, channel, note, velocity \\ 127) do
@@ -214,7 +260,7 @@ defmodule SoundForge.MIDI.ActionExecutorActionsTest do
       Process.sleep(10)
       send_note(pid, 0, 1)
       refute_receive {:midi_action, _, _}, 100
-      GenServer.stop(pid)
+      stop_executor(pid)
     end
 
     test "unmatched MIDI message produces no action", %{pid: pid} do

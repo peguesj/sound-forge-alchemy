@@ -25,7 +25,10 @@ defmodule SoundForge.Repo.Migrations.CreateSamplerTables do
       add :velocity, :float, default: 1.0
       add :start_time, :float, default: 0.0
       add :end_time, :float
-      add :bank_id, references(:sampler_banks, type: :binary_id, on_delete: :delete_all), null: false
+
+      add :bank_id, references(:sampler_banks, type: :binary_id, on_delete: :delete_all),
+        null: false
+
       add :stem_id, references(:stems, type: :binary_id, on_delete: :nilify_all)
 
       timestamps(type: :utc_datetime)

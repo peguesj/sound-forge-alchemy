@@ -22,7 +22,10 @@ defmodule SoundForge.Repo.Migrations.CreateChefSets do
 
     create table(:chef_set_items, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :chef_set_id, references(:chef_sets, type: :binary_id, on_delete: :delete_all), null: false
+
+      add :chef_set_id, references(:chef_sets, type: :binary_id, on_delete: :delete_all),
+        null: false
+
       add :position_ms, :integer, null: false
       add :end_ms, :integer
       add :label, :string

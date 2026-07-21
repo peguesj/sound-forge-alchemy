@@ -74,7 +74,11 @@ defmodule SoundForge.MIDI.MPCControllerTest do
     end
 
     test "handles midi_message note_on from unknown port", %{pid: pid} do
-      send(pid, {:midi_message, "unknown_port", %{type: :note_on, data: %{note: 36, velocity: 100}}})
+      send(
+        pid,
+        {:midi_message, "unknown_port", %{type: :note_on, data: %{note: 36, velocity: 100}}}
+      )
+
       assert Process.alive?(pid)
     end
 

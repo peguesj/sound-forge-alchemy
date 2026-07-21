@@ -22,7 +22,8 @@ defmodule SoundForge.Admin.AuditLogTest do
     end
 
     test "validates all action types" do
-      valid_actions = ~w(create update delete suspend ban reactivate role_change bulk_role_change config_update feature_flag_toggle login logout)
+      valid_actions =
+        ~w(create update delete suspend ban reactivate role_change bulk_role_change config_update feature_flag_toggle login logout)
 
       for action <- valid_actions do
         cs = AuditLog.changeset(%AuditLog{}, %{@valid_attrs | action: action})
@@ -36,12 +37,17 @@ defmodule SoundForge.Admin.AuditLogTest do
     end
 
     test "optional fields" do
-      cs = AuditLog.changeset(%AuditLog{}, Map.merge(@valid_attrs, %{
-        resource_id: "123",
-        changes: %{"role" => "admin"},
-        ip_address: "192.168.1.1",
-        actor_id: 42
-      }))
+      cs =
+        AuditLog.changeset(
+          %AuditLog{},
+          Map.merge(@valid_attrs, %{
+            resource_id: "123",
+            changes: %{"role" => "admin"},
+            ip_address: "192.168.1.1",
+            actor_id: 42
+          })
+        )
+
       assert cs.valid?
     end
 

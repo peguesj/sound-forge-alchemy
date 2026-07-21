@@ -28,7 +28,9 @@ defmodule SoundForge.DAW.EditOperationExpandedTest do
     end
 
     test "requires operation_type" do
-      changeset = EditOperation.changeset(%EditOperation{}, Map.delete(@valid_attrs, :operation_type))
+      changeset =
+        EditOperation.changeset(%EditOperation{}, Map.delete(@valid_attrs, :operation_type))
+
       refute changeset.valid?
     end
 
@@ -50,7 +52,9 @@ defmodule SoundForge.DAW.EditOperationExpandedTest do
 
     test "validates all operation types" do
       for type <- [:crop, :trim, :fade_in, :fade_out, :split, :gain] do
-        changeset = EditOperation.changeset(%EditOperation{}, %{@valid_attrs | operation_type: type})
+        changeset =
+          EditOperation.changeset(%EditOperation{}, %{@valid_attrs | operation_type: type})
+
         assert changeset.valid?, "Expected #{type} to be valid"
       end
     end

@@ -12,13 +12,14 @@ defmodule SoundForgeWeb.DashboardHandleInfoTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Handle Info Track",
-      artist: "Info Artist",
-      duration: 200,
-      spotify_url: "https://open.spotify.com/track/info123"
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Handle Info Track",
+        artist: "Info Artist",
+        duration: 200,
+        spotify_url: "https://open.spotify.com/track/info123"
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -27,7 +28,14 @@ defmodule SoundForgeWeb.DashboardHandleInfoTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -35,42 +43,78 @@ defmodule SoundForgeWeb.DashboardHandleInfoTest do
   describe "pipeline_progress" do
     test "handles download progress", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :download, status: :running, progress: 50}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :download, status: :running, progress: 50}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles processing progress", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :processing, status: :running, progress: 75}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :processing, status: :running, progress: 75}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles analysis progress", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :analysis, status: :running, progress: 30}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :analysis, status: :running, progress: 30}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles completed download status", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :download, status: :completed, progress: 100}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :download, status: :completed, progress: 100}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles failed status with flash", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :download, status: :failed, progress: 0}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :download, status: :failed, progress: 0}}
+      )
+
       html = render(view)
       assert html =~ "failed" or html =~ "Failed" or is_binary(html)
     end
 
     test "handles progress for unknown track", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: Ecto.UUID.generate(), stage: :download, status: :running, progress: 50}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: Ecto.UUID.generate(), stage: :download, status: :running, progress: 50}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
@@ -114,7 +158,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoTest do
   describe "dismiss_pipeline_from_tracker" do
     test "removes pipeline from state", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :download, status: :running, progress: 50}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :download, status: :running, progress: 50}}
+      )
+
       render(view)
       send(view.pid, {:dismiss_pipeline_from_tracker, track.id})
       html = render(view)
@@ -157,7 +207,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoTest do
   describe "debug_log" do
     test "debug_log when panel closed (no-op)", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:debug_log, %{level: :info, message: "test", namespace: "test_ns", timestamp: DateTime.utc_now()}})
+
+      send(
+        view.pid,
+        {:debug_log,
+         %{level: :info, message: "test", namespace: "test_ns", timestamp: DateTime.utc_now()}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
@@ -165,7 +221,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoTest do
     test "debug_log when panel open updates logs", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
       render_click(view, "toggle_debug_panel", %{})
-      send(view.pid, {:debug_log, %{level: :info, message: "test log", namespace: "test_ns", timestamp: DateTime.utc_now()}})
+
+      send(
+        view.pid,
+        {:debug_log,
+         %{level: :info, message: "test log", namespace: "test_ns", timestamp: DateTime.utc_now()}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
@@ -173,7 +235,18 @@ defmodule SoundForgeWeb.DashboardHandleInfoTest do
     test "debug_log with nil namespace", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
       render_click(view, "toggle_debug_panel", %{})
-      send(view.pid, {:debug_log, %{level: :warning, message: "no namespace", namespace: nil, timestamp: DateTime.utc_now()}})
+
+      send(
+        view.pid,
+        {:debug_log,
+         %{
+           level: :warning,
+           message: "no namespace",
+           namespace: nil,
+           timestamp: DateTime.utc_now()
+         }}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
@@ -191,21 +264,54 @@ defmodule SoundForgeWeb.DashboardHandleInfoTest do
   describe "batch messages" do
     test "batch_progress", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:batch_progress, %{batch_job_id: Ecto.UUID.generate(), status: :running, completed_count: 3, total_count: 10}})
+
+      send(
+        view.pid,
+        {:batch_progress,
+         %{
+           batch_job_id: Ecto.UUID.generate(),
+           status: :running,
+           completed_count: 3,
+           total_count: 10
+         }}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "batch_complete", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:batch_complete, %{batch_job_id: Ecto.UUID.generate(), completed_count: 10, failed_count: 0, total_count: 10}})
+
+      send(
+        view.pid,
+        {:batch_complete,
+         %{
+           batch_job_id: Ecto.UUID.generate(),
+           completed_count: 10,
+           failed_count: 0,
+           total_count: 10
+         }}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "batch_complete with failures", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:batch_complete, %{batch_job_id: Ecto.UUID.generate(), completed_count: 7, failed_count: 3, total_count: 10}})
+
+      send(
+        view.pid,
+        {:batch_complete,
+         %{
+           batch_job_id: Ecto.UUID.generate(),
+           completed_count: 7,
+           failed_count: 3,
+           total_count: 10
+         }}
+      )
+
       html = render(view)
       assert is_binary(html)
     end

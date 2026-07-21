@@ -26,7 +26,10 @@ defmodule SoundForge.Jobs.ProviderHealthWorker do
             :ok
 
           {:error, reason} ->
-            Logger.warning("[ProviderHealthWorker] failed to update health for #{provider_id}: #{inspect(reason)}")
+            Logger.warning(
+              "[ProviderHealthWorker] failed to update health for #{provider_id}: #{inspect(reason)}"
+            )
+
             :ok
         end
     end

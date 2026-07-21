@@ -95,7 +95,9 @@ defmodule SoundForge.MIDI.AutoDetect do
   defp build_registry_result(controller_name, confidence, user_id) do
     # Try to get the full controller info from the registry
     controllers = ControllerFingerprints.list_controllers()
-    controller_info = Enum.find(controllers, &(&1.model == controller_name)) || %{model: controller_name}
+
+    controller_info =
+      Enum.find(controllers, &(&1.model == controller_name)) || %{model: controller_name}
 
     suggested = build_suggested_mappings(controller_name, user_id)
 
@@ -189,6 +191,7 @@ defmodule SoundForge.MIDI.AutoDetect do
       signals
       |> Enum.map(fn s ->
         type = Atom.to_string(s.msg_type)
+
         "  - #{type} ch=#{s.channel} num=#{s.number}#{if s[:value], do: " val=#{s.value}", else: ""}"
       end)
       |> Enum.join("\n")

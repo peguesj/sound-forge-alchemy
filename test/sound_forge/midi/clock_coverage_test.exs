@@ -55,6 +55,7 @@ defmodule SoundForge.MIDI.ClockCoverageTest do
         ts = base + i * 20_833
         send(pid, {:midi_message, "input:0", %{type: :clock, timestamp: ts}})
       end
+
       # Give GenServer time to process
       Process.sleep(50)
       bpm = GenServer.call(pid, :get_bpm)
@@ -83,7 +84,11 @@ defmodule SoundForge.MIDI.ClockCoverageTest do
     end
 
     test "non-clock midi message is ignored", %{pid: pid} do
-      send(pid, {:midi_message, "input:0", %{type: :cc, channel: 0, data: %{controller: 1, value: 64}}})
+      send(
+        pid,
+        {:midi_message, "input:0", %{type: :cc, channel: 0, data: %{controller: 1, value: 64}}}
+      )
+
       assert Process.alive?(pid)
     end
 

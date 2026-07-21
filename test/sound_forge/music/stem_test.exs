@@ -33,7 +33,19 @@ defmodule SoundForge.Music.StemTest do
     end
 
     test "validates all stem types" do
-      stem_types = [:vocals, :drums, :bass, :other, :guitar, :piano, :electric_guitar, :acoustic_guitar, :synth, :strings, :wind]
+      stem_types = [
+        :vocals,
+        :drums,
+        :bass,
+        :other,
+        :guitar,
+        :piano,
+        :electric_guitar,
+        :acoustic_guitar,
+        :synth,
+        :strings,
+        :wind
+      ]
 
       for type <- stem_types do
         changeset = Stem.changeset(%Stem{}, %{@valid_attrs | stem_type: type})

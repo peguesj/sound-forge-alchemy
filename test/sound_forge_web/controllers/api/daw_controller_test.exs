@@ -51,10 +51,10 @@ defmodule SoundForgeWeb.API.DawControllerTest do
   end
 
   describe "POST /api/daw/export with valid data" do
-    test "exports stem file successfully", %{conn: conn} do
+    test "exports stem file successfully", %{conn: conn, user: user} do
       import SoundForge.MusicFixtures
 
-      track = track_fixture(%{title: "DAW Export Track"})
+      track = track_fixture(%{title: "DAW Export Track", user_id: user.id})
 
       upload = %Plug.Upload{
         path: write_temp_wav(),
@@ -92,7 +92,9 @@ defmodule SoundForgeWeb.API.DawControllerTest do
   end
 
   defp write_temp_wav do
-    path = Path.join(System.tmp_dir!(), "test_daw_export_#{System.unique_integer([:positive])}.wav")
+    path =
+      Path.join(System.tmp_dir!(), "test_daw_export_#{System.unique_integer([:positive])}.wav")
+
     File.write!(path, <<0::size(1024)>>)
     path
   end

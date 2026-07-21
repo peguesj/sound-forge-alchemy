@@ -51,11 +51,12 @@ defmodule SoundForge.Jobs.VoiceChangeWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{
-        args: %{
-          "track_id" => track_id,
-          "job_id" => job_id,
-          "file_path" => file_path
-        } = args
+        args:
+          %{
+            "track_id" => track_id,
+            "job_id" => job_id,
+            "file_path" => file_path
+          } = args
       }) do
     Logger.metadata(track_id: track_id, job_id: job_id, worker: "VoiceChangeWorker")
 
@@ -90,10 +91,13 @@ defmodule SoundForge.Jobs.VoiceChangeWorker do
          _ <- Logger.info("lalal.ai upload complete, source_id=#{source_id}"),
          _ <- broadcast_progress(job_id, :processing, 10),
          _ <-
-           (fresh_upload_job = Music.get_processing_job!(job_id);
-            Music.update_processing_job(fresh_upload_job, %{
-              options: Map.put(fresh_upload_job.options || %{}, "lalalai_source_id", source_id)
-            })),
+           (
+             fresh_upload_job = Music.get_processing_job!(job_id)
+
+             Music.update_processing_job(fresh_upload_job, %{
+               options: Map.put(fresh_upload_job.options || %{}, "lalalai_source_id", source_id)
+             })
+           ),
          {:ok, _change_result} <-
            LalalAI.change_voice(source_id,
              voice_pack_id: voice_pack_id,

@@ -29,6 +29,7 @@ defmodule SoundForge.DJ.PresetsCoverageTest do
         </Entry>
       </TSI>
       """
+
       assert {:ok, %{mappings: mappings}} = Presets.parse_tsi(xml, "user-1")
       assert is_list(mappings)
     end
@@ -46,6 +47,7 @@ defmodule SoundForge.DJ.PresetsCoverageTest do
         </Entry>
       </TSI>
       """
+
       assert {:ok, %{mappings: mappings}} = Presets.parse_tsi(xml, "user-1")
       assert mappings == []
     end
@@ -60,6 +62,7 @@ defmodule SoundForge.DJ.PresetsCoverageTest do
         </Entry>
       </TSI>
       """
+
       assert {:ok, %{mappings: mappings}} = Presets.parse_tsi(xml, "user-1")
       assert mappings == []
     end

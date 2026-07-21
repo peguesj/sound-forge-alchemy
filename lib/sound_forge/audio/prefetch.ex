@@ -298,7 +298,10 @@ defmodule SoundForge.Audio.Prefetch do
 
   defp do_prefetch_daw(user_id) do
     tracks = eligible_tracks(user_id)
-    Logger.debug("[Prefetch] DAW prefetch starting for #{length(tracks)} tracks (user #{user_id})")
+
+    Logger.debug(
+      "[Prefetch] DAW prefetch starting for #{length(tracks)} tracks (user #{user_id})"
+    )
 
     tracks
     |> Task.async_stream(&build_daw_cache_entry/1, max_concurrency: 4, timeout: 10_000)

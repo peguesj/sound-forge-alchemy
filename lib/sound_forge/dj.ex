@@ -130,7 +130,8 @@ defmodule SoundForge.DJ do
   @spec list_auto_cue_points(binary(), term()) :: [CuePoint.t()]
   def list_auto_cue_points(track_id, user_id) do
     CuePoint
-    |> where([cp],
+    |> where(
+      [cp],
       cp.track_id == ^track_id and cp.user_id == ^user_id and cp.auto_generated == true
     )
     |> order_by([cp], asc: cp.position_ms)
@@ -151,7 +152,8 @@ defmodule SoundForge.DJ do
   @spec delete_auto_cue_points(binary(), term()) :: {non_neg_integer(), nil | [term()]}
   def delete_auto_cue_points(track_id, user_id) do
     CuePoint
-    |> where([cp],
+    |> where(
+      [cp],
       cp.track_id == ^track_id and cp.user_id == ^user_id and cp.auto_generated == true
     )
     |> Repo.delete_all()
@@ -258,7 +260,7 @@ defmodule SoundForge.DJ do
         nil
 
       %DeckSession{} = session ->
-        session = Repo.preload(session, [track: :stems])
+        session = Repo.preload(session, track: :stems)
 
         cue_points =
           if session.track_id do
@@ -331,7 +333,8 @@ defmodule SoundForge.DJ do
   @doc """
   Updates a stem loop.
   """
-  @spec update_stem_loop(StemLoop.t(), map()) :: {:ok, StemLoop.t()} | {:error, Ecto.Changeset.t()}
+  @spec update_stem_loop(StemLoop.t(), map()) ::
+          {:ok, StemLoop.t()} | {:error, Ecto.Changeset.t()}
   def update_stem_loop(%StemLoop{} = stem_loop, attrs) do
     stem_loop
     |> StemLoop.changeset(attrs)

@@ -38,7 +38,7 @@ defmodule SoundForge.MIDI.DeviceResearch do
     "0x0944" => "BEHRINGER",
     "0x1C75" => "Arturia",
     "0x047F" => "Plantronics",
-    "0x0D8C" => "C-Media",
+    "0x0D8C" => "C-Media"
   }
 
   # --------------------------------------------------------------------------

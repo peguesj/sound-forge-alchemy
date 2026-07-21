@@ -3,7 +3,10 @@ defmodule SoundForgeWeb.Live.Components.ControlSurfacesSettings do
   use Phoenix.Component
 
   attr :active_tab, :atom, default: :osc
-  attr :osc_config, :map, default: %{port: 8000, target_host: "", target_port: 9000, enabled: false}
+
+  attr :osc_config, :map,
+    default: %{port: 8000, target_host: "", target_port: 9000, enabled: false}
+
   attr :midi_devices, :list, default: []
   attr :mpc_devices, :list, default: []
   attr :bridge_enabled, :boolean, default: false
@@ -12,8 +15,8 @@ defmodule SoundForgeWeb.Live.Components.ControlSurfacesSettings do
     ~H"""
     <div class="space-y-6">
       <h2 class="text-lg font-semibold text-white">Control Surfaces</h2>
-
-      <!-- Tab bar -->
+      
+    <!-- Tab bar -->
       <div class="flex border-b border-gray-800">
         <button
           :for={tab <- [:osc, :midi, :mpc]}
@@ -27,8 +30,8 @@ defmodule SoundForgeWeb.Live.Components.ControlSurfacesSettings do
           {tab_label(tab)}
         </button>
       </div>
-
-      <!-- OSC Tab -->
+      
+    <!-- OSC Tab -->
       <div :if={@active_tab == :osc} class="space-y-4">
         <div class="flex items-center justify-between">
           <span class="text-sm text-gray-300">OSC Server</span>
@@ -72,8 +75,8 @@ defmodule SoundForgeWeb.Live.Components.ControlSurfacesSettings do
             />
           </div>
         </div>
-
-        <!-- Bridge toggle -->
+        
+    <!-- Bridge toggle -->
         <div class="flex items-center justify-between pt-4 border-t border-gray-800">
           <div>
             <span class="text-sm text-gray-300">MIDI-OSC Bridge</span>
@@ -89,16 +92,24 @@ defmodule SoundForgeWeb.Live.Components.ControlSurfacesSettings do
           </button>
         </div>
       </div>
-
-      <!-- MIDI Tab -->
+      
+    <!-- MIDI Tab -->
       <div :if={@active_tab == :midi} class="space-y-3">
-        <div :for={device <- @midi_devices} class="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+        <div
+          :for={device <- @midi_devices}
+          class="flex items-center justify-between p-3 bg-gray-800 rounded-lg"
+        >
           <div class="flex items-center gap-3">
             <div class={"w-2.5 h-2.5 rounded-full " <> if(device.status == :connected, do: "bg-green-500", else: "bg-red-500")} />
             <div>
               <p class="text-sm text-gray-300">{device.name}</p>
               <p class="text-xs text-gray-500">
-                {device.direction}<%= if Map.get(device, :port_count, 1) > 1 do %> · {device.port_count} ports<% else %> · {device.type}<% end %>
+                {device.direction}
+                <%= if Map.get(device, :port_count, 1) > 1 do %>
+                  · {device.port_count} ports
+                <% else %>
+                  · {device.type}
+                <% end %>
               </p>
             </div>
           </div>
@@ -116,10 +127,13 @@ defmodule SoundForgeWeb.Live.Components.ControlSurfacesSettings do
           No MIDI devices detected
         </p>
       </div>
-
-      <!-- MPC Tab -->
+      
+    <!-- MPC Tab -->
       <div :if={@active_tab == :mpc} class="space-y-3">
-        <div :for={device <- @mpc_devices} class="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+        <div
+          :for={device <- @mpc_devices}
+          class="flex items-center justify-between p-3 bg-gray-800 rounded-lg"
+        >
           <div class="flex items-center gap-3">
             <div class="w-2.5 h-2.5 rounded-full bg-green-500" />
             <div>

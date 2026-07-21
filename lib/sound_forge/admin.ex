@@ -37,7 +37,8 @@ defmodule SoundForge.Admin do
 
     query =
       from(u in User,
-        left_join: t in Track, on: t.user_id == u.id,
+        left_join: t in Track,
+        on: t.user_id == u.id,
         group_by: u.id,
         select: %{
           id: u.id,
@@ -70,7 +71,9 @@ defmodule SoundForge.Admin do
   end
 
   defp maybe_filter_search(query, nil), do: query
-  defp maybe_filter_search(query, search), do: from(u in query, where: ilike(u.email, ^"%#{search}%"))
+
+  defp maybe_filter_search(query, search),
+    do: from(u in query, where: ilike(u.email, ^"%#{search}%"))
 
   defp maybe_filter_role(query, nil), do: query
   defp maybe_filter_role(query, role), do: from(u in query, where: u.role == ^role)
@@ -356,11 +359,12 @@ defmodule SoundForge.Admin do
 
     base =
       from(t in Track,
-        left_join: u in User, on: u.id == t.user_id,
+        left_join: u in User,
+        on: u.id == t.user_id,
         left_join: dj in SoundForge.Music.DownloadJob,
-          on: dj.track_id == t.id,
+        on: dj.track_id == t.id,
         left_join: pj in SoundForge.Music.ProcessingJob,
-          on: pj.track_id == t.id,
+        on: pj.track_id == t.id,
         group_by: [t.id, u.email],
         select: %{
           id: t.id,
@@ -369,10 +373,12 @@ defmodule SoundForge.Admin do
           album: t.album,
           user_email: u.email,
           user_id: t.user_id,
-          download_status: fragment(
-            "MAX(CASE WHEN ? IS NOT NULL THEN ? ELSE 'none' END)",
-            dj.id, dj.status
-          ),
+          download_status:
+            fragment(
+              "MAX(CASE WHEN ? IS NOT NULL THEN ? ELSE 'none' END)",
+              dj.id,
+              dj.status
+            ),
           stem_count: count(pj.id, :distinct),
           inserted_at: t.inserted_at
         },
@@ -384,11 +390,12 @@ defmodule SoundForge.Admin do
     base =
       if search && search != "" do
         pattern = "%#{search}%"
+
         from([t, u] in base,
           where:
             ilike(t.title, ^pattern) or
-            ilike(t.artist, ^pattern) or
-            ilike(u.email, ^pattern)
+              ilike(t.artist, ^pattern) or
+              ilike(u.email, ^pattern)
         )
       else
         base
@@ -397,19 +404,17 @@ defmodule SoundForge.Admin do
     tracks = Repo.all(base)
 
     total_base =
-      from(t in Track,
-        left_join: u in User, on: u.id == t.user_id,
-        select: count(t.id)
-      )
+      from(t in Track, left_join: u in User, on: u.id == t.user_id, select: count(t.id))
 
     total_base =
       if search && search != "" do
         pattern = "%#{search}%"
+
         from([t, u] in total_base,
           where:
             ilike(t.title, ^pattern) or
-            ilike(t.artist, ^pattern) or
-            ilike(u.email, ^pattern)
+              ilike(t.artist, ^pattern) or
+              ilike(u.email, ^pattern)
         )
       else
         total_base
@@ -445,7 +450,8 @@ defmodule SoundForge.Admin do
 
     query =
       from(a in AuditLog,
-        left_join: u in User, on: u.id == a.actor_id,
+        left_join: u in User,
+        on: u.id == a.actor_id,
         select: %{
           id: a.id,
           action: a.action,
@@ -462,7 +468,11 @@ defmodule SoundForge.Admin do
       )
 
     query = if action_filter, do: from(a in query, where: a.action == ^action_filter), else: query
-    query = if resource_filter, do: from(a in query, where: a.resource_type == ^resource_filter), else: query
+
+    query =
+      if resource_filter,
+        do: from(a in query, where: a.resource_type == ^resource_filter),
+        else: query
 
     query =
       if search do

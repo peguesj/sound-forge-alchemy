@@ -29,7 +29,16 @@ defmodule SoundForge.DJ.ChefSetItem do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(%__MODULE__{} = item, attrs) do
     item
-    |> cast(attrs, [:position_ms, :end_ms, :label, :confidence, :item_type, :color, :sort_order, :chef_set_id])
+    |> cast(attrs, [
+      :position_ms,
+      :end_ms,
+      :label,
+      :confidence,
+      :item_type,
+      :color,
+      :sort_order,
+      :chef_set_id
+    ])
     |> validate_required([:position_ms, :item_type, :chef_set_id])
     |> validate_inclusion(:item_type, @item_types)
     |> validate_number(:position_ms, greater_than_or_equal_to: 0)

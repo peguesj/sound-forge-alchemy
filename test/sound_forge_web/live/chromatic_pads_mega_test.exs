@@ -9,11 +9,26 @@ defmodule SoundForgeWeb.ChromaticPadsMegaTest do
 
   setup %{user: user} do
     track = track_fixture(%{user_id: user.id, title: "Pads Test", artist: "Test", duration: 200})
-    download_job_fixture(%{track_id: track.id, status: :completed, output_path: "priv/uploads/downloads/pads.mp3"})
+
+    download_job_fixture(%{
+      track_id: track.id,
+      status: :completed,
+      output_path: "priv/uploads/downloads/pads.mp3"
+    })
+
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stems = for type <- [:vocals, :drums, :bass, :other] do
-      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: type, file_path: "stems/#{type}.wav", file_size: 1024})
-    end
+
+    stems =
+      for type <- [:vocals, :drums, :bass, :other] do
+        stem_fixture(%{
+          track_id: track.id,
+          processing_job_id: pj.id,
+          stem_type: type,
+          file_path: "stems/#{type}.wav",
+          file_size: 1024
+        })
+      end
+
     %{track: track, stems: stems}
   end
 

@@ -8,12 +8,13 @@ defmodule SoundForgeWeb.DashboardEventsExtended2Test do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Events2 Test Track",
-      artist: "Events2 Artist",
-      duration: 200
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Events2 Test Track",
+        artist: "Events2 Artist",
+        duration: 200
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -22,7 +23,14 @@ defmodule SoundForgeWeb.DashboardEventsExtended2Test do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/v.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/v.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -36,13 +44,21 @@ defmodule SoundForgeWeb.DashboardEventsExtended2Test do
 
     test "fetch_spotify_metadata with spotify URL", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "fetch_spotify_metadata", %{"url" => "https://open.spotify.com/track/abc123"})
+
+      html =
+        render_click(view, "fetch_spotify_metadata", %{
+          "url" => "https://open.spotify.com/track/abc123"
+        })
+
       assert is_binary(html)
     end
 
     test "update_spotify_url event", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "update_spotify_url", %{"url" => "https://open.spotify.com/track/xyz"})
+
+      html =
+        render_click(view, "update_spotify_url", %{"url" => "https://open.spotify.com/track/xyz"})
+
       assert is_binary(html)
     end
   end

@@ -95,9 +95,15 @@ defmodule SoundForge.LLM.Client do
 
   defp ping_url(type, provider) when type in @cloud_providers do
     case type do
-      :anthropic -> "https://api.anthropic.com/v1/models"
-      :openai -> "https://api.openai.com/v1/models"
-      :google_gemini -> "https://generativelanguage.googleapis.com/v1beta/models"
+      :anthropic ->
+        "https://api.anthropic.com/v1/models"
+
+      :openai ->
+        "https://api.openai.com/v1/models"
+
+      :google_gemini ->
+        "https://generativelanguage.googleapis.com/v1beta/models"
+
       :azure_openai ->
         base = Map.get(provider, :base_url, "")
         "#{base}/openai/deployments"

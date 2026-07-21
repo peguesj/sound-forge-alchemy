@@ -8,7 +8,9 @@ defmodule SoundForge.MIDI.NetworkDiscoveryTest do
 
   describe "start_link/1" do
     test "starts with disabled flag to avoid dns-sd spawns" do
-      {:ok, pid} = NetworkDiscovery.start_link(enabled: false, name: :"test_nd_#{System.unique_integer()}")
+      {:ok, pid} =
+        NetworkDiscovery.start_link(enabled: false, name: :"test_nd_#{System.unique_integer()}")
+
       assert Process.alive?(pid)
       GenServer.stop(pid)
     end

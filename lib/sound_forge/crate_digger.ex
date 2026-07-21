@@ -216,9 +216,11 @@ defmodule SoundForge.CrateDigger do
     Task.start(fn ->
       Enum.each(playlist_tracks, fn track ->
         spotify_id = track["spotify_id"]
+
         if is_binary(spotify_id) && spotify_id != "" do
           unless Music.get_track_by_spotify_id(spotify_id) do
             spotify_url = "https://open.spotify.com/track/#{spotify_id}"
+
             attrs = %{
               spotify_id: spotify_id,
               spotify_url: spotify_url,
@@ -230,11 +232,13 @@ defmodule SoundForge.CrateDigger do
               user_id: user_id,
               source: "crate"
             }
+
             Music.create_track(attrs)
           end
         end
       end)
     end)
+
     :ok
   end
 

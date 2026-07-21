@@ -17,14 +17,41 @@ defmodule SoundForgeWeb.API.DawController do
     - `track_id`  - UUID of the parent track
     - `stem_type` - the original stem type (e.g. "vocals", "drums")
   """
-  def export(conn, %{"file" => %Plug.Upload{} = upload, "track_id" => track_id, "stem_type" => stem_type}) do
-    # Validate track_id is a proper UUID
-    case Ecto.UUID.cast(track_id) do
-      {:ok, _} -> do_export(conn, upload, track_id, stem_type)
+  def export(conn, %{
+        "file" => %Plug.Upload{} = upload,
+        "track_id" => track_id,
+        "stem_type" => stem_type
+      }) do
+    with {:ok, _} <- Ecto.UUID.cast(track_id),
+         {:ok, track} when not is_nil(track) <- Music.get_track(track_id),
+         :ok <- authorize_track(conn, track),
+         {:ok, base_stem_type} <- normalize_stem_type(stem_type) do
+      do_export(conn, upload, track_id, base_stem_type)
+    else
       :error ->
         conn
         |> put_status(:bad_request)
         |> json(%{ok: false, error: "Invalid track_id format"})
+
+      {:error, :forbidden} ->
+        conn
+        |> put_status(:forbidden)
+        |> json(%{ok: false, error: "Access denied"})
+
+      {:ok, nil} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{ok: false, error: "Track not found"})
+
+      {:error, :invalid_track} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{ok: false, error: "Track not found"})
+
+      {:error, :invalid_stem_type} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{ok: false, error: "Invalid stem_type"})
     end
   end
 
@@ -51,19 +78,12 @@ defmodule SoundForgeWeb.API.DawController do
             _ -> nil
           end
 
-        # Normalize stem_type to a valid atom (strip any _edited suffix that might
-        # have been sent and use the base type)
-        base_stem_type =
-          stem_type
-          |> String.replace(~r/_edited$/, "")
-          |> String.to_existing_atom()
-
         # Store a relative path for consistent URL generation
         relative_path = Path.join(["stems", track_id, filename])
 
         case Music.create_exported_stem(%{
                track_id: track_id,
-               stem_type: base_stem_type,
+               stem_type: stem_type,
                file_path: relative_path,
                file_size: file_size,
                source: "edited"
@@ -86,4 +106,32 @@ defmodule SoundForgeWeb.API.DawController do
         |> json(%{ok: false, error: "Failed to store file: #{inspect(reason)}"})
     end
   end
+
+  defp authorize_track(conn, track) do
+    user_id = get_in(conn.assigns, [:current_scope, Access.key(:user), Access.key(:id)])
+
+    if not is_nil(user_id) and track.user_id == user_id do
+      :ok
+    else
+      {:error, :forbidden}
+    end
+  end
+
+  defp normalize_stem_type(stem_type) when is_binary(stem_type) do
+    stem_type =
+      stem_type
+      |> String.replace(~r/_edited$/, "")
+      |> String.downcase()
+
+    valid_stems =
+      ~w(vocals drums bass other guitar piano electric_guitar acoustic_guitar synth strings wind)
+
+    if stem_type in valid_stems do
+      {:ok, String.to_atom(stem_type)}
+    else
+      {:error, :invalid_stem_type}
+    end
+  end
+
+  defp normalize_stem_type(_stem_type), do: {:error, :invalid_stem_type}
 end

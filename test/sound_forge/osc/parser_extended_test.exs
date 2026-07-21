@@ -68,7 +68,8 @@ defmodule SoundForge.OSC.ParserExtendedTest do
       bundle =
         "#bundle\0" <>
           <<0::64>> <>
-          <<byte_size(msg1)::32>> <> msg1 <>
+          <<byte_size(msg1)::32>> <>
+          msg1 <>
           <<byte_size(msg2)::32>> <> msg2
 
       assert {:ok, messages} = Parser.decode(bundle)

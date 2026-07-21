@@ -11,12 +11,13 @@ defmodule SoundForgeWeb.DashboardUploadUatTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Upload UAT Track",
-      artist: "Test Artist",
-      duration: 200
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Upload UAT Track",
+        artist: "Test Artist",
+        duration: 200
+      })
 
     download_job_fixture(%{
       track_id: track.id,

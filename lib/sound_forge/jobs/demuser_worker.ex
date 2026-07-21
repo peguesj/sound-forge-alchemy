@@ -50,11 +50,12 @@ defmodule SoundForge.Jobs.DemuserWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{
-        args: %{
-          "track_id" => track_id,
-          "job_id" => job_id,
-          "file_path" => file_path
-        } = args
+        args:
+          %{
+            "track_id" => track_id,
+            "job_id" => job_id,
+            "file_path" => file_path
+          } = args
       }) do
     Logger.metadata(track_id: track_id, job_id: job_id, worker: "DemuserWorker")
 
@@ -85,10 +86,13 @@ defmodule SoundForge.Jobs.DemuserWorker do
     with {:ok, source_id} <- LalalAI.upload_source(resolved_path),
          _ <- Logger.info("lalal.ai source uploaded: #{source_id}"),
          _ <-
-           (fresh_upload_job = Music.get_processing_job!(job_id);
-            Music.update_processing_job(fresh_upload_job, %{
-              options: Map.put(fresh_upload_job.options || %{}, "lalalai_source_id", source_id)
-            })),
+           (
+             fresh_upload_job = Music.get_processing_job!(job_id)
+
+             Music.update_processing_job(fresh_upload_job, %{
+               options: Map.put(fresh_upload_job.options || %{}, "lalalai_source_id", source_id)
+             })
+           ),
          {:ok, %{"task_id" => task_id}} <-
            LalalAI.split_demuser(source_id,
              splitter: splitter,
@@ -97,10 +101,13 @@ defmodule SoundForge.Jobs.DemuserWorker do
            ),
          _ <- Logger.info("lalal.ai demuser task created: #{task_id}"),
          _ <-
-           (fresh_split_job = Music.get_processing_job!(job_id);
-            Music.update_processing_job(fresh_split_job, %{
-              options: Map.put(fresh_split_job.options || %{}, "lalalai_task_id", task_id)
-            })),
+           (
+             fresh_split_job = Music.get_processing_job!(job_id)
+
+             Music.update_processing_job(fresh_split_job, %{
+               options: Map.put(fresh_split_job.options || %{}, "lalalai_task_id", task_id)
+             })
+           ),
          {:ok, stem_urls} <- poll_until_complete(task_id, job_id, track_id) do
       process_completed_stems(
         track_id,
@@ -282,9 +289,7 @@ defmodule SoundForge.Jobs.DemuserWorker do
         [stem]
 
       {:error, reason} ->
-        Logger.warning(
-          "Failed to create stem record for #{stem_type_atom}: #{inspect(reason)}"
-        )
+        Logger.warning("Failed to create stem record for #{stem_type_atom}: #{inspect(reason)}")
 
         []
     end

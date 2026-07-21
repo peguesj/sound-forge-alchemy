@@ -4,7 +4,10 @@ defmodule SoundForge.Repo.Migrations.CreateSampleFiles do
   def change do
     create table(:sample_files, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :pack_id, references(:sample_packs, type: :binary_id, on_delete: :delete_all), null: false
+
+      add :pack_id, references(:sample_packs, type: :binary_id, on_delete: :delete_all),
+        null: false
+
       add :name, :string, null: false
       add :file_path, :string, null: false
       add :duration_ms, :integer

@@ -26,7 +26,10 @@ defmodule SoundForgeWeb.Live.Components.PadAssignment do
           class={"w-20 h-20 min-w-[44px] min-h-[44px] rounded-lg flex flex-col items-center justify-center text-xs font-bold cursor-pointer transition-all border-2 border-gray-700 " <> pad_color(@assignments, pad)}
         >
           <span class="text-white/80">Pad {pad}</span>
-          <span :if={Map.get(@assignments, pad)} class="text-[10px] text-white/60 mt-1 truncate max-w-[70px]">
+          <span
+            :if={Map.get(@assignments, pad)}
+            class="text-[10px] text-white/60 mt-1 truncate max-w-[70px]"
+          >
             {pad_stem_label(@assignments, pad)}
           </span>
           <button
@@ -39,8 +42,8 @@ defmodule SoundForgeWeb.Live.Components.PadAssignment do
           </button>
         </div>
       </div>
-
-      <!-- Stem List (drag source) -->
+      
+    <!-- Stem List (drag source) -->
       <div class="flex-1 space-y-2">
         <h3 class="text-sm font-semibold text-gray-400 mb-2">Available Stems</h3>
         <div
@@ -51,7 +54,9 @@ defmodule SoundForgeWeb.Live.Components.PadAssignment do
           <div class={"w-3 h-3 rounded-full " <> stem_dot_color(stem)} />
           <span class="text-sm text-gray-300">{stem.name || stem.type}</span>
         </div>
-        <p :if={@stems == []} class="text-sm text-gray-600">No stems available. Process a track first.</p>
+        <p :if={@stems == []} class="text-sm text-gray-600">
+          No stems available. Process a track first.
+        </p>
       </div>
     </div>
     """

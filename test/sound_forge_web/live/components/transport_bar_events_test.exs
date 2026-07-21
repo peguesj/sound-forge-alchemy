@@ -87,7 +87,10 @@ defmodule SoundForgeWeb.Live.Components.TransportBarEventsTest do
         render_component(TransportBarComponent, %{
           id: "transport-long",
           nav_tab: :library,
-          track: %{title: "A Very Long Track Title That Might Overflow", artist: "Long Artist Name"}
+          track: %{
+            title: "A Very Long Track Title That Might Overflow",
+            artist: "Long Artist Name"
+          }
         })
 
       assert html =~ "A Very Long Track"

@@ -80,26 +80,25 @@ defmodule SoundForgeWeb.Live.Components.VirtualController do
             <circle cx="80" cy="80" r="70" fill="#111827" opacity="0.8" />
             <%!-- Rotation indicator line --%>
             <line
-              x1="80" y1="80" x2="80" y2="15"
+              x1="80"
+              y1="80"
+              x2="80"
+              y2="15"
               stroke={@indicator_color}
               stroke-width="2"
               class="jog-indicator"
             />
             <%!-- Center cue button --%>
             <circle
-              cx="80" cy="80" r="20"
+              cx="80"
+              cy="80"
+              r="20"
               fill="#1f2937"
               stroke="#374151"
               stroke-width="2"
               class="cursor-pointer hover:fill-gray-700 jog-center"
             />
-            <text
-              x="80" y="84"
-              text-anchor="middle"
-              fill="#9ca3af"
-              font-size="10"
-              font-weight="bold"
-            >
+            <text x="80" y="84" text-anchor="middle" fill="#9ca3af" font-size="10" font-weight="bold">
               CUE
             </text>
           </svg>

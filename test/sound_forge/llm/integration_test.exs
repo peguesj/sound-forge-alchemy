@@ -82,7 +82,11 @@ defmodule SoundForge.LLM.IntegrationTest do
     end
 
     test "emits telemetry stop event on routing failure", %{user: user} do
-      ref = :telemetry_test.attach_event_handlers(self(), [[:sound_forge, :llm, :router, :call, :stop]])
+      ref =
+        :telemetry_test.attach_event_handlers(self(), [
+          [:sound_forge, :llm, :router, :call, :stop]
+        ])
+
       messages = [%{"role" => "user", "content" => "telemetry test"}]
 
       Router.route(user.id, messages)
@@ -95,7 +99,9 @@ defmodule SoundForge.LLM.IntegrationTest do
     end
 
     test "emits provider fallback telemetry event", %{user: user} do
-      ref = :telemetry_test.attach_event_handlers(self(), [[:sound_forge, :llm, :router, :fallback]])
+      ref =
+        :telemetry_test.attach_event_handlers(self(), [[:sound_forge, :llm, :router, :fallback]])
+
       messages = [%{"role" => "user", "content" => "fallback test"}]
 
       Router.route(user.id, messages)
@@ -114,18 +120,20 @@ defmodule SoundForge.LLM.IntegrationTest do
     setup do
       user = user_fixture()
 
-      primary = create_provider(user.id, %{
-        name: "Primary (unreachable)",
-        priority: 0,
-        health_status: :unreachable
-      })
+      primary =
+        create_provider(user.id, %{
+          name: "Primary (unreachable)",
+          priority: 0,
+          health_status: :unreachable
+        })
 
-      secondary = create_provider(user.id, %{
-        name: "Secondary (also unreachable)",
-        provider_type: :lm_studio,
-        base_url: "http://127.0.0.1:2",
-        priority: 1
-      })
+      secondary =
+        create_provider(user.id, %{
+          name: "Secondary (also unreachable)",
+          provider_type: :lm_studio,
+          base_url: "http://127.0.0.1:2",
+          priority: 1
+        })
 
       %{user: user, primary: primary, secondary: secondary}
     end
@@ -171,7 +179,9 @@ defmodule SoundForge.LLM.IntegrationTest do
       assert degraded.health_status == :degraded
     end
 
-    test "routing failure marks provider unreachable and updates last_health_check_at", %{user: user} do
+    test "routing failure marks provider unreachable and updates last_health_check_at", %{
+      user: user
+    } do
       provider = create_provider(user.id)
       assert is_nil(provider.last_health_check_at)
 
@@ -183,21 +193,23 @@ defmodule SoundForge.LLM.IntegrationTest do
     end
 
     test "unreachable provider gets lowest priority in chain", %{user: user} do
-      good = create_provider(user.id, %{
-        name: "High priority unreachable",
-        priority: 0,
-        base_url: "http://127.0.0.1:1"
-      })
+      good =
+        create_provider(user.id, %{
+          name: "High priority unreachable",
+          priority: 0,
+          base_url: "http://127.0.0.1:1"
+        })
 
       # Mark good as unreachable so it gets deprioritized
       {:ok, _} = Providers.update_health(good, :unreachable)
 
-      late = create_provider(user.id, %{
-        name: "Low priority",
-        priority: 10,
-        provider_type: :lm_studio,
-        base_url: "http://127.0.0.1:2"
-      })
+      late =
+        create_provider(user.id, %{
+          name: "Low priority",
+          priority: 10,
+          provider_type: :lm_studio,
+          base_url: "http://127.0.0.1:2"
+        })
 
       messages = [%{"role" => "user", "content" => "priority test"}]
       Router.route(user.id, messages)
@@ -241,7 +253,11 @@ defmodule SoundForge.LLM.IntegrationTest do
   describe "telemetry events" do
     test "router emits call.stop with duration measurement" do
       user = user_fixture()
-      ref = :telemetry_test.attach_event_handlers(self(), [[:sound_forge, :llm, :router, :call, :stop]])
+
+      ref =
+        :telemetry_test.attach_event_handlers(self(), [
+          [:sound_forge, :llm, :router, :call, :stop]
+        ])
 
       Router.route(user.id, [%{"role" => "user", "content" => "telemetry"}])
 
@@ -256,7 +272,10 @@ defmodule SoundForge.LLM.IntegrationTest do
       user = user_fixture()
       _provider = create_provider(user.id)
 
-      ref = :telemetry_test.attach_event_handlers(self(), [[:sound_forge, :llm, :provider, :call, :stop]])
+      ref =
+        :telemetry_test.attach_event_handlers(self(), [
+          [:sound_forge, :llm, :provider, :call, :stop]
+        ])
 
       Router.route(user.id, [%{"role" => "user", "content" => "provider telemetry"}])
 

@@ -192,6 +192,7 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
       id: "global-midi-bar",
       midi_event: {port_id, msg}
     )
+
     {:noreply, socket}
   end
 
@@ -234,131 +235,183 @@ defmodule SoundForgeWeb.Live.SampleLibraryLive do
       />
       <%!-- Main content --%>
       <div class="flex flex-1 overflow-hidden">
-      <%!-- Left sidebar: pack list --%>
-      <aside class="w-64 shrink-0 border-r border-base-300 p-4 overflow-y-auto">
-        <h2 class="text-sm font-semibold text-base-content/60 uppercase tracking-wider mb-3">Sample Packs</h2>
-        <ul class="space-y-1">
-          <li>
-            <button
-              phx-click="clear_pack"
-              class={["w-full text-left px-3 py-2 rounded text-sm",
-                      if(is_nil(@selected_pack_id), do: "bg-primary/20 text-primary font-medium", else: "hover:bg-base-200")]}
-            >
-              All Packs
-            </button>
-          </li>
-          <%= for pack <- @packs do %>
+        <%!-- Left sidebar: pack list --%>
+        <aside class="w-64 shrink-0 border-r border-base-300 p-4 overflow-y-auto">
+          <h2 class="text-sm font-semibold text-base-content/60 uppercase tracking-wider mb-3">
+            Sample Packs
+          </h2>
+          <ul class="space-y-1">
             <li>
               <button
-                phx-click="select_pack"
-                phx-value-id={pack.id}
-                class={["w-full text-left px-3 py-2 rounded text-sm",
-                        if(@selected_pack_id == pack.id, do: "bg-primary/20 text-primary font-medium", else: "hover:bg-base-200")]}
+                phx-click="clear_pack"
+                class={[
+                  "w-full text-left px-3 py-2 rounded text-sm",
+                  if(is_nil(@selected_pack_id),
+                    do: "bg-primary/20 text-primary font-medium",
+                    else: "hover:bg-base-200"
+                  )
+                ]}
               >
-                <span class="block truncate"><%= pack.name %></span>
-                <span class="text-xs text-base-content/50"><%= pack.total_files %> files · <%= pack.source %></span>
+                All Packs
               </button>
             </li>
-          <% end %>
-        </ul>
-      </aside>
+            <%= for pack <- @packs do %>
+              <li>
+                <button
+                  phx-click="select_pack"
+                  phx-value-id={pack.id}
+                  class={[
+                    "w-full text-left px-3 py-2 rounded text-sm",
+                    if(@selected_pack_id == pack.id,
+                      do: "bg-primary/20 text-primary font-medium",
+                      else: "hover:bg-base-200"
+                    )
+                  ]}
+                >
+                  <span class="block truncate">{pack.name}</span>
+                  <span class="text-xs text-base-content/50">
+                    {pack.total_files} files · {pack.source}
+                  </span>
+                </button>
+              </li>
+            <% end %>
+          </ul>
+        </aside>
 
-      <%!-- Main area --%>
-      <main class="flex-1 flex flex-col overflow-hidden">
-        <%!-- Filter bar --%>
-        <div class="sticky top-0 z-10 bg-base-100 border-b border-base-300 px-6 py-3 flex flex-wrap gap-3 items-center">
-          <form phx-change="search" class="flex-1 min-w-48">
-            <input
-              type="text"
-              name="q"
-              value={@search_query}
-              placeholder="Search samples..."
-              class="input input-bordered input-sm w-full"
-            />
-          </form>
+        <%!-- Main area --%>
+        <main class="flex-1 flex flex-col overflow-hidden">
+          <%!-- Filter bar --%>
+          <div class="sticky top-0 z-10 bg-base-100 border-b border-base-300 px-6 py-3 flex flex-wrap gap-3 items-center">
+            <form phx-change="search" class="flex-1 min-w-48">
+              <input
+                type="text"
+                name="q"
+                value={@search_query}
+                placeholder="Search samples..."
+                class="input input-bordered input-sm w-full"
+              />
+            </form>
 
-          <form phx-change="filter_bpm" class="flex gap-2 items-center">
-            <input type="number" name="bpm_min" value={@bpm_min} placeholder="BPM min" class="input input-bordered input-sm w-24" step="0.1" />
-            <span class="text-base-content/40">–</span>
-            <input type="number" name="bpm_max" value={@bpm_max} placeholder="BPM max" class="input input-bordered input-sm w-24" step="0.1" />
-          </form>
+            <form phx-change="filter_bpm" class="flex gap-2 items-center">
+              <input
+                type="number"
+                name="bpm_min"
+                value={@bpm_min}
+                placeholder="BPM min"
+                class="input input-bordered input-sm w-24"
+                step="0.1"
+              />
+              <span class="text-base-content/40">–</span>
+              <input
+                type="number"
+                name="bpm_max"
+                value={@bpm_max}
+                placeholder="BPM max"
+                class="input input-bordered input-sm w-24"
+                step="0.1"
+              />
+            </form>
 
-          <form phx-change="filter_key">
-            <select name="key" class="select select-bordered select-sm">
-              <option value="">All Keys</option>
-              <%= for key <- ~w(C Cm D Dm E Em F Fm G Gm A Am B Bm) do %>
-                <option value={key} selected={@key_filter == key}><%= key %></option>
-              <% end %>
-            </select>
-          </form>
+            <form phx-change="filter_key">
+              <select name="key" class="select select-bordered select-sm">
+                <option value="">All Keys</option>
+                <%= for key <- ~w(C Cm D Dm E Em F Fm G Gm A Am B Bm) do %>
+                  <option value={key} selected={@key_filter == key}>{key}</option>
+                <% end %>
+              </select>
+            </form>
 
-          <form phx-change="filter_category">
-            <select name="category" class="select select-bordered select-sm">
-              <option value="">All Categories</option>
-              <%= for cat <- ~w(drums bass synths vocals loops sfx misc) do %>
-                <option value={cat} selected={@category_filter == cat}><%= String.capitalize(cat) %></option>
-              <% end %>
-            </select>
-          </form>
-        </div>
+            <form phx-change="filter_category">
+              <select name="category" class="select select-bordered select-sm">
+                <option value="">All Categories</option>
+                <%= for cat <- ~w(drums bass synths vocals loops sfx misc) do %>
+                  <option value={cat} selected={@category_filter == cat}>
+                    {String.capitalize(cat)}
+                  </option>
+                <% end %>
+              </select>
+            </form>
+          </div>
 
-        <%!-- File list --%>
-        <div class="flex-1 overflow-y-auto px-6 py-4">
-          <table class="table table-sm w-full">
-            <thead>
-              <tr class="text-xs text-base-content/50 uppercase">
-                <th class="w-8"></th>
-                <th>Name</th>
-                <th>BPM</th>
-                <th>Key</th>
-                <th>Category</th>
-                <th>Duration</th>
-                <th>Size</th>
-              </tr>
-            </thead>
-            <tbody id="sample-files" phx-update="stream">
-              <%= for {dom_id, file} <- @streams.files do %>
-                <tr id={dom_id} class={[
-                  "hover:bg-base-200/50 group transition-colors",
-                  if(@midi_active_file_id == file.id, do: "bg-primary/10 ring-1 ring-inset ring-primary/30", else: "")
-                ]}>
-                  <td class="w-8">
-                    <%!-- Play button: always visible (dimmed), full opacity on hover — Serato/Rekordbox pattern --%>
-                    <button
-                      class="btn btn-ghost btn-xs opacity-40 group-hover:opacity-100 transition-opacity"
-                      phx-hook="SamplePreview"
-                      id={"preview-#{file.id}"}
-                      data-file-path={file.file_path}
-                      title={"Preview: #{file.name}"}
-                    >
-                      &#9654;
-                    </button>
-                  </td>
-                  <td class="w-8">
-                    <a
-                      href={"/daw/#{file.id}"}
-                      class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-cyan-400"
-                      title="Edit in DAW"
-                    >
-                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                      </svg>
-                    </a>
-                  </td>
-                  <td class="font-mono text-xs truncate max-w-xs" title={file.name}><%= file.name %></td>
-                  <td class="text-xs font-mono tabular-nums text-cyan-500/80"><%= format_bpm(file.bpm) %></td>
-                  <td class="text-xs font-medium text-purple-400/80"><%= file.key || "—" %></td>
-                  <td class="text-xs"><%= file.category || "—" %></td>
-                  <td class="text-xs tabular-nums text-gray-500"><%= format_duration(file.duration_ms) %></td>
-                  <td class="text-xs tabular-nums text-gray-600"><%= format_size(file.file_size) %></td>
+          <%!-- File list --%>
+          <div class="flex-1 overflow-y-auto px-6 py-4">
+            <table class="table table-sm w-full">
+              <thead>
+                <tr class="text-xs text-base-content/50 uppercase">
+                  <th class="w-8"></th>
+                  <th>Name</th>
+                  <th>BPM</th>
+                  <th>Key</th>
+                  <th>Category</th>
+                  <th>Duration</th>
+                  <th>Size</th>
                 </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-      </main>
-      </div><%!-- /flex flex-1 overflow-hidden --%>
-    </div><%!-- /flex flex-col h-screen --%>
+              </thead>
+              <tbody id="sample-files" phx-update="stream">
+                <%= for {dom_id, file} <- @streams.files do %>
+                  <tr
+                    id={dom_id}
+                    class={[
+                      "hover:bg-base-200/50 group transition-colors",
+                      if(@midi_active_file_id == file.id,
+                        do: "bg-primary/10 ring-1 ring-inset ring-primary/30",
+                        else: ""
+                      )
+                    ]}
+                  >
+                    <td class="w-8">
+                      <%!-- Play button: always visible (dimmed), full opacity on hover — Serato/Rekordbox pattern --%>
+                      <button
+                        class="btn btn-ghost btn-xs opacity-40 group-hover:opacity-100 transition-opacity"
+                        phx-hook="SamplePreview"
+                        id={"preview-#{file.id}"}
+                        data-file-path={file.file_path}
+                        title={"Preview: #{file.name}"}
+                      >
+                        &#9654;
+                      </button>
+                    </td>
+                    <td class="w-8">
+                      <a
+                        href={"/daw/#{file.id}"}
+                        class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-cyan-400"
+                        title="Edit in DAW"
+                      >
+                        <svg
+                          class="w-3 h-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                          />
+                        </svg>
+                      </a>
+                    </td>
+                    <td class="font-mono text-xs truncate max-w-xs" title={file.name}>{file.name}</td>
+                    <td class="text-xs font-mono tabular-nums text-cyan-500/80">
+                      {format_bpm(file.bpm)}
+                    </td>
+                    <td class="text-xs font-medium text-purple-400/80">{file.key || "—"}</td>
+                    <td class="text-xs">{file.category || "—"}</td>
+                    <td class="text-xs tabular-nums text-gray-500">
+                      {format_duration(file.duration_ms)}
+                    </td>
+                    <td class="text-xs tabular-nums text-gray-600">{format_size(file.file_size)}</td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </main>
+      </div>
+      <%!-- /flex flex-1 overflow-hidden --%>
+    </div>
+    <%!-- /flex flex-col h-screen --%>
     """
   end
 

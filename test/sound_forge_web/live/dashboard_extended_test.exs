@@ -289,15 +289,19 @@ defmodule SoundForgeWeb.DashboardExtendedTest do
     test "handles new_notification", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
 
-      send(view.pid, {:new_notification, %{
-        id: Ecto.UUID.generate(),
-        type: :info,
-        title: "Test",
-        message: "Test message",
-        metadata: %{},
-        read: false,
-        inserted_at: DateTime.utc_now()
-      }})
+      send(
+        view.pid,
+        {:new_notification,
+         %{
+           id: Ecto.UUID.generate(),
+           type: :info,
+           title: "Test",
+           message: "Test message",
+           metadata: %{},
+           read: false,
+           inserted_at: DateTime.utc_now()
+         }}
+      )
 
       html = render(view)
       assert html =~ "Alchemy"
@@ -404,7 +408,10 @@ defmodule SoundForgeWeb.DashboardExtendedTest do
   describe "spotify events" do
     test "spotify_error with type account", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
-      html = render_click(view, "spotify_error", %{"type" => "account", "message" => "not premium"})
+
+      html =
+        render_click(view, "spotify_error", %{"type" => "account", "message" => "not premium"})
+
       assert html =~ "Alchemy"
     end
 
@@ -428,7 +435,10 @@ defmodule SoundForgeWeb.DashboardExtendedTest do
 
     test "spotify_playback_state", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
-      html = render_click(view, "spotify_playback_state", %{"is_playing" => true, "position" => 0})
+
+      html =
+        render_click(view, "spotify_playback_state", %{"is_playing" => true, "position" => 0})
+
       assert html =~ "Alchemy"
     end
   end
@@ -444,12 +454,25 @@ defmodule SoundForgeWeb.DashboardExtendedTest do
   describe "confirm_batch_process" do
     test "with selected tracks", %{conn: conn, user: user} do
       track = track_fixture(%{user_id: user.id})
-      dl = download_job_fixture(%{track_id: track.id, status: :completed, output_path: "/tmp/test.mp3"})
+
+      dl =
+        download_job_fixture(%{
+          track_id: track.id,
+          status: :completed,
+          output_path: "/tmp/test.mp3"
+        })
+
       {:ok, view, _html} = live(conn, "/")
 
       render_click(view, "toggle_select", %{"id" => track.id})
       render_click(view, "start_batch_process")
-      html = render_click(view, "confirm_batch_process", %{"engine" => "demucs", "stem_filter" => "all"})
+
+      html =
+        render_click(view, "confirm_batch_process", %{
+          "engine" => "demucs",
+          "stem_filter" => "all"
+        })
+
       assert html =~ "Alchemy"
     end
   end
@@ -628,7 +651,10 @@ defmodule SoundForgeWeb.DashboardExtendedTest do
       {:ok, view, _html} = live(conn, "/")
 
       render_click(view, "edit_metadata", %{"id" => track.id})
-      html = render_click(view, "save_metadata", %{"title" => "Updated", "artist" => "New Artist"})
+
+      html =
+        render_click(view, "save_metadata", %{"title" => "Updated", "artist" => "New Artist"})
+
       assert html =~ "Alchemy"
     end
   end
@@ -662,21 +688,45 @@ defmodule SoundForgeWeb.DashboardExtendedTest do
 
     test "batch_progress", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
-      send(view.pid, {:batch_progress, %{batch_job_id: "bj_1", status: :processing, completed_count: 1, total_count: 3}})
+
+      send(
+        view.pid,
+        {:batch_progress,
+         %{batch_job_id: "bj_1", status: :processing, completed_count: 1, total_count: 3}}
+      )
+
       html = render(view)
       assert html =~ "Alchemy"
     end
 
     test "batch_complete", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
-      send(view.pid, {:batch_complete, %{batch_job_id: "bj_1", completed_count: 3, total_count: 3, failed_count: 0}})
+
+      send(
+        view.pid,
+        {:batch_complete,
+         %{batch_job_id: "bj_1", completed_count: 3, total_count: 3, failed_count: 0}}
+      )
+
       html = render(view)
       assert html =~ "Alchemy"
     end
 
     test "debug_log event", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
-      send(view.pid, {:debug_log, %{level: :info, message: "test log", namespace: nil, timestamp: "2026-01-01 00:00:00", metadata: %{}}})
+
+      send(
+        view.pid,
+        {:debug_log,
+         %{
+           level: :info,
+           message: "test log",
+           namespace: nil,
+           timestamp: "2026-01-01 00:00:00",
+           metadata: %{}
+         }}
+      )
+
       html = render(view)
       assert html =~ "Alchemy"
     end
@@ -740,7 +790,10 @@ defmodule SoundForgeWeb.DashboardExtendedTest do
   describe "fetch_spotify" do
     test "fetch_spotify with URL", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
-      html = render_click(view, "fetch_spotify", %{"url" => "https://open.spotify.com/track/abc123"})
+
+      html =
+        render_click(view, "fetch_spotify", %{"url" => "https://open.spotify.com/track/abc123"})
+
       assert html =~ "Alchemy"
     end
   end

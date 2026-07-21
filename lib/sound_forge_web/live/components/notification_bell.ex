@@ -103,8 +103,8 @@ defmodule SoundForgeWeb.Live.Components.NotificationBell do
           {badge_text(@unread_count + length(@active_pipelines))}
         </span>
       </button>
-
-      <!-- Dropdown Panel -->
+      
+    <!-- Dropdown Panel -->
       <div
         :if={@open}
         id={"#{@id}-dropdown"}
@@ -126,9 +126,12 @@ defmodule SoundForgeWeb.Live.Components.NotificationBell do
             </span>
           </div>
         </div>
-
-        <!-- Active Actions Section -->
-        <div :if={length(@active_pipelines) > 0} class="bg-purple-900/20 border-b border-purple-800/30">
+        
+    <!-- Active Actions Section -->
+        <div
+          :if={length(@active_pipelines) > 0}
+          class="bg-purple-900/20 border-b border-purple-800/30"
+        >
           <div class="px-4 py-1.5">
             <span class="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">
               Active Actions
@@ -160,8 +163,8 @@ defmodule SoundForgeWeb.Live.Components.NotificationBell do
             </div>
           </div>
         </div>
-
-        <!-- Notification List -->
+        
+    <!-- Notification List -->
         <div class="max-h-96 overflow-y-auto">
           <div
             :if={length(@notifications) == 0 and length(@active_pipelines) == 0}
@@ -191,8 +194,13 @@ defmodule SoundForgeWeb.Live.Components.NotificationBell do
                 {relative_time(notification.inserted_at)}
               </p>
               <!-- Action buttons for Chef Set Ready notifications -->
-              <% set_id = notification.metadata[:performance_set_id] || notification.metadata["performance_set_id"] %>
-              <div :if={notification.metadata[:type] == :chef_complete and set_id} class="flex items-center gap-1.5 mt-2">
+              <% set_id =
+                notification.metadata[:performance_set_id] ||
+                  notification.metadata["performance_set_id"] %>
+              <div
+                :if={notification.metadata[:type] == :chef_complete and set_id}
+                class="flex items-center gap-1.5 mt-2"
+              >
                 <.link
                   navigate={"/?" <> URI.encode_query(%{"tab" => "dj", "set_id" => set_id})}
                   class="px-2 py-0.5 text-[10px] font-medium bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded transition-colors"
@@ -216,8 +224,8 @@ defmodule SoundForgeWeb.Live.Components.NotificationBell do
             </div>
           </div>
         </div>
-
-        <!-- Footer -->
+        
+    <!-- Footer -->
         <div :if={@unread_count > 0} class="border-t border-gray-700 px-4 py-2.5">
           <button
             type="button"
@@ -375,7 +383,11 @@ defmodule SoundForgeWeb.Live.Components.NotificationBell do
 
     ~H"""
     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+      />
     </svg>
     """
   end
@@ -384,8 +396,18 @@ defmodule SoundForgeWeb.Live.Components.NotificationBell do
     assigns = %{}
 
     ~H"""
-    <svg class="w-4 h-4 animate-spin-slow" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 0015 0m-15 0a7.5 7.5 0 1115 0m-15 0H3m16.5 0H21m-1.5 0H12m-8.457 3.077l1.41-.513m14.095-5.13l1.41-.513M5.106 17.785l1.15-.964m11.49-9.642l1.149-.964M7.501 19.795l.75-1.3m7.5-12.99l.75-1.3m-6.063 16.658l.26-1.477m2.605-14.772l.26-1.477m0 17.726l-.26-1.477M10.698 4.614l-.26-1.477M16.5 19.794l-.75-1.299M7.5 4.205L6.75 2.906M2.545 14.357l1.41.513m14.095 5.13l1.41.513M5.106 6.215l1.15.964m11.49 9.642l1.149.964" />
+    <svg
+      class="w-4 h-4 animate-spin-slow"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      viewBox="0 0 24 24"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M4.5 12a7.5 7.5 0 0015 0m-15 0a7.5 7.5 0 1115 0m-15 0H3m16.5 0H21m-1.5 0H12m-8.457 3.077l1.41-.513m14.095-5.13l1.41-.513M5.106 17.785l1.15-.964m11.49-9.642l1.149-.964M7.501 19.795l.75-1.3m7.5-12.99l.75-1.3m-6.063 16.658l.26-1.477m2.605-14.772l.26-1.477m0 17.726l-.26-1.477M10.698 4.614l-.26-1.477M16.5 19.794l-.75-1.299M7.5 4.205L6.75 2.906M2.545 14.357l1.41.513m14.095 5.13l1.41.513M5.106 6.215l1.15.964m11.49 9.642l1.149.964"
+      />
     </svg>
     """
   end
@@ -395,7 +417,11 @@ defmodule SoundForgeWeb.Live.Components.NotificationBell do
 
     ~H"""
     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+      />
     </svg>
     """
   end
@@ -405,7 +431,11 @@ defmodule SoundForgeWeb.Live.Components.NotificationBell do
 
     ~H"""
     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
     </svg>
     """
   end

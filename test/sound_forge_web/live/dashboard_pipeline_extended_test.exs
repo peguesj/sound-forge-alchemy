@@ -13,7 +13,12 @@ defmodule SoundForgeWeb.DashboardPipelineExtendedTest do
   describe "track with completed download" do
     test "renders track with download_status completed", %{conn: conn, user: user} do
       track = track_fixture(%{user_id: user.id, title: "Downloaded Track", duration: 180})
-      download_job_fixture(%{track_id: track.id, status: :completed, output_path: "/tmp/test.mp3"})
+
+      download_job_fixture(%{
+        track_id: track.id,
+        status: :completed,
+        output_path: "/tmp/test.mp3"
+      })
 
       {:ok, _view, html} = live(conn, "/")
       assert html =~ "Downloaded Track"
@@ -41,6 +46,7 @@ defmodule SoundForgeWeb.DashboardPipelineExtendedTest do
     test "renders track with completed stems", %{conn: conn, user: user} do
       track = track_fixture(%{user_id: user.id, title: "Stemmed Track"})
       pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
+
       for type <- [:vocals, :drums, :bass, :other] do
         stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: type})
       end
@@ -54,6 +60,7 @@ defmodule SoundForgeWeb.DashboardPipelineExtendedTest do
     test "renders track with analysis results", %{conn: conn, user: user} do
       track = track_fixture(%{user_id: user.id, title: "Analyzed Track"})
       aj = analysis_job_fixture(%{track_id: track.id, status: :completed})
+
       analysis_result_fixture(%{
         track_id: track.id,
         analysis_job_id: aj.id,
@@ -85,7 +92,12 @@ defmodule SoundForgeWeb.DashboardPipelineExtendedTest do
       track = track_fixture(%{user_id: user.id, title: "Old Title", artist: "Old Artist"})
       {:ok, view, _html} = live(conn, "/")
       render_click(view, "edit_metadata", %{"id" => track.id})
-      html = render_click(view, "save_metadata", %{"track" => %{"title" => "New Title", "artist" => "New Artist"}})
+
+      html =
+        render_click(view, "save_metadata", %{
+          "track" => %{"title" => "New Title", "artist" => "New Artist"}
+        })
+
       assert html =~ "New Title" or html =~ "Track updated"
     end
   end
@@ -112,13 +124,21 @@ defmodule SoundForgeWeb.DashboardPipelineExtendedTest do
   end
 
   describe "mixed library with multiple data states" do
-    test "renders library with mix of downloaded, processing, and fresh tracks", %{conn: conn, user: user} do
+    test "renders library with mix of downloaded, processing, and fresh tracks", %{
+      conn: conn,
+      user: user
+    } do
       # Fresh track
       track_fixture(%{user_id: user.id, title: "Fresh Track"})
 
       # Downloaded track
       track2 = track_fixture(%{user_id: user.id, title: "Downloaded One"})
-      download_job_fixture(%{track_id: track2.id, status: :completed, output_path: "/tmp/test.mp3"})
+
+      download_job_fixture(%{
+        track_id: track2.id,
+        status: :completed,
+        output_path: "/tmp/test.mp3"
+      })
 
       # Stemmed track
       track3 = track_fixture(%{user_id: user.id, title: "Stemmed One"})

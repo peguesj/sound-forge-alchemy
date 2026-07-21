@@ -64,7 +64,12 @@ defmodule SoundForge.MIDI.ActionExecutorExtendedTest do
     test "handles midi_device_connected" do
       name = :"test_executor_connect_#{System.unique_integer([:positive])}"
       {:ok, pid} = ActionExecutor.start_link(name: name, user_id: nil)
-      send(pid, {:midi_device_connected, %{port_id: "input:99", name: "Test MIDI", direction: :input}})
+
+      send(
+        pid,
+        {:midi_device_connected, %{port_id: "input:99", name: "Test MIDI", direction: :input}}
+      )
+
       Process.sleep(10)
       assert Process.alive?(pid)
       GenServer.stop(pid)
@@ -73,7 +78,12 @@ defmodule SoundForge.MIDI.ActionExecutorExtendedTest do
     test "handles midi_device_disconnected" do
       name = :"test_executor_disconnect_#{System.unique_integer([:positive])}"
       {:ok, pid} = ActionExecutor.start_link(name: name, user_id: nil)
-      send(pid, {:midi_device_disconnected, %{port_id: "input:99", name: "Test MIDI", direction: :input}})
+
+      send(
+        pid,
+        {:midi_device_disconnected, %{port_id: "input:99", name: "Test MIDI", direction: :input}}
+      )
+
       Process.sleep(10)
       assert Process.alive?(pid)
       GenServer.stop(pid)

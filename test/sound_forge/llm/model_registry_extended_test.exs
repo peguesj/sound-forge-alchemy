@@ -118,10 +118,12 @@ defmodule SoundForge.LLM.ModelRegistryExtendedTest do
     end
 
     test "returns nil for impossible filter" do
-      result = ModelRegistry.best_model_for(:chat,
-        provider_types: [:nonexistent],
-        features: [:chat]
-      )
+      result =
+        ModelRegistry.best_model_for(:chat,
+          provider_types: [:nonexistent],
+          features: [:chat]
+        )
+
       assert result == nil
     end
   end

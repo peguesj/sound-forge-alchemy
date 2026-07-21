@@ -48,12 +48,12 @@
       Skip to main content
     </a>
     {@inner_content}
-  <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
-  }
-</script>
-  <%!-- PWA permissions sentinel — mounts PwaPermissions hook once at root level --%>
-  <div id="pwa-permissions-sentinel" phx-hook="PwaPermissions" class="hidden"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+      }
+    </script>
+    <%!-- PWA permissions sentinel — mounts PwaPermissions hook once at root level --%>
+    <div id="pwa-permissions-sentinel" phx-hook="PwaPermissions" class="hidden"></div>
   </body>
 </html>

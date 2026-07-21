@@ -485,7 +485,7 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
             </div>
             <%!-- Loop markers overlay --%>
             <div
-              :if={@loop_enabled and @loop_in && @loop_out && @duration > 0}
+              :if={(@loop_enabled and @loop_in) && @loop_out && @duration > 0}
               class="absolute top-0 h-full rounded-full bg-purple-500/20 border-x border-purple-500/50 pointer-events-none"
               style={"left: #{progress_percent(@loop_in, @duration)}%; width: #{progress_percent(@loop_out - @loop_in, @duration)}%"}
             >
@@ -575,8 +575,18 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
               if(@loop_enabled, do: "bg-purple-600 text-white", else: "bg-gray-800 text-gray-500 hover:bg-gray-700 hover:text-gray-300")}
             title={if @loop_enabled, do: "Disable loop", else: "Enable loop"}
           >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg
+              class="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
           </button>
           <button
@@ -596,8 +606,14 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
         <div class="flex items-center gap-1.5">
           <svg class="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
             <path d="M3 9v6h4l5 5V4L7 9H3z" />
-            <path :if={@master_volume > 0} d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-            <path :if={@master_volume > 50} d="M19 12c0-3.53-2.04-6.58-5-8.07v2.09c2.12 1.33 3.5 3.59 3.5 5.98 0 2.39-1.38 4.65-3.5 5.98v2.09c2.96-1.49 5-4.54 5-8.07z" />
+            <path
+              :if={@master_volume > 0}
+              d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"
+            />
+            <path
+              :if={@master_volume > 50}
+              d="M19 12c0-3.53-2.04-6.58-5-8.07v2.09c2.12 1.33 3.5 3.59 3.5 5.98 0 2.39-1.38 4.65-3.5 5.98v2.09c2.96-1.49 5-4.54 5-8.07z"
+            />
           </svg>
           <input
             type="range"
@@ -656,10 +672,20 @@ defmodule SoundForgeWeb.Live.Components.TransportBarComponent do
               aria-label={if @spotify_playback.playing, do: "Pause", else: "Play"}
               class="shrink-0 w-9 h-9 rounded-full bg-[#1DB954] hover:bg-[#1ed760] flex items-center justify-center transition-colors"
             >
-              <svg :if={!@spotify_playback.playing} class="w-4 h-4 ml-0.5 text-black" fill="currentColor" viewBox="0 0 24 24">
+              <svg
+                :if={!@spotify_playback.playing}
+                class="w-4 h-4 ml-0.5 text-black"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path d="M8 5v14l11-7z" />
               </svg>
-              <svg :if={@spotify_playback.playing} class="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 24 24">
+              <svg
+                :if={@spotify_playback.playing}
+                class="w-4 h-4 text-black"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
               </svg>
             </button>

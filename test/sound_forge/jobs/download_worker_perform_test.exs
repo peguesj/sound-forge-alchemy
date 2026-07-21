@@ -10,7 +10,9 @@ defmodule SoundForge.Jobs.DownloadWorkerPerformTest do
   describe "perform/1" do
     test "exercises initial code paths with real DB records" do
       user = user_fixture()
-      track = track_fixture(%{user_id: user.id, spotify_url: "https://open.spotify.com/track/test123"})
+
+      track =
+        track_fixture(%{user_id: user.id, spotify_url: "https://open.spotify.com/track/test123"})
 
       dj =
         download_job_fixture(%{

@@ -101,117 +101,139 @@ defmodule SoundForgeWeb.PracticeLive do
         pipelines={@pipelines}
         refreshing_midi={@refreshing_midi}
       />
-    <div class="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-6">
-      <!-- Header -->
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-white">Practice Dashboard</h1>
-        <button
-          phx-click="import_sessions"
-          disabled={@importing}
-          class="px-4 py-2 min-h-[44px] bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <%= if @importing do %>
-            <span class="flex items-center gap-2">
-              <svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Importing...
-            </span>
-          <% else %>
-            Import from Melodics
-          <% end %>
-        </button>
-      </div>
-
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
-          <p class="text-xs text-gray-500 uppercase">Total Sessions</p>
-          <p class="text-2xl font-bold text-white mt-1">{@stats.total_sessions}</p>
-        </div>
-        <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
-          <p class="text-xs text-gray-500 uppercase">Avg Accuracy</p>
-          <p class="text-2xl font-bold text-white mt-1">
-            {format_accuracy(@stats.avg_accuracy)}
-          </p>
-        </div>
-        <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
-          <p class="text-xs text-gray-500 uppercase">Avg BPM</p>
-          <p class="text-2xl font-bold text-white mt-1">
-            {format_bpm(@stats.avg_bpm)}
-          </p>
-        </div>
-        <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
-          <p class="text-xs text-gray-500 uppercase">This Week</p>
-          <p class="text-2xl font-bold text-white mt-1">{@stats.sessions_this_week}</p>
-          <!-- Weekly streak dots -->
-          <div class="flex gap-1 mt-2">
-            <div :for={day <- 1..7} class={"w-3 h-3 rounded-full " <> if(day <= @stats.sessions_this_week, do: "bg-green-500", else: "bg-gray-700")} />
-          </div>
-        </div>
-      </div>
-
-      <!-- BPM Trend Sparkline placeholder -->
-      <div :if={@stats.bpm_trend != []} class="bg-gray-900 rounded-lg p-4 border border-gray-800">
-        <h3 class="text-sm font-semibold text-gray-400 mb-2">BPM Progression</h3>
-        <div class="flex items-end gap-1 h-16">
-          <div
-            :for={bpm <- @stats.bpm_trend}
-            class="bg-purple-500 rounded-t flex-1 min-w-[4px]"
-            style={"height: #{bpm_bar_height(bpm, @stats.bpm_trend)}%"}
-          />
-        </div>
-      </div>
-
-      <!-- Stem Recommendations -->
-      <div :if={@stats[:stem_suggestions] && @stats.stem_suggestions != []} class="bg-gray-900 rounded-lg p-4 border border-gray-800">
-        <h3 class="text-sm font-semibold text-gray-400 mb-3">Stem Recommendations</h3>
-        <div class="space-y-2">
-          <div :for={{category, difficulty, meta} <- @stats.stem_suggestions} class="flex items-center justify-between text-sm">
-            <span class="text-gray-300 capitalize">{category}</span>
-            <div class="flex items-center gap-2">
-              <span class={"px-2 py-0.5 rounded text-xs font-medium " <> difficulty_badge(difficulty)}>
-                {difficulty}
+      <div class="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-6">
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+          <h1 class="text-2xl font-bold text-white">Practice Dashboard</h1>
+          <button
+            phx-click="import_sessions"
+            disabled={@importing}
+            class="px-4 py-2 min-h-[44px] bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <%= if @importing do %>
+              <span class="flex items-center gap-2">
+                <svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  />
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                Importing...
               </span>
-              <span class="text-gray-500 text-xs">{format_accuracy(meta.avg_accuracy)}</span>
+            <% else %>
+              Import from Melodics
+            <% end %>
+          </button>
+        </div>
+        
+    <!-- Stats Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <p class="text-xs text-gray-500 uppercase">Total Sessions</p>
+            <p class="text-2xl font-bold text-white mt-1">{@stats.total_sessions}</p>
+          </div>
+          <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <p class="text-xs text-gray-500 uppercase">Avg Accuracy</p>
+            <p class="text-2xl font-bold text-white mt-1">
+              {format_accuracy(@stats.avg_accuracy)}
+            </p>
+          </div>
+          <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <p class="text-xs text-gray-500 uppercase">Avg BPM</p>
+            <p class="text-2xl font-bold text-white mt-1">
+              {format_bpm(@stats.avg_bpm)}
+            </p>
+          </div>
+          <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <p class="text-xs text-gray-500 uppercase">This Week</p>
+            <p class="text-2xl font-bold text-white mt-1">{@stats.sessions_this_week}</p>
+            <!-- Weekly streak dots -->
+            <div class="flex gap-1 mt-2">
+              <div
+                :for={day <- 1..7}
+                class={"w-3 h-3 rounded-full " <> if(day <= @stats.sessions_this_week, do: "bg-green-500", else: "bg-gray-700")}
+              />
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Session History Table -->
-      <div class="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
-        <h3 class="text-sm font-semibold text-gray-400 p-4 border-b border-gray-800">Session History</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="text-xs text-gray-500 uppercase bg-gray-900/50">
-              <tr>
-                <th class="px-4 py-3 text-left">Date</th>
-                <th class="px-4 py-3 text-left">Lesson</th>
-                <th class="px-4 py-3 text-right">Accuracy</th>
-                <th class="px-4 py-3 text-right">BPM</th>
-                <th class="px-4 py-3 text-left">Instrument</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-800">
-              <tr :for={session <- @sessions} class="text-gray-300 hover:bg-gray-800/50">
-                <td class="px-4 py-3">{format_date(session.practiced_at)}</td>
-                <td class="px-4 py-3 font-medium">{session.lesson_name}</td>
-                <td class="px-4 py-3 text-right">{format_accuracy(session.accuracy)}</td>
-                <td class="px-4 py-3 text-right">{session.bpm || "-"}</td>
-                <td class="px-4 py-3 capitalize">{session.instrument || "-"}</td>
-              </tr>
-              <tr :if={@sessions == []} class="text-gray-500">
-                <td colspan="5" class="px-4 py-8 text-center">
-                  No practice sessions yet. Click "Import from Melodics" to get started.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        
+    <!-- BPM Trend Sparkline placeholder -->
+        <div :if={@stats.bpm_trend != []} class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+          <h3 class="text-sm font-semibold text-gray-400 mb-2">BPM Progression</h3>
+          <div class="flex items-end gap-1 h-16">
+            <div
+              :for={bpm <- @stats.bpm_trend}
+              class="bg-purple-500 rounded-t flex-1 min-w-[4px]"
+              style={"height: #{bpm_bar_height(bpm, @stats.bpm_trend)}%"}
+            />
+          </div>
+        </div>
+        
+    <!-- Stem Recommendations -->
+        <div
+          :if={@stats[:stem_suggestions] && @stats.stem_suggestions != []}
+          class="bg-gray-900 rounded-lg p-4 border border-gray-800"
+        >
+          <h3 class="text-sm font-semibold text-gray-400 mb-3">Stem Recommendations</h3>
+          <div class="space-y-2">
+            <div
+              :for={{category, difficulty, meta} <- @stats.stem_suggestions}
+              class="flex items-center justify-between text-sm"
+            >
+              <span class="text-gray-300 capitalize">{category}</span>
+              <div class="flex items-center gap-2">
+                <span class={"px-2 py-0.5 rounded text-xs font-medium " <> difficulty_badge(difficulty)}>
+                  {difficulty}
+                </span>
+                <span class="text-gray-500 text-xs">{format_accuracy(meta.avg_accuracy)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+    <!-- Session History Table -->
+        <div class="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+          <h3 class="text-sm font-semibold text-gray-400 p-4 border-b border-gray-800">
+            Session History
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-xs text-gray-500 uppercase bg-gray-900/50">
+                <tr>
+                  <th class="px-4 py-3 text-left">Date</th>
+                  <th class="px-4 py-3 text-left">Lesson</th>
+                  <th class="px-4 py-3 text-right">Accuracy</th>
+                  <th class="px-4 py-3 text-right">BPM</th>
+                  <th class="px-4 py-3 text-left">Instrument</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-800">
+                <tr :for={session <- @sessions} class="text-gray-300 hover:bg-gray-800/50">
+                  <td class="px-4 py-3">{format_date(session.practiced_at)}</td>
+                  <td class="px-4 py-3 font-medium">{session.lesson_name}</td>
+                  <td class="px-4 py-3 text-right">{format_accuracy(session.accuracy)}</td>
+                  <td class="px-4 py-3 text-right">{session.bpm || "-"}</td>
+                  <td class="px-4 py-3 capitalize">{session.instrument || "-"}</td>
+                </tr>
+                <tr :if={@sessions == []} class="text-gray-500">
+                  <td colspan="5" class="px-4 py-8 text-center">
+                    No practice sessions yet. Click "Import from Melodics" to get started.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
     </div>
     """
   end

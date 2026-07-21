@@ -52,7 +52,19 @@ defmodule SoundForge.Sampler.Pad do
   @doc false
   def changeset(pad, attrs) do
     pad
-    |> cast(attrs, [:index, :label, :color, :volume, :pitch, :velocity, :start_time, :end_time, :bank_id, :stem_id, :synth_config])
+    |> cast(attrs, [
+      :index,
+      :label,
+      :color,
+      :volume,
+      :pitch,
+      :velocity,
+      :start_time,
+      :end_time,
+      :bank_id,
+      :stem_id,
+      :synth_config
+    ])
     |> validate_required([:index, :bank_id])
     |> validate_number(:index, greater_than_or_equal_to: 0, less_than: 16)
     |> validate_number(:volume, greater_than_or_equal_to: 0.0, less_than_or_equal_to: 1.0)

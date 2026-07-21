@@ -40,7 +40,9 @@ defmodule SoundForge.Music.DrumKit do
 
   defp validate_slots(changeset) do
     case get_change(changeset, :slots) do
-      nil -> changeset
+      nil ->
+        changeset
+
       slots ->
         if Enum.all?(slots, &valid_slot?/1) do
           changeset

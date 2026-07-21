@@ -20,42 +20,49 @@ defmodule SoundForge.Agents.OrchestratorCoverageTest do
   describe "select_agent/2 with :task hint" do
     test "selects TrackAnalysisAgent for :track_analysis" do
       ctx = %Context{instruction: "anything", user_id: 1}
+
       assert Orchestrator.select_agent(ctx, task: :track_analysis) ==
                SoundForge.Agents.TrackAnalysisAgent
     end
 
     test "selects MixPlanningAgent for :mix_planning" do
       ctx = %Context{instruction: "anything", user_id: 1}
+
       assert Orchestrator.select_agent(ctx, task: :mix_planning) ==
                SoundForge.Agents.MixPlanningAgent
     end
 
     test "selects CuePointAgent for :cue_point_analysis" do
       ctx = %Context{instruction: "anything", user_id: 1}
+
       assert Orchestrator.select_agent(ctx, task: :cue_point_analysis) ==
                SoundForge.Agents.CuePointAgent
     end
 
     test "selects MasteringAgent for :mastering_advice" do
       ctx = %Context{instruction: "anything", user_id: 1}
+
       assert Orchestrator.select_agent(ctx, task: :mastering_advice) ==
                SoundForge.Agents.MasteringAgent
     end
 
     test "selects LibraryAgent for :library_search" do
       ctx = %Context{instruction: "anything", user_id: 1}
+
       assert Orchestrator.select_agent(ctx, task: :library_search) ==
                SoundForge.Agents.LibraryAgent
     end
 
     test "selects StemIntelligenceAgent for :stem_analysis" do
       ctx = %Context{instruction: "anything", user_id: 1}
+
       assert Orchestrator.select_agent(ctx, task: :stem_analysis) ==
                SoundForge.Agents.StemIntelligenceAgent
     end
 
     test "falls back to default for unknown task" do
       ctx = %Context{instruction: "anything", user_id: 1}
+
       assert Orchestrator.select_agent(ctx, task: :nonexistent_task) ==
                SoundForge.Agents.TrackAnalysisAgent
     end

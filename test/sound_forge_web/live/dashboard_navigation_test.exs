@@ -311,26 +311,41 @@ defmodule SoundForgeWeb.DashboardNavigationTest do
 
     test "spotify_playback_state", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
-      html = render_click(view, "spotify_playback_state", %{
-        "playing" => true,
-        "track_name" => "Test",
-        "artist_name" => "Artist",
-        "album_art_url" => "https://example.com/art.jpg",
-        "position_ms" => 1000,
-        "duration_ms" => 240_000
-      })
+
+      html =
+        render_click(view, "spotify_playback_state", %{
+          "playing" => true,
+          "track_name" => "Test",
+          "artist_name" => "Artist",
+          "album_art_url" => "https://example.com/art.jpg",
+          "position_ms" => 1000,
+          "duration_ms" => 240_000
+        })
+
       assert is_binary(html)
     end
 
     test "spotify_error account type", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
-      html = render_click(view, "spotify_error", %{"type" => "account", "message" => "Premium required"})
+
+      html =
+        render_click(view, "spotify_error", %{
+          "type" => "account",
+          "message" => "Premium required"
+        })
+
       assert is_binary(html)
     end
 
     test "spotify_error connection type", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
-      html = render_click(view, "spotify_error", %{"type" => "connection", "message" => "Lost connection"})
+
+      html =
+        render_click(view, "spotify_error", %{
+          "type" => "connection",
+          "message" => "Lost connection"
+        })
+
       assert is_binary(html)
     end
   end

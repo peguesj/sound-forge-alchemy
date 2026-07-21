@@ -114,9 +114,7 @@ defmodule SoundForge.DJ.Presets do
       entries
       |> Enum.flat_map(fn entry ->
         control_id =
-          to_string(
-            get_child_text(entry, ~c"ControlId") || get_child_text(entry, ~c"Name") || ""
-          )
+          to_string(get_child_text(entry, ~c"ControlId") || get_child_text(entry, ~c"Name") || "")
 
         deck_attr =
           to_string(
@@ -601,29 +599,6 @@ defmodule SoundForge.DJ.Presets do
     end
   end
 
-  defp get_child_text({:xmlElement, _, _, _, _, _, _, _, children, _, _, _}, tag_name) do
-    tag_atom = String.to_atom(tag_name)
-
-    case Enum.find(children, fn
-           {:xmlElement, name, _, _, _, _, _, _, _, _, _, _} -> name == tag_atom
-           _ -> false
-         end) do
-      nil ->
-        nil
-
-      {:xmlElement, _, _, _, _, _, _, _, sub_children, _, _, _} ->
-        text =
-          Enum.find_value(sub_children, fn
-            {:xmlText, _, _, _, value, _} -> to_string(value) |> String.trim()
-            _ -> nil
-          end)
-
-        if text == "", do: nil, else: text
-    end
-  end
-
-  defp get_child_text(_, _), do: nil
-
   defp get_attribute({:xmlElement, _, _, _, _, _, _, attrs, _, _, _, _}, attr_name) do
     attr_atom =
       case attr_name do
@@ -682,7 +657,14 @@ defmodule SoundForge.DJ.Presets do
     case :xmerl_scan.string(charlist, quiet: true) do
       {doc, _rest} ->
         mappings = extract_serato_mappings(doc, user_id)
-        layout = %{name: "Serato Import", device_type: "serato", deck_count: 2, template_metadata: %{}}
+
+        layout = %{
+          name: "Serato Import",
+          device_type: "serato",
+          deck_count: 2,
+          template_metadata: %{}
+        }
+
         {:ok, %{mappings: mappings, layout: layout}}
 
       _ ->
@@ -764,7 +746,14 @@ defmodule SoundForge.DJ.Presets do
       {doc, _rest} ->
         mappings = extract_rekordbox_mappings(doc, user_id)
         name = extract_rekordbox_name(doc)
-        layout = %{name: name || "RekordBox Import", device_type: "rekordbox", deck_count: 2, template_metadata: %{}}
+
+        layout = %{
+          name: name || "RekordBox Import",
+          device_type: "rekordbox",
+          deck_count: 2,
+          template_metadata: %{}
+        }
+
         {:ok, %{mappings: mappings, layout: layout}}
 
       _ ->

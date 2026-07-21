@@ -27,7 +27,9 @@ defmodule SoundForge.Music.AnalysisResultTest do
     end
 
     test "requires analysis_job_id" do
-      changeset = AnalysisResult.changeset(%AnalysisResult{}, Map.delete(@valid_attrs, :analysis_job_id))
+      changeset =
+        AnalysisResult.changeset(%AnalysisResult{}, Map.delete(@valid_attrs, :analysis_job_id))
+
       refute changeset.valid?
     end
 

@@ -34,7 +34,10 @@ defmodule SoundForgeWeb.DashboardEventsBatch2Test do
 
     test "spotify_error with type and message", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "spotify_error", %{"type" => "playback", "message" => "No device"})
+
+      html =
+        render_click(view, "spotify_error", %{"type" => "playback", "message" => "No device"})
+
       assert is_binary(html)
     end
 

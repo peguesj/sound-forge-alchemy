@@ -61,7 +61,12 @@ defmodule SoundForge.MIDI.MPCControllerCoverageTest do
     test "handles midi_message for non-MPC device" do
       name = :"mpc_non_mpc_test_#{System.unique_integer([:positive])}"
       {:ok, pid} = MPCController.start_link(name: name)
-      send(pid, {:midi_message, "unknown_port", %{type: :note_on, data: %{note: 36, velocity: 100}}})
+
+      send(
+        pid,
+        {:midi_message, "unknown_port", %{type: :note_on, data: %{note: 36, velocity: 100}}}
+      )
+
       assert Process.alive?(pid)
       GenServer.stop(pid)
     end

@@ -11,7 +11,11 @@ defmodule SoundForge.SettingsExtended2Test do
 
   describe "change_user_settings/2" do
     test "returns changeset for new settings" do
-      changeset = Settings.change_user_settings(%SoundForge.Accounts.UserSettings{}, %{download_quality: "128k"})
+      changeset =
+        Settings.change_user_settings(%SoundForge.Accounts.UserSettings{}, %{
+          download_quality: "128k"
+        })
+
       assert %Ecto.Changeset{} = changeset
     end
 

@@ -44,7 +44,18 @@ defmodule SoundForge.Music.ProcessingJob do
   @doc false
   def changeset(processing_job, attrs) do
     processing_job
-    |> cast(attrs, [:track_id, :batch_job_id, :model, :status, :progress, :output_path, :options, :error, :engine, :preview])
+    |> cast(attrs, [
+      :track_id,
+      :batch_job_id,
+      :model,
+      :status,
+      :progress,
+      :output_path,
+      :options,
+      :error,
+      :engine,
+      :preview
+    ])
     |> validate_required([:track_id])
     |> validate_inclusion(:status, @status_values)
     |> validate_number(:progress, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)

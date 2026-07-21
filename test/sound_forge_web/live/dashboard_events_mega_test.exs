@@ -8,10 +8,25 @@ defmodule SoundForgeWeb.DashboardEventsMegaTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{user_id: user.id, title: "Dashboard Mega", artist: "Test", duration: 200})
-    download_job_fixture(%{track_id: track.id, status: :completed, output_path: "priv/uploads/downloads/mega.mp3"})
+    track =
+      track_fixture(%{user_id: user.id, title: "Dashboard Mega", artist: "Test", duration: 200})
+
+    download_job_fixture(%{
+      track_id: track.id,
+      status: :completed,
+      output_path: "priv/uploads/downloads/mega.mp3"
+    })
+
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/v.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/v.wav",
+      file_size: 1024
+    })
+
     %{track: track}
   end
 
@@ -279,13 +294,25 @@ defmodule SoundForgeWeb.DashboardEventsMegaTest do
 
     test "spotify_error account type", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "spotify_error", %{"type" => "account", "message" => "Premium required"})
+
+      html =
+        render_click(view, "spotify_error", %{
+          "type" => "account",
+          "message" => "Premium required"
+        })
+
       assert is_binary(html)
     end
 
     test "spotify_error other type", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "spotify_error", %{"type" => "playback", "message" => "Device not found"})
+
+      html =
+        render_click(view, "spotify_error", %{
+          "type" => "playback",
+          "message" => "Device not found"
+        })
+
       assert is_binary(html)
     end
 

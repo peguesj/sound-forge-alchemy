@@ -14,6 +14,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.action == :dj_crossfader
     end
@@ -29,6 +30,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.action == :stem_volume
       assert m.channel == 1
@@ -46,6 +48,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.action == :dj_pitch
       assert m.midi_type == :note_on
@@ -62,6 +65,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.action == :dj_cue
     end
@@ -77,6 +81,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.params["deck"] == "1"
     end
@@ -90,6 +95,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.params["deck"] == "2"
     end
@@ -108,6 +114,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
           <ControlId>mixer.crossfader</ControlId><DeviceName>M</DeviceName></Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: mappings}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert length(mappings) == 3
     end
@@ -123,6 +130,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.midi_type == :note_off
     end
@@ -138,6 +146,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.action == :dj_play
       assert m.params["deck"] == "1"
@@ -154,6 +163,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       uid = Ecto.UUID.generate()
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, uid)
       assert m.user_id == uid
@@ -171,6 +181,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.channel <= 15
     end
@@ -186,6 +197,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.action == :dj_cue
       assert m.params["slot"] == "2"
@@ -200,6 +212,7 @@ defmodule SoundForge.DJ.PresetsExtendedTest do
         </Entry>
       </Controller>
       """
+
       assert {:ok, %{mappings: [m]}} = Presets.parse_tsi(xml, Ecto.UUID.generate())
       assert m.action == :dj_cue
       assert m.params["slot"] == "8"

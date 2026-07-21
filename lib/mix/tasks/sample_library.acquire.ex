@@ -59,8 +59,15 @@ defmodule Mix.Tasks.SampleLibrary.Acquire do
       Mix.shell().info("[dry-run] Would import #{count} files from #{path}")
     else
       Mix.shell().info("To import these files, use the SampleLibrary context:")
-      Mix.shell().info("  SoundForge.SampleLibrary.create_pack(%{name: \"My Pack\", user_id: USER_ID})")
-      Mix.shell().info("  SoundForge.Jobs.ManifestImportWorker.new(%{\"pack_id\" => PACK_ID, \"manifest_path\" => MANIFEST_PATH})")
+
+      Mix.shell().info(
+        "  SoundForge.SampleLibrary.create_pack(%{name: \"My Pack\", user_id: USER_ID})"
+      )
+
+      Mix.shell().info(
+        "  SoundForge.Jobs.ManifestImportWorker.new(%{\"pack_id\" => PACK_ID, \"manifest_path\" => MANIFEST_PATH})"
+      )
+
       Mix.shell().info("  |> Oban.insert()")
       Mix.shell().info("")
       Mix.shell().info("Or use the acquire.sh script in priv/sample_acquisition/")

@@ -330,6 +330,7 @@ defmodule SoundForge.Sampler.PresetParserTest do
         """
 
         {:ok, preset} = PresetParser.parse_mpc_xpm(xpm_xml)
+
         assert hd(preset.pads).play_mode == :one_shot,
                "Expected :one_shot for '#{spelling}'"
       end

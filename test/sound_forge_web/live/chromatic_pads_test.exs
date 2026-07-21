@@ -11,13 +11,14 @@ defmodule SoundForgeWeb.ChromaticPadsTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Pads Test Track",
-      artist: "Pads Artist",
-      duration: 200,
-      album: "Pads Album"
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Pads Test Track",
+        artist: "Pads Artist",
+        duration: 200,
+        album: "Pads Album"
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -26,10 +27,38 @@ defmodule SoundForgeWeb.ChromaticPadsTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :drums, file_path: "stems/drums.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :bass, file_path: "stems/bass.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :other, file_path: "stems/other.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :drums,
+      file_path: "stems/drums.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :bass,
+      file_path: "stems/bass.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :other,
+      file_path: "stems/other.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -142,11 +171,15 @@ defmodule SoundForgeWeb.ChromaticPadsTest do
     end
 
     test "exports handle_event/3" do
-      assert {:handle_event, 3} in SoundForgeWeb.Live.Components.ChromaticPadsComponent.__info__(:functions)
+      assert {:handle_event, 3} in SoundForgeWeb.Live.Components.ChromaticPadsComponent.__info__(
+               :functions
+             )
     end
 
     test "exports update/2" do
-      assert {:update, 2} in SoundForgeWeb.Live.Components.ChromaticPadsComponent.__info__(:functions)
+      assert {:update, 2} in SoundForgeWeb.Live.Components.ChromaticPadsComponent.__info__(
+               :functions
+             )
     end
   end
 end

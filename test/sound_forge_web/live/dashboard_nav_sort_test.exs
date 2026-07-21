@@ -10,13 +10,14 @@ defmodule SoundForgeWeb.DashboardNavSortTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Nav Test Track",
-      artist: "Nav Artist",
-      duration: 180,
-      spotify_url: "https://open.spotify.com/track/nav123"
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Nav Test Track",
+        artist: "Nav Artist",
+        duration: 180,
+        spotify_url: "https://open.spotify.com/track/nav123"
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -106,14 +107,17 @@ defmodule SoundForgeWeb.DashboardNavSortTest do
 
     test "spotify_playback_state full", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "spotify_playback_state", %{
-        "playing" => true,
-        "track_name" => "Test Track",
-        "artist_name" => "Test Artist",
-        "album_art_url" => "https://example.com/art.jpg",
-        "position_ms" => 5000,
-        "duration_ms" => 200000
-      })
+
+      html =
+        render_click(view, "spotify_playback_state", %{
+          "playing" => true,
+          "track_name" => "Test Track",
+          "artist_name" => "Test Artist",
+          "album_art_url" => "https://example.com/art.jpg",
+          "position_ms" => 5000,
+          "duration_ms" => 200_000
+        })
+
       assert is_binary(html)
     end
 
@@ -131,7 +135,13 @@ defmodule SoundForgeWeb.DashboardNavSortTest do
 
     test "spotify_error with type and message", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "spotify_error", %{"type" => "connection", "message" => "Connection lost"})
+
+      html =
+        render_click(view, "spotify_error", %{
+          "type" => "connection",
+          "message" => "Connection lost"
+        })
+
       assert is_binary(html)
     end
 
@@ -146,12 +156,14 @@ defmodule SoundForgeWeb.DashboardNavSortTest do
     test "browse_artist", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
       render_click(view, "nav_tab", %{"tab" => "browse"})
+
       result =
         try do
           view |> element("[phx-click='browse_artist']") |> render_click()
         rescue
           ArgumentError -> :not_found
         end
+
       assert is_binary(result) or result == :not_found
     end
   end

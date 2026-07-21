@@ -107,7 +107,9 @@ defmodule SoundForge.Integrations.MelodicsTest do
     test "counts sessions this week" do
       user = SoundForge.AccountsFixtures.user_fixture()
       recent = DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
-      old = DateTime.utc_now() |> DateTime.add(-10 * 86_400, :second) |> DateTime.truncate(:second)
+
+      old =
+        DateTime.utc_now() |> DateTime.add(-10 * 86_400, :second) |> DateTime.truncate(:second)
 
       insert_session!(user.id, %{lesson_name: "Recent", practiced_at: recent})
       insert_session!(user.id, %{lesson_name: "Old", practiced_at: old})

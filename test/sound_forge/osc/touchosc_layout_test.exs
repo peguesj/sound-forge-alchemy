@@ -19,6 +19,7 @@ defmodule SoundForge.OSC.TouchOSCLayoutTest do
 
     test "contains 8 stem faders" do
       xml = TouchOSCLayout.generate_xml()
+
       for i <- 1..8 do
         assert xml =~ ~s(name="stem_#{i}_vol"), "Missing stem_#{i}_vol fader"
         assert xml =~ ~s(osc_cs="/stem/#{i}/volume"), "Missing OSC path for stem #{i}"
@@ -27,6 +28,7 @@ defmodule SoundForge.OSC.TouchOSCLayoutTest do
 
     test "contains 8 stem labels" do
       xml = TouchOSCLayout.generate_xml()
+
       for i <- 1..8 do
         assert xml =~ ~s(name="stem_#{i}_label"), "Missing label for stem #{i}"
       end
@@ -34,6 +36,7 @@ defmodule SoundForge.OSC.TouchOSCLayoutTest do
 
     test "contains mute and solo buttons for all stems" do
       xml = TouchOSCLayout.generate_xml()
+
       for i <- 1..8 do
         assert xml =~ ~s(name="stem_#{i}_mute"), "Missing mute for stem #{i}"
         assert xml =~ ~s(name="stem_#{i}_solo"), "Missing solo for stem #{i}"

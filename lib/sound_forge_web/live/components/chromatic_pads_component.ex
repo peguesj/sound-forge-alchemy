@@ -248,8 +248,7 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
               class="btn btn-ghost btn-xs text-gray-400 hover:text-white"
               title="Import preset (.touchosc, .xpm, .pgm)"
             >
-              <span class="hero-arrow-up-tray w-4 h-4"></span>
-              Import
+              <span class="hero-arrow-up-tray w-4 h-4"></span> Import
             </button>
           </div>
         </div>
@@ -287,8 +286,18 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
                 else: "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
               )}
           >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            <svg
+              class="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 6h16M4 10h16M4 14h16M4 18h16"
+              />
             </svg>
             Library
           </button>
@@ -325,7 +334,11 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
                 <p class="text-xs text-gray-600 truncate">{track.artist}</p>
               </div>
               <div :if={track.duration} class="text-xs text-gray-700 flex-shrink-0">
-                {div(track.duration, 60)}:{String.pad_leading(Integer.to_string(rem(track.duration, 60)), 2, "0")}
+                {div(track.duration, 60)}:{String.pad_leading(
+                  Integer.to_string(rem(track.duration, 60)),
+                  2,
+                  "0"
+                )}
               </div>
             </div>
           <% end %>
@@ -341,8 +354,7 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
           MIDI Learn active -- click a pad or parameter, then move a control on your MIDI device.
           <%= if @midi_learn_target do %>
             <span class="font-medium">
-              Waiting for MIDI input for:
-              {format_learn_target(@midi_learn_target)}
+              Waiting for MIDI input for: {format_learn_target(@midi_learn_target)}
             </span>
           <% end %>
         </p>
@@ -436,7 +448,10 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
             phx-target={@myself}
             phx-change="validate_preset"
           >
-            <.live_file_input upload={@uploads.preset_file} class="file-input file-input-sm w-full bg-gray-900 border-gray-700 text-white mb-3" />
+            <.live_file_input
+              upload={@uploads.preset_file}
+              class="file-input file-input-sm w-full bg-gray-900 border-gray-700 text-white mb-3"
+            />
 
             <div :if={@import_error} class="text-xs text-red-400 mb-2">{@import_error}</div>
             <div :if={@import_success} class="text-xs text-green-400 mb-2">{@import_success}</div>
@@ -455,7 +470,12 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
                   Remove
                 </button>
               </div>
-              <progress :if={entry.progress > 0} class="progress progress-primary w-full h-1 mb-2" value={entry.progress} max="100" />
+              <progress
+                :if={entry.progress > 0}
+                class="progress progress-primary w-full h-1 mb-2"
+                value={entry.progress}
+                max="100"
+              />
             <% end %>
 
             <div class="flex justify-end gap-2 mt-3">
@@ -542,19 +562,24 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
               phx-target={@myself}
               class="btn btn-sm btn-outline btn-primary"
             >
-              <span class="hero-bolt w-4 h-4"></span>
-              Quick Load Stems
+              <span class="hero-bolt w-4 h-4"></span> Quick Load Stems
             </button>
 
             <%!-- PAD/SEQ mode toggle --%>
-            <div :if={@current_bank} class="flex rounded overflow-hidden border border-gray-700 text-xs">
+            <div
+              :if={@current_bank}
+              class="flex rounded overflow-hidden border border-gray-700 text-xs"
+            >
               <button
                 phx-click="toggle_seq_mode"
                 phx-target={@myself}
                 phx-value-mode="pad"
                 class={[
                   "px-2.5 py-1 transition-colors",
-                  if(!@seq_mode, do: "bg-purple-700 text-white", else: "bg-gray-800 text-gray-400 hover:bg-gray-700")
+                  if(!@seq_mode,
+                    do: "bg-purple-700 text-white",
+                    else: "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  )
                 ]}
               >
                 PAD
@@ -565,7 +590,10 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
                 phx-value-mode="seq"
                 class={[
                   "px-2.5 py-1 transition-colors",
-                  if(@seq_mode, do: "bg-purple-700 text-white", else: "bg-gray-800 text-gray-400 hover:bg-gray-700")
+                  if(@seq_mode,
+                    do: "bg-purple-700 text-white",
+                    else: "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  )
                 ]}
               >
                 SEQ
@@ -987,7 +1015,7 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
   end
 
   def handle_event("start_rename_bank", _params, socket) do
-    name = socket.assigns.current_bank && socket.assigns.current_bank.name || ""
+    name = (socket.assigns.current_bank && socket.assigns.current_bank.name) || ""
     {:noreply, assign(socket, renaming_bank: true, rename_bank_name: name)}
   end
 
@@ -1033,7 +1061,9 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
           {banks, current} =
             case banks do
               [] ->
-                {:ok, new_bank} = Sampler.create_bank(%{name: "Bank A", user_id: user_id, position: 0})
+                {:ok, new_bank} =
+                  Sampler.create_bank(%{name: "Bank A", user_id: user_id, position: 0})
+
                 {[new_bank], new_bank}
 
               [first | _] = all ->
@@ -1215,7 +1245,10 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
         {:noreply,
          socket
          |> assign(:current_bank, updated_bank)
-         |> push_event("set_pad_sequences", %{sequences: updated_sequences, active: socket.assigns.seq_mode})}
+         |> push_event("set_pad_sequences", %{
+           sequences: updated_sequences,
+           active: socket.assigns.seq_mode
+         })}
 
       {:error, _} ->
         {:noreply, socket}
@@ -1224,7 +1257,16 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
 
   def handle_event("enable_pad_synth", %{"pad-id" => pad_id}, socket) do
     pad = Sampler.get_pad!(pad_id)
-    default = %{"type" => "sine", "frequency" => 440.0, "attack" => 0.01, "decay" => 0.1, "sustain" => 0.7, "release" => 0.2, "gain" => 1.0}
+
+    default = %{
+      "type" => "sine",
+      "frequency" => 440.0,
+      "attack" => 0.01,
+      "decay" => 0.1,
+      "sustain" => 0.7,
+      "release" => 0.2,
+      "gain" => 1.0
+    }
 
     case Sampler.update_pad(pad, %{synth_config: default}) do
       {:ok, updated_pad} -> {:noreply, reload_bank(socket, updated_pad)}
@@ -1241,7 +1283,11 @@ defmodule SoundForgeWeb.Live.Components.ChromaticPadsComponent do
     end
   end
 
-  def handle_event("update_pad_synth_config", %{"pad-id" => pad_id, "key" => key, "value" => val}, socket) do
+  def handle_event(
+        "update_pad_synth_config",
+        %{"pad-id" => pad_id, "key" => key, "value" => val},
+        socket
+      ) do
     pad = Sampler.get_pad!(pad_id)
     current = pad.synth_config || %{}
 

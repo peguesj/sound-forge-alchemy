@@ -51,7 +51,10 @@ defmodule SoundForgeWeb.PadsTabTest do
 
     test "select_pad on first pad", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/?tab=pads")
-      html = view |> element("[phx-click='select_pad'][phx-value-pad-index='0']") |> render_click()
+
+      html =
+        view |> element("[phx-click='select_pad'][phx-value-pad-index='0']") |> render_click()
+
       assert is_binary(html)
     end
 
@@ -87,7 +90,14 @@ defmodule SoundForgeWeb.PadsTabTest do
       track = track_fixture(%{user_id: user.id, title: "Pad Source Track"})
       download_job_fixture(%{track_id: track.id, status: :completed, output_path: "test.mp3"})
       pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
+
+      stem_fixture(%{
+        track_id: track.id,
+        processing_job_id: pj.id,
+        stem_type: :vocals,
+        file_path: "stems/vocals.wav",
+        file_size: 1024
+      })
 
       {:ok, view, _html} = live(conn, ~p"/?tab=pads")
       html = view |> element("[phx-click='toggle_browser']") |> render_click()

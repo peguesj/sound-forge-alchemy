@@ -36,6 +36,7 @@ defmodule SoundForge.CrateDigger.Crate do
     field :source_urls, {:array, :string}, default: []
 
     belongs_to :user, SoundForge.Accounts.User, type: :integer
+
     belongs_to :collection, SoundForge.CrateDigger.CrateCollection,
       foreign_key: :collection_id,
       define_field: false
@@ -49,8 +50,15 @@ defmodule SoundForge.CrateDigger.Crate do
   def changeset(crate, attrs) do
     crate
     |> cast(attrs, [
-      :name, :spotify_playlist_id, :playlist_data, :stem_config, :user_id,
-      :source_type, :collection_id, :crate_profile, :source_urls
+      :name,
+      :spotify_playlist_id,
+      :playlist_data,
+      :stem_config,
+      :user_id,
+      :source_type,
+      :collection_id,
+      :crate_profile,
+      :source_urls
     ])
     |> validate_required([:name, :spotify_playlist_id, :user_id])
     |> validate_inclusion(:source_type, @valid_source_types)

@@ -75,7 +75,9 @@ defmodule SoundForge.MIDI.MappingTest do
     end
 
     test "validates device_name length" do
-      too_long = Mapping.changeset(%Mapping{}, %{@valid_attrs | device_name: String.duplicate("x", 256)})
+      too_long =
+        Mapping.changeset(%Mapping{}, %{@valid_attrs | device_name: String.duplicate("x", 256)})
+
       refute too_long.valid?
 
       empty = Mapping.changeset(%Mapping{}, %{@valid_attrs | device_name: ""})

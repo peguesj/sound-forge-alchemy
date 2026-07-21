@@ -78,13 +78,17 @@ defmodule SoundForge.Audio.MidiExtractor do
     # Build track data: tempo event at tick 0, then note on/off pairs
     track_data = <<
       # Tempo meta event at tick 0
-      0x00,          # delta time = 0
-      0xFF,          # meta event
-      0x51,          # tempo
-      0x03,          # length = 3 bytes
-      trunc(tempo_us >>> 16) :: 8,
-      trunc(tempo_us >>> 8 &&& 0xFF) :: 8,
-      trunc(tempo_us &&& 0xFF) :: 8
+      # delta time = 0
+      0x00,
+      # meta event
+      0xFF,
+      # tempo
+      0x51,
+      # length = 3 bytes
+      0x03,
+      trunc(tempo_us >>> 16)::8,
+      trunc(tempo_us >>> 8 &&& 0xFF)::8,
+      trunc(tempo_us &&& 0xFF)::8
     >>
 
     # Build note events sorted by tick
@@ -104,12 +108,12 @@ defmodule SoundForge.Audio.MidiExtractor do
           Enum.reduce(tick_events, <<>>, fn {_, note}, off_acc ->
             off_acc <>
               encode_varlen(0) <>
-              <<0x89, note :: 8, 0 :: 8>>
+              <<0x89, note::8, 0::8>>
           end)
 
+        # First note on gets the full delta, subsequent simultaneous notes get 0
         new_acc =
           acc <>
-            # First note on gets the full delta, subsequent simultaneous notes get 0
             note_ons_with_first_delta(tick_events, delta) <>
             note_offs
 
@@ -123,15 +127,20 @@ defmodule SoundForge.Audio.MidiExtractor do
     full_track = track_data <> note_data <> eot
 
     # MIDI header: type 0, 1 track, ticks per quarter
-    header = <<"MThd",
-      0 :: 32,   # header length = 6
-      0 :: 16,   # format type 0
-      1 :: 16,   # 1 track
-      @ticks_per_quarter :: 16
-    >>
+    header =
+      <<
+        "MThd",
+        # header length = 6
+        0::32,
+        # format type 0
+        0::16,
+        # 1 track
+        1::16,
+        @ticks_per_quarter::16
+      >>
 
     track_length = byte_size(full_track)
-    track_chunk = <<"MTrk", track_length :: 32>> <> full_track
+    track_chunk = <<"MTrk", track_length::32>> <> full_track
 
     header <> track_chunk
   end
@@ -142,22 +151,23 @@ defmodule SoundForge.Audio.MidiExtractor do
   defp note_ons_with_first_delta(tick_events, delta) do
     [{_, first_note} | rest] = tick_events
 
-    first = encode_varlen(delta) <> <<0x99, first_note :: 8, 100 :: 8>>
+    first = encode_varlen(delta) <> <<0x99, first_note::8, 100::8>>
 
     others =
       Enum.reduce(rest, <<>>, fn {_, note}, acc ->
-        acc <> encode_varlen(0) <> <<0x99, note :: 8, 100 :: 8>>
+        acc <> encode_varlen(0) <> <<0x99, note::8, 100::8>>
       end)
 
-    first <> others <>
+    first <>
+      others <>
       Enum.reduce(tick_events, <<>>, fn {_, note}, acc ->
-        acc <> encode_varlen(0) <> <<0x89, note :: 8, 0 :: 8>>
+        acc <> encode_varlen(0) <> <<0x89, note::8, 0::8>>
       end)
   end
 
   # Variable-length encoding for MIDI delta times
   defp encode_varlen(value) when value < 128 do
-    <<value :: 8>>
+    <<value::8>>
   end
 
   defp encode_varlen(value) do
@@ -168,8 +178,8 @@ defmodule SoundForge.Audio.MidiExtractor do
 
   defp encode_varlen_bytes(0, acc) do
     [first | rest] = acc
-    rest_bytes = Enum.reduce(rest, <<>>, fn b, acc_bin -> acc_bin <> <<b ||| 0x80 :: 8>> end)
-    <<first :: 8>> <> rest_bytes
+    rest_bytes = Enum.reduce(rest, <<>>, fn b, acc_bin -> acc_bin <> <<b ||| 0x80::8>> end)
+    <<first::8>> <> rest_bytes
   end
 
   defp encode_varlen_bytes(value, acc) do

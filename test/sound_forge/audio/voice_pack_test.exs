@@ -26,10 +26,13 @@ defmodule SoundForge.Audio.VoicePackTest do
 
     test "accepts optional datetime fields" do
       changeset =
-        VoicePack.changeset(%VoicePack{}, Map.merge(@valid_attrs, %{
-          created_at_remote: DateTime.utc_now(),
-          cached_at: DateTime.utc_now()
-        }))
+        VoicePack.changeset(
+          %VoicePack{},
+          Map.merge(@valid_attrs, %{
+            created_at_remote: DateTime.utc_now(),
+            cached_at: DateTime.utc_now()
+          })
+        )
 
       assert changeset.valid?
     end

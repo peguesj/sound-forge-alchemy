@@ -49,11 +49,12 @@ defmodule SoundForge.Jobs.VoiceCleanWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{
-        args: %{
-          "track_id" => track_id,
-          "job_id" => job_id,
-          "file_path" => file_path
-        } = args
+        args:
+          %{
+            "track_id" => track_id,
+            "job_id" => job_id,
+            "file_path" => file_path
+          } = args
       }) do
     Logger.metadata(track_id: track_id, job_id: job_id, worker: "VoiceCleanWorker")
 
@@ -91,18 +92,24 @@ defmodule SoundForge.Jobs.VoiceCleanWorker do
     with {:ok, source_id} <- LalalAI.upload_source(resolved_path),
          _ <- Logger.info("lalal.ai source uploaded: #{source_id}"),
          _ <-
-           (fresh_upload_job = Music.get_processing_job!(job_id);
-            Music.update_processing_job(fresh_upload_job, %{
-              options: Map.put(fresh_upload_job.options || %{}, "lalalai_source_id", source_id)
-            })),
+           (
+             fresh_upload_job = Music.get_processing_job!(job_id)
+
+             Music.update_processing_job(fresh_upload_job, %{
+               options: Map.put(fresh_upload_job.options || %{}, "lalalai_source_id", source_id)
+             })
+           ),
          {:ok, %{"task_id" => task_id}} <-
            LalalAI.split_voice_clean(source_id, noise_cancelling_level, split_opts),
          _ <- Logger.info("lalal.ai voice_clean task created: #{task_id}"),
          _ <-
-           (fresh_split_job = Music.get_processing_job!(job_id);
-            Music.update_processing_job(fresh_split_job, %{
-              options: Map.put(fresh_split_job.options || %{}, "lalalai_task_id", task_id)
-            })),
+           (
+             fresh_split_job = Music.get_processing_job!(job_id)
+
+             Music.update_processing_job(fresh_split_job, %{
+               options: Map.put(fresh_split_job.options || %{}, "lalalai_task_id", task_id)
+             })
+           ),
          {:ok, stem_urls} <- poll_until_complete(task_id, job_id, track_id) do
       process_completed_stems(
         track_id,
@@ -261,7 +268,8 @@ defmodule SoundForge.Jobs.VoiceCleanWorker do
   # The lalal.ai get_status response for voice_clean includes both "stem" and "back"
   # in the task result. The parse_status_response maps "stem" to :stem. The "back"
   # track may appear under the :accompaniment key or may be nested in the raw data.
-  defp get_back_track_url(%{stem: %{"back" => %{"link" => url}}}) when is_binary(url), do: {:ok, url}
+  defp get_back_track_url(%{stem: %{"back" => %{"link" => url}}}) when is_binary(url),
+    do: {:ok, url}
 
   defp get_back_track_url(%{accompaniment: %{"link" => url}}) when is_binary(url), do: {:ok, url}
 
@@ -286,9 +294,7 @@ defmodule SoundForge.Jobs.VoiceCleanWorker do
         [stem]
 
       {:error, reason} ->
-        Logger.warning(
-          "Failed to create stem record for #{stem_type_atom}: #{inspect(reason)}"
-        )
+        Logger.warning("Failed to create stem record for #{stem_type_atom}: #{inspect(reason)}")
 
         []
     end

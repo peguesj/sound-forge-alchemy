@@ -18,12 +18,13 @@ defmodule SoundForge.Jobs.AnalysisWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{
-        args: %{
-          "track_id" => track_id,
-          "job_id" => job_id,
-          "file_path" => file_path,
-          "features" => features
-        } = args
+        args:
+          %{
+            "track_id" => track_id,
+            "job_id" => job_id,
+            "file_path" => file_path,
+            "features" => features
+          } = args
       }) do
     playlist_id = Map.get(args, "playlist_id")
 
@@ -33,7 +34,13 @@ defmodule SoundForge.Jobs.AnalysisWorker do
     job = Music.get_analysis_job!(job_id)
     Music.update_analysis_job(job, %{status: :processing, progress: 0})
     PipelineBroadcaster.broadcast_stage_started(track_id, job_id, :analysis)
-    PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :analysis, status: :processing, progress: 0})
+
+    PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{
+      stage: :analysis,
+      status: :processing,
+      progress: 0
+    })
+
     broadcast_progress(job_id, :processing, 0)
     broadcast_track_progress(track_id, :analysis, :processing, 0)
 
@@ -48,7 +55,13 @@ defmodule SoundForge.Jobs.AnalysisWorker do
       Logger.error(error_msg)
       Music.update_analysis_job(job, %{status: :failed, error: error_msg})
       PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :analysis)
-      PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :analysis, status: :failed, progress: 0})
+
+      PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{
+        stage: :analysis,
+        status: :failed,
+        progress: 0
+      })
+
       {:error, error_msg}
     end
   end
@@ -98,7 +111,11 @@ defmodule SoundForge.Jobs.AnalysisWorker do
 
           update_attrs =
             %{}
-            |> then(fn attrs -> if drum_categories != [], do: Map.put(attrs, :drum_categories, drum_categories), else: attrs end)
+            |> then(fn attrs ->
+              if drum_categories != [],
+                do: Map.put(attrs, :drum_categories, drum_categories),
+                else: attrs
+            end)
             |> then(fn attrs -> if bpm, do: Map.put(attrs, :bpm, bpm), else: attrs end)
 
           unless map_size(update_attrs) == 0 do
@@ -108,7 +125,12 @@ defmodule SoundForge.Jobs.AnalysisWorker do
 
         Logger.info("Analysis complete")
         PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :analysis)
-        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :analysis, status: :completed, progress: 100})
+
+        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{
+          stage: :analysis,
+          status: :completed,
+          progress: 100
+        })
 
         # Auto-trigger MIDI/chord detection if user settings enable it
         maybe_auto_trigger_extensions(track_id, file_path)
@@ -123,7 +145,13 @@ defmodule SoundForge.Jobs.AnalysisWorker do
         Logger.error("Analysis failed: #{error_msg}")
         Music.update_analysis_job(job, %{status: :failed, error: error_msg})
         PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :analysis)
-        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :analysis, status: :failed, progress: 0})
+
+        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{
+          stage: :analysis,
+          status: :failed,
+          progress: 0
+        })
+
         {:error, error_msg}
     end
   end

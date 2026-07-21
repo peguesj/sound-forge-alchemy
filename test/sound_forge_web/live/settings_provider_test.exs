@@ -113,9 +113,16 @@ defmodule SoundForgeWeb.SettingsProviderTest do
       {:ok, view, _html} = live(conn, "/settings")
       render_click(view, "switch_section", %{"section" => "ai_providers"})
       render_click(view, "show_add_provider")
-      html = render_click(view, "validate_provider", %{
-        "provider" => %{"name" => "Test Provider", "adapter" => "openai", "api_key" => "sk-test"}
-      })
+
+      html =
+        render_click(view, "validate_provider", %{
+          "provider" => %{
+            "name" => "Test Provider",
+            "adapter" => "openai",
+            "api_key" => "sk-test"
+          }
+        })
+
       assert html =~ "Settings"
     end
 
@@ -123,15 +130,18 @@ defmodule SoundForgeWeb.SettingsProviderTest do
       {:ok, view, _html} = live(conn, "/settings")
       render_click(view, "switch_section", %{"section" => "ai_providers"})
       render_click(view, "show_add_provider")
-      html = render_click(view, "save_provider", %{
-        "provider" => %{
-          "name" => "My OpenAI",
-          "provider_type" => "openai",
-          "api_key" => "sk-test-123",
-          "base_url" => "https://api.openai.com/v1",
-          "default_model" => "gpt-4"
-        }
-      })
+
+      html =
+        render_click(view, "save_provider", %{
+          "provider" => %{
+            "name" => "My OpenAI",
+            "provider_type" => "openai",
+            "api_key" => "sk-test-123",
+            "base_url" => "https://api.openai.com/v1",
+            "default_model" => "gpt-4"
+          }
+        })
+
       assert html =~ "Settings"
     end
   end

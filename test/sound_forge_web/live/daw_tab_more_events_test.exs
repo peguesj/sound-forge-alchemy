@@ -10,13 +10,27 @@ defmodule SoundForgeWeb.DawTabMoreEventsTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{user_id: user.id, title: "DAW Track", artist: "DAW Artist", duration: 300})
-    download_job_fixture(%{track_id: track.id, status: :completed, output_path: "priv/uploads/downloads/daw.mp3"})
+    track =
+      track_fixture(%{user_id: user.id, title: "DAW Track", artist: "DAW Artist", duration: 300})
+
+    download_job_fixture(%{
+      track_id: track.id,
+      status: :completed,
+      output_path: "priv/uploads/downloads/daw.mp3"
+    })
+
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
 
-    stems = for st <- [:vocals, :drums, :bass, :other] do
-      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: st, file_path: "stems/#{st}.wav", file_size: 2048})
-    end
+    stems =
+      for st <- [:vocals, :drums, :bass, :other] do
+        stem_fixture(%{
+          track_id: track.id,
+          processing_job_id: pj.id,
+          stem_type: st,
+          file_path: "stems/#{st}.wav",
+          file_size: 2048
+        })
+      end
 
     %{track: track, stems: stems}
   end
@@ -98,13 +112,22 @@ defmodule SoundForgeWeb.DawTabMoreEventsTest do
 
     test "export_progress complete", %{conn: conn, track: track} do
       view = load_daw(conn, track)
-      html = render_click(view, "export_progress", %{"status" => "complete", "url" => "/download/test.wav"})
+
+      html =
+        render_click(view, "export_progress", %{
+          "status" => "complete",
+          "url" => "/download/test.wav"
+        })
+
       assert is_binary(html)
     end
 
     test "export_progress error", %{conn: conn, track: track} do
       view = load_daw(conn, track)
-      html = render_click(view, "export_progress", %{"status" => "error", "message" => "export failed"})
+
+      html =
+        render_click(view, "export_progress", %{"status" => "error", "message" => "export failed"})
+
       assert is_binary(html)
     end
   end

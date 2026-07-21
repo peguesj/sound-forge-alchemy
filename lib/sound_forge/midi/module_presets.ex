@@ -13,7 +13,7 @@ defmodule SoundForge.MIDI.ModulePresets do
     ModulePreset
     |> where([p], p.user_id == ^user_id)
     |> maybe_filter_module(module)
-    |> order_by([p], [desc: p.is_default, asc: p.name])
+    |> order_by([p], desc: p.is_default, asc: p.name)
     |> Repo.all()
   end
 
@@ -81,7 +81,11 @@ defmodule SoundForge.MIDI.ModulePresets do
         })
 
       existing ->
-        update_preset(existing, %{mappings: mappings, layout_metadata: layout_metadata, source: source})
+        update_preset(existing, %{
+          mappings: mappings,
+          layout_metadata: layout_metadata,
+          source: source
+        })
     end
   end
 

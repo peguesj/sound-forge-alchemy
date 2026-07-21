@@ -31,7 +31,12 @@ defmodule SoundForge.Jobs.BigLoopyTrackWorker do
           "recipe" => recipe
         }
       }) do
-    Logger.metadata(worker: "BigLoopyTrackWorker", track_id: track_id, alchemy_set_id: alchemy_set_id)
+    Logger.metadata(
+      worker: "BigLoopyTrackWorker",
+      track_id: track_id,
+      alchemy_set_id: alchemy_set_id
+    )
+
     Logger.info("[BigLoopyTrackWorker] Processing track #{track_id} for set #{alchemy_set_id}")
 
     Broadcaster.broadcast_track_progress(alchemy_set_id, %{
@@ -61,12 +66,15 @@ defmodule SoundForge.Jobs.BigLoopyTrackWorker do
       })
 
       # Fetch the track's local file path from its most recent completed download job
-      track = track_id |> Music.get_track() |> then(fn t ->
-        if t, do: Repo.preload(t, :download_jobs), else: nil
-      end)
+      track =
+        track_id
+        |> Music.get_track()
+        |> then(fn t ->
+          if t, do: Repo.preload(t, :download_jobs), else: nil
+        end)
 
       local_path =
-        (track && Map.get(track, :download_jobs, []) || [])
+        ((track && Map.get(track, :download_jobs, [])) || [])
         |> Enum.filter(&(&1.status == :completed && &1.output_path))
         |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
         |> case do
@@ -78,7 +86,10 @@ defmodule SoundForge.Jobs.BigLoopyTrackWorker do
         if local_path do
           extract_loops(local_path, loop_points, stem_assignments, alchemy_set_id)
         else
-          Logger.warning("[BigLoopyTrackWorker] No completed download for track #{track_id} — skipping extraction")
+          Logger.warning(
+            "[BigLoopyTrackWorker] No completed download for track #{track_id} — skipping extraction"
+          )
+
           []
         end
 
@@ -90,7 +101,10 @@ defmodule SoundForge.Jobs.BigLoopyTrackWorker do
       :ok
     rescue
       e ->
-        Logger.error("[BigLoopyTrackWorker] Error processing track #{track_id}: #{Exception.message(e)}")
+        Logger.error(
+          "[BigLoopyTrackWorker] Error processing track #{track_id}: #{Exception.message(e)}"
+        )
+
         Broadcaster.broadcast_error(alchemy_set_id, Exception.message(e))
         {:error, Exception.message(e)}
     end
@@ -114,7 +128,10 @@ defmodule SoundForge.Jobs.BigLoopyTrackWorker do
           [output_path]
 
         {:error, reason} ->
-          Logger.warning("[BigLoopyTrackWorker] Loop extraction failed (#{alchemy_set_id}): #{inspect(reason)}")
+          Logger.warning(
+            "[BigLoopyTrackWorker] Loop extraction failed (#{alchemy_set_id}): #{inspect(reason)}"
+          )
+
           []
       end
     end)

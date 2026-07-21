@@ -47,6 +47,7 @@ defmodule SoundForge.OSC.ActionExecutor do
       :stopped -> send_feedback(state, "/transport/play", [0.0])
       _ -> :ok
     end
+
     {:noreply, state}
   end
 

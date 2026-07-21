@@ -11,18 +11,43 @@ defmodule SoundForgeWeb.DjTabAdditionalEventsTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track1 = track_fixture(%{user_id: user.id, title: "DJ Track A", artist: "Artist A", duration: 240})
-    track2 = track_fixture(%{user_id: user.id, title: "DJ Track B", artist: "Artist B", duration: 180})
+    track1 =
+      track_fixture(%{user_id: user.id, title: "DJ Track A", artist: "Artist A", duration: 240})
 
-    download_job_fixture(%{track_id: track1.id, status: :completed, output_path: "priv/uploads/downloads/dj_a.mp3"})
-    download_job_fixture(%{track_id: track2.id, status: :completed, output_path: "priv/uploads/downloads/dj_b.mp3"})
+    track2 =
+      track_fixture(%{user_id: user.id, title: "DJ Track B", artist: "Artist B", duration: 180})
+
+    download_job_fixture(%{
+      track_id: track1.id,
+      status: :completed,
+      output_path: "priv/uploads/downloads/dj_a.mp3"
+    })
+
+    download_job_fixture(%{
+      track_id: track2.id,
+      status: :completed,
+      output_path: "priv/uploads/downloads/dj_b.mp3"
+    })
 
     pj1 = processing_job_fixture(%{track_id: track1.id, model: "htdemucs", status: :completed})
     pj2 = processing_job_fixture(%{track_id: track2.id, model: "htdemucs", status: :completed})
 
     for st <- [:vocals, :drums, :bass, :other] do
-      stem_fixture(%{track_id: track1.id, processing_job_id: pj1.id, stem_type: st, file_path: "stems/#{st}_a.wav", file_size: 1024})
-      stem_fixture(%{track_id: track2.id, processing_job_id: pj2.id, stem_type: st, file_path: "stems/#{st}_b.wav", file_size: 1024})
+      stem_fixture(%{
+        track_id: track1.id,
+        processing_job_id: pj1.id,
+        stem_type: st,
+        file_path: "stems/#{st}_a.wav",
+        file_size: 1024
+      })
+
+      stem_fixture(%{
+        track_id: track2.id,
+        processing_job_id: pj2.id,
+        stem_type: st,
+        file_path: "stems/#{st}_b.wav",
+        file_size: 1024
+      })
     end
 
     %{track1: track1, track2: track2}
@@ -119,7 +144,10 @@ defmodule SoundForgeWeb.DjTabAdditionalEventsTest do
 
     test "set_filter highpass on deck 2", %{conn: conn, track1: t1, track2: t2} do
       view = load_both_decks(conn, t1, t2)
-      html = render_click(view, "set_filter", %{"deck" => "2", "mode" => "highpass", "cutoff" => "0.7"})
+
+      html =
+        render_click(view, "set_filter", %{"deck" => "2", "mode" => "highpass", "cutoff" => "0.7"})
+
       assert is_binary(html)
     end
 

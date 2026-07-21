@@ -7,12 +7,14 @@ defmodule SoundForgeWeb.DashboardDjEventsTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      title: "DJ Test Track",
-      artist: "Test DJ",
-      user_id: user.id,
-      duration: 300
-    })
+    track =
+      track_fixture(%{
+        title: "DJ Test Track",
+        artist: "Test DJ",
+        user_id: user.id,
+        duration: 300
+      })
+
     %{track: track}
   end
 
@@ -109,7 +111,10 @@ defmodule SoundForgeWeb.DashboardDjEventsTest do
 
     test "set_filter event", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/?tab=dj")
-      html = render_click(view, "set_filter", %{"deck" => "1", "mode" => "lowpass", "cutoff" => "0.5"})
+
+      html =
+        render_click(view, "set_filter", %{"deck" => "1", "mode" => "lowpass", "cutoff" => "0.5"})
+
       assert is_binary(html)
     end
 

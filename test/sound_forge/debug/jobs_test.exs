@@ -40,8 +40,20 @@ defmodule SoundForge.Debug.JobsTest do
             scheduled_at: merged.scheduled_at
           }
         ],
-        returning: [:id, :worker, :queue, :state, :attempt, :max_attempts, :args, :errors,
-                    :inserted_at, :attempted_at, :completed_at, :scheduled_at]
+        returning: [
+          :id,
+          :worker,
+          :queue,
+          :state,
+          :attempt,
+          :max_attempts,
+          :args,
+          :errors,
+          :inserted_at,
+          :attempted_at,
+          :completed_at,
+          :scheduled_at
+        ]
       )
 
     job
@@ -140,7 +152,8 @@ defmodule SoundForge.Debug.JobsTest do
       assert job2.id in job_ids
       assert job1.id in job_ids
       # Newest first
-      assert Enum.find_index(job_ids, &(&1 == job2.id)) < Enum.find_index(job_ids, &(&1 == job1.id))
+      assert Enum.find_index(job_ids, &(&1 == job2.id)) <
+               Enum.find_index(job_ids, &(&1 == job1.id))
     end
 
     test "respects the limit" do
@@ -171,20 +184,23 @@ defmodule SoundForge.Debug.JobsTest do
       track_id = Ecto.UUID.generate()
       other_track_id = Ecto.UUID.generate()
 
-      _j1 = insert_oban_job(%{
-        worker: "SoundForge.Jobs.DownloadWorker",
-        args: %{"track_id" => track_id}
-      })
+      _j1 =
+        insert_oban_job(%{
+          worker: "SoundForge.Jobs.DownloadWorker",
+          args: %{"track_id" => track_id}
+        })
 
-      _j2 = insert_oban_job(%{
-        worker: "SoundForge.Jobs.ProcessingWorker",
-        args: %{"track_id" => track_id}
-      })
+      _j2 =
+        insert_oban_job(%{
+          worker: "SoundForge.Jobs.ProcessingWorker",
+          args: %{"track_id" => track_id}
+        })
 
-      _other = insert_oban_job(%{
-        worker: "SoundForge.Jobs.DownloadWorker",
-        args: %{"track_id" => other_track_id}
-      })
+      _other =
+        insert_oban_job(%{
+          worker: "SoundForge.Jobs.DownloadWorker",
+          args: %{"track_id" => other_track_id}
+        })
 
       jobs = Jobs.jobs_for_track(track_id)
       assert length(jobs) == 2

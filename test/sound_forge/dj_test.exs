@@ -34,9 +34,26 @@ defmodule SoundForge.DJTest do
     end
 
     test "list_cue_points/2 returns ordered cue points", %{user: user, track: track} do
-      DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 60_000, cue_type: :hot})
-      DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 10_000, cue_type: :memory})
-      DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 30_000, cue_type: :loop_in})
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: user.id,
+        position_ms: 60_000,
+        cue_type: :hot
+      })
+
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: user.id,
+        position_ms: 10_000,
+        cue_type: :memory
+      })
+
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: user.id,
+        position_ms: 30_000,
+        cue_type: :loop_in
+      })
 
       cps = DJ.list_cue_points(track.id, user.id)
       assert length(cps) == 3
@@ -46,15 +63,33 @@ defmodule SoundForge.DJTest do
 
     test "list_cue_points/2 scopes to user", %{user: user, track: track} do
       other_user = user_fixture()
-      DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 1000, cue_type: :hot})
-      DJ.create_cue_point(%{track_id: track.id, user_id: other_user.id, position_ms: 2000, cue_type: :hot})
+
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: user.id,
+        position_ms: 1000,
+        cue_type: :hot
+      })
+
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: other_user.id,
+        position_ms: 2000,
+        cue_type: :hot
+      })
 
       assert length(DJ.list_cue_points(track.id, user.id)) == 1
       assert length(DJ.list_cue_points(track.id, other_user.id)) == 1
     end
 
     test "get_cue_point/1 returns cue point", %{user: user, track: track} do
-      {:ok, cp} = DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 5000, cue_type: :hot})
+      {:ok, cp} =
+        DJ.create_cue_point(%{
+          track_id: track.id,
+          user_id: user.id,
+          position_ms: 5000,
+          cue_type: :hot
+        })
 
       found = DJ.get_cue_point(cp.id)
       assert found.id == cp.id
@@ -65,7 +100,13 @@ defmodule SoundForge.DJTest do
     end
 
     test "update_cue_point/2 updates attributes", %{user: user, track: track} do
-      {:ok, cp} = DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 5000, cue_type: :hot})
+      {:ok, cp} =
+        DJ.create_cue_point(%{
+          track_id: track.id,
+          user_id: user.id,
+          position_ms: 5000,
+          cue_type: :hot
+        })
 
       assert {:ok, updated} = DJ.update_cue_point(cp, %{label: "Build-up", position_ms: 6000})
       assert updated.label == "Build-up"
@@ -73,7 +114,14 @@ defmodule SoundForge.DJTest do
     end
 
     test "delete_cue_point/1 removes cue point", %{user: user, track: track} do
-      {:ok, cp} = DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 5000, cue_type: :hot})
+      {:ok, cp} =
+        DJ.create_cue_point(%{
+          track_id: track.id,
+          user_id: user.id,
+          position_ms: 5000,
+          cue_type: :hot
+        })
+
       assert {:ok, _} = DJ.delete_cue_point(cp)
       assert is_nil(DJ.get_cue_point(cp.id))
     end
@@ -87,8 +135,21 @@ defmodule SoundForge.DJTest do
     end
 
     test "list_auto_cue_points/2 filters auto_generated", %{user: user, track: track} do
-      DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 1000, cue_type: :hot, auto_generated: true})
-      DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 2000, cue_type: :hot, auto_generated: false})
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: user.id,
+        position_ms: 1000,
+        cue_type: :hot,
+        auto_generated: true
+      })
+
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: user.id,
+        position_ms: 2000,
+        cue_type: :hot,
+        auto_generated: false
+      })
 
       auto = DJ.list_auto_cue_points(track.id, user.id)
       assert length(auto) == 1
@@ -96,9 +157,29 @@ defmodule SoundForge.DJTest do
     end
 
     test "delete_auto_cue_points/2 removes only auto-generated", %{user: user, track: track} do
-      DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 1000, cue_type: :hot, auto_generated: true})
-      DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 2000, cue_type: :hot, auto_generated: true})
-      DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 3000, cue_type: :memory, auto_generated: false})
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: user.id,
+        position_ms: 1000,
+        cue_type: :hot,
+        auto_generated: true
+      })
+
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: user.id,
+        position_ms: 2000,
+        cue_type: :hot,
+        auto_generated: true
+      })
+
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: user.id,
+        position_ms: 3000,
+        cue_type: :memory,
+        auto_generated: false
+      })
 
       {count, _} = DJ.delete_auto_cue_points(track.id, user.id)
       assert count == 2

@@ -109,9 +109,7 @@ defmodule SoundForge.MIDI.DeviceManager do
         discover_devices()
       rescue
         e ->
-          Logger.warning(
-            "MIDI device discovery failed during init (no hardware?): #{inspect(e)}"
-          )
+          Logger.warning("MIDI device discovery failed during init (no hardware?): #{inspect(e)}")
 
           []
       catch

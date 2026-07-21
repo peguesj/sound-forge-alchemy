@@ -26,7 +26,8 @@ defmodule SoundForge.Debug.LogBroadcasterTest do
       metadata = [request_id: "abc123", oban_job_id: 42]
 
       LogBroadcaster.handle_event(
-        {:info, self(), {Logger, "[oban.DownloadWorker] job:start job_id=42", timestamp, metadata}},
+        {:info, self(),
+         {Logger, "[oban.DownloadWorker] job:start job_id=42", timestamp, metadata}},
         %{}
       )
 

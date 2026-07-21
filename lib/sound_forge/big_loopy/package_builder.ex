@@ -43,7 +43,10 @@ defmodule SoundForge.BigLoopy.PackageBuilder do
           {:ok, zip_path}
 
         {:error, reason} ->
-          Logger.error("[PackageBuilder] Failed to create ZIP for #{alchemy_set_id}: #{inspect(reason)}")
+          Logger.error(
+            "[PackageBuilder] Failed to create ZIP for #{alchemy_set_id}: #{inspect(reason)}"
+          )
+
           {:error, reason}
       end
     end

@@ -9,7 +9,10 @@ defmodule SoundForge.LLM.Adapters.OpenAI do
   @impl true
   def chat(provider, messages, opts \\ []) do
     url = (provider.base_url || @default_url) |> String.trim_trailing("/")
-    url = if String.ends_with?(url, "/chat/completions"), do: url, else: url <> "/v1/chat/completions"
+
+    url =
+      if String.ends_with?(url, "/chat/completions"), do: url, else: url <> "/v1/chat/completions"
+
     model = Keyword.get(opts, :model) || provider.default_model || "gpt-4o"
 
     headers = [{"authorization", "Bearer #{provider.api_key}"}]

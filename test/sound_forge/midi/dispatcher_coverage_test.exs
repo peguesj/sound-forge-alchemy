@@ -10,7 +10,8 @@ defmodule SoundForge.MIDI.DispatcherCoverageTest do
     end
 
     test "generates topic for network port" do
-      assert Dispatcher.topic("network:192.168.1.10:5004") == "midi:messages:network:192.168.1.10:5004"
+      assert Dispatcher.topic("network:192.168.1.10:5004") ==
+               "midi:messages:network:192.168.1.10:5004"
     end
   end
 

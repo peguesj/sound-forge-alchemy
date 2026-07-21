@@ -83,7 +83,7 @@ defmodule SoundForge.BigLoopy.OmegaChop do
       @stem_types
       |> Enum.reject(&(&1 in exclude))
       |> Enum.sort_by(fn stem ->
-        -(Map.get(energies, stem, 0.0))
+        -Map.get(energies, stem, 0.0)
       end)
       |> Enum.take(count)
 

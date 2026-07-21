@@ -12,13 +12,14 @@ defmodule SoundForgeWeb.DjLoadTrackTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "DJ Load Test Track",
-      artist: "Test DJ Artist",
-      duration: 300,
-      album: "DJ Album"
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "DJ Load Test Track",
+        artist: "Test DJ Artist",
+        duration: 300,
+        album: "DJ Album"
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -27,12 +28,41 @@ defmodule SoundForgeWeb.DjLoadTrackTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :drums, file_path: "stems/drums.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :bass, file_path: "stems/bass.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :other, file_path: "stems/other.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :drums,
+      file_path: "stems/drums.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :bass,
+      file_path: "stems/bass.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :other,
+      file_path: "stems/other.wav",
+      file_size: 1024
+    })
 
     aj = analysis_job_fixture(%{track_id: track.id, status: :completed})
+
     analysis_result_fixture(%{
       track_id: track.id,
       analysis_job_id: aj.id,
@@ -57,7 +87,8 @@ defmodule SoundForgeWeb.DjLoadTrackTest do
       view |> element("#dj-tab [phx-click='toggle_browser']") |> render_click()
 
       # Click the track to load into deck 1 (uses load_track with phx-target={@myself})
-      html = view
+      html =
+        view
         |> element("#dj-tab [phx-click='load_track'][phx-value-track-id='#{track.id}']")
         |> render_click()
 
@@ -69,7 +100,8 @@ defmodule SoundForgeWeb.DjLoadTrackTest do
       {:ok, view, _html} = live(conn, ~p"/?tab=dj")
       view |> element("#dj-tab [phx-click='toggle_browser']") |> render_click()
 
-      html = view
+      html =
+        view
         |> element("#dj-tab [phx-click='load_track'][phx-value-track-id='#{track.id}']")
         |> render_click()
 
@@ -81,7 +113,10 @@ defmodule SoundForgeWeb.DjLoadTrackTest do
   # Helper to load a track into deck 1
   defp load_track_into_deck(view, track) do
     view |> element("#dj-tab [phx-click='toggle_browser']") |> render_click()
-    view |> element("#dj-tab [phx-click='load_track'][phx-value-track-id='#{track.id}']") |> render_click()
+
+    view
+    |> element("#dj-tab [phx-click='load_track'][phx-value-track-id='#{track.id}']")
+    |> render_click()
   end
 
   defp try_click(view, selector) do

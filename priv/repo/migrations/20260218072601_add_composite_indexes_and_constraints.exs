@@ -19,8 +19,16 @@ defmodule SoundForge.Repo.Migrations.AddCompositeIndexesAndConstraints do
     )
 
     # CHECK constraints for progress fields
-    create constraint(:download_jobs, :download_jobs_progress_range, check: "progress >= 0 AND progress <= 100")
-    create constraint(:processing_jobs, :processing_jobs_progress_range, check: "progress >= 0 AND progress <= 100")
-    create constraint(:analysis_jobs, :analysis_jobs_progress_range, check: "progress >= 0 AND progress <= 100")
+    create constraint(:download_jobs, :download_jobs_progress_range,
+             check: "progress >= 0 AND progress <= 100"
+           )
+
+    create constraint(:processing_jobs, :processing_jobs_progress_range,
+             check: "progress >= 0 AND progress <= 100"
+           )
+
+    create constraint(:analysis_jobs, :analysis_jobs_progress_range,
+             check: "progress >= 0 AND progress <= 100"
+           )
   end
 end

@@ -21,7 +21,7 @@ defmodule SoundForge.Audio.VoicePackServiceTest do
     test "returns ok tuple" do
       # May return cached or stale data, but should not crash
       result = VoicePackService.list_packs()
-      assert match?({:ok, _} , result) or match?({:error, _}, result)
+      assert match?({:ok, _}, result) or match?({:error, _}, result)
     end
   end
 

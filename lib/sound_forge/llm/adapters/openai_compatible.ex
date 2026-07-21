@@ -84,7 +84,14 @@ defmodule SoundForge.LLM.Adapters.OpenAICompatible do
           %{}
       end
 
-    {:ok, %Response{content: content, model: model, usage: usage, finish_reason: finish_reason, raw_response: body}}
+    {:ok,
+     %Response{
+       content: content,
+       model: model,
+       usage: usage,
+       finish_reason: finish_reason,
+       raw_response: body
+     }}
   end
 
   defp parse_openai_response(body) do

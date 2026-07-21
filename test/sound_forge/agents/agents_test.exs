@@ -17,9 +17,21 @@ defmodule SoundForge.Agents.AgentsTest do
     {CuePointAgent, "cue_point_agent",
      [:cue_point_analysis, :loop_region_detection, :drop_detection, :phrase_boundary_detection]},
     {LibraryAgent, "library_agent",
-     [:library_search, :track_recommendations, :playlist_curation, :genre_classification, :mood_tagging]},
+     [
+       :library_search,
+       :track_recommendations,
+       :playlist_curation,
+       :genre_classification,
+       :mood_tagging
+     ]},
     {MasteringAgent, "mastering_agent",
-     [:mastering_advice, :loudness_analysis, :dynamic_range_advice, :eq_recommendations, :compression_advice]},
+     [
+       :mastering_advice,
+       :loudness_analysis,
+       :dynamic_range_advice,
+       :eq_recommendations,
+       :compression_advice
+     ]},
     {MixPlanningAgent, "mix_planning_agent",
      [:mix_planning, :track_sequencing, :transition_advice, :energy_flow, :key_compatibility]},
     {StemIntelligenceAgent, "stem_intelligence_agent",
@@ -71,7 +83,9 @@ defmodule SoundForge.Agents.AgentsTest do
       end
 
       test "format_messages/2 with custom string uses it as system" do
-        msgs = unquote(mod).format_messages("custom sys", [%{"role" => "user", "content" => "hi"}])
+        msgs =
+          unquote(mod).format_messages("custom sys", [%{"role" => "user", "content" => "hi"}])
+
         assert length(msgs) == 2
         assert hd(msgs)["content"] == "custom sys"
       end

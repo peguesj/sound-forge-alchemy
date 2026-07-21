@@ -67,7 +67,7 @@ defmodule SoundForgeWeb.Live.Handlers.MidiHandlers do
       def handle_event("toggle_midi_monitor_listen", _params, socket) do
         if socket.assigns.midi_monitor_listening do
           for device <- socket.assigns.midi_devices,
-              port_id <- (Map.get(device, :port_ids) || [Map.get(device, :port_id, "")]) do
+              port_id <- Map.get(device, :port_ids) || [Map.get(device, :port_id, "")] do
             Phoenix.PubSub.unsubscribe(
               SoundForge.PubSub,
               SoundForge.MIDI.Dispatcher.topic(port_id)
@@ -158,16 +158,20 @@ defmodule SoundForgeWeb.Live.Handlers.MidiHandlers do
 
       # ── MIDI handle_info: Actions ─────────────────────────────────────────
 
-      def handle_info({:midi_action, :stem_volume, %{volume: volume, target: target} = params}, socket) do
-        log_entry = midi_log_entry("CC -> stem_volume target=#{target} vol=#{Float.round(volume, 2)}")
+      def handle_info(
+            {:midi_action, :stem_volume, %{volume: volume, target: target} = params},
+            socket
+          ) do
+        log_entry =
+          midi_log_entry("CC -> stem_volume target=#{target} vol=#{Float.round(volume, 2)}")
 
         socket =
           socket
           |> push_event("midi_fader_update", %{
-               target: target,
-               volume: volume,
-               track_id: Map.get(params, :track_id)
-             })
+            target: target,
+            volume: volume,
+            track_id: Map.get(params, :track_id)
+          })
           |> append_midi_log(log_entry)
 
         {:noreply, socket}
@@ -357,14 +361,30 @@ defmodule SoundForgeWeb.Live.Handlers.MidiHandlers do
         type_nibble = status &&& 0xF0
 
         case type_nibble do
-          0x90 when d2 > 0 -> {"note_on", channel, note_name(d1), d2}
-          0x90 -> {"note_off", channel, note_name(d1), 0}
-          0x80 -> {"note_off", channel, note_name(d1), d2}
-          0xB0 -> {"cc", channel, "CC#{d1}", d2}
-          0xA0 -> {"aftertouch", channel, note_name(d1), d2}
-          0xD0 -> {"pressure", channel, "CH pressure", d1}
-          0xE0 -> {"pitchbend", channel, "PB", d1 + d2 * 128}
-          0xC0 -> {"program", channel, "PC#{d1}", 0}
+          0x90 when d2 > 0 ->
+            {"note_on", channel, note_name(d1), d2}
+
+          0x90 ->
+            {"note_off", channel, note_name(d1), 0}
+
+          0x80 ->
+            {"note_off", channel, note_name(d1), d2}
+
+          0xB0 ->
+            {"cc", channel, "CC#{d1}", d2}
+
+          0xA0 ->
+            {"aftertouch", channel, note_name(d1), d2}
+
+          0xD0 ->
+            {"pressure", channel, "CH pressure", d1}
+
+          0xE0 ->
+            {"pitchbend", channel, "PB", d1 + d2 * 128}
+
+          0xC0 ->
+            {"program", channel, "PC#{d1}", 0}
+
           _ ->
             case status do
               0xF8 -> {"clock", 0, "tick", 0}

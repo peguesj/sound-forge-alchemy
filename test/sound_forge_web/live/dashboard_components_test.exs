@@ -11,13 +11,14 @@ defmodule SoundForgeWeb.DashboardComponentsTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Component Test Track",
-      artist: "Test Artist",
-      duration: 200,
-      album: "Test Album"
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Component Test Track",
+        artist: "Test Artist",
+        duration: 200,
+        album: "Test Album"
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -202,7 +203,10 @@ defmodule SoundForgeWeb.DashboardComponentsTest do
   describe "fetch_spotify" do
     test "fetch_spotify with url", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "fetch_spotify", %{"url" => "https://open.spotify.com/track/abc123"})
+
+      html =
+        render_click(view, "fetch_spotify", %{"url" => "https://open.spotify.com/track/abc123"})
+
       assert is_binary(html)
     end
 
@@ -222,7 +226,10 @@ defmodule SoundForgeWeb.DashboardComponentsTest do
 
     test "retry_pipeline for track", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "retry_pipeline", %{"track_id" => track.id, "stage" => "download"})
+
+      html =
+        render_click(view, "retry_pipeline", %{"track_id" => track.id, "stage" => "download"})
+
       assert is_binary(html)
     end
 
@@ -335,7 +342,10 @@ defmodule SoundForgeWeb.DashboardComponentsTest do
 
     test "shift_select_range", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "shift_select_range", %{"from_id" => track.id, "to_id" => track.id})
+
+      html =
+        render_click(view, "shift_select_range", %{"from_id" => track.id, "to_id" => track.id})
+
       assert is_binary(html)
     end
   end

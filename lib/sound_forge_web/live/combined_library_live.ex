@@ -71,8 +71,7 @@ defmodule SoundForgeWeb.CombinedLibraryLive do
 
   @impl true
   def handle_event("search", %{"search" => search}, socket) do
-    {:noreply,
-     push_patch(socket, to: ~p"/platform/library?search=#{search}&page=1")}
+    {:noreply, push_patch(socket, to: ~p"/platform/library?search=#{search}&page=1")}
   end
 
   def handle_event("page", %{"page" => page}, socket) do
@@ -115,86 +114,94 @@ defmodule SoundForgeWeb.CombinedLibraryLive do
         pipelines={@pipelines}
         refreshing_midi={@refreshing_midi}
       />
-    <div class="flex-1 bg-base-200 p-4 md:p-6">
-      <div class="flex items-center justify-between mb-6">
-        <div>
-          <h1 class="text-3xl font-bold">Platform Library</h1>
-          <p class="text-sm text-base-content/60 mt-1">
-            All tracks across all users — platform admin view
-          </p>
-        </div>
-        <span class="badge badge-warning badge-lg">Platform Admin</span>
-      </div>
-
-      <%!-- Search bar --%>
-      <div class="mb-4">
-        <form phx-submit="search" class="flex gap-3 items-end">
-          <div class="form-control flex-1 max-w-md">
-            <label class="label">
-              <span class="label-text text-xs">Search by title, artist, or user email</span>
-            </label>
-            <input
-              type="text"
-              name="search"
-              value={@search}
-              placeholder="Search..."
-              class="input input-bordered"
-              phx-debounce="300"
-            />
+      <div class="flex-1 bg-base-200 p-4 md:p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-3xl font-bold">Platform Library</h1>
+            <p class="text-sm text-base-content/60 mt-1">
+              All tracks across all users — platform admin view
+            </p>
           </div>
-          <button type="submit" class="btn btn-primary">Search</button>
-          <a :if={@search != ""} href="/platform/library" class="btn btn-ghost">Clear</a>
-        </form>
-      </div>
-
-      <%!-- Stats --%>
-      <div class="text-sm text-base-content/60 mb-3">
-        Showing <%= (@library.page - 1) * @library.per_page + 1 %>–<%= min(@library.page * @library.per_page, @library.total) %> of <%= @library.total %> tracks
-      </div>
-
-      <%!-- Table --%>
-      <div class="overflow-x-auto card bg-base-100 shadow-md">
-        <table class="table table-zebra w-full">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Artist</th>
-              <th>User Email</th>
-              <th>Download</th>
-              <th>Stems</th>
-              <th>Uploaded At</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr :for={track <- @library.tracks}>
-              <td class="font-medium max-w-xs truncate">{track.title || "(untitled)"}</td>
-              <td class="max-w-xs truncate">{track.artist || "—"}</td>
-              <td class="font-mono text-sm">{track.user_email || "—"}</td>
-              <td>
-                <span class={"badge badge-sm #{download_badge(track.download_status)}"}>
-                  {track.download_status || "none"}
-                </span>
-              </td>
-              <td>
-                <span class={["badge badge-sm", track.stem_count > 0 && "badge-success" || "badge-ghost"]}>
-                  {track.stem_count}
-                </span>
-              </td>
-              <td class="text-sm">
-                {if track.inserted_at, do: Calendar.strftime(track.inserted_at, "%Y-%m-%d %H:%M"), else: "—"}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div :if={@library.tracks == []} class="py-12 text-center text-base-content/40">
-          No tracks found
+          <span class="badge badge-warning badge-lg">Platform Admin</span>
         </div>
-      </div>
 
-      <%!-- Pagination --%>
-      <.pagination library={@library} search={@search} />
-    </div>
+        <%!-- Search bar --%>
+        <div class="mb-4">
+          <form phx-submit="search" class="flex gap-3 items-end">
+            <div class="form-control flex-1 max-w-md">
+              <label class="label">
+                <span class="label-text text-xs">Search by title, artist, or user email</span>
+              </label>
+              <input
+                type="text"
+                name="search"
+                value={@search}
+                placeholder="Search..."
+                class="input input-bordered"
+                phx-debounce="300"
+              />
+            </div>
+            <button type="submit" class="btn btn-primary">Search</button>
+            <a :if={@search != ""} href="/platform/library" class="btn btn-ghost">Clear</a>
+          </form>
+        </div>
+
+        <%!-- Stats --%>
+        <div class="text-sm text-base-content/60 mb-3">
+          Showing {(@library.page - 1) * @library.per_page + 1}–{min(
+            @library.page * @library.per_page,
+            @library.total
+          )} of {@library.total} tracks
+        </div>
+
+        <%!-- Table --%>
+        <div class="overflow-x-auto card bg-base-100 shadow-md">
+          <table class="table table-zebra w-full">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Artist</th>
+                <th>User Email</th>
+                <th>Download</th>
+                <th>Stems</th>
+                <th>Uploaded At</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={track <- @library.tracks}>
+                <td class="font-medium max-w-xs truncate">{track.title || "(untitled)"}</td>
+                <td class="max-w-xs truncate">{track.artist || "—"}</td>
+                <td class="font-mono text-sm">{track.user_email || "—"}</td>
+                <td>
+                  <span class={"badge badge-sm #{download_badge(track.download_status)}"}>
+                    {track.download_status || "none"}
+                  </span>
+                </td>
+                <td>
+                  <span class={[
+                    "badge badge-sm",
+                    (track.stem_count > 0 && "badge-success") || "badge-ghost"
+                  ]}>
+                    {track.stem_count}
+                  </span>
+                </td>
+                <td class="text-sm">
+                  {if track.inserted_at,
+                    do: Calendar.strftime(track.inserted_at, "%Y-%m-%d %H:%M"),
+                    else: "—"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div :if={@library.tracks == []} class="py-12 text-center text-base-content/40">
+            No tracks found
+          </div>
+        </div>
+
+        <%!-- Pagination --%>
+        <.pagination library={@library} search={@search} />
+      </div>
     </div>
     """
   end
@@ -270,6 +277,7 @@ defmodule SoundForgeWeb.CombinedLibraryLive do
   end
 
   defp parse_page(nil), do: 1
+
   defp parse_page(p) when is_binary(p) do
     case Integer.parse(p) do
       {n, ""} when n > 0 -> n

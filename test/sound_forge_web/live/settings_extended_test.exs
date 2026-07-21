@@ -28,7 +28,8 @@ defmodule SoundForgeWeb.SettingsExtendedTest do
     test "switch to all available sections", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/settings")
 
-      for section <- ~w(spotify downloads youtube demucs cloud_separation analysis storage general advanced ai_providers) do
+      for section <-
+            ~w(spotify downloads youtube demucs cloud_separation analysis storage general advanced ai_providers) do
         html = render_click(view, "switch_section", %{"section" => section})
         assert html =~ "Settings"
       end
@@ -87,15 +88,18 @@ defmodule SoundForgeWeb.SettingsExtendedTest do
       {:ok, view, _html} = live(conn, "/settings")
       render_click(view, "switch_section", %{"section" => "ai_providers"})
       render_click(view, "edit_provider", %{"id" => provider.id})
-      html = render_click(view, "save_provider", %{
-        "provider" => %{
-          "name" => "Updated Provider",
-          "provider_type" => "openai",
-          "api_key" => "sk-updated-key",
-          "base_url" => "https://api.openai.com/v1",
-          "default_model" => "gpt-4o"
-        }
-      })
+
+      html =
+        render_click(view, "save_provider", %{
+          "provider" => %{
+            "name" => "Updated Provider",
+            "provider_type" => "openai",
+            "api_key" => "sk-updated-key",
+            "base_url" => "https://api.openai.com/v1",
+            "default_model" => "gpt-4o"
+          }
+        })
+
       assert html =~ "Settings"
     end
   end

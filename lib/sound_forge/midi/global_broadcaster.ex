@@ -46,6 +46,7 @@ defmodule SoundForge.MIDI.GlobalBroadcaster do
     unless MapSet.member?(state.devices, device.port_id) do
       Phoenix.PubSub.subscribe(@pubsub, Dispatcher.topic(device.port_id))
     end
+
     {:noreply, %{state | devices: MapSet.put(state.devices, device.port_id)}}
   end
 

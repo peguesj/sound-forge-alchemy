@@ -109,7 +109,8 @@ defmodule SoundForge.Audio.BatchProcessor do
     engine_opts = Keyword.get(opts, :engine_opts, [])
 
     with :ok <- validate_batch_size(track_ids),
-         {:ok, batch_job} <- create_batch_job(user_id, length(track_ids), stem_filter, engine_opts) do
+         {:ok, batch_job} <-
+           create_batch_job(user_id, length(track_ids), stem_filter, engine_opts) do
       {processing_job_ids, errors} =
         enqueue_tracks(batch_job.id, track_ids, stem_filter, engine_opts)
 
@@ -200,7 +201,8 @@ defmodule SoundForge.Audio.BatchProcessor do
   # ---------------------------------------------------------------------------
 
   defp validate_batch_size(track_ids) when length(track_ids) > @max_batch_size do
-    {:error, {:batch_too_large, "Maximum batch size is #{@max_batch_size}, got #{length(track_ids)}"}}
+    {:error,
+     {:batch_too_large, "Maximum batch size is #{@max_batch_size}, got #{length(track_ids)}"}}
   end
 
   defp validate_batch_size([]) do
@@ -253,8 +255,10 @@ defmodule SoundForge.Audio.BatchProcessor do
 
   defp enqueue_single_track(batch_job_id, track_id, stem_filter, splitter, preview) do
     with {:ok, file_path} <- Music.get_download_path(track_id),
-         {:ok, processing_job} <- create_processing_job(batch_job_id, track_id, stem_filter, splitter, preview),
-         {:ok, _oban_job} <- insert_oban_job(processing_job, track_id, file_path, stem_filter, splitter, preview) do
+         {:ok, processing_job} <-
+           create_processing_job(batch_job_id, track_id, stem_filter, splitter, preview),
+         {:ok, _oban_job} <-
+           insert_oban_job(processing_job, track_id, file_path, stem_filter, splitter, preview) do
       {:ok, processing_job.id}
     end
   end

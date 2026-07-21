@@ -7,7 +7,10 @@ defmodule SoundForge.Repo.Migrations.CreateCrateDiggerTables do
       add :name, :string, null: false
       add :spotify_playlist_id, :string, null: false
       add :playlist_data, :jsonb, default: "[]"
-      add :stem_config, :jsonb, default: "{\"enabled_stems\": [\"vocals\", \"drums\", \"bass\", \"other\"]}"
+
+      add :stem_config, :jsonb,
+        default: "{\"enabled_stems\": [\"vocals\", \"drums\", \"bass\", \"other\"]}"
+
       add :user_id, references(:users, type: :integer, on_delete: :delete_all), null: false
 
       timestamps()

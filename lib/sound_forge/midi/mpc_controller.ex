@@ -230,9 +230,7 @@ defmodule SoundForge.MIDI.MPCController do
           {:stem_trigger, stem_index, velocity}
         )
 
-        Logger.debug(
-          "MPCController pad #{pad_index} -> stem #{stem_index}, velocity=#{velocity}"
-        )
+        Logger.debug("MPCController pad #{pad_index} -> stem #{stem_index}, velocity=#{velocity}")
 
         {:noreply, state}
     end

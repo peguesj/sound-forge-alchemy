@@ -12,13 +12,14 @@ defmodule SoundForgeWeb.DjLoadedDeckTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track1 = track_fixture(%{
-      user_id: user.id,
-      title: "DJ Full Track",
-      artist: "Test Artist",
-      duration: 240,
-      album: "Test Album"
-    })
+    track1 =
+      track_fixture(%{
+        user_id: user.id,
+        title: "DJ Full Track",
+        artist: "Test Artist",
+        duration: 240,
+        album: "Test Album"
+      })
 
     download_job_fixture(%{
       track_id: track1.id,
@@ -27,12 +28,41 @@ defmodule SoundForgeWeb.DjLoadedDeckTest do
     })
 
     pj1 = processing_job_fixture(%{track_id: track1.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track1.id, processing_job_id: pj1.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
-    stem_fixture(%{track_id: track1.id, processing_job_id: pj1.id, stem_type: :drums, file_path: "stems/drums.wav", file_size: 1024})
-    stem_fixture(%{track_id: track1.id, processing_job_id: pj1.id, stem_type: :bass, file_path: "stems/bass.wav", file_size: 1024})
-    stem_fixture(%{track_id: track1.id, processing_job_id: pj1.id, stem_type: :other, file_path: "stems/other.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track1.id,
+      processing_job_id: pj1.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track1.id,
+      processing_job_id: pj1.id,
+      stem_type: :drums,
+      file_path: "stems/drums.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track1.id,
+      processing_job_id: pj1.id,
+      stem_type: :bass,
+      file_path: "stems/bass.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track1.id,
+      processing_job_id: pj1.id,
+      stem_type: :other,
+      file_path: "stems/other.wav",
+      file_size: 1024
+    })
 
     aj1 = analysis_job_fixture(%{track_id: track1.id, status: :completed})
+
     analysis_result_fixture(%{
       track_id: track1.id,
       analysis_job_id: aj1.id,
@@ -115,19 +145,34 @@ defmodule SoundForgeWeb.DjLoadedDeckTest do
   describe "crossfader curves" do
     test "linear curve", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/?tab=dj")
-      html = view |> element("#dj-tab [phx-click='set_crossfader_curve'][phx-value-curve='linear']") |> render_click()
+
+      html =
+        view
+        |> element("#dj-tab [phx-click='set_crossfader_curve'][phx-value-curve='linear']")
+        |> render_click()
+
       assert is_binary(html)
     end
 
     test "equal_power curve", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/?tab=dj")
-      html = view |> element("#dj-tab [phx-click='set_crossfader_curve'][phx-value-curve='equal_power']") |> render_click()
+
+      html =
+        view
+        |> element("#dj-tab [phx-click='set_crossfader_curve'][phx-value-curve='equal_power']")
+        |> render_click()
+
       assert is_binary(html)
     end
 
     test "sharp curve", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/?tab=dj")
-      html = view |> element("#dj-tab [phx-click='set_crossfader_curve'][phx-value-curve='sharp']") |> render_click()
+
+      html =
+        view
+        |> element("#dj-tab [phx-click='set_crossfader_curve'][phx-value-curve='sharp']")
+        |> render_click()
+
       assert is_binary(html)
     end
   end

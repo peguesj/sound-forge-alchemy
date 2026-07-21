@@ -22,7 +22,10 @@ defmodule SoundForge.Jobs.LibraryRescanWorker do
   @impl true
   def perform(%Oban.Job{args: args}) do
     user_id = Map.get(args, "user_id")
-    Logger.info("[LibraryRescanWorker] Starting library integrity scan (user: #{inspect(user_id)})")
+
+    Logger.info(
+      "[LibraryRescanWorker] Starting library integrity scan (user: #{inspect(user_id)})"
+    )
 
     audio_results = scan_audio_files()
     stem_results = scan_stem_files()

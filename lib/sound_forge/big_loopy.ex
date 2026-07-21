@@ -41,7 +41,8 @@ defmodule SoundForge.BigLoopy do
   end
 
   @doc "Updates an AlchemySet."
-  @spec update_alchemy_set(AlchemySet.t(), map()) :: {:ok, AlchemySet.t()} | {:error, Ecto.Changeset.t()}
+  @spec update_alchemy_set(AlchemySet.t(), map()) ::
+          {:ok, AlchemySet.t()} | {:error, Ecto.Changeset.t()}
   def update_alchemy_set(%AlchemySet{} = alchemy_set, attrs) do
     alchemy_set
     |> AlchemySet.changeset(attrs)

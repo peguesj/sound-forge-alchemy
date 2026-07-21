@@ -17,7 +17,9 @@ defmodule SoundForge.Accounts.UserTest do
 
   describe "email_changeset/3" do
     test "valid email produces valid changeset" do
-      changeset = User.email_changeset(%User{}, %{email: "new@example.com"}, validate_unique: false)
+      changeset =
+        User.email_changeset(%User{}, %{email: "new@example.com"}, validate_unique: false)
+
       assert changeset.valid?
     end
 
@@ -32,7 +34,9 @@ defmodule SoundForge.Accounts.UserTest do
     end
 
     test "rejects email with spaces" do
-      changeset = User.email_changeset(%User{}, %{email: "has space@example.com"}, validate_unique: false)
+      changeset =
+        User.email_changeset(%User{}, %{email: "has space@example.com"}, validate_unique: false)
+
       refute changeset.valid?
     end
 

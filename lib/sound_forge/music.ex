@@ -581,8 +581,16 @@ defmodule SoundForge.Music do
     name = source_playlist_name(source, playlist_type)
 
     case Repo.get_by(Playlist, user_id: user_id, source: source, playlist_type: playlist_type) do
-      %Playlist{} = playlist -> {:ok, playlist}
-      nil -> create_playlist(%{name: name, source: source, playlist_type: playlist_type, user_id: user_id})
+      %Playlist{} = playlist ->
+        {:ok, playlist}
+
+      nil ->
+        create_playlist(%{
+          name: name,
+          source: source,
+          playlist_type: playlist_type,
+          user_id: user_id
+        })
     end
   end
 
@@ -978,7 +986,7 @@ defmodule SoundForge.Music do
       "slot" => slot_index,
       "track_id" => track_id,
       "label" => label,
-      "note" => note || (36 + slot_index)
+      "note" => note || 36 + slot_index
     }
 
     update_drum_kit(drum_kit, %{slots: [new_slot | existing]})

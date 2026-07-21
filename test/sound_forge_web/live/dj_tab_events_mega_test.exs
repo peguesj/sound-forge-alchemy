@@ -8,12 +8,27 @@ defmodule SoundForgeWeb.DjTabEventsMegaTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{user_id: user.id, title: "DJ Mega Test", artist: "Test DJ", duration: 240})
-    download_job_fixture(%{track_id: track.id, status: :completed, output_path: "priv/uploads/downloads/mega.mp3"})
+    track =
+      track_fixture(%{user_id: user.id, title: "DJ Mega Test", artist: "Test DJ", duration: 240})
+
+    download_job_fixture(%{
+      track_id: track.id,
+      status: :completed,
+      output_path: "priv/uploads/downloads/mega.mp3"
+    })
+
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
+
     for type <- [:vocals, :drums, :bass, :other] do
-      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: type, file_path: "stems/#{type}.wav", file_size: 1024})
+      stem_fixture(%{
+        track_id: track.id,
+        processing_job_id: pj.id,
+        stem_type: type,
+        file_path: "stems/#{type}.wav",
+        file_size: 1024
+      })
     end
+
     %{track: track}
   end
 
@@ -229,7 +244,10 @@ defmodule SoundForgeWeb.DjTabEventsMegaTest do
 
     test "set_filter", %{conn: conn} do
       view = go_dj(conn)
-      html = render_click(view, "set_filter", %{"deck" => "1", "mode" => "lowpass", "cutoff" => "0.7"})
+
+      html =
+        render_click(view, "set_filter", %{"deck" => "1", "mode" => "lowpass", "cutoff" => "0.7"})
+
       assert is_binary(html)
     end
   end

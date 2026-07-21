@@ -82,15 +82,27 @@ defmodule SoundForge.DJ.DeckSessionTest do
 
     test "validates loop_end_ms must be greater than loop_start_ms" do
       invalid =
-        DeckSession.changeset(%DeckSession{}, Map.merge(@valid_attrs, %{loop_start_ms: 1000, loop_end_ms: 500}))
+        DeckSession.changeset(
+          %DeckSession{},
+          Map.merge(@valid_attrs, %{loop_start_ms: 1000, loop_end_ms: 500})
+        )
+
       refute invalid.valid?
 
       equal =
-        DeckSession.changeset(%DeckSession{}, Map.merge(@valid_attrs, %{loop_start_ms: 1000, loop_end_ms: 1000}))
+        DeckSession.changeset(
+          %DeckSession{},
+          Map.merge(@valid_attrs, %{loop_start_ms: 1000, loop_end_ms: 1000})
+        )
+
       refute equal.valid?
 
       valid =
-        DeckSession.changeset(%DeckSession{}, Map.merge(@valid_attrs, %{loop_start_ms: 1000, loop_end_ms: 2000}))
+        DeckSession.changeset(
+          %DeckSession{},
+          Map.merge(@valid_attrs, %{loop_start_ms: 1000, loop_end_ms: 2000})
+        )
+
       assert valid.valid?
     end
 

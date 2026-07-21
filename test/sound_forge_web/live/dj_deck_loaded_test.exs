@@ -132,7 +132,9 @@ defmodule SoundForgeWeb.DjDeckLoadedTest do
       assert html =~ "dj-tab"
 
       # Stem volume
-      html = render_click(view, "stem_volume", %{"deck" => "1", "stem" => "bass", "value" => "50"})
+      html =
+        render_click(view, "stem_volume", %{"deck" => "1", "stem" => "bass", "value" => "50"})
+
       assert html =~ "dj-tab"
     end
   end
@@ -167,7 +169,9 @@ defmodule SoundForgeWeb.DjDeckLoadedTest do
       load_track_on_deck(view, track, "1")
 
       for mode <- ["lowpass", "highpass", "bandpass", "off"] do
-        html = render_click(view, "set_filter", %{"deck" => "1", "mode" => mode, "cutoff" => "0.5"})
+        html =
+          render_click(view, "set_filter", %{"deck" => "1", "mode" => mode, "cutoff" => "0.5"})
+
         assert html =~ "dj-tab"
       end
     end

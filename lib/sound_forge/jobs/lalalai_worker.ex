@@ -113,10 +113,13 @@ defmodule SoundForge.Jobs.LalalAIWorker do
         with {:ok, task_id} <- LalalAI.upload_track(resolved_path, upload_opts),
              _ <- Logger.info("lalal.ai task created: #{task_id}"),
              _ <-
-               (fresh_upload_job = Music.get_processing_job!(job_id);
-                Music.update_processing_job(fresh_upload_job, %{
-                  options: Map.put(fresh_upload_job.options || %{}, "lalalai_task_id", task_id)
-                })),
+               (
+                 fresh_upload_job = Music.get_processing_job!(job_id)
+
+                 Music.update_processing_job(fresh_upload_job, %{
+                   options: Map.put(fresh_upload_job.options || %{}, "lalalai_task_id", task_id)
+                 })
+               ),
              {:ok, stem_urls} <- poll_until_complete(task_id, job_id, track_id) do
           process_completed_stems(
             track_id,
@@ -225,7 +228,10 @@ defmodule SoundForge.Jobs.LalalAIWorker do
   end
 
   defp friendly_http_error(502), do: "lalal.ai service is temporarily unavailable (Bad Gateway)."
-  defp friendly_http_error(503), do: "lalal.ai service is temporarily unavailable (Service Unavailable)."
+
+  defp friendly_http_error(503),
+    do: "lalal.ai service is temporarily unavailable (Service Unavailable)."
+
   defp friendly_http_error(504), do: "lalal.ai service timed out (Gateway Timeout)."
   defp friendly_http_error(408), do: "Request to lalal.ai timed out."
   defp friendly_http_error(429), do: "lalal.ai rate limit exceeded. Too many requests."

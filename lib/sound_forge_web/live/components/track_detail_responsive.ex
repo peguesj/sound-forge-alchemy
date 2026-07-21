@@ -25,8 +25,8 @@ defmodule SoundForgeWeb.Live.Components.TrackDetailResponsive do
           {tab_label(tab)}
         </button>
       </div>
-
-      <!-- Tab content -->
+      
+    <!-- Tab content -->
       <div class="mt-4">
         <div :if={@active_tab == :stems}>{render_slot(@stems_content)}</div>
         <div :if={@active_tab == :analysis}>{render_slot(@analysis_content)}</div>
@@ -45,7 +45,12 @@ defmodule SoundForgeWeb.Live.Components.TrackDetailResponsive do
     <div class="flex-shrink-0 relative w-[120px] h-[120px] md:w-[200px] md:h-[200px]">
       <div class="w-full h-full rounded-lg bg-gray-800 flex items-center justify-center absolute inset-0">
         <svg class="w-12 h-12 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"
+          />
         </svg>
       </div>
       <img
@@ -74,7 +79,12 @@ defmodule SoundForgeWeb.Live.Components.TrackDetailResponsive do
           class="w-full flex items-center justify-between px-4 py-3 min-h-[44px] text-left text-sm text-gray-300 bg-gray-900 hover:bg-gray-800"
         >
           <span>{item.name || item.type}</span>
-          <svg class={"w-4 h-4 transition-transform " <> if(@expanded == item.id, do: "rotate-180", else: "")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg
+            class={"w-4 h-4 transition-transform " <> if(@expanded == item.id, do: "rotate-180", else: "")}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </button>

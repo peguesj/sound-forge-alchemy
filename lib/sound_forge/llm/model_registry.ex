@@ -110,22 +110,118 @@ defmodule SoundForge.LLM.ModelRegistry do
   defp seed_known_models do
     models = [
       # Anthropic
-      %{provider_type: :anthropic, model: "claude-opus-4-6", speed: :slow, quality: :high, cost: :high, context_window: 200_000, features: [:chat, :vision, :tool_use, :json_mode]},
-      %{provider_type: :anthropic, model: "claude-sonnet-4-20250514", speed: :medium, quality: :high, cost: :medium, context_window: 200_000, features: [:chat, :vision, :tool_use, :json_mode]},
-      %{provider_type: :anthropic, model: "claude-haiku-4-5-20251001", speed: :fast, quality: :medium, cost: :low, context_window: 200_000, features: [:chat, :vision, :tool_use, :json_mode]},
+      %{
+        provider_type: :anthropic,
+        model: "claude-opus-4-6",
+        speed: :slow,
+        quality: :high,
+        cost: :high,
+        context_window: 200_000,
+        features: [:chat, :vision, :tool_use, :json_mode]
+      },
+      %{
+        provider_type: :anthropic,
+        model: "claude-sonnet-4-20250514",
+        speed: :medium,
+        quality: :high,
+        cost: :medium,
+        context_window: 200_000,
+        features: [:chat, :vision, :tool_use, :json_mode]
+      },
+      %{
+        provider_type: :anthropic,
+        model: "claude-haiku-4-5-20251001",
+        speed: :fast,
+        quality: :medium,
+        cost: :low,
+        context_window: 200_000,
+        features: [:chat, :vision, :tool_use, :json_mode]
+      },
       # OpenAI
-      %{provider_type: :openai, model: "gpt-4o", speed: :medium, quality: :high, cost: :medium, context_window: 128_000, features: [:chat, :vision, :tool_use, :json_mode, :audio]},
-      %{provider_type: :openai, model: "gpt-4o-mini", speed: :fast, quality: :medium, cost: :low, context_window: 128_000, features: [:chat, :vision, :tool_use, :json_mode]},
-      %{provider_type: :openai, model: "o3", speed: :slow, quality: :high, cost: :high, context_window: 128_000, features: [:chat, :tool_use, :json_mode]},
+      %{
+        provider_type: :openai,
+        model: "gpt-4o",
+        speed: :medium,
+        quality: :high,
+        cost: :medium,
+        context_window: 128_000,
+        features: [:chat, :vision, :tool_use, :json_mode, :audio]
+      },
+      %{
+        provider_type: :openai,
+        model: "gpt-4o-mini",
+        speed: :fast,
+        quality: :medium,
+        cost: :low,
+        context_window: 128_000,
+        features: [:chat, :vision, :tool_use, :json_mode]
+      },
+      %{
+        provider_type: :openai,
+        model: "o3",
+        speed: :slow,
+        quality: :high,
+        cost: :high,
+        context_window: 128_000,
+        features: [:chat, :tool_use, :json_mode]
+      },
       # Google Gemini
-      %{provider_type: :google_gemini, model: "gemini-2.0-flash", speed: :fast, quality: :medium, cost: :low, context_window: 1_000_000, features: [:chat, :vision, :tool_use, :json_mode, :audio]},
-      %{provider_type: :google_gemini, model: "gemini-2.5-pro", speed: :medium, quality: :high, cost: :medium, context_window: 1_000_000, features: [:chat, :vision, :tool_use, :json_mode, :audio]},
+      %{
+        provider_type: :google_gemini,
+        model: "gemini-2.0-flash",
+        speed: :fast,
+        quality: :medium,
+        cost: :low,
+        context_window: 1_000_000,
+        features: [:chat, :vision, :tool_use, :json_mode, :audio]
+      },
+      %{
+        provider_type: :google_gemini,
+        model: "gemini-2.5-pro",
+        speed: :medium,
+        quality: :high,
+        cost: :medium,
+        context_window: 1_000_000,
+        features: [:chat, :vision, :tool_use, :json_mode, :audio]
+      },
       # Ollama (local, free)
-      %{provider_type: :ollama, model: "llama3.2", speed: :medium, quality: :medium, cost: :free, context_window: 128_000, features: [:chat, :tool_use]},
-      %{provider_type: :ollama, model: "mistral", speed: :fast, quality: :medium, cost: :free, context_window: 32_000, features: [:chat]},
-      %{provider_type: :ollama, model: "codellama", speed: :medium, quality: :medium, cost: :free, context_window: 16_000, features: [:chat]},
+      %{
+        provider_type: :ollama,
+        model: "llama3.2",
+        speed: :medium,
+        quality: :medium,
+        cost: :free,
+        context_window: 128_000,
+        features: [:chat, :tool_use]
+      },
+      %{
+        provider_type: :ollama,
+        model: "mistral",
+        speed: :fast,
+        quality: :medium,
+        cost: :free,
+        context_window: 32_000,
+        features: [:chat]
+      },
+      %{
+        provider_type: :ollama,
+        model: "codellama",
+        speed: :medium,
+        quality: :medium,
+        cost: :free,
+        context_window: 16_000,
+        features: [:chat]
+      },
       # Azure mirrors OpenAI
-      %{provider_type: :azure_openai, model: "gpt-4o", speed: :medium, quality: :high, cost: :medium, context_window: 128_000, features: [:chat, :vision, :tool_use, :json_mode]}
+      %{
+        provider_type: :azure_openai,
+        model: "gpt-4o",
+        speed: :medium,
+        quality: :high,
+        cost: :medium,
+        context_window: 128_000,
+        features: [:chat, :vision, :tool_use, :json_mode]
+      }
     ]
 
     Enum.each(models, fn model ->

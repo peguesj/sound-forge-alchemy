@@ -142,9 +142,20 @@ defmodule SoundForge.Accounts.UserSettings do
     downloads: [:download_quality, :audio_format, :output_directory],
     youtube: [:ytdlp_search_depth, :ytdlp_preferred_format, :ytdlp_bitrate],
     demucs: [:demucs_model, :demucs_output_format, :demucs_device, :demucs_timeout],
-    analysis: [:analysis_features, :analyzer_timeout, :auto_midi_conversion, :auto_chord_detection],
+    analysis: [
+      :analysis_features,
+      :analyzer_timeout,
+      :auto_midi_conversion,
+      :auto_chord_detection
+    ],
     storage: [:storage_path, :max_file_age_days, :retention_days],
-    cloud_separation: [:lalalai_api_key, :lalalai_splitter, :lalalai_dereverb, :lalalai_extraction_level, :lalalai_output_format],
+    cloud_separation: [
+      :lalalai_api_key,
+      :lalalai_splitter,
+      :lalalai_dereverb,
+      :lalalai_extraction_level,
+      :lalalai_output_format
+    ],
     general: [:tracks_per_page, :max_upload_size],
     sources: [:splice_library_path],
     midi: [:midi_bar_position, :midi_bar_visible, :auto_midi_conversion, :auto_chord_detection]

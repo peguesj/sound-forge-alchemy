@@ -8,12 +8,27 @@ defmodule SoundForgeWeb.DawTabEventsMegaTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{user_id: user.id, title: "DAW Mega Test", artist: "Test", duration: 200})
-    download_job_fixture(%{track_id: track.id, status: :completed, output_path: "priv/uploads/downloads/daw.mp3"})
+    track =
+      track_fixture(%{user_id: user.id, title: "DAW Mega Test", artist: "Test", duration: 200})
+
+    download_job_fixture(%{
+      track_id: track.id,
+      status: :completed,
+      output_path: "priv/uploads/downloads/daw.mp3"
+    })
+
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
+
     for type <- [:vocals, :drums, :bass, :other] do
-      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: type, file_path: "stems/#{type}.wav", file_size: 1024})
+      stem_fixture(%{
+        track_id: track.id,
+        processing_job_id: pj.id,
+        stem_type: type,
+        file_path: "stems/#{type}.wav",
+        file_size: 1024
+      })
     end
+
     %{track: track}
   end
 
@@ -152,6 +167,7 @@ defmodule SoundForgeWeb.DawTabEventsMegaTest do
       view = go_daw(conn)
       render_click(view, "pick_track", %{"track-id" => track.id})
       stems = SoundForge.Repo.preload(SoundForge.Music.get_track!(track.id), :stems).stems
+
       if length(stems) > 0 do
         stem = hd(stems)
         html = render_click(view, "undo_last", %{"stem_id" => stem.id})

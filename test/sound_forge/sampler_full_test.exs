@@ -295,7 +295,9 @@ defmodule SoundForge.SamplerFullTest do
       pad_entry = sample_name <> <<80, 64, 2, 0, 38, 0, 0, 0>>
       pgm_binary = header <> pad_entry
 
-      assert {:ok, bank} = Sampler.import_preset(user.id, pgm_binary, "test.pgm", bank_name: "My Kit")
+      assert {:ok, bank} =
+               Sampler.import_preset(user.id, pgm_binary, "test.pgm", bank_name: "My Kit")
+
       assert bank.name == "My Kit"
     end
 

@@ -136,7 +136,8 @@ defmodule SoundForge.Jobs.PipelineBroadcaster do
   @spec broadcast_playlist_track_update(binary() | nil, binary(), map()) :: :ok | {:error, term()}
   def broadcast_playlist_track_update(nil, _track_id, _update), do: :ok
 
-  def broadcast_playlist_track_update(playlist_id, track_id, update) when is_binary(playlist_id) do
+  def broadcast_playlist_track_update(playlist_id, track_id, update)
+      when is_binary(playlist_id) do
     Phoenix.PubSub.broadcast(
       SoundForge.PubSub,
       "playlist_pipeline:#{playlist_id}",

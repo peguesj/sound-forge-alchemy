@@ -26,10 +26,14 @@ defmodule SoundForge.Audio.AudioUtils do
 
     args = [
       "-y",
-      "-i", file_path,
-      "-t", to_string(duration),
-      "-c", "copy",
-      "-loglevel", "error",
+      "-i",
+      file_path,
+      "-t",
+      to_string(duration),
+      "-c",
+      "copy",
+      "-loglevel",
+      "error",
       preview_path
     ]
 

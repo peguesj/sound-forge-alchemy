@@ -5,11 +5,9 @@ defmodule SoundForge.Repo.Migrations.CreateEditOperations do
     create table(:edit_operations, primary_key: false) do
       add :id, :binary_id, primary_key: true
 
-      add :stem_id, references(:stems, type: :binary_id, on_delete: :delete_all),
-        null: false
+      add :stem_id, references(:stems, type: :binary_id, on_delete: :delete_all), null: false
 
-      add :user_id, references(:users, on_delete: :delete_all),
-        null: false
+      add :user_id, references(:users, on_delete: :delete_all), null: false
 
       add :operation_type, :string, null: false
       add :params, :map, null: false, default: %{}

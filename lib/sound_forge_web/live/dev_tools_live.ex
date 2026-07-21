@@ -102,21 +102,27 @@ defmodule SoundForgeWeb.DevToolsLive do
                       </span>
                     </td>
                     <td>
-                      <span class={["badge badge-sm", u.exists? && "badge-success" || "badge-ghost"]}>
-                        {u.exists? && "yes" || "no"}
+                      <span class={["badge badge-sm", (u.exists? && "badge-success") || "badge-ghost"]}>
+                        {(u.exists? && "yes") || "no"}
                       </span>
                     </td>
                     <td>
                       {if u.confirmed_at, do: Calendar.strftime(u.confirmed_at, "%Y-%m-%d"), else: "—"}
                     </td>
                     <td>
-                      <span class={["badge badge-sm", u.has_lalalai_key? && "badge-success" || "badge-ghost"]}>
-                        {u.has_lalalai_key? && "yes" || "no"}
+                      <span class={[
+                        "badge badge-sm",
+                        (u.has_lalalai_key? && "badge-success") || "badge-ghost"
+                      ]}>
+                        {(u.has_lalalai_key? && "yes") || "no"}
                       </span>
                     </td>
                     <td>
-                      <span class={["badge badge-sm", u.has_settings? && "badge-success" || "badge-ghost"]}>
-                        {u.has_settings? && "yes" || "no"}
+                      <span class={[
+                        "badge badge-sm",
+                        (u.has_settings? && "badge-success") || "badge-ghost"
+                      ]}>
+                        {(u.has_settings? && "yes") || "no"}
                       </span>
                     </td>
                   </tr>
@@ -150,8 +156,8 @@ defmodule SoundForgeWeb.DevToolsLive do
                     <td class="font-mono text-sm">{ev.name}</td>
                     <td class="text-sm text-base-content/60">{ev.category}</td>
                     <td>
-                      <span class={["badge badge-sm", ev.set? && "badge-success" || "badge-warning"]}>
-                        {ev.set? && "set" || "not set"}
+                      <span class={["badge badge-sm", (ev.set? && "badge-success") || "badge-warning"]}>
+                        {(ev.set? && "set") || "not set"}
                       </span>
                     </td>
                     <td class="text-sm text-base-content/60">{ev.notes}</td>
@@ -169,7 +175,10 @@ defmodule SoundForgeWeb.DevToolsLive do
           <div class="card-body">
             <h2 class="card-title text-base">System Info</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-              <div :for={item <- @system_info} class="flex justify-between border-b border-base-300 pb-2">
+              <div
+                :for={item <- @system_info}
+                class="flex justify-between border-b border-base-300 pb-2"
+              >
                 <span class="text-sm font-medium text-base-content/70">{item.label}</span>
                 <span class="text-sm font-mono">{item.value}</span>
               </div>
@@ -346,7 +355,10 @@ defmodule SoundForgeWeb.DevToolsLive do
         label: "Process memory (MB)",
         value: format_bytes(process_mem)
       },
-      %{label: "System time (UTC)", value: DateTime.utc_now() |> Calendar.strftime("%Y-%m-%d %H:%M:%S")}
+      %{
+        label: "System time (UTC)",
+        value: DateTime.utc_now() |> Calendar.strftime("%Y-%m-%d %H:%M:%S")
+      }
     ]
   end
 
@@ -362,7 +374,11 @@ defmodule SoundForgeWeb.DevToolsLive do
       },
       %{
         key: ":sound_forge, :spotify :client_secret",
-        value: present_or_absent(Application.get_env(:sound_forge, :spotify, []) |> Keyword.get(:client_secret))
+        value:
+          present_or_absent(
+            Application.get_env(:sound_forge, :spotify, [])
+            |> Keyword.get(:client_secret)
+          )
       },
       %{
         key: ":sound_forge, :lalalai_api_key",
@@ -378,7 +394,8 @@ defmodule SoundForgeWeb.DevToolsLive do
       },
       %{
         key: ":sound_forge, :downloads_dir",
-        value: inspect(Application.get_env(:sound_forge, :downloads_dir, "priv/uploads/downloads"))
+        value:
+          inspect(Application.get_env(:sound_forge, :downloads_dir, "priv/uploads/downloads"))
       }
     ]
   end

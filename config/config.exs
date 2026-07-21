@@ -111,7 +111,18 @@ config :mime, :types, %{
 # Configure Elixir's Logger
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id, :track_id, :job_id, :worker, :stage, :oban_job_id, :oban_queue, :oban_worker, :oban_attempt, :spotdl_cmd]
+  metadata: [
+    :request_id,
+    :track_id,
+    :job_id,
+    :worker,
+    :stage,
+    :oban_job_id,
+    :oban_queue,
+    :oban_worker,
+    :oban_attempt,
+    :spotdl_cmd
+  ]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

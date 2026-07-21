@@ -23,12 +23,14 @@ defmodule SoundForgeWeb.PracticeLiveTest do
   describe "import_sessions event" do
     test "import_sessions handles gracefully", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/practice")
+
       result =
         try do
           view |> element("[phx-click='import_sessions']") |> render_click()
         rescue
           ArgumentError -> :not_found
         end
+
       assert is_binary(result) or result == :not_found
     end
   end
@@ -36,23 +38,31 @@ defmodule SoundForgeWeb.PracticeLiveTest do
   describe "switch_detail_tab event" do
     test "switch_detail_tab to stems", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/practice")
+
       result =
         try do
-          view |> element("[phx-click='switch_detail_tab'][phx-value-tab='stems']") |> render_click()
+          view
+          |> element("[phx-click='switch_detail_tab'][phx-value-tab='stems']")
+          |> render_click()
         rescue
           ArgumentError -> :not_found
         end
+
       assert is_binary(result) or result == :not_found
     end
 
     test "switch_detail_tab to history", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/practice")
+
       result =
         try do
-          view |> element("[phx-click='switch_detail_tab'][phx-value-tab='history']") |> render_click()
+          view
+          |> element("[phx-click='switch_detail_tab'][phx-value-tab='history']")
+          |> render_click()
         rescue
           ArgumentError -> :not_found
         end
+
       assert is_binary(result) or result == :not_found
     end
   end

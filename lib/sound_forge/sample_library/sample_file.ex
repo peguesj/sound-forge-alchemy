@@ -31,8 +31,19 @@ defmodule SoundForge.SampleLibrary.SampleFile do
   @spec changeset(%__MODULE__{}, map()) :: Ecto.Changeset.t()
   def changeset(file, attrs) do
     file
-    |> cast(attrs, [:name, :file_path, :duration_ms, :bpm, :key, :file_size,
-                    :sample_type, :category, :preview_url, :tags, :pack_id])
+    |> cast(attrs, [
+      :name,
+      :file_path,
+      :duration_ms,
+      :bpm,
+      :key,
+      :file_size,
+      :sample_type,
+      :category,
+      :preview_url,
+      :tags,
+      :pack_id
+    ])
     |> validate_required([:name, :file_path, :pack_id])
     |> validate_inclusion(:sample_type, @valid_types ++ [nil])
     |> validate_inclusion(:category, @valid_categories ++ [nil])

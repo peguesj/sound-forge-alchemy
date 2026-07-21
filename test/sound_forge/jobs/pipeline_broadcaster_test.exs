@@ -116,8 +116,7 @@ defmodule SoundForge.Jobs.PipelineBroadcasterTest do
 
       assert_receive {:job_progress, %{status: :completed, progress: 100}}
 
-      assert_receive {:pipeline_progress,
-                      %{stage: :download, status: :completed, progress: 100}}
+      assert_receive {:pipeline_progress, %{stage: :download, status: :completed, progress: 100}}
     end
 
     test "pushes notification for processing complete", %{track: track, job: job} do
@@ -184,8 +183,7 @@ defmodule SoundForge.Jobs.PipelineBroadcasterTest do
 
       assert :ok = PipelineBroadcaster.broadcast_pipeline_complete(track.id)
 
-      assert_receive {:pipeline_complete,
-                      %{track_id: _, track_title: "Broadcaster Track"}}
+      assert_receive {:pipeline_complete, %{track_id: _, track_title: "Broadcaster Track"}}
     end
 
     test "pushes success notification", %{track: track} do

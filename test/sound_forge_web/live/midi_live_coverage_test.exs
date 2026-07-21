@@ -112,21 +112,45 @@ defmodule SoundForgeWeb.MidiLiveCoverageTest do
   describe "handle_info" do
     test "midi_device_connected", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/midi")
-      send(view.pid, {:midi_device_connected, %{port_id: "input:99", name: "Test", direction: :input, type: :usb, status: :connected}})
+
+      send(
+        view.pid,
+        {:midi_device_connected,
+         %{port_id: "input:99", name: "Test", direction: :input, type: :usb, status: :connected}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "midi_device_disconnected", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/midi")
-      send(view.pid, {:midi_device_disconnected, %{port_id: "input:99", name: "Test", direction: :input, type: :usb, status: :disconnected}})
+
+      send(
+        view.pid,
+        {:midi_device_disconnected,
+         %{
+           port_id: "input:99",
+           name: "Test",
+           direction: :input,
+           type: :usb,
+           status: :disconnected
+         }}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "network_device_appeared", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/midi")
-      send(view.pid, {:network_device_appeared, %{id: "net-1", name: "NetMIDI", host: "192.168.1.10", port: 5004}})
+
+      send(
+        view.pid,
+        {:network_device_appeared,
+         %{id: "net-1", name: "NetMIDI", host: "192.168.1.10", port: 5004}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end

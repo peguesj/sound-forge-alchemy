@@ -100,13 +100,19 @@ defmodule SoundForgeWeb.DjExtendedTest do
 
     test "set_filter lowpass", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/?tab=dj")
-      html = render_click(view, "set_filter", %{"deck" => "1", "mode" => "lowpass", "cutoff" => "0.5"})
+
+      html =
+        render_click(view, "set_filter", %{"deck" => "1", "mode" => "lowpass", "cutoff" => "0.5"})
+
       assert html =~ "dj-tab"
     end
 
     test "set_filter highpass", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/?tab=dj")
-      html = render_click(view, "set_filter", %{"deck" => "1", "mode" => "highpass", "cutoff" => "0.3"})
+
+      html =
+        render_click(view, "set_filter", %{"deck" => "1", "mode" => "highpass", "cutoff" => "0.3"})
+
       assert html =~ "dj-tab"
     end
 

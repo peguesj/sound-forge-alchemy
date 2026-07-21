@@ -657,9 +657,7 @@ defmodule SoundForge.Audio.LalalAI do
             {:ok, resp_body}
 
           :not_reused ->
-            Logger.warning(
-              "lalal.ai POST #{path} returned #{status_code}: #{inspect(resp_body)}"
-            )
+            Logger.warning("lalal.ai POST #{path} returned #{status_code}: #{inspect(resp_body)}")
 
             {:error, {:http_error, status_code, resp_body}}
         end
@@ -717,9 +715,7 @@ defmodule SoundForge.Audio.LalalAI do
   end
 
   defp do_upload(file_path, stem_filter, enhanced, splitter, api_key) do
-    Logger.info(
-      "Uploading track to lalal.ai: #{Path.basename(file_path)}, filter=#{stem_filter}"
-    )
+    Logger.info("Uploading track to lalal.ai: #{Path.basename(file_path)}, filter=#{stem_filter}")
 
     url = "#{@base_url}/upload/"
 
@@ -739,8 +735,7 @@ defmodule SoundForge.Audio.LalalAI do
           {"splitter", splitter},
           {"file",
            {File.stream!(file_path),
-            filename: Path.basename(file_path),
-            content_type: detect_content_type(file_path)}}
+            filename: Path.basename(file_path), content_type: detect_content_type(file_path)}}
         ]
       )
 

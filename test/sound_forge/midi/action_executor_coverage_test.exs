@@ -47,7 +47,9 @@ defmodule SoundForge.MIDI.ActionExecutorCoverageTest do
     test "boundary values 1 through 126" do
       for val <- [1, 10, 32, 63, 64, 65, 96, 100, 126] do
         result = ActionExecutor.cc_to_float(val)
-        assert result >= 0.0 and result <= 1.0, "cc_to_float(#{val}) = #{result} should be in [0,1]"
+
+        assert result >= 0.0 and result <= 1.0,
+               "cc_to_float(#{val}) = #{result} should be in [0,1]"
       end
     end
   end

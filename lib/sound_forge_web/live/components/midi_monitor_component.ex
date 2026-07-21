@@ -70,7 +70,10 @@ defmodule SoundForgeWeb.Live.Components.MidiMonitorComponent do
     ~H"""
     <div
       id="midi-monitor-panel"
-      class={["fixed bottom-16 right-4 z-50 w-96 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col", if(@open, do: "", else: "hidden")]}
+      class={[
+        "fixed bottom-16 right-4 z-50 w-96 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col",
+        if(@open, do: "", else: "hidden")
+      ]}
       style="max-height: 480px;"
     >
       <%!-- Header --%>
@@ -80,8 +83,13 @@ defmodule SoundForgeWeb.Live.Components.MidiMonitorComponent do
             "w-2 h-2 rounded-full transition-all",
             if(@listening, do: "bg-green-400 animate-pulse", else: "bg-gray-600")
           ]} />
-          <span class="text-xs font-semibold text-gray-300 uppercase tracking-wider">MIDI Monitor</span>
-          <span :if={@tailf} class="text-[9px] px-1.5 py-0.5 bg-green-900/50 text-green-400 rounded font-mono">
+          <span class="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+            MIDI Monitor
+          </span>
+          <span
+            :if={@tailf}
+            class="text-[9px] px-1.5 py-0.5 bg-green-900/50 text-green-400 rounded font-mono"
+          >
             LIVE
           </span>
         </div>
@@ -91,7 +99,10 @@ defmodule SoundForgeWeb.Live.Components.MidiMonitorComponent do
             phx-target={@myself}
             class={[
               "text-[10px] px-2 py-0.5 rounded transition-colors font-medium",
-              if(@listening, do: "bg-red-900/50 text-red-400 hover:bg-red-900", else: "bg-gray-700 text-gray-400 hover:bg-gray-600")
+              if(@listening,
+                do: "bg-red-900/50 text-red-400 hover:bg-red-900",
+                else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+              )
             ]}
             phx-click="toggle_midi_monitor_listen"
           >
@@ -101,7 +112,10 @@ defmodule SoundForgeWeb.Live.Components.MidiMonitorComponent do
             phx-click="toggle_midi_tailf"
             class={[
               "text-[10px] px-2 py-0.5 rounded transition-colors font-medium",
-              if(@tailf, do: "bg-purple-900/50 text-purple-400", else: "bg-gray-700 text-gray-500 hover:bg-gray-600")
+              if(@tailf,
+                do: "bg-purple-900/50 text-purple-400",
+                else: "bg-gray-700 text-gray-500 hover:bg-gray-600"
+              )
             ]}
             title="Toggle tail -f mode (continuous live stream)"
           >
@@ -119,7 +133,12 @@ defmodule SoundForgeWeb.Live.Components.MidiMonitorComponent do
             class="text-gray-600 hover:text-white transition-colors ml-1"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -134,7 +153,10 @@ defmodule SoundForgeWeb.Live.Components.MidiMonitorComponent do
             phx-target={@myself}
             class={[
               "text-[9px] px-2 py-0.5 rounded transition-colors",
-              if(@filter == val, do: "bg-purple-600 text-white", else: "bg-gray-800 text-gray-500 hover:bg-gray-700")
+              if(@filter == val,
+                do: "bg-purple-600 text-white",
+                else: "bg-gray-800 text-gray-500 hover:bg-gray-700"
+              )
             ]}
           >
             {label}
@@ -156,7 +178,10 @@ defmodule SoundForgeWeb.Live.Components.MidiMonitorComponent do
         <div :if={@events == [] && !@listening} class="px-4 py-6 text-center text-gray-600">
           Click Start to capture MIDI events
         </div>
-        <div :if={@events == [] && @listening} class="px-4 py-3 text-center text-green-500/60 flex items-center justify-center gap-2">
+        <div
+          :if={@events == [] && @listening}
+          class="px-4 py-3 text-center text-green-500/60 flex items-center justify-center gap-2"
+        >
           <span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />
           Waiting for MIDI events...
         </div>

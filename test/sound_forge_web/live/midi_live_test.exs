@@ -20,28 +20,28 @@ defmodule SoundForgeWeb.MidiLiveTest do
     end
 
     test "renders MIDI settings page for logged-in user", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/midi")
-      assert html =~ "MIDI Settings"
+      {:ok, view, _html} = live(conn, "/midi")
+      assert has_element?(view, "#midi-page")
     end
 
-    test "shows device count", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/midi")
-      assert html =~ "device"
+    test "shows controller inventory column", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/midi")
+      assert has_element?(view, "#midi-controllers-column")
     end
 
     test "shows Controllers column by default", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/midi")
-      assert html =~ "Controllers"
+      {:ok, view, _html} = live(conn, "/midi")
+      assert has_element?(view, "#midi-modules-column")
     end
 
-    test "shows Mappings tab option", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/midi")
-      assert html =~ "Mappings"
+    test "shows visual mapper column", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/midi")
+      assert has_element?(view, "#midi-visual-mapper-column")
     end
 
-    test "shows Monitor tab option", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/midi")
-      assert html =~ "Monitor"
+    test "shows monitor strip", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/midi")
+      assert has_element?(view, "#midi-monitor-strip")
     end
 
     test "select_tab switches to mappings", %{conn: conn} do
@@ -165,11 +165,16 @@ defmodule SoundForgeWeb.MidiLiveTest do
 
     test "handles device connected PubSub message", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/midi")
+
       device = %{
-        port_id: "test:1", name: "PubSub USB Device",
-        direction: :input, type: :usb, status: :connected,
+        port_id: "test:1",
+        name: "PubSub USB Device",
+        direction: :input,
+        type: :usb,
+        status: :connected,
         connected_at: DateTime.utc_now()
       }
+
       send(view.pid, {:midi_device_connected, device})
       html = render(view)
       assert html =~ "PubSub USB Device"
@@ -184,7 +189,15 @@ defmodule SoundForgeWeb.MidiLiveTest do
 
     test "handles network device appeared", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/midi")
-      net_dev = %{id: "net:1", name: "Network Session", host: "192.168.1.100", port: 5004, status: :available}
+
+      net_dev = %{
+        id: "net:1",
+        name: "Network Session",
+        host: "192.168.1.100",
+        port: 5004,
+        status: :available
+      }
+
       send(view.pid, {:network_device_appeared, net_dev})
       render_click(view, "select_tab", %{"tab" => "devices"})
       html = render(view)

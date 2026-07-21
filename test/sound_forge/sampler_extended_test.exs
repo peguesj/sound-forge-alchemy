@@ -74,7 +74,10 @@ defmodule SoundForge.SamplerExtendedTest do
 
     test "does not return other users' banks", %{user: user} do
       other_user = user_fixture()
-      {:ok, _bank} = Sampler.create_bank(%{name: "Other Bank", user_id: other_user.id, position: 0})
+
+      {:ok, _bank} =
+        Sampler.create_bank(%{name: "Other Bank", user_id: other_user.id, position: 0})
+
       assert Sampler.list_banks(user.id) == []
     end
   end
@@ -148,7 +151,15 @@ defmodule SoundForge.SamplerExtendedTest do
 
       track = track_fixture(%{user_id: user.id, title: "Assign Track"})
       pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-      stem = stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
+
+      stem =
+        stem_fixture(%{
+          track_id: track.id,
+          processing_job_id: pj.id,
+          stem_type: :vocals,
+          file_path: "stems/vocals.wav",
+          file_size: 1024
+        })
 
       {:ok, updated} = Sampler.assign_stem_to_pad(pad, stem.id)
       assert updated.stem_id == stem.id
@@ -161,8 +172,24 @@ defmodule SoundForge.SamplerExtendedTest do
 
       track = track_fixture(%{user_id: user.id, title: "Quick Track"})
       pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-      s1 = stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
-      s2 = stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :drums, file_path: "stems/drums.wav", file_size: 1024})
+
+      s1 =
+        stem_fixture(%{
+          track_id: track.id,
+          processing_job_id: pj.id,
+          stem_type: :vocals,
+          file_path: "stems/vocals.wav",
+          file_size: 1024
+        })
+
+      s2 =
+        stem_fixture(%{
+          track_id: track.id,
+          processing_job_id: pj.id,
+          stem_type: :drums,
+          file_path: "stems/drums.wav",
+          file_size: 1024
+        })
 
       {:ok, updated_bank} = Sampler.quick_load_stems(bank, [s1, s2])
       assigned_pads = Enum.filter(updated_bank.pads, & &1.stem_id)

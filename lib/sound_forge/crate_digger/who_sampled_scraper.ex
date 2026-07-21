@@ -50,7 +50,10 @@ defmodule SoundForge.CrateDigger.WhoSampledScraper do
             {:ok, []}
 
           {:error, reason} = err ->
-            Logger.warning("WhoSampledScraper failed for #{artist} - #{title}: #{inspect(reason)}")
+            Logger.warning(
+              "WhoSampledScraper failed for #{artist} - #{title}: #{inspect(reason)}"
+            )
+
             err
         end
     end
@@ -224,7 +227,10 @@ defmodule SoundForge.CrateDigger.WhoSampledScraper do
     title = if title_node, do: Floki.text(title_node) |> String.trim(), else: ""
     artist = if artist_node, do: Floki.text(artist_node) |> String.trim(), else: ""
     year = if year_node, do: parse_year(Floki.text(year_node)), else: nil
-    raw_type = if type_node, do: Floki.text(type_node) |> String.downcase() |> String.trim(), else: ""
+
+    raw_type =
+      if type_node, do: Floki.text(type_node) |> String.downcase() |> String.trim(), else: ""
+
     sample_type = normalize_sample_type(raw_type)
 
     links = Floki.find(node, "a")

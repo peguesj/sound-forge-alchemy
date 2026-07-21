@@ -48,10 +48,11 @@ defmodule SoundForge.CrateDigger.Sequencer do
 
     if map_size(analyses_by_spotify_id) < 2 do
       # Fallback: BPM-sorted
-      sorted = Enum.sort_by(tracks, fn t ->
-        analysis = Map.get(analyses_by_spotify_id, t["spotify_id"])
-        analysis && analysis.tempo || 999
-      end)
+      sorted =
+        Enum.sort_by(tracks, fn t ->
+          analysis = Map.get(analyses_by_spotify_id, t["spotify_id"])
+          (analysis && analysis.tempo) || 999
+        end)
 
       {:ok, annotate_sequence(sorted, analyses_by_spotify_id)}
     else
@@ -94,10 +95,11 @@ defmodule SoundForge.CrateDigger.Sequencer do
     if Enum.empty?(tracks) do
       tracks
     else
-      energies = Map.new(tracks, fn t ->
-        analysis = Map.get(analyses, t["spotify_id"])
-        {t["spotify_id"], (analysis && analysis.energy) || 0.5}
-      end)
+      energies =
+        Map.new(tracks, fn t ->
+          analysis = Map.get(analyses, t["spotify_id"])
+          {t["spotify_id"], (analysis && analysis.energy) || 0.5}
+        end)
 
       mean_energy = energies |> Map.values() |> then(fn vals -> Enum.sum(vals) / length(vals) end)
 
@@ -145,6 +147,7 @@ defmodule SoundForge.CrateDigger.Sequencer do
       key_compat =
         if analysis && prev_analysis && analysis.key && prev_analysis.key do
           score = SimilarityEngine.track_similarity(analysis, prev_analysis)
+
           cond do
             score > 0.8 -> "compatible"
             score > 0.5 -> "close"

@@ -26,7 +26,9 @@ defmodule SoundForgeWeb.FileController do
         |> send_file(200, path)
 
       {:error, :no_drum_events} ->
-        conn |> put_status(:unprocessable_entity) |> json(%{error: "No drum events found for track"})
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "No drum events found for track"})
 
       {:error, reason} ->
         conn |> put_status(:internal_server_error) |> json(%{error: inspect(reason)})

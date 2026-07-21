@@ -11,12 +11,13 @@ defmodule SoundForgeWeb.DawTabExtendedTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "DAW Extended Track",
-      artist: "DAW Artist",
-      duration: 200
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "DAW Extended Track",
+        artist: "DAW Artist",
+        duration: 200
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -25,10 +26,38 @@ defmodule SoundForgeWeb.DawTabExtendedTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :drums, file_path: "stems/drums.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :bass, file_path: "stems/bass.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :other, file_path: "stems/other.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :drums,
+      file_path: "stems/drums.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :bass,
+      file_path: "stems/bass.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :other,
+      file_path: "stems/other.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -50,44 +79,56 @@ defmodule SoundForgeWeb.DawTabExtendedTest do
     test "region_created via render_click", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/?tab=daw")
       load_track_in_daw(view, track)
-      html = render_click(view, "region_created", %{
-        "stem_type" => "vocals",
-        "start" => "1.0",
-        "end" => "3.0",
-        "id" => "region-1"
-      })
+
+      html =
+        render_click(view, "region_created", %{
+          "stem_type" => "vocals",
+          "start" => "1.0",
+          "end" => "3.0",
+          "id" => "region-1"
+        })
+
       assert is_binary(html)
     end
 
     test "region_updated", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/?tab=daw")
       load_track_in_daw(view, track)
-      html = render_click(view, "region_updated", %{
-        "stem_type" => "vocals",
-        "id" => "region-1",
-        "start" => "1.5",
-        "end" => "3.5"
-      })
+
+      html =
+        render_click(view, "region_updated", %{
+          "stem_type" => "vocals",
+          "id" => "region-1",
+          "start" => "1.5",
+          "end" => "3.5"
+        })
+
       assert is_binary(html)
     end
 
     test "region_removed", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/?tab=daw")
       load_track_in_daw(view, track)
-      html = render_click(view, "region_removed", %{
-        "stem_type" => "vocals",
-        "id" => "region-1"
-      })
+
+      html =
+        render_click(view, "region_removed", %{
+          "stem_type" => "vocals",
+          "id" => "region-1"
+        })
+
       assert is_binary(html)
     end
 
     test "select_region", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/?tab=daw")
       load_track_in_daw(view, track)
-      html = render_click(view, "select_region", %{
-        "stem_type" => "vocals",
-        "id" => "region-1"
-      })
+
+      html =
+        render_click(view, "select_region", %{
+          "stem_type" => "vocals",
+          "id" => "region-1"
+        })
+
       assert is_binary(html)
     end
   end
@@ -103,43 +144,55 @@ defmodule SoundForgeWeb.DawTabExtendedTest do
     test "apply_operation gain", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/?tab=daw")
       load_track_in_daw(view, track)
-      html = render_click(view, "apply_operation", %{
-        "stem_type" => "vocals",
-        "operation" => "gain",
-        "params" => %{"amount" => "0.5"}
-      })
+
+      html =
+        render_click(view, "apply_operation", %{
+          "stem_type" => "vocals",
+          "operation" => "gain",
+          "params" => %{"amount" => "0.5"}
+        })
+
       assert is_binary(html)
     end
 
     test "apply_operation reverse", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/?tab=daw")
       load_track_in_daw(view, track)
-      html = render_click(view, "apply_operation", %{
-        "stem_type" => "drums",
-        "operation" => "reverse",
-        "params" => %{}
-      })
+
+      html =
+        render_click(view, "apply_operation", %{
+          "stem_type" => "drums",
+          "operation" => "reverse",
+          "params" => %{}
+        })
+
       assert is_binary(html)
     end
 
     test "apply_split", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/?tab=daw")
       load_track_in_daw(view, track)
-      html = render_click(view, "apply_split", %{
-        "stem_type" => "vocals",
-        "position" => "5.0"
-      })
+
+      html =
+        render_click(view, "apply_split", %{
+          "stem_type" => "vocals",
+          "position" => "5.0"
+        })
+
       assert is_binary(html)
     end
 
     test "split_marker_moved", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/?tab=daw")
       load_track_in_daw(view, track)
-      html = render_click(view, "split_marker_moved", %{
-        "stem_type" => "vocals",
-        "id" => "split-1",
-        "position" => "6.0"
-      })
+
+      html =
+        render_click(view, "split_marker_moved", %{
+          "stem_type" => "vocals",
+          "id" => "split-1",
+          "position" => "6.0"
+        })
+
       assert is_binary(html)
     end
   end

@@ -69,12 +69,18 @@ defmodule SoundForge.Jobs.SpliceImportWorker do
   end
 
   defp probe_duration_ms(file_path) do
-    case System.cmd("ffprobe", [
-           "-v", "quiet",
-           "-print_format", "json",
-           "-show_format",
-           file_path
-         ], stderr_to_stdout: true) do
+    case System.cmd(
+           "ffprobe",
+           [
+             "-v",
+             "quiet",
+             "-print_format",
+             "json",
+             "-show_format",
+             file_path
+           ],
+           stderr_to_stdout: true
+         ) do
       {output, 0} ->
         case Jason.decode(output) do
           {:ok, %{"format" => %{"duration" => duration_str}}} ->
@@ -122,8 +128,11 @@ defmodule SoundForge.Jobs.SpliceImportWorker do
              "file_path" => String.replace(track.spotify_url || "", "file://", "")
            })
          ) do
-      {:ok, _} -> :ok
-      {:error, reason} -> Logger.warning("[SpliceImportWorker] Analysis enqueue failed: #{inspect(reason)}")
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("[SpliceImportWorker] Analysis enqueue failed: #{inspect(reason)}")
     end
   end
 
@@ -144,9 +153,9 @@ defmodule SoundForge.Jobs.SpliceImportWorker do
     # Return the first admin user or 1 as fallback
     case SoundForge.Repo.one(
            from u in SoundForge.Accounts.User,
-           order_by: [asc: u.id],
-           limit: 1,
-           select: u.id
+             order_by: [asc: u.id],
+             limit: 1,
+             select: u.id
          ) do
       nil -> 1
       id -> id

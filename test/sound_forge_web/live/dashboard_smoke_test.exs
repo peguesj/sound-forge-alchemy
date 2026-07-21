@@ -12,20 +12,37 @@ defmodule SoundForgeWeb.DashboardSmokeTest do
 
   setup %{user: user} do
     # Create multiple tracks with full pipeline data
-    tracks = for i <- 1..3 do
-      track = track_fixture(%{
-        user_id: user.id,
-        title: "Smoke Track #{i}",
-        artist: "Smoke Artist",
-        duration: 200 + i * 10
-      })
-      download_job_fixture(%{track_id: track.id, status: :completed, output_path: "priv/uploads/downloads/smoke#{i}.mp3"})
-      pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-      for type <- [:vocals, :drums, :bass, :other] do
-        stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: type, file_path: "stems/#{type}#{i}.wav", file_size: 1024 * i})
+    tracks =
+      for i <- 1..3 do
+        track =
+          track_fixture(%{
+            user_id: user.id,
+            title: "Smoke Track #{i}",
+            artist: "Smoke Artist",
+            duration: 200 + i * 10
+          })
+
+        download_job_fixture(%{
+          track_id: track.id,
+          status: :completed,
+          output_path: "priv/uploads/downloads/smoke#{i}.mp3"
+        })
+
+        pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
+
+        for type <- [:vocals, :drums, :bass, :other] do
+          stem_fixture(%{
+            track_id: track.id,
+            processing_job_id: pj.id,
+            stem_type: type,
+            file_path: "stems/#{type}#{i}.wav",
+            file_size: 1024 * i
+          })
+        end
+
+        track
       end
-      track
-    end
+
     %{tracks: tracks, track: hd(tracks)}
   end
 

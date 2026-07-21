@@ -9,19 +9,70 @@ defmodule SoundForgeWeb.DjTabLoadedTest do
 
   describe "DJ tab component events" do
     setup %{user: user} do
-      track1 = track_fixture(%{user_id: user.id, title: "DJ Deck A Track", artist: "Artist A", duration: 240})
-      track2 = track_fixture(%{user_id: user.id, title: "DJ Deck B Track", artist: "Artist B", duration: 300})
+      track1 =
+        track_fixture(%{
+          user_id: user.id,
+          title: "DJ Deck A Track",
+          artist: "Artist A",
+          duration: 240
+        })
 
-      download_job_fixture(%{track_id: track1.id, status: :completed, output_path: "priv/uploads/downloads/track_a.mp3"})
-      download_job_fixture(%{track_id: track2.id, status: :completed, output_path: "priv/uploads/downloads/track_b.mp3"})
+      track2 =
+        track_fixture(%{
+          user_id: user.id,
+          title: "DJ Deck B Track",
+          artist: "Artist B",
+          duration: 300
+        })
+
+      download_job_fixture(%{
+        track_id: track1.id,
+        status: :completed,
+        output_path: "priv/uploads/downloads/track_a.mp3"
+      })
+
+      download_job_fixture(%{
+        track_id: track2.id,
+        status: :completed,
+        output_path: "priv/uploads/downloads/track_b.mp3"
+      })
 
       pj1 = processing_job_fixture(%{track_id: track1.id, model: "htdemucs", status: :completed})
-      stem_fixture(%{track_id: track1.id, processing_job_id: pj1.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
-      stem_fixture(%{track_id: track1.id, processing_job_id: pj1.id, stem_type: :drums, file_path: "stems/drums.wav", file_size: 1024})
-      stem_fixture(%{track_id: track1.id, processing_job_id: pj1.id, stem_type: :bass, file_path: "stems/bass.wav", file_size: 1024})
-      stem_fixture(%{track_id: track1.id, processing_job_id: pj1.id, stem_type: :other, file_path: "stems/other.wav", file_size: 1024})
+
+      stem_fixture(%{
+        track_id: track1.id,
+        processing_job_id: pj1.id,
+        stem_type: :vocals,
+        file_path: "stems/vocals.wav",
+        file_size: 1024
+      })
+
+      stem_fixture(%{
+        track_id: track1.id,
+        processing_job_id: pj1.id,
+        stem_type: :drums,
+        file_path: "stems/drums.wav",
+        file_size: 1024
+      })
+
+      stem_fixture(%{
+        track_id: track1.id,
+        processing_job_id: pj1.id,
+        stem_type: :bass,
+        file_path: "stems/bass.wav",
+        file_size: 1024
+      })
+
+      stem_fixture(%{
+        track_id: track1.id,
+        processing_job_id: pj1.id,
+        stem_type: :other,
+        file_path: "stems/other.wav",
+        file_size: 1024
+      })
 
       aj = analysis_job_fixture(%{track_id: track1.id, status: :completed})
+
       analysis_result_fixture(%{
         track_id: track1.id,
         analysis_job_id: aj.id,
@@ -62,7 +113,10 @@ defmodule SoundForgeWeb.DjTabLoadedTest do
     test "set_crossfader_curve via component target", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/?tab=dj")
       # Click one of the curve buttons
-      buttons = view |> element("#dj-tab [phx-click='set_crossfader_curve'][phx-value-curve='equal_power']")
+      buttons =
+        view
+        |> element("#dj-tab [phx-click='set_crossfader_curve'][phx-value-curve='equal_power']")
+
       html = render_click(buttons)
       assert is_binary(html)
     end

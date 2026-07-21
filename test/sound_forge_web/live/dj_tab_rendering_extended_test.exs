@@ -8,12 +8,13 @@ defmodule SoundForgeWeb.DjTabRenderingExtendedTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "DJ Render Test",
-      artist: "Render Artist",
-      duration: 200
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "DJ Render Test",
+        artist: "Render Artist",
+        duration: 200
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -22,8 +23,15 @@ defmodule SoundForgeWeb.DjTabRenderingExtendedTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
+
     for type <- [:vocals, :drums, :bass, :other] do
-      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: type, file_path: "stems/#{type}.wav", file_size: 1024})
+      stem_fixture(%{
+        track_id: track.id,
+        processing_job_id: pj.id,
+        stem_type: type,
+        file_path: "stems/#{type}.wav",
+        file_size: 1024
+      })
     end
 
     %{track: track}
@@ -118,7 +126,10 @@ defmodule SoundForgeWeb.DjTabRenderingExtendedTest do
     test "stem_volume event", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
       render_click(view, "switch_tab", %{"tab" => "dj"})
-      html = render_click(view, "stem_volume", %{"deck" => "1", "stem" => "bass", "value" => "0.5"})
+
+      html =
+        render_click(view, "stem_volume", %{"deck" => "1", "stem" => "bass", "value" => "0.5"})
+
       assert is_binary(html)
     end
   end

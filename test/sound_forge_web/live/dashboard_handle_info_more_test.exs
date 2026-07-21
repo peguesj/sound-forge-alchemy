@@ -11,12 +11,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoMoreTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Handle Info Track",
-      artist: "Test Artist",
-      duration: 200
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Handle Info Track",
+        artist: "Test Artist",
+        duration: 200
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -25,7 +26,14 @@ defmodule SoundForgeWeb.DashboardHandleInfoMoreTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/v.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/v.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -33,28 +41,52 @@ defmodule SoundForgeWeb.DashboardHandleInfoMoreTest do
   describe "pipeline progress messages" do
     test "pipeline_progress with download stage", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :download, status: :downloading, progress: 50}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :download, status: :downloading, progress: 50}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "pipeline_progress with processing stage", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :processing, status: :processing, progress: 75}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :processing, status: :processing, progress: 75}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "pipeline_progress with failed status triggers notification", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :processing, status: :failed, progress: 0}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :processing, status: :failed, progress: 0}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "pipeline_progress with completed download", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :download, status: :completed, progress: 100}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :download, status: :completed, progress: 100}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
@@ -90,7 +122,12 @@ defmodule SoundForgeWeb.DashboardHandleInfoMoreTest do
     test "removes pipeline from tracker", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
       # First add a pipeline
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :download, status: :downloading, progress: 50}})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :download, status: :downloading, progress: 50}}
+      )
+
       render(view)
       # Then dismiss it
       send(view.pid, {:dismiss_pipeline_from_tracker, track.id})
@@ -141,14 +178,24 @@ defmodule SoundForgeWeb.DashboardHandleInfoMoreTest do
   describe "MIDI device messages" do
     test "midi_device_connected", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:midi_device_connected, %{port_id: "input:99", name: "Test MIDI", direction: :input}})
+
+      send(
+        view.pid,
+        {:midi_device_connected, %{port_id: "input:99", name: "Test MIDI", direction: :input}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "midi_device_disconnected", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:midi_device_disconnected, %{port_id: "input:99", name: "Test MIDI", direction: :input}})
+
+      send(
+        view.pid,
+        {:midi_device_disconnected, %{port_id: "input:99", name: "Test MIDI", direction: :input}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
@@ -195,7 +242,18 @@ defmodule SoundForgeWeb.DashboardHandleInfoMoreTest do
   describe "batch_progress" do
     test "batch_progress message", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:batch_progress, %{batch_job_id: Ecto.UUID.generate(), status: :processing, completed_count: 2, total_count: 5}})
+
+      send(
+        view.pid,
+        {:batch_progress,
+         %{
+           batch_job_id: Ecto.UUID.generate(),
+           status: :processing,
+           completed_count: 2,
+           total_count: 5
+         }}
+      )
+
       html = render(view)
       assert is_binary(html)
     end

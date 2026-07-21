@@ -19,21 +19,24 @@ defmodule SoundForgeWeb.Live.Components.BigLoopyProgressComponent do
             @alchemy_set.status == "error" && "badge-error",
             @alchemy_set.status == "pending" && "badge-ghost"
           ]}>
-            <%= @alchemy_set.status %>
+            {@alchemy_set.status}
           </span>
-          <span class="text-sm text-base-content/60"><%= @alchemy_set.name %></span>
+          <span class="text-sm text-base-content/60">{@alchemy_set.name}</span>
         </div>
 
         <ul :if={map_size(@progress) > 0} class="space-y-2">
           <%= for {track_id, prog} <- @progress, is_binary(track_id) do %>
             <li class="flex items-center gap-3">
               <div class="flex-1">
-                <div class="text-xs font-mono text-base-content/60 truncate w-32"><%= String.slice(track_id, 0, 8) %>...</div>
+                <div class="text-xs font-mono text-base-content/60 truncate w-32">
+                  {String.slice(track_id, 0, 8)}...
+                </div>
                 <div class="w-full bg-base-300 rounded-full h-1.5 mt-1">
                   <div
                     class="bg-primary h-1.5 rounded-full transition-all duration-300"
                     style={"width: #{Map.get(prog, :pct, 0)}%"}
-                  ></div>
+                  >
+                  </div>
                 </div>
               </div>
               <span class={[
@@ -43,7 +46,7 @@ defmodule SoundForgeWeb.Live.Components.BigLoopyProgressComponent do
                 Map.get(prog, :status) == "started" && "badge-ghost",
                 true && ""
               ]}>
-                <%= Map.get(prog, :status, "queued") %>
+                {Map.get(prog, :status, "queued")}
               </span>
             </li>
           <% end %>

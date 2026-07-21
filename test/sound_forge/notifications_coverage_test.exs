@@ -9,8 +9,13 @@ defmodule SoundForge.NotificationsCoverageTest do
     # It's started in application.ex, but in case it isn't:
     case GenServer.whereis(Notifications) do
       nil ->
-        {:ok, _pid} = Notifications.start_link(name: :"notifications_test_#{System.unique_integer([:positive])}")
+        {:ok, _pid} =
+          Notifications.start_link(
+            name: :"notifications_test_#{System.unique_integer([:positive])}"
+          )
+
         :ok
+
       _pid ->
         :ok
     end
@@ -25,7 +30,13 @@ defmodule SoundForge.NotificationsCoverageTest do
     end
 
     test "pushes with metadata", %{user_id: user_id} do
-      assert :ok = Notifications.push(user_id, %{type: :success, title: "Done", message: "Complete", metadata: %{track_id: "abc"}})
+      assert :ok =
+               Notifications.push(user_id, %{
+                 type: :success,
+                 title: "Done",
+                 message: "Complete",
+                 metadata: %{track_id: "abc"}
+               })
     end
   end
 

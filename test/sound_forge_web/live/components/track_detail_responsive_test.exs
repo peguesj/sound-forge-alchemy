@@ -32,12 +32,19 @@ defmodule SoundForgeWeb.Live.Components.TrackDetailResponsiveTest do
 
   describe "responsive_album_art/1" do
     test "renders with nil src" do
-      html = render_component(&TrackDetailResponsive.responsive_album_art/1, src: nil, alt: "Test")
+      html =
+        render_component(&TrackDetailResponsive.responsive_album_art/1, src: nil, alt: "Test")
+
       assert html =~ "rounded-lg"
     end
 
     test "renders with src" do
-      html = render_component(&TrackDetailResponsive.responsive_album_art/1, src: "http://example.com/art.jpg", alt: "Album")
+      html =
+        render_component(&TrackDetailResponsive.responsive_album_art/1,
+          src: "http://example.com/art.jpg",
+          alt: "Album"
+        )
+
       assert html =~ "http://example.com/art.jpg"
     end
   end

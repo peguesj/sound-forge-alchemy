@@ -11,7 +11,9 @@ defmodule SoundForgeWeb.ChromaticPadsEventsTest do
   setup :register_and_log_in_user
 
   defp create_bank_for_user(user) do
-    {:ok, bank} = SoundForge.Sampler.create_bank(%{name: "Test Bank", user_id: user.id, position: 0})
+    {:ok, bank} =
+      SoundForge.Sampler.create_bank(%{name: "Test Bank", user_id: user.id, position: 0})
+
     # Reload with pads preloaded
     SoundForge.Sampler.get_bank!(bank.id)
   end

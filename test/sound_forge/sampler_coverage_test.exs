@@ -12,7 +12,9 @@ defmodule SoundForge.SamplerCoverageTest do
 
   describe "create_bank/1" do
     test "creates a bank with 16 pads", %{user: user} do
-      assert {:ok, bank} = Sampler.create_bank(%{name: "Test Bank", user_id: user.id, position: 0})
+      assert {:ok, bank} =
+               Sampler.create_bank(%{name: "Test Bank", user_id: user.id, position: 0})
+
       assert bank.name == "Test Bank"
       assert length(bank.pads) == 16
     end
@@ -69,9 +71,19 @@ defmodule SoundForge.SamplerCoverageTest do
 
   describe "assign_stem_to_pad/2" do
     test "assigns and clears stem", %{user: user} do
-      track = track_fixture(%{user_id: user.id, title: "Stem Track", artist: "Test", duration: 100})
+      track =
+        track_fixture(%{user_id: user.id, title: "Stem Track", artist: "Test", duration: 100})
+
       pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-      stem = stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/v.wav", file_size: 1024})
+
+      stem =
+        stem_fixture(%{
+          track_id: track.id,
+          processing_job_id: pj.id,
+          stem_type: :vocals,
+          file_path: "stems/v.wav",
+          file_size: 1024
+        })
 
       {:ok, bank} = Sampler.create_bank(%{name: "Assign Test", user_id: user.id, position: 0})
       pad = hd(bank.pads)
@@ -108,12 +120,20 @@ defmodule SoundForge.SamplerCoverageTest do
 
   describe "quick_load_stems/2" do
     test "loads stems into consecutive pads", %{user: user} do
-      track = track_fixture(%{user_id: user.id, title: "Quick Load", artist: "Test", duration: 100})
+      track =
+        track_fixture(%{user_id: user.id, title: "Quick Load", artist: "Test", duration: 100})
+
       pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
 
       stems =
         for type <- [:vocals, :drums, :bass, :other] do
-          stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: type, file_path: "stems/#{type}.wav", file_size: 1024})
+          stem_fixture(%{
+            track_id: track.id,
+            processing_job_id: pj.id,
+            stem_type: type,
+            file_path: "stems/#{type}.wav",
+            file_size: 1024
+          })
         end
 
       {:ok, bank} = Sampler.create_bank(%{name: "Quick Load Test", user_id: user.id, position: 0})

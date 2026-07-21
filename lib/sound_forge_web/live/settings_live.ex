@@ -218,7 +218,7 @@ defmodule SoundForgeWeb.SettingsLive do
            socket
            |> assign(:lalalai_configured, true)
            |> assign(:lalalai_test_result, nil)
-      |> assign(:lalalai_quota, nil)
+           |> assign(:lalalai_quota, nil)
            |> put_flash(:info, "lalal.ai API key saved.")}
 
         {:error, _} ->
@@ -240,7 +240,7 @@ defmodule SoundForgeWeb.SettingsLive do
            |> assign(:lalalai_configured, false)
            |> assign(:lalalai_api_key_input, "")
            |> assign(:lalalai_test_result, nil)
-      |> assign(:lalalai_quota, nil)
+           |> assign(:lalalai_quota, nil)
            |> put_flash(:info, "lalal.ai API key removed.")}
 
         {:error, _} ->
@@ -276,8 +276,11 @@ defmodule SoundForgeWeb.SettingsLive do
       if File.dir?(expanded) do
         count =
           case File.ls(expanded) do
-            {:ok, files} -> Enum.count(files, fn f -> Path.extname(f) in ~w(.wav .mp3 .aif .aiff .flac) end)
-            _ -> 0
+            {:ok, files} ->
+              Enum.count(files, fn f -> Path.extname(f) in ~w(.wav .mp3 .aif .aiff .flac) end)
+
+            _ ->
+              0
           end
 
         {:ok, "Path valid — found #{count} audio files at top level"}
@@ -509,6 +512,7 @@ defmodule SoundForgeWeb.SettingsLive do
       id: "global-midi-bar",
       midi_event: {port_id, msg}
     )
+
     {:noreply, socket}
   end
 
@@ -525,10 +529,13 @@ defmodule SoundForgeWeb.SettingsLive do
   @impl true
   def handle_info({:global_midi_bar, :set_position, pos}, socket) do
     if socket.assigns[:current_user_id] do
-      settings = Settings.get_user_settings(socket.assigns.current_user_id) ||
-        %SoundForge.Accounts.UserSettings{user_id: socket.assigns.current_user_id}
+      settings =
+        Settings.get_user_settings(socket.assigns.current_user_id) ||
+          %SoundForge.Accounts.UserSettings{user_id: socket.assigns.current_user_id}
+
       Settings.update_user_settings(settings, %{midi_bar_position: pos})
     end
+
     {:noreply, assign(socket, :midi_bar_position, pos)}
   end
 
@@ -559,17 +566,26 @@ defmodule SoundForgeWeb.SettingsLive do
 
   defp build_library_stats(_user_id) do
     base = Application.get_env(:sound_forge, :uploads_path, "priv/static/uploads")
+
     case File.stat(base) do
       {:ok, _} ->
         files =
           Path.wildcard(Path.join([base, "**", "*.{mp3,wav,flac,ogg,m4a}"]))
-        total_bytes = Enum.reduce(files, 0, fn f, acc ->
-          case File.stat(f) do
-            {:ok, %{size: s}} -> acc + s
-            _ -> acc
-          end
-        end)
-        %{file_count: length(files), total_size_mb: Float.round(total_bytes / 1_048_576, 1), base_path: base}
+
+        total_bytes =
+          Enum.reduce(files, 0, fn f, acc ->
+            case File.stat(f) do
+              {:ok, %{size: s}} -> acc + s
+              _ -> acc
+            end
+          end)
+
+        %{
+          file_count: length(files),
+          total_size_mb: Float.round(total_bytes / 1_048_576, 1),
+          base_path: base
+        }
+
       _ ->
         %{file_count: 0, total_size_mb: 0.0, base_path: base}
     end

@@ -12,13 +12,14 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtendedTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "HandleInfo Track",
-      artist: "Test Artist",
-      duration: 200,
-      spotify_url: "https://open.spotify.com/track/info123"
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "HandleInfo Track",
+        artist: "Test Artist",
+        duration: 200,
+        spotify_url: "https://open.spotify.com/track/info123"
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -27,7 +28,14 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtendedTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -35,33 +43,64 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtendedTest do
   describe "spotify_metadata handle_info" do
     test "handles spotify_metadata error", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:spotify_metadata, "https://open.spotify.com/track/test", {:error, :not_found}})
+
+      send(
+        view.pid,
+        {:spotify_metadata, "https://open.spotify.com/track/test", {:error, :not_found}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles spotify_metadata with track data", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      tracks_data = [%{
-        "title" => "Imported Track",
-        "artist" => "Test Artist",
-        "spotify_url" => "https://open.spotify.com/track/abc",
-        "album" => "Test Album",
-        "duration" => 180
-      }]
-      send(view.pid, {:spotify_metadata, "https://open.spotify.com/track/abc", {:ok, tracks_data}})
+
+      tracks_data = [
+        %{
+          "title" => "Imported Track",
+          "artist" => "Test Artist",
+          "spotify_url" => "https://open.spotify.com/track/abc",
+          "album" => "Test Album",
+          "duration" => 180
+        }
+      ]
+
+      send(
+        view.pid,
+        {:spotify_metadata, "https://open.spotify.com/track/abc", {:ok, tracks_data}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles spotify_metadata with playlist", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
+
       tracks_data = [
-        %{"title" => "Track 1", "artist" => "Artist 1", "spotify_url" => "https://open.spotify.com/track/1", "duration" => 200},
-        %{"title" => "Track 2", "artist" => "Artist 2", "spotify_url" => "https://open.spotify.com/track/2", "duration" => 180}
+        %{
+          "title" => "Track 1",
+          "artist" => "Artist 1",
+          "spotify_url" => "https://open.spotify.com/track/1",
+          "duration" => 200
+        },
+        %{
+          "title" => "Track 2",
+          "artist" => "Artist 2",
+          "spotify_url" => "https://open.spotify.com/track/2",
+          "duration" => 180
+        }
       ]
+
       playlist_meta = %{"name" => "Test Playlist", "total" => 2}
-      send(view.pid, {:spotify_metadata, "https://open.spotify.com/playlist/xyz", {:ok, tracks_data, playlist_meta}})
+
+      send(
+        view.pid,
+        {:spotify_metadata, "https://open.spotify.com/playlist/xyz",
+         {:ok, tracks_data, playlist_meta}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
@@ -71,44 +110,52 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtendedTest do
     test "handles auto_cues_complete broadcast", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
       Phoenix.PubSub.subscribe(SoundForge.PubSub, "track:#{track.id}")
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "track:#{track.id}",
         event: "auto_cues_complete",
         payload: %{track_id: track.id, cue_count: 4}
       })
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles chef_progress broadcast", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "track:#{track.id}",
         event: "chef_progress",
         payload: %{track_id: track.id, progress: 50, message: "Processing stems..."}
       })
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles chef_complete broadcast", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "track:#{track.id}",
         event: "chef_complete",
         payload: %{track_id: track.id, recipe_id: "recipe-1"}
       })
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles chef_failed broadcast", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "track:#{track.id}",
         event: "chef_failed",
         payload: %{track_id: track.id, error: "All tracks exhausted"}
       })
+
       html = render(view)
       assert is_binary(html)
     end
@@ -159,14 +206,26 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtendedTest do
   describe "batch events" do
     test "handles batch_progress", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:batch_progress, %{batch_job_id: "job-1", status: :processing, completed_count: 1, total_count: 5}})
+
+      send(
+        view.pid,
+        {:batch_progress,
+         %{batch_job_id: "job-1", status: :processing, completed_count: 1, total_count: 5}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles batch_complete", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:batch_complete, %{batch_job_id: "job-1", completed_count: 5, failed_count: 0, total_count: 5}})
+
+      send(
+        view.pid,
+        {:batch_complete,
+         %{batch_job_id: "job-1", completed_count: 5, failed_count: 0, total_count: 5}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
@@ -175,7 +234,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtendedTest do
   describe "debug_log" do
     test "handles debug_log message", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:debug_log, %{level: :info, message: "Test log", namespace: "test", timestamp: DateTime.utc_now()}})
+
+      send(
+        view.pid,
+        {:debug_log,
+         %{level: :info, message: "Test log", namespace: "test", timestamp: DateTime.utc_now()}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end

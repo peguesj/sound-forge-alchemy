@@ -13,7 +13,14 @@ defmodule SoundForgeWeb.DashboardDeepRenderTest do
   setup :register_and_log_in_user
 
   defp create_track_with_stems(user) do
-    track = track_fixture(%{user_id: user.id, title: "Full Track", artist: "Test Artist", duration: 240})
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Full Track",
+        artist: "Test Artist",
+        duration: 240
+      })
+
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
 
     stems =
@@ -25,7 +32,14 @@ defmodule SoundForgeWeb.DashboardDeepRenderTest do
   end
 
   defp create_track_with_analysis(user) do
-    track = track_fixture(%{user_id: user.id, title: "Analyzed Track", artist: "Analyst", duration: 180})
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Analyzed Track",
+        artist: "Analyst",
+        duration: 180
+      })
+
     analysis_job = analysis_job_fixture(%{track_id: track.id, status: :completed})
 
     analysis =

@@ -120,7 +120,9 @@ defmodule SoundForge.MIDI.ParserTest do
       bytes = <<0x90, 60, 100, 0xF8, 0x80, 60, 64>>
       result = Parser.parse(bytes)
       assert length(result) == 3
-      assert [%Message{type: :note_on}, %Message{type: :clock}, %Message{type: :note_off}] = result
+
+      assert [%Message{type: :note_on}, %Message{type: :clock}, %Message{type: :note_off}] =
+               result
     end
 
     test "supports running status" do
@@ -128,7 +130,11 @@ defmodule SoundForge.MIDI.ParserTest do
       bytes = <<0x90, 60, 100, 62, 90>>
       result = Parser.parse(bytes)
       assert length(result) == 2
-      assert [%Message{type: :note_on, data: %{note: 60}}, %Message{type: :note_on, data: %{note: 62}}] = result
+
+      assert [
+               %Message{type: :note_on, data: %{note: 60}},
+               %Message{type: :note_on, data: %{note: 62}}
+             ] = result
     end
   end
 

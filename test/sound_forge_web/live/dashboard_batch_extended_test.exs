@@ -12,14 +12,15 @@ defmodule SoundForgeWeb.DashboardBatchExtendedTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Batch Extended Track",
-      artist: "Test Artist",
-      duration: 200,
-      album: "Test Album",
-      spotify_url: "https://open.spotify.com/track/batch123"
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Batch Extended Track",
+        artist: "Test Artist",
+        duration: 200,
+        album: "Test Album",
+        spotify_url: "https://open.spotify.com/track/batch123"
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -28,7 +29,14 @@ defmodule SoundForgeWeb.DashboardBatchExtendedTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -71,13 +79,25 @@ defmodule SoundForgeWeb.DashboardBatchExtendedTest do
     test "with selected tracks", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
       render_click(view, "toggle_track_select", %{"track_id" => track.id})
-      html = render_click(view, "confirm_batch_process", %{"engine" => "demucs", "stem_filter" => "vocals"})
+
+      html =
+        render_click(view, "confirm_batch_process", %{
+          "engine" => "demucs",
+          "stem_filter" => "vocals"
+        })
+
       assert is_binary(html)
     end
 
     test "with empty selection", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "confirm_batch_process", %{"engine" => "demucs", "stem_filter" => "all"})
+
+      html =
+        render_click(view, "confirm_batch_process", %{
+          "engine" => "demucs",
+          "stem_filter" => "all"
+        })
+
       assert is_binary(html)
     end
   end

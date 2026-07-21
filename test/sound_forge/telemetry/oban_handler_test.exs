@@ -19,7 +19,15 @@ defmodule SoundForge.Telemetry.ObanHandlerTest do
 
   describe "job:start" do
     test "logs with [oban.WorkerName] namespace, job_id, queue, attempt" do
-      meta = %{job: %{id: 42, worker: "SoundForge.Jobs.DownloadWorker", queue: "download", attempt: 1, args: %{}}}
+      meta = %{
+        job: %{
+          id: 42,
+          worker: "SoundForge.Jobs.DownloadWorker",
+          queue: "download",
+          attempt: 1,
+          args: %{}
+        }
+      }
 
       log =
         capture_log(fn ->
@@ -75,7 +83,16 @@ defmodule SoundForge.Telemetry.ObanHandlerTest do
 
   describe "job:stop" do
     test "logs with namespace, duration_ms, result, status" do
-      meta = %{job: %{id: 44, worker: "SoundForge.Jobs.DownloadWorker", queue: "download", attempt: 1, args: %{}}}
+      meta = %{
+        job: %{
+          id: 44,
+          worker: "SoundForge.Jobs.DownloadWorker",
+          queue: "download",
+          attempt: 1,
+          args: %{}
+        }
+      }
+
       measurements = %{duration: System.convert_time_unit(100, :millisecond, :native)}
 
       log =

@@ -50,7 +50,13 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       |> assign(:whosampled_samples, nil)
       |> assign(:whosampled_error, nil)
       # Accordion section open/closed
-      |> assign(:section_open, %{whosampled: false, details: false, lyrics: false, analysis: false, stems: false})
+      |> assign(:section_open, %{
+        whosampled: false,
+        details: false,
+        lyrics: false,
+        analysis: false,
+        stems: false
+      })
       # Analysis for active inspector track
       |> assign(:inspector_analysis, nil)
       # Crate management UI state
@@ -127,7 +133,13 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
   def handle_event("select_crate", %{"id" => id}, socket) do
     crate = CrateDigger.get_crate(id)
-    socket = socket |> assign(:active_crate, crate) |> assign(:inspector_track, nil) |> assign(:inspector_open, false)
+
+    socket =
+      socket
+      |> assign(:active_crate, crate)
+      |> assign(:inspector_track, nil)
+      |> assign(:inspector_open, false)
+
     {:noreply, socket}
   end
 
@@ -150,7 +162,13 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       |> assign(:whosampled_samples, nil)
       |> assign(:whosampled_loading, false)
       |> assign(:whosampled_error, nil)
-      |> assign(:section_open, %{whosampled: false, details: false, lyrics: false, analysis: false, stems: false})
+      |> assign(:section_open, %{
+        whosampled: false,
+        details: false,
+        lyrics: false,
+        analysis: false,
+        stems: false
+      })
 
     {:noreply, socket}
   end
@@ -285,16 +303,19 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
       cond do
         not is_nil(existing) and Music.track_pipeline_complete?(existing) ->
-          {:noreply, put_flash(socket, :info, "\"#{existing.title}\" is already in your library.")}
+          {:noreply,
+           put_flash(socket, :info, "\"#{existing.title}\" is already in your library.")}
 
         not is_nil(existing) ->
-          {:noreply, put_flash(socket, :info, "\"#{existing.title}\" is already being processed.")}
+          {:noreply,
+           put_flash(socket, :info, "\"#{existing.title}\" is already being processed.")}
 
         true ->
           attrs = build_track_attrs(inspector_track, spotify_url, spotify_id, user.id)
 
           with {:ok, track} <- Music.create_track(attrs),
-               {:ok, download_job} <- Music.create_download_job(%{track_id: track.id, status: :queued}) do
+               {:ok, download_job} <-
+                 Music.create_download_job(%{track_id: track.id, status: :queued}) do
             %{
               "track_id" => track.id,
               "spotify_url" => spotify_url,
@@ -453,7 +474,11 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
     {:noreply, assign(socket, :context_menu_track_idx, nil)}
   end
 
-  def handle_event("reorder_track", %{"spotify_id" => spotify_id, "direction" => direction}, socket) do
+  def handle_event(
+        "reorder_track",
+        %{"spotify_id" => spotify_id, "direction" => direction},
+        socket
+      ) do
     crate = socket.assigns.active_crate
 
     case crate do
@@ -465,23 +490,33 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
         new_tracks =
           case {idx, direction} do
-            {nil, _} -> tracks
-            {0, "up"} -> tracks
+            {nil, _} ->
+              tracks
+
+            {0, "up"} ->
+              tracks
+
             {i, "up"} when i > 0 ->
               {a, b} = {Enum.at(tracks, i - 1), Enum.at(tracks, i)}
               tracks |> List.replace_at(i - 1, b) |> List.replace_at(i, a)
+
             {i, "down"} when i < length(tracks) - 1 ->
               {a, b} = {Enum.at(tracks, i), Enum.at(tracks, i + 1)}
               tracks |> List.replace_at(i, b) |> List.replace_at(i + 1, a)
-            _ -> tracks
+
+            _ ->
+              tracks
           end
 
         case CrateDigger.update_crate(crate, %{playlist_data: new_tracks}) do
           {:ok, updated} ->
-            crates = Enum.map(socket.assigns.crates, fn c ->
-              if c.id == updated.id, do: updated, else: c
-            end)
+            crates =
+              Enum.map(socket.assigns.crates, fn c ->
+                if c.id == updated.id, do: updated, else: c
+              end)
+
             {:noreply, socket |> assign(:active_crate, updated) |> assign(:crates, crates)}
+
           {:error, _} ->
             {:noreply, socket}
         end
@@ -501,7 +536,13 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
         track =
           existing ||
-            with attrs = build_track_attrs(socket.assigns.inspector_track, spotify_url, spotify_id, user.id),
+            with attrs =
+                   build_track_attrs(
+                     socket.assigns.inspector_track,
+                     spotify_url,
+                     spotify_id,
+                     user.id
+                   ),
                  {:ok, t} <- Music.create_track(attrs) do
               t
             else
@@ -584,7 +625,10 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
           socket
           |> assign(:now_playing_id, t["spotify_id"])
           |> assign(:playback_state, :playing)
-          |> push_event("crate_play_track", %{spotify_id: t["spotify_id"], preview_url: preview_url})
+          |> push_event("crate_play_track", %{
+            spotify_id: t["spotify_id"],
+            preview_url: preview_url
+          })
 
         {:noreply, socket}
     end
@@ -644,15 +688,29 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
   def handle_event("set_profile_field", %{"field" => field, "value" => value}, socket) do
     draft =
       case field do
-        "bpm_min" -> Map.put(socket.assigns.profile_wizard_draft, "bpm_min", parse_int(value, 120))
-        "bpm_max" -> Map.put(socket.assigns.profile_wizard_draft, "bpm_max", parse_int(value, 140))
-        "energy_level" -> Map.put(socket.assigns.profile_wizard_draft, "energy_level", parse_int(value, 70))
-        "mood_tags" -> Map.put(socket.assigns.profile_wizard_draft, "mood_tags", String.split(value, ",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == "")))
+        "bpm_min" ->
+          Map.put(socket.assigns.profile_wizard_draft, "bpm_min", parse_int(value, 120))
+
+        "bpm_max" ->
+          Map.put(socket.assigns.profile_wizard_draft, "bpm_max", parse_int(value, 140))
+
+        "energy_level" ->
+          Map.put(socket.assigns.profile_wizard_draft, "energy_level", parse_int(value, 70))
+
+        "mood_tags" ->
+          Map.put(
+            socket.assigns.profile_wizard_draft,
+            "mood_tags",
+            String.split(value, ",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+          )
+
         "toggle_key" ->
           keys = socket.assigns.profile_wizard_draft["key_preferences"] || []
           updated = if value in keys, do: List.delete(keys, value), else: [value | keys]
           Map.put(socket.assigns.profile_wizard_draft, "key_preferences", updated)
-        _ -> socket.assigns.profile_wizard_draft
+
+        _ ->
+          socket.assigns.profile_wizard_draft
       end
 
     {:noreply, assign(socket, :profile_wizard_draft, draft)}
@@ -676,9 +734,11 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
       case CrateDigger.update_crate(crate, %{crate_profile: profile}) do
         {:ok, updated_crate} ->
-          crates = Enum.map(socket.assigns.crates, fn c ->
-            if c.id == updated_crate.id, do: updated_crate, else: c
-          end)
+          crates =
+            Enum.map(socket.assigns.crates, fn c ->
+              if c.id == updated_crate.id, do: updated_crate, else: c
+            end)
+
           {:noreply,
            socket
            |> assign(:active_crate, updated_crate)
@@ -756,11 +816,20 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       blend = assignments |> Enum.reject(fn {_s, v} -> v == "own" end) |> Map.new()
 
       stem_override = %{
-        "enabled_stems" => if(Enum.empty?(enabled_stems), do: ["vocals", "drums", "bass", "other"], else: ["vocals", "drums", "bass", "other"]),
+        "enabled_stems" =>
+          if(Enum.empty?(enabled_stems),
+            do: ["vocals", "drums", "bass", "other"],
+            else: ["vocals", "drums", "bass", "other"]
+          ),
         "blend_assignments" => blend
       }
 
-      CrateDigger.set_track_stem_override(crate.id, spotify_track_id, stem_override["enabled_stems"])
+      CrateDigger.set_track_stem_override(
+        crate.id,
+        spotify_track_id,
+        stem_override["enabled_stems"]
+      )
+
       {:noreply, assign(socket, :stem_lab_assignments, assignments)}
     else
       {:noreply, socket}
@@ -844,7 +913,11 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
       {:noreply,
        socket
-       |> push_event("download_file", %{filename: filename, content: json, mime: "application/json"})}
+       |> push_event("download_file", %{
+         filename: filename,
+         content: json,
+         mime: "application/json"
+       })}
     else
       {:noreply, socket}
     end
@@ -858,7 +931,12 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
       rows =
         Enum.map_join(crate.playlist_data, "\n", fn t ->
-          [t["title"] || "", t["artist"] || "", t["spotify_id"] || "", to_string(t["duration_ms"] || "")]
+          [
+            t["title"] || "",
+            t["artist"] || "",
+            t["spotify_id"] || "",
+            to_string(t["duration_ms"] || "")
+          ]
           |> Enum.map(&("\"" <> String.replace(&1, "\"", "\"\"") <> "\""))
           |> Enum.join(",")
         end)
@@ -1117,6 +1195,7 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
       id: "global-midi-bar",
       midi_event: {port_id, msg}
     )
+
     {:noreply, socket}
   end
 
@@ -1307,13 +1386,15 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
         pipelines={@pipelines}
         refreshing_midi={@refreshing_midi}
       />
-
-      <!-- Main layout -->
+      
+    <!-- Main layout -->
       <div class="flex flex-1 overflow-hidden relative">
         <!-- Left panel: crate list + import -->
         <aside class="w-64 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col overflow-hidden">
           <div class="px-4 pt-4 pb-3 border-b border-gray-800 shrink-0">
-            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Import Playlist</h2>
+            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Import Playlist
+            </h2>
             <form phx-submit="import_playlist" phx-change="update_playlist_url" class="space-y-2">
               <input
                 type="text"
@@ -1328,24 +1409,33 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                 class="w-full px-3 py-1.5 text-xs font-medium bg-purple-600 hover:bg-purple-500 rounded text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={@playlist_loading or @playlist_url == ""}
               >
-                <%= if @playlist_loading, do: "Loading...", else: "Import" %>
+                {if @playlist_loading, do: "Loading...", else: "Import"}
               </button>
             </form>
             <p :if={@playlist_error} class="mt-2 text-xs text-red-400">{@playlist_error}</p>
             <div class="mt-2 pt-2 border-t border-gray-800/50">
-              <button phx-click="open_playlist_browser"
-                class="w-full text-[10px] py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors flex items-center justify-center gap-1">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+              <button
+                phx-click="open_playlist_browser"
+                class="w-full text-[10px] py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors flex items-center justify-center gap-1"
+              >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 6h16M4 12h16M4 18h7"
+                  />
+                </svg>
                 Browse My Spotify Library
               </button>
             </div>
           </div>
-
-          <!-- Crate list -->
+          
+    <!-- Crate list -->
           <div class="flex-1 overflow-y-auto py-2">
             <!-- Empty state -->
             <div :if={@crates == []} class="px-4 py-8 text-center">
-              <%= vinyl_icon_lg() %>
+              {vinyl_icon_lg()}
               <p class="mt-3 text-xs text-gray-500">Import a Spotify playlist to start digging</p>
             </div>
 
@@ -1353,7 +1443,11 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
               <li :for={crate <- @crates} class="group/crate">
                 <!-- Rename mode -->
                 <div :if={@rename_crate_id == crate.id} class="flex items-center gap-1 px-1 py-1">
-                  <form phx-submit="save_rename_crate" phx-change="update_rename_crate" class="flex-1 flex gap-1">
+                  <form
+                    phx-submit="save_rename_crate"
+                    phx-change="update_rename_crate"
+                    class="flex-1 flex gap-1"
+                  >
                     <input
                       type="text"
                       name="name"
@@ -1361,14 +1455,30 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                       autofocus
                       class="flex-1 min-w-0 px-2 py-1 text-xs bg-gray-800 border border-purple-500 rounded text-gray-200 focus:outline-none"
                     />
-                    <button type="submit" class="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-500 rounded text-white shrink-0">✓</button>
+                    <button
+                      type="submit"
+                      class="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-500 rounded text-white shrink-0"
+                    >
+                      ✓
+                    </button>
                   </form>
-                  <button phx-click="cancel_rename_crate" class="p-1 text-gray-500 hover:text-white transition-colors">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  <button
+                    phx-click="cancel_rename_crate"
+                    class="p-1 text-gray-500 hover:text-white transition-colors"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
-
-                <!-- Normal row -->
+                
+    <!-- Normal row -->
                 <div :if={@rename_crate_id != crate.id} class="flex items-center rounded">
                   <button
                     phx-click="select_crate"
@@ -1381,14 +1491,14 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                       )
                     ]}
                   >
-                    <%= vinyl_icon_sm() %>
+                    {vinyl_icon_sm()}
                     <div class="flex-1 min-w-0">
                       <p class="font-medium truncate">{crate.name}</p>
                       <p class="text-gray-600 truncate">{length(crate.playlist_data || [])} tracks</p>
                     </div>
                   </button>
-
-                  <!-- Action buttons (visible on hover) -->
+                  
+    <!-- Action buttons (visible on hover) -->
                   <div class="flex items-center gap-0 shrink-0 opacity-0 group-hover/crate:opacity-100 transition-opacity">
                     <button
                       phx-click="refresh_crate"
@@ -1397,8 +1507,21 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                       disabled={@crate_refreshing_id == crate.id}
                       class="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-gray-800 transition-colors disabled:opacity-40"
                     >
-                      <svg class={["w-3 h-3", if(@crate_refreshing_id == crate.id, do: "animate-spin", else: "")]} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                      <svg
+                        class={[
+                          "w-3 h-3",
+                          if(@crate_refreshing_id == crate.id, do: "animate-spin", else: "")
+                        ]}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
                       </svg>
                     </button>
                     <button
@@ -1408,8 +1531,18 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                       title="Rename"
                       class="p-1.5 text-gray-500 hover:text-purple-400 hover:bg-gray-800 transition-colors"
                     >
-                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      <svg
+                        class="w-3 h-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
                       </svg>
                     </button>
                     <button
@@ -1418,8 +1551,18 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                       title="Delete crate"
                       class="p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-800 rounded-r transition-colors"
                     >
-                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      <svg
+                        class="w-3 h-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -1428,11 +1571,14 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
             </ul>
           </div>
         </aside>
-
-        <!-- Center panel: track list -->
+        
+    <!-- Center panel: track list -->
         <div class="flex-1 flex flex-col overflow-hidden">
           <!-- Stem config bar -->
-          <div :if={@active_crate} class="flex items-center gap-3 px-4 py-2.5 bg-gray-900/50 border-b border-gray-800 shrink-0">
+          <div
+            :if={@active_crate}
+            class="flex items-center gap-3 px-4 py-2.5 bg-gray-900/50 border-b border-gray-800 shrink-0"
+          >
             <span class="text-xs text-gray-500">Stems:</span>
             <%= for stem <- ["vocals", "drums", "bass", "other"] do %>
               <button
@@ -1453,9 +1599,12 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
               Playing: {Enum.join(@active_crate.stem_config["enabled_stems"] || [], " + ")}
             </span>
           </div>
-
-          <!-- v2: Crate profile badge + wizard trigger + sequence controls -->
-          <div :if={@active_crate} class="flex items-center gap-2 px-4 py-1.5 bg-gray-900/30 border-b border-gray-800/60 shrink-0">
+          
+    <!-- v2: Crate profile badge + wizard trigger + sequence controls -->
+          <div
+            :if={@active_crate}
+            class="flex items-center gap-2 px-4 py-1.5 bg-gray-900/30 border-b border-gray-800/60 shrink-0"
+          >
             <%!-- Profile badge --%>
             <% profile = @active_crate.crate_profile || %{} %>
             <span class={[
@@ -1486,7 +1635,10 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                   phx-value-arc={arc}
                   class={[
                     "text-[9px] px-1.5 py-0.5 rounded transition-colors",
-                    if(@sequence_arc == arc, do: "bg-purple-700 text-purple-200", else: "bg-gray-800 text-gray-500 hover:bg-gray-700")
+                    if(@sequence_arc == arc,
+                      do: "bg-purple-700 text-purple-200",
+                      else: "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                    )
                   ]}
                 >
                   {label}
@@ -1508,8 +1660,8 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
               </button>
             </div>
           </div>
-
-          <!-- Import Spotify Playlist into active crate -->
+          
+    <!-- Import Spotify Playlist into active crate -->
           <div :if={@active_crate} class="px-4 py-2 border-b border-gray-800/50 shrink-0">
             <form
               phx-submit="import_spotify_playlist"
@@ -1529,14 +1681,19 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                 disabled={@importing_playlist or @playlist_import_url == ""}
                 class="shrink-0 px-3 py-1 text-xs font-medium bg-green-700 hover:bg-green-600 rounded text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <%= if @importing_playlist, do: "Importing...", else: "Add Tracks" %>
+                {if @importing_playlist, do: "Importing...", else: "Add Tracks"}
               </button>
             </form>
-            <p :if={@playlist_import_error} class="mt-1 text-[10px] text-red-400">{@playlist_import_error}</p>
+            <p :if={@playlist_import_error} class="mt-1 text-[10px] text-red-400">
+              {@playlist_import_error}
+            </p>
           </div>
-
-          <!-- Track filter bar -->
-          <div :if={@active_crate && length(@active_crate.playlist_data || []) > 5} class="px-4 py-2 border-b border-gray-800 shrink-0">
+          
+    <!-- Track filter bar -->
+          <div
+            :if={@active_crate && length(@active_crate.playlist_data || []) > 5}
+            class="px-4 py-2 border-b border-gray-800 shrink-0"
+          >
             <form phx-change="filter_tracks">
               <input
                 type="text"
@@ -1548,16 +1705,19 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
               />
             </form>
           </div>
-
-          <!-- Track list -->
+          
+    <!-- Track list -->
           <div class="flex-1 overflow-y-auto" id="crate-track-list" phx-click="close_context_menu">
             <!-- No active crate -->
-            <div :if={is_nil(@active_crate)} class="flex flex-col items-center justify-center h-full text-center px-8">
-              <%= vinyl_icon_lg() %>
+            <div
+              :if={is_nil(@active_crate)}
+              class="flex flex-col items-center justify-center h-full text-center px-8"
+            >
+              {vinyl_icon_lg()}
               <p class="mt-4 text-gray-500 text-sm">Select a crate to view tracks</p>
             </div>
-
-            <!-- Skeleton loading -->
+            
+    <!-- Skeleton loading -->
             <div :if={@active_crate && @playlist_loading} class="divide-y divide-gray-800">
               <%= for _i <- 1..6 do %>
                 <div class="flex items-center gap-3 px-4 py-3 animate-pulse">
@@ -1570,18 +1730,26 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                 </div>
               <% end %>
             </div>
-
-            <!-- Track rows -->
+            
+    <!-- Track rows -->
             <div :if={@active_crate && not @playlist_loading} class="divide-y divide-gray-800/50">
               <% filtered = filter_tracks(@active_crate.playlist_data || [], @track_filter) %>
-              <div :if={filtered == []} class="flex flex-col items-center justify-center py-16 text-center px-8">
+              <div
+                :if={filtered == []}
+                class="flex flex-col items-center justify-center py-16 text-center px-8"
+              >
                 <p class="text-gray-500 text-sm">
-                  <%= if @track_filter != "", do: "No tracks match "#{@track_filter}"", else: "No tracks in this playlist" %>
+                  {# {@track_filter}"", else: "No tracks in this playlist"
+                  if @track_filter != "", do: "No tracks match "}
                 </p>
               </div>
 
               <%= for {track, idx} <- Enum.with_index(filtered) do %>
-                <% original_idx = Enum.find_index(@active_crate.playlist_data || [], &(&1["spotify_id"] == track["spotify_id"])) || idx %>
+                <% original_idx =
+                  Enum.find_index(
+                    @active_crate.playlist_data || [],
+                    &(&1["spotify_id"] == track["spotify_id"])
+                  ) || idx %>
                 <div class="relative group/track">
                   <div
                     class={[
@@ -1594,157 +1762,289 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                     phx-click="open_inspector"
                     phx-value-index={original_idx}
                   >
-                  <!-- Artwork -->
-                  <div class="w-10 h-10 rounded bg-gray-800 shrink-0 overflow-hidden">
-                    <%= if track["artwork_url"] do %>
-                      <img src={track["artwork_url"]} alt={track["title"]} class="w-full h-full object-cover" />
-                    <% else %>
-                      <div class="w-full h-full flex items-center justify-center text-gray-600">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 3a7 7 0 110 14A7 7 0 0112 5zm0 2a5 5 0 100 10A5 5 0 0012 7zm0 2a3 3 0 110 6A3 3 0 0112 9z"/>
+                    <!-- Artwork -->
+                    <div class="w-10 h-10 rounded bg-gray-800 shrink-0 overflow-hidden">
+                      <%= if track["artwork_url"] do %>
+                        <img
+                          src={track["artwork_url"]}
+                          alt={track["title"]}
+                          class="w-full h-full object-cover"
+                        />
+                      <% else %>
+                        <div class="w-full h-full flex items-center justify-center text-gray-600">
+                          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 3a7 7 0 110 14A7 7 0 0112 5zm0 2a5 5 0 100 10A5 5 0 0012 7zm0 2a3 3 0 110 6A3 3 0 0112 9z" />
+                          </svg>
+                        </div>
+                      <% end %>
+                    </div>
+                    
+    <!-- Track info -->
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-gray-200 truncate">{track["title"]}</p>
+                      <p class="text-xs text-gray-500 truncate">{track["artist"]}</p>
+                    </div>
+                    
+    <!-- Play / stop inline button -->
+                    <%= if @now_playing_id == track["spotify_id"] and @playback_state == :playing do %>
+                      <button
+                        phx-click="stop_preview"
+                        class="p-1.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white transition-colors shrink-0"
+                        title="Stop preview"
+                        onclick="event.stopPropagation()"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                          <rect x="6" y="6" width="4" height="12" rx="1" />
+                          <rect x="14" y="6" width="4" height="12" rx="1" />
                         </svg>
-                      </div>
-                    <% end %>
-                  </div>
-
-                  <!-- Track info -->
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm text-gray-200 truncate">{track["title"]}</p>
-                    <p class="text-xs text-gray-500 truncate">{track["artist"]}</p>
-                  </div>
-
-                  <!-- Play / stop inline button -->
-                  <%= if @now_playing_id == track["spotify_id"] and @playback_state == :playing do %>
-                    <button
-                      phx-click="stop_preview"
-                      class="p-1.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white transition-colors shrink-0"
-                      title="Stop preview"
-                      onclick="event.stopPropagation()"
-                    >
-                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                        <rect x="6" y="6" width="4" height="12" rx="1"/>
-                        <rect x="14" y="6" width="4" height="12" rx="1"/>
-                      </svg>
-                    </button>
-                  <% else %>
-                    <% play_idx = Enum.find_index(@active_crate.playlist_data || [], &(&1["spotify_id"] == track["spotify_id"])) || original_idx %>
-                    <button
-                      :if={track["preview_url"]}
-                      phx-click="play_track_preview"
-                      phx-value-index={play_idx}
-                      class="p-1.5 rounded-full bg-gray-700/60 hover:bg-purple-600 text-gray-400 hover:text-white transition-colors shrink-0 opacity-0 group-hover/track:opacity-100"
-                      title="Preview 30s"
-                      onclick="event.stopPropagation()"
-                    >
-                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                      </svg>
-                    </button>
-                    <div :if={!track["preview_url"]} class="w-7 shrink-0"></div>
-                  <% end %>
-
-                  <!-- Override badge + BPM + key + duration + context menu trigger -->
-                  <% analysis = load_analysis(track["spotify_id"]) %>
-                  <div class="flex items-center gap-2 shrink-0">
-                    <span :if={has_override?(@active_crate, track["spotify_id"])} class="px-1.5 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400 font-medium">
-                      override
-                    </span>
-                    <%= if analysis && analysis.tempo do %>
-                      <span class="text-[10px] text-cyan-500 font-mono tabular-nums w-10 text-right" title="BPM">
-                        {Float.round(analysis.tempo * 1.0, 1)}
-                      </span>
-                    <% end %>
-                    <%= if analysis && analysis.key do %>
-                      <span class="text-[10px] text-purple-400 font-medium w-6 text-center" title="Key">
-                        {analysis.key}
-                      </span>
-                    <% end %>
-                    <span :if={analysis} class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Analysis available"></span>
-                    <span class="text-xs text-gray-600 tabular-nums">{format_duration(track["duration_ms"])}</span>
-                    <!-- Reorder buttons -->
-                    <div class="flex flex-col gap-0" onclick="event.stopPropagation()">
-                      <button
-                        :if={original_idx > 0}
-                        phx-click="reorder_track"
-                        phx-value-spotify_id={track["spotify_id"]}
-                        phx-value-direction="up"
-                        class="p-0.5 rounded opacity-0 group-hover/track:opacity-100 transition-opacity text-gray-600 hover:text-gray-300 hover:bg-gray-700"
-                        title="Move up"
-                        onclick="event.stopPropagation()"
-                      >
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5l-7 7h14z"/></svg>
                       </button>
+                    <% else %>
+                      <% play_idx =
+                        Enum.find_index(
+                          @active_crate.playlist_data || [],
+                          &(&1["spotify_id"] == track["spotify_id"])
+                        ) || original_idx %>
                       <button
-                        :if={original_idx < length((@active_crate.playlist_data || [])) - 1}
-                        phx-click="reorder_track"
-                        phx-value-spotify_id={track["spotify_id"]}
-                        phx-value-direction="down"
-                        class="p-0.5 rounded opacity-0 group-hover/track:opacity-100 transition-opacity text-gray-600 hover:text-gray-300 hover:bg-gray-700"
-                        title="Move down"
+                        :if={track["preview_url"]}
+                        phx-click="play_track_preview"
+                        phx-value-index={play_idx}
+                        class="p-1.5 rounded-full bg-gray-700/60 hover:bg-purple-600 text-gray-400 hover:text-white transition-colors shrink-0 opacity-0 group-hover/track:opacity-100"
+                        title="Preview 30s"
                         onclick="event.stopPropagation()"
                       >
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 19l7-7H5z"/></svg>
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </button>
+                      <div :if={!track["preview_url"]} class="w-7 shrink-0"></div>
+                    <% end %>
+                    
+    <!-- Override badge + BPM + key + duration + context menu trigger -->
+                    <% analysis = load_analysis(track["spotify_id"]) %>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <span
+                        :if={has_override?(@active_crate, track["spotify_id"])}
+                        class="px-1.5 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400 font-medium"
+                      >
+                        override
+                      </span>
+                      <%= if analysis && analysis.tempo do %>
+                        <span
+                          class="text-[10px] text-cyan-500 font-mono tabular-nums w-10 text-right"
+                          title="BPM"
+                        >
+                          {Float.round(analysis.tempo * 1.0, 1)}
+                        </span>
+                      <% end %>
+                      <%= if analysis && analysis.key do %>
+                        <span
+                          class="text-[10px] text-purple-400 font-medium w-6 text-center"
+                          title="Key"
+                        >
+                          {analysis.key}
+                        </span>
+                      <% end %>
+                      <span
+                        :if={analysis}
+                        class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"
+                        title="Analysis available"
+                      >
+                      </span>
+                      <span class="text-xs text-gray-600 tabular-nums">
+                        {format_duration(track["duration_ms"])}
+                      </span>
+                      <!-- Reorder buttons -->
+                      <div class="flex flex-col gap-0" onclick="event.stopPropagation()">
+                        <button
+                          :if={original_idx > 0}
+                          phx-click="reorder_track"
+                          phx-value-spotify_id={track["spotify_id"]}
+                          phx-value-direction="up"
+                          class="p-0.5 rounded opacity-0 group-hover/track:opacity-100 transition-opacity text-gray-600 hover:text-gray-300 hover:bg-gray-700"
+                          title="Move up"
+                          onclick="event.stopPropagation()"
+                        >
+                          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 5l-7 7h14z" />
+                          </svg>
+                        </button>
+                        <button
+                          :if={original_idx < length(@active_crate.playlist_data || []) - 1}
+                          phx-click="reorder_track"
+                          phx-value-spotify_id={track["spotify_id"]}
+                          phx-value-direction="down"
+                          class="p-0.5 rounded opacity-0 group-hover/track:opacity-100 transition-opacity text-gray-600 hover:text-gray-300 hover:bg-gray-700"
+                          title="Move down"
+                          onclick="event.stopPropagation()"
+                        >
+                          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 19l7-7H5z" />
+                          </svg>
+                        </button>
+                      </div>
+                      <!-- Three-dot context menu button -->
+                      <button
+                        phx-click="open_context_menu"
+                        phx-value-index={original_idx}
+                        class="p-1 rounded text-gray-500 hover:text-white hover:bg-gray-700 transition-colors"
+                        title="Track options"
+                        onclick="event.stopPropagation()"
+                      >
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                        </svg>
                       </button>
                     </div>
-                  <!-- Three-dot context menu button -->
-                    <button
-                      phx-click="open_context_menu"
-                      phx-value-index={original_idx}
-                      class="p-1 rounded text-gray-500 hover:text-white hover:bg-gray-700 transition-colors"
-                      title="Track options"
-                      onclick="event.stopPropagation()"
-                    >
-                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-                      </svg>
-                    </button>
                   </div>
-                  </div>
-
-                  <!-- Context menu dropdown -->
+                  
+    <!-- Context menu dropdown -->
                   <div
                     :if={@context_menu_track_idx == original_idx}
                     class="absolute right-2 top-full mt-0.5 z-50 w-52 bg-gray-800 rounded-lg shadow-2xl border border-gray-700 py-1"
                     onclick="event.stopPropagation()"
                   >
-                    <button phx-click="load_in_tab" phx-value-tab="daw" phx-value-spotify_id={track["spotify_id"]}
-                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
-                      <svg class="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+                    <button
+                      phx-click="load_in_tab"
+                      phx-value-tab="daw"
+                      phx-value-spotify_id={track["spotify_id"]}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors"
+                    >
+                      <svg
+                        class="w-3.5 h-3.5 text-purple-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                        />
+                      </svg>
                       Preview in DAW
                     </button>
-                    <button phx-click="open_in_daw_project" phx-value-spotify_id={track["spotify_id"]}
-                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-cyan-300 flex items-center gap-2 transition-colors">
-                      <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10"/></svg>
+                    <button
+                      phx-click="open_in_daw_project"
+                      phx-value-spotify_id={track["spotify_id"]}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-cyan-300 flex items-center gap-2 transition-colors"
+                    >
+                      <svg
+                        class="w-3.5 h-3.5 text-cyan-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10"
+                        />
+                      </svg>
                       Edit in DAW Project
                     </button>
-                    <button phx-click="load_in_tab" phx-value-tab="dj" phx-value-spotify_id={track["spotify_id"]}
-                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
-                      <svg class="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3"/></svg>
+                    <button
+                      phx-click="load_in_tab"
+                      phx-value-tab="dj"
+                      phx-value-spotify_id={track["spotify_id"]}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors"
+                    >
+                      <svg
+                        class="w-3.5 h-3.5 text-blue-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <circle cx="12" cy="12" r="10" /><path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M12 8v4l3 3"
+                        />
+                      </svg>
                       Load in DJ
                     </button>
-                    <button phx-click="load_in_tab" phx-value-tab="pads" phx-value-spotify_id={track["spotify_id"]}
-                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
-                      <svg class="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                    <button
+                      phx-click="load_in_tab"
+                      phx-value-tab="pads"
+                      phx-value-spotify_id={track["spotify_id"]}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors"
+                    >
+                      <svg
+                        class="w-3.5 h-3.5 text-green-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <rect x="3" y="3" width="7" height="7" rx="1" /><rect
+                          x="14"
+                          y="3"
+                          width="7"
+                          height="7"
+                          rx="1"
+                        /><rect x="3" y="14" width="7" height="7" rx="1" /><rect
+                          x="14"
+                          y="14"
+                          width="7"
+                          height="7"
+                          rx="1"
+                        />
+                      </svg>
                       Load in Pads
                     </button>
                     <div class="border-t border-gray-700 my-1"></div>
-                    <button phx-click="load_into_sfa" phx-value-spotify_url={"https://open.spotify.com/track/#{track["spotify_id"]}"}
-                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
-                      <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    <button
+                      phx-click="load_into_sfa"
+                      phx-value-spotify_url={"https://open.spotify.com/track/#{track["spotify_id"]}"}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors"
+                    >
+                      <svg
+                        class="w-3.5 h-3.5 text-amber-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        />
+                      </svg>
                       Download to Library
                     </button>
-                    <button phx-click="redownload_track" phx-value-spotify_url={"https://open.spotify.com/track/#{track["spotify_id"]}"}
-                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors">
-                      <svg class="w-3.5 h-3.5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <button
+                      phx-click="redownload_track"
+                      phx-value-spotify_url={"https://open.spotify.com/track/#{track["spotify_id"]}"}
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors"
+                    >
+                      <svg
+                        class="w-3.5 h-3.5 text-orange-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
                       Re-download
                     </button>
                     <a
                       href={"https://open.spotify.com/track/#{track["spotify_id"]}"}
-                      target="_blank" rel="noopener"
+                      target="_blank"
+                      rel="noopener"
                       class="block px-3 py-2 text-xs hover:bg-gray-700 text-gray-200 flex items-center gap-2 transition-colors"
                       phx-click="close_context_menu"
                     >
-                      <svg class="w-3.5 h-3.5 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                      <svg class="w-3.5 h-3.5 text-green-500" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
+                      </svg>
                       View on Spotify
                     </a>
                   </div>
@@ -1756,31 +2056,53 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
           <%!-- v2: Sequence view (shown when sequence generated) --%>
           <div :if={@crate_sequence} class="border-t border-purple-900/40 bg-gray-950 shrink-0">
             <div class="flex items-center justify-between px-4 py-2 border-b border-gray-800/50">
-              <span class="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">Sequence ({length(@crate_sequence)} tracks — {@sequence_arc})</span>
-              <button phx-click="generate_sequence" class="text-[9px] text-gray-500 hover:text-gray-300">Regenerate</button>
+              <span class="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">
+                Sequence ({length(@crate_sequence)} tracks — {@sequence_arc})
+              </span>
+              <button
+                phx-click="generate_sequence"
+                class="text-[9px] text-gray-500 hover:text-gray-300"
+              >
+                Regenerate
+              </button>
             </div>
             <div class="overflow-x-auto">
               <div class="flex items-center gap-1 px-3 py-2 min-w-0">
                 <%= for {track, i} <- Enum.with_index(@crate_sequence, 1) do %>
                   <div class="flex flex-col items-center shrink-0 w-14">
-                    <% ring_class = cond do
-                         track["_key_compat"] == "compatible" -> "ring-1 ring-green-500/50"
-                         track["_key_compat"] == "close" -> "ring-1 ring-yellow-500/30"
-                         true -> ""
-                       end %>
-                    <div class={["w-10 h-10 rounded bg-gray-800 overflow-hidden shrink-0", ring_class]}>
-                      <img :if={track["artwork_url"]} src={track["artwork_url"]} class="w-full h-full object-cover" />
-                      <div :if={!track["artwork_url"]} class="w-full h-full flex items-center justify-center text-gray-600 text-[8px]">{i}</div>
-                    </div>
-                    <span :if={track["_bpm_delta"]} class={[
-                      "text-[8px] font-mono mt-0.5",
+                    <% ring_class =
                       cond do
-                        track["_bpm_delta"] > 0 -> "text-cyan-500"
-                        track["_bpm_delta"] < 0 -> "text-orange-400"
-                        true -> "text-gray-600"
-                      end
-                    ]}>
-                      {if track["_bpm_delta"] > 0, do: "+#{track["_bpm_delta"]}", else: "#{track["_bpm_delta"]}"} BPM
+                        track["_key_compat"] == "compatible" -> "ring-1 ring-green-500/50"
+                        track["_key_compat"] == "close" -> "ring-1 ring-yellow-500/30"
+                        true -> ""
+                      end %>
+                    <div class={["w-10 h-10 rounded bg-gray-800 overflow-hidden shrink-0", ring_class]}>
+                      <img
+                        :if={track["artwork_url"]}
+                        src={track["artwork_url"]}
+                        class="w-full h-full object-cover"
+                      />
+                      <div
+                        :if={!track["artwork_url"]}
+                        class="w-full h-full flex items-center justify-center text-gray-600 text-[8px]"
+                      >
+                        {i}
+                      </div>
+                    </div>
+                    <span
+                      :if={track["_bpm_delta"]}
+                      class={[
+                        "text-[8px] font-mono mt-0.5",
+                        cond do
+                          track["_bpm_delta"] > 0 -> "text-cyan-500"
+                          track["_bpm_delta"] < 0 -> "text-orange-400"
+                          true -> "text-gray-600"
+                        end
+                      ]}
+                    >
+                      {if track["_bpm_delta"] > 0,
+                        do: "+#{track["_bpm_delta"]}",
+                        else: "#{track["_bpm_delta"]}"} BPM
                     </span>
                   </div>
                   <span :if={i < length(@crate_sequence)} class="text-gray-700 shrink-0">→</span>
@@ -1790,36 +2112,48 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
           </div>
 
           <%!-- v2: Export + analyze toolbar --%>
-          <div :if={@active_crate} class="flex items-center gap-2 px-4 py-2 border-t border-gray-800/60 bg-gray-950 shrink-0">
+          <div
+            :if={@active_crate}
+            class="flex items-center gap-2 px-4 py-2 border-t border-gray-800/60 bg-gray-950 shrink-0"
+          >
             <% health = CrateDigger.crate_health_score(@active_crate) %>
-            <span class={[
-              "text-[9px] px-2 py-0.5 rounded-full font-medium",
-              cond do
-                health > 0.7 -> "bg-green-900/50 text-green-400"
-                health > 0.3 -> "bg-yellow-900/50 text-yellow-400"
-                true -> "bg-red-900/50 text-red-400"
-              end
-            ]} title="Fraction of tracks with analysis data">
+            <span
+              class={[
+                "text-[9px] px-2 py-0.5 rounded-full font-medium",
+                cond do
+                  health > 0.7 -> "bg-green-900/50 text-green-400"
+                  health > 0.3 -> "bg-yellow-900/50 text-yellow-400"
+                  true -> "bg-red-900/50 text-red-400"
+                end
+              ]}
+              title="Fraction of tracks with analysis data"
+            >
               {round(health * 100)}% analyzed
             </span>
-            <button phx-click="analyze_all_tracks"
-              class="text-[9px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors">
+            <button
+              phx-click="analyze_all_tracks"
+              class="text-[9px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors"
+            >
               Analyze All
             </button>
             <div class="ml-auto flex items-center gap-1">
-              <button phx-click="export_crate_json"
-                class="text-[9px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors">
+              <button
+                phx-click="export_crate_json"
+                class="text-[9px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors"
+              >
                 Export JSON
               </button>
-              <button phx-click="export_crate_csv"
-                class="text-[9px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors">
+              <button
+                phx-click="export_crate_csv"
+                class="text-[9px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors"
+              >
                 Export CSV
               </button>
             </div>
           </div>
         </div>
-
-        <!-- Right panel: inspector (slide in/out) -->
+        
+    <!-- Right panel: inspector (slide in/out) -->
         <div
           class={[
             "absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-800 flex flex-col z-30 transition-transform duration-300 ease-in-out",
@@ -1833,10 +2167,16 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
             <div class="flex items-start gap-3 px-4 py-4 border-b border-gray-800 shrink-0">
               <div class="w-12 h-12 rounded bg-gray-800 shrink-0 overflow-hidden">
                 <%= if @inspector_track["artwork_url"] do %>
-                  <img src={@inspector_track["artwork_url"]} alt={@inspector_track["title"]} class="w-full h-full object-cover" />
+                  <img
+                    src={@inspector_track["artwork_url"]}
+                    alt={@inspector_track["title"]}
+                    class="w-full h-full object-cover"
+                  />
                 <% else %>
                   <div class="w-full h-full flex items-center justify-center text-gray-600">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 3a7 7 0 110 14A7 7 0 0112 5zm0 2a5 5 0 100 10A5 5 0 0012 7zm0 2a3 3 0 110 6A3 3 0 0112 9z"/></svg>
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 3a7 7 0 110 14A7 7 0 0112 5zm0 2a5 5 0 100 10A5 5 0 0012 7zm0 2a3 3 0 110 6A3 3 0 0112 9z" />
+                    </svg>
                   </div>
                 <% end %>
               </div>
@@ -1853,13 +2193,16 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                     title="Stop preview"
                   >
                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <rect x="6" y="6" width="4" height="12" rx="1"/>
-                      <rect x="14" y="6" width="4" height="12" rx="1"/>
+                      <rect x="6" y="6" width="4" height="12" rx="1" />
+                      <rect x="14" y="6" width="4" height="12" rx="1" />
                     </svg>
                   </button>
                 <% else %>
                   <% playlist = if @active_crate, do: @active_crate.playlist_data || [], else: [] %>
-                  <% idx = Enum.find_index(playlist, fn t -> t["spotify_id"] == @inspector_track["spotify_id"] end) || 0 %>
+                  <% idx =
+                    Enum.find_index(playlist, fn t ->
+                      t["spotify_id"] == @inspector_track["spotify_id"]
+                    end) || 0 %>
                   <button
                     phx-click="play_track_preview"
                     phx-value-index={idx}
@@ -1867,66 +2210,194 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                     title="Preview 30s"
                   >
                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z"/>
+                      <path d="M8 5v14l11-7z" />
                     </svg>
                   </button>
                 <% end %>
               <% end %>
-              <button phx-click="close_inspector" class="text-gray-500 hover:text-white transition-colors mt-0.5">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <button
+                phx-click="close_inspector"
+                class="text-gray-500 hover:text-white transition-colors mt-0.5"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-
-            <!-- Accordion sections -->
+            
+    <!-- Accordion sections -->
             <div class="flex-1 overflow-y-auto divide-y divide-gray-800">
-
-              <!-- WhoSampled -->
+              
+    <!-- WhoSampled -->
               <div>
-                <button phx-click="toggle_section" phx-value-section="whosampled" class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/30 transition-colors">
+                <button
+                  phx-click="toggle_section"
+                  phx-value-section="whosampled"
+                  class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/30 transition-colors"
+                >
                   WhoSampled
-                  <svg class={["w-4 h-4 text-gray-500 transition-transform", if(@section_open.whosampled, do: "rotate-180", else: "")]} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  <svg
+                    class={[
+                      "w-4 h-4 text-gray-500 transition-transform",
+                      if(@section_open.whosampled, do: "rotate-180", else: "")
+                    ]}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
                 <div :if={@section_open.whosampled} class="px-4 pb-3">
-                  <div :if={@whosampled_loading} class="flex items-center gap-2 py-4 text-gray-500 text-sm">
-                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                  <div
+                    :if={@whosampled_loading}
+                    class="flex items-center gap-2 py-4 text-gray-500 text-sm"
+                  >
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                      /><path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                      />
+                    </svg>
                     Fetching samples...
                   </div>
-                  <div :if={not @whosampled_loading and @whosampled_error == :rate_limited} class="py-4">
+                  <div
+                    :if={not @whosampled_loading and @whosampled_error == :rate_limited}
+                    class="py-4"
+                  >
                     <p class="text-xs text-amber-400">WhoSampled is rate-limiting requests.</p>
-                    <button phx-click="toggle_section" phx-value-section="whosampled" class="mt-2 text-xs text-purple-400 hover:text-purple-300">Retry</button>
+                    <button
+                      phx-click="toggle_section"
+                      phx-value-section="whosampled"
+                      class="mt-2 text-xs text-purple-400 hover:text-purple-300"
+                    >
+                      Retry
+                    </button>
                   </div>
-                  <div :if={not @whosampled_loading and @whosampled_error not in [nil, :rate_limited]} class="py-4">
+                  <div
+                    :if={not @whosampled_loading and @whosampled_error not in [nil, :rate_limited]}
+                    class="py-4"
+                  >
                     <p class="text-xs text-red-400">Failed to load sample data.</p>
-                    <button phx-click="toggle_section" phx-value-section="whosampled" class="mt-2 text-xs text-purple-400 hover:text-purple-300">Retry</button>
+                    <button
+                      phx-click="toggle_section"
+                      phx-value-section="whosampled"
+                      class="mt-2 text-xs text-purple-400 hover:text-purple-300"
+                    >
+                      Retry
+                    </button>
                   </div>
-                  <p :if={not @whosampled_loading and is_nil(@whosampled_error) and @whosampled_samples == []} class="py-4 text-xs text-gray-500">No sample data found on WhoSampled.</p>
-                  <p :if={not @whosampled_loading and is_nil(@whosampled_samples) and is_nil(@whosampled_error)} class="py-4 text-xs text-gray-500">Expand to load sample data.</p>
-                  <div :if={not @whosampled_loading and is_list(@whosampled_samples) and @whosampled_samples != []} class="space-y-3 py-2">
-                    <div :for={sample <- @whosampled_samples} class="rounded-md bg-gray-800/50 p-3 space-y-1.5">
+                  <p
+                    :if={
+                      not @whosampled_loading and is_nil(@whosampled_error) and
+                        @whosampled_samples == []
+                    }
+                    class="py-4 text-xs text-gray-500"
+                  >
+                    No sample data found on WhoSampled.
+                  </p>
+                  <p
+                    :if={
+                      not @whosampled_loading and is_nil(@whosampled_samples) and
+                        is_nil(@whosampled_error)
+                    }
+                    class="py-4 text-xs text-gray-500"
+                  >
+                    Expand to load sample data.
+                  </p>
+                  <div
+                    :if={
+                      not @whosampled_loading and is_list(@whosampled_samples) and
+                        @whosampled_samples != []
+                    }
+                    class="space-y-3 py-2"
+                  >
+                    <div
+                      :for={sample <- @whosampled_samples}
+                      class="rounded-md bg-gray-800/50 p-3 space-y-1.5"
+                    >
                       <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
                           <p class="text-sm font-medium text-gray-200 truncate">{sample["title"]}</p>
-                          <p class="text-xs text-gray-400">{sample["artist"]}{if sample["year"], do: " · #{sample["year"]}", else: ""}</p>
+                          <p class="text-xs text-gray-400">
+                            {sample["artist"]}{if sample["year"], do: " · #{sample["year"]}", else: ""}
+                          </p>
                         </div>
-                        <span class={["px-1.5 py-0.5 rounded text-xs font-medium shrink-0", sample_type_class(sample["sample_type"])]}>{sample["sample_type"]}</span>
+                        <span class={[
+                          "px-1.5 py-0.5 rounded text-xs font-medium shrink-0",
+                          sample_type_class(sample["sample_type"])
+                        ]}>
+                          {sample["sample_type"]}
+                        </span>
                       </div>
                       <div class="flex items-center gap-2">
-                        <a :if={sample["spotify_url"]} href={sample["spotify_url"]} target="_blank" rel="noopener" class="text-xs text-green-400 hover:text-green-300">Spotify</a>
-                        <a :if={sample["youtube_url"]} href={sample["youtube_url"]} target="_blank" rel="noopener" class="text-xs text-red-400 hover:text-red-300">YouTube</a>
-                        <button :if={sample["spotify_url"]} phx-click="load_into_sfa" phx-value-spotify_url={sample["spotify_url"]} class="ml-auto text-xs text-purple-400 hover:text-purple-300">Load into SFA</button>
+                        <a
+                          :if={sample["spotify_url"]}
+                          href={sample["spotify_url"]}
+                          target="_blank"
+                          rel="noopener"
+                          class="text-xs text-green-400 hover:text-green-300"
+                        >
+                          Spotify
+                        </a>
+                        <a
+                          :if={sample["youtube_url"]}
+                          href={sample["youtube_url"]}
+                          target="_blank"
+                          rel="noopener"
+                          class="text-xs text-red-400 hover:text-red-300"
+                        >
+                          YouTube
+                        </a>
+                        <button
+                          :if={sample["spotify_url"]}
+                          phx-click="load_into_sfa"
+                          phx-value-spotify_url={sample["spotify_url"]}
+                          class="ml-auto text-xs text-purple-400 hover:text-purple-300"
+                        >
+                          Load into SFA
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-
-              <!-- Track Details -->
+              
+    <!-- Track Details -->
               <div>
-                <button phx-click="toggle_section" phx-value-section="details" class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/30 transition-colors">
+                <button
+                  phx-click="toggle_section"
+                  phx-value-section="details"
+                  class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/30 transition-colors"
+                >
                   Track Details
-                  <svg class={["w-4 h-4 text-gray-500 transition-transform", if(@section_open.details, do: "rotate-180", else: "")]} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  <svg
+                    class={[
+                      "w-4 h-4 text-gray-500 transition-transform",
+                      if(@section_open.details, do: "rotate-180", else: "")
+                    ]}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
                 <div :if={@section_open.details} class="px-4 pb-3">
                   <dl class="space-y-2 py-2 text-xs">
@@ -1934,21 +2405,35 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                       <dt class="text-gray-500 shrink-0">Album</dt>
                       <dd class="text-gray-300 text-right">{@inspector_track["album"]}</dd>
                     </div>
-                    <div :if={format_artists(@inspector_track["artists"])} class="flex justify-between gap-2">
+                    <div
+                      :if={format_artists(@inspector_track["artists"])}
+                      class="flex justify-between gap-2"
+                    >
                       <dt class="text-gray-500 shrink-0">Artists</dt>
-                      <dd class="text-gray-300 text-right">{format_artists(@inspector_track["artists"])}</dd>
+                      <dd class="text-gray-300 text-right">
+                        {format_artists(@inspector_track["artists"])}
+                      </dd>
                     </div>
-                    <div :if={format_release_date(@inspector_track["release_date"])} class="flex justify-between gap-2">
+                    <div
+                      :if={format_release_date(@inspector_track["release_date"])}
+                      class="flex justify-between gap-2"
+                    >
                       <dt class="text-gray-500 shrink-0">Released</dt>
-                      <dd class="text-gray-300 text-right">{format_release_date(@inspector_track["release_date"])}</dd>
+                      <dd class="text-gray-300 text-right">
+                        {format_release_date(@inspector_track["release_date"])}
+                      </dd>
                     </div>
                     <div class="flex justify-between gap-2">
                       <dt class="text-gray-500 shrink-0">Duration</dt>
-                      <dd class="text-gray-300 text-right">{format_duration(@inspector_track["duration_ms"])}</dd>
+                      <dd class="text-gray-300 text-right">
+                        {format_duration(@inspector_track["duration_ms"])}
+                      </dd>
                     </div>
                     <div class="flex justify-between gap-2">
                       <dt class="text-gray-500 shrink-0">Explicit</dt>
-                      <dd class="text-gray-300 text-right">{if @inspector_track["explicit"], do: "Yes", else: "No"}</dd>
+                      <dd class="text-gray-300 text-right">
+                        {if @inspector_track["explicit"], do: "Yes", else: "No"}
+                      </dd>
                     </div>
                     <div :if={@inspector_track["popularity"]} class="flex justify-between gap-2">
                       <dt class="text-gray-500 shrink-0">Popularity</dt>
@@ -1957,12 +2442,27 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                   </dl>
                 </div>
               </div>
-
-              <!-- Lyrics -->
+              
+    <!-- Lyrics -->
               <div>
-                <button phx-click="toggle_section" phx-value-section="lyrics" class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/30 transition-colors">
+                <button
+                  phx-click="toggle_section"
+                  phx-value-section="lyrics"
+                  class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/30 transition-colors"
+                >
                   Lyrics
-                  <svg class={["w-4 h-4 text-gray-500 transition-transform", if(@section_open.lyrics, do: "rotate-180", else: "")]} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  <svg
+                    class={[
+                      "w-4 h-4 text-gray-500 transition-transform",
+                      if(@section_open.lyrics, do: "rotate-180", else: "")
+                    ]}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
                 <div :if={@section_open.lyrics} class="px-4 pb-3 py-2">
                   <a
@@ -1971,33 +2471,68 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                     rel="noopener"
                     class="flex items-center gap-2 text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
                   >
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+                    </svg>
                     View on Genius
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    <svg
+                      class="w-3 h-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
+                    </svg>
                   </a>
                 </div>
               </div>
-
-              <!-- Analysis -->
+              
+    <!-- Analysis -->
               <div>
-                <button phx-click="toggle_section" phx-value-section="analysis" class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/30 transition-colors">
+                <button
+                  phx-click="toggle_section"
+                  phx-value-section="analysis"
+                  class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/30 transition-colors"
+                >
                   Analysis
-                  <svg class={["w-4 h-4 text-gray-500 transition-transform", if(@section_open.analysis, do: "rotate-180", else: "")]} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  <svg
+                    class={[
+                      "w-4 h-4 text-gray-500 transition-transform",
+                      if(@section_open.analysis, do: "rotate-180", else: "")
+                    ]}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
                 <div :if={@section_open.analysis} class="px-4 pb-3">
                   <%= if @inspector_analysis do %>
                     <dl class="space-y-3 py-2 text-xs">
                       <div :if={format_bpm(@inspector_analysis)} class="flex justify-between gap-2">
-                        <dt class="text-gray-500">BPM</dt><dd class="text-gray-300">{format_bpm(@inspector_analysis)}</dd>
+                        <dt class="text-gray-500">BPM</dt>
+                        <dd class="text-gray-300">{format_bpm(@inspector_analysis)}</dd>
                       </div>
                       <div :if={format_key(@inspector_analysis)} class="flex justify-between gap-2">
-                        <dt class="text-gray-500">Key</dt><dd class="text-gray-300">{format_key(@inspector_analysis)}</dd>
+                        <dt class="text-gray-500">Key</dt>
+                        <dd class="text-gray-300">{format_key(@inspector_analysis)}</dd>
                       </div>
                       <div>
                         <dt class="text-gray-500 mb-1">Energy</dt>
                         <dd>
                           <div class="w-full bg-gray-800 rounded-full h-1.5">
-                            <div class="bg-purple-500 h-1.5 rounded-full" style={"width: #{format_energy_pct(@inspector_analysis)}%"}></div>
+                            <div
+                              class="bg-purple-500 h-1.5 rounded-full"
+                              style={"width: #{format_energy_pct(@inspector_analysis)}%"}
+                            >
+                            </div>
                           </div>
                         </dd>
                       </div>
@@ -2005,7 +2540,16 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                         <dt class="text-gray-500 mb-1.5">Stems</dt>
                         <dd>
                           <div class="grid grid-cols-4 gap-1.5 text-center text-xs">
-                            <div :for={stem <- ["vocals", "drums", "bass", "other"]} class={["rounded px-1 py-1.5", if(stem_available?(@inspector_analysis, stem), do: "bg-green-900/40 text-green-400", else: "bg-gray-800 text-gray-600")]}>
+                            <div
+                              :for={stem <- ["vocals", "drums", "bass", "other"]}
+                              class={[
+                                "rounded px-1 py-1.5",
+                                if(stem_available?(@inspector_analysis, stem),
+                                  do: "bg-green-900/40 text-green-400",
+                                  else: "bg-gray-800 text-gray-600"
+                                )
+                              ]}
+                            >
                               {stem}
                             </div>
                           </div>
@@ -2017,44 +2561,83 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                       <p class="text-xs text-gray-500 mb-3">No analysis data available.</p>
                       <%= if find_sfa_track(@inspector_track["spotify_id"]) do %>
                         <% sfa_track = find_sfa_track(@inspector_track["spotify_id"]) %>
-                        <button phx-click="trigger_analysis" phx-value-track_id={sfa_track.id} class="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 rounded text-white transition-colors">
+                        <button
+                          phx-click="trigger_analysis"
+                          phx-value-track_id={sfa_track.id}
+                          class="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 rounded text-white transition-colors"
+                        >
                           Trigger Analysis
                         </button>
                       <% else %>
-                        <p class="text-xs text-gray-600">Track not in SFA library yet. Download it first.</p>
+                        <p class="text-xs text-gray-600">
+                          Track not in SFA library yet. Download it first.
+                        </p>
                       <% end %>
                     </div>
                   <% end %>
                 </div>
               </div>
-
-              <!-- Per-track stem override -->
+              
+    <!-- Per-track stem override -->
               <div>
-                <button phx-click="toggle_section" phx-value-section="stems" class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/30 transition-colors">
+                <button
+                  phx-click="toggle_section"
+                  phx-value-section="stems"
+                  class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/30 transition-colors"
+                >
                   Stem Override
-                  <svg class={["w-4 h-4 text-gray-500 transition-transform", if(@section_open.stems, do: "rotate-180", else: "")]} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  <svg
+                    class={[
+                      "w-4 h-4 text-gray-500 transition-transform",
+                      if(@section_open.stems, do: "rotate-180", else: "")
+                    ]}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
                 <div :if={@section_open.stems and @active_crate} class="px-4 pb-3 py-2 space-y-3">
                   <% override = get_track_override(@active_crate, @inspector_track["spotify_id"]) %>
-                  <% effective = override || @active_crate.stem_config["enabled_stems"] || ["vocals", "drums", "bass", "other"] %>
+                  <% effective =
+                    override || @active_crate.stem_config["enabled_stems"] ||
+                      ["vocals", "drums", "bass", "other"] %>
                   <% is_overridden = not is_nil(override) %>
                   <p class="text-xs text-gray-500">
-                    <span :if={is_overridden} class="text-amber-400 font-medium">Per-track override active.</span>
-                    <span :if={not is_overridden}>Using playlist default. Toggle stems to override.</span>
+                    <span :if={is_overridden} class="text-amber-400 font-medium">
+                      Per-track override active.
+                    </span>
+                    <span :if={not is_overridden}>
+                      Using playlist default. Toggle stems to override.
+                    </span>
                   </p>
                   <div class="flex flex-wrap gap-1.5">
-                    <button :for={stem <- ["vocals", "drums", "bass", "other"]}
+                    <button
+                      :for={stem <- ["vocals", "drums", "bass", "other"]}
                       phx-click="toggle_track_stem"
                       phx-value-stem={stem}
-                      class={["px-2.5 py-1 rounded text-xs font-medium transition-colors",
+                      class={[
+                        "px-2.5 py-1 rounded text-xs font-medium transition-colors",
                         if(stem in effective,
-                          do: if(is_overridden, do: "bg-amber-600 text-white", else: "bg-purple-600 text-white"),
+                          do:
+                            if(is_overridden,
+                              do: "bg-amber-600 text-white",
+                              else: "bg-purple-600 text-white"
+                            ),
                           else: "bg-gray-800 text-gray-500 hover:bg-gray-700"
                         )
                       ]}
-                    >{stem}</button>
+                    >
+                      {stem}
+                    </button>
                   </div>
-                  <button :if={is_overridden} phx-click="clear_track_override" class="text-xs text-gray-400 hover:text-white transition-colors">
+                  <button
+                    :if={is_overridden}
+                    phx-click="clear_track_override"
+                    class="text-xs text-gray-400 hover:text-white transition-colors"
+                  >
                     Reset to playlist default
                   </button>
                 </div>
@@ -2064,29 +2647,50 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
               <div class="border-t border-gray-800/60">
                 <div class="px-4 py-2.5 flex items-center justify-between">
                   <span class="text-xs font-medium text-gray-400">Stem Lab</span>
-                  <button phx-click="reset_stem_lab" class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors">Reset All</button>
+                  <button
+                    phx-click="reset_stem_lab"
+                    class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                  >
+                    Reset All
+                  </button>
                 </div>
                 <div :if={@active_crate && @inspector_track} class="px-4 pb-3 space-y-1.5">
-                  <p class="text-[10px] text-gray-600 mb-2">Swap stems between tracks in this crate:</p>
+                  <p class="text-[10px] text-gray-600 mb-2">
+                    Swap stems between tracks in this crate:
+                  </p>
                   <% crate_tracks = @active_crate.playlist_data || [] %>
                   <%= for stem <- ["vocals", "drums", "bass", "other"] do %>
                     <% current_donor = Map.get(@stem_lab_assignments, stem, "own") %>
                     <div class="flex items-center gap-2">
                       <span class={[
                         "w-14 shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded text-center",
-                        if(current_donor != "own", do: "bg-purple-900/50 text-purple-300", else: "bg-gray-800 text-gray-500")
+                        if(current_donor != "own",
+                          do: "bg-purple-900/50 text-purple-300",
+                          else: "bg-gray-800 text-gray-500"
+                        )
                       ]}>
                         {String.capitalize(stem)}
-                        <span :if={current_donor != "own"} class="block w-2 h-2 rounded-full bg-purple-400 mx-auto mt-0.5"></span>
+                        <span
+                          :if={current_donor != "own"}
+                          class="block w-2 h-2 rounded-full bg-purple-400 mx-auto mt-0.5"
+                        >
+                        </span>
                       </span>
                       <form phx-change="set_stem_donor" class="flex-1">
                         <input type="hidden" name="stem" value={stem} />
-                        <select name="donor"
-                          class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[9px] text-gray-300 focus:outline-none focus:border-purple-500">
+                        <select
+                          name="donor"
+                          class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[9px] text-gray-300 focus:outline-none focus:border-purple-500"
+                        >
                           <option value="own" selected={current_donor == "own"}>Own</option>
                           <%= for t <- crate_tracks, t["spotify_id"] != @inspector_track["spotify_id"] do %>
                             <% label = "#{t["title"] || "?"}" |> String.slice(0, 28) %>
-                            <option value={t["spotify_id"]} selected={current_donor == t["spotify_id"]}>{label}</option>
+                            <option
+                              value={t["spotify_id"]}
+                              selected={current_donor == t["spotify_id"]}
+                            >
+                              {label}
+                            </option>
                           <% end %>
                         </select>
                       </form>
@@ -2094,17 +2698,17 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                   <% end %>
                 </div>
               </div>
-
             </div>
           <% end %>
         </div>
-
-        <!-- Backdrop for mobile -->
+        
+    <!-- Backdrop for mobile -->
         <div
           :if={@inspector_open}
           class="absolute inset-0 bg-black/50 z-20 md:hidden"
           phx-click="close_inspector"
-        ></div>
+        >
+        </div>
       </div>
       <.live_component
         module={SoundForgeWeb.Live.Components.TransportBarComponent}
@@ -2115,22 +2719,42 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
 
     <!-- Delete crate confirmation modal -->
     <div :if={@confirm_delete_crate_id} class="fixed inset-0 z-50 flex items-center justify-center">
-      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" phx-click="cancel_delete_crate"></div>
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" phx-click="cancel_delete_crate">
+      </div>
       <div class="relative z-10 bg-gray-900 rounded-xl border border-gray-700 p-6 w-80 shadow-2xl">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
-            <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            <svg
+              class="w-4 h-4 text-red-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
           </div>
           <h3 class="text-sm font-semibold text-white">Delete Crate?</h3>
         </div>
-        <p class="text-xs text-gray-400 mb-5">This permanently deletes the crate and all per-track stem overrides. This cannot be undone.</p>
+        <p class="text-xs text-gray-400 mb-5">
+          This permanently deletes the crate and all per-track stem overrides. This cannot be undone.
+        </p>
         <div class="flex gap-2 justify-end">
-          <button phx-click="cancel_delete_crate" class="px-4 py-2 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition-colors">
+          <button
+            phx-click="cancel_delete_crate"
+            class="px-4 py-2 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition-colors"
+          >
             Cancel
           </button>
-          <button phx-click="confirm_delete_crate" phx-value-id={@confirm_delete_crate_id} class="px-4 py-2 text-xs bg-red-600 hover:bg-red-500 rounded text-white font-medium transition-colors">
+          <button
+            phx-click="confirm_delete_crate"
+            phx-value-id={@confirm_delete_crate_id}
+            class="px-4 py-2 text-xs bg-red-600 hover:bg-red-500 rounded text-white font-medium transition-colors"
+          >
             Delete
           </button>
         </div>
@@ -2138,14 +2762,24 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
     </div>
 
     <%!-- v2: Guided Profile Wizard Modal --%>
-    <div :if={@profile_wizard_open} class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div
+      :if={@profile_wizard_open}
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    >
       <div class="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-md mx-4">
         <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-800">
           <h3 class="text-sm font-semibold text-gray-200">Define Crate Profile</h3>
           <div class="flex items-center gap-3">
             <span class="text-xs text-gray-500">Step {@profile_wizard_step}/4</span>
             <button phx-click="close_profile_wizard" class="text-gray-500 hover:text-white">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
           </div>
         </div>
@@ -2158,18 +2792,36 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
                 <label class="text-[10px] text-gray-500 block mb-1">Min BPM</label>
                 <form phx-change="set_profile_field">
                   <input type="hidden" name="field" value="bpm_min" />
-                  <input type="range" name="value" min="60" max="200" value={@profile_wizard_draft["bpm_min"] || 120}
-                    class="w-full accent-purple-500" phx-debounce="100" />
-                  <span class="text-purple-400 text-xs font-mono">{@profile_wizard_draft["bpm_min"] || 120} BPM</span>
+                  <input
+                    type="range"
+                    name="value"
+                    min="60"
+                    max="200"
+                    value={@profile_wizard_draft["bpm_min"] || 120}
+                    class="w-full accent-purple-500"
+                    phx-debounce="100"
+                  />
+                  <span class="text-purple-400 text-xs font-mono">
+                    {@profile_wizard_draft["bpm_min"] || 120} BPM
+                  </span>
                 </form>
               </div>
               <div class="flex-1">
                 <label class="text-[10px] text-gray-500 block mb-1">Max BPM</label>
                 <form phx-change="set_profile_field">
                   <input type="hidden" name="field" value="bpm_max" />
-                  <input type="range" name="value" min="60" max="200" value={@profile_wizard_draft["bpm_max"] || 140}
-                    class="w-full accent-purple-500" phx-debounce="100" />
-                  <span class="text-purple-400 text-xs font-mono">{@profile_wizard_draft["bpm_max"] || 140} BPM</span>
+                  <input
+                    type="range"
+                    name="value"
+                    min="60"
+                    max="200"
+                    value={@profile_wizard_draft["bpm_max"] || 140}
+                    class="w-full accent-purple-500"
+                    phx-debounce="100"
+                  />
+                  <span class="text-purple-400 text-xs font-mono">
+                    {@profile_wizard_draft["bpm_max"] || 140} BPM
+                  </span>
                 </form>
               </div>
             </div>
@@ -2181,13 +2833,19 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
               <%= for key <- ~w(1A 2A 3A 4A 5A 6A 7A 8A 9A 10A 11A 12A 1B 2B 3B 4B 5B 6B 7B 8B 9B 10B 11B 12B) do %>
                 <form phx-change="set_profile_field">
                   <input type="hidden" name="field" value="toggle_key" />
-                  <button type="button" phx-click="set_profile_field" phx-value-field="toggle_key" phx-value-value={key}
+                  <button
+                    type="button"
+                    phx-click="set_profile_field"
+                    phx-value-field="toggle_key"
+                    phx-value-value={key}
                     class={[
                       "w-full text-[9px] py-1 rounded transition-colors",
                       if(key in (@profile_wizard_draft["key_preferences"] || []),
                         do: "bg-purple-600 text-white font-medium",
-                        else: "bg-gray-800 text-gray-500 hover:bg-gray-700")
-                    ]}>
+                        else: "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                      )
+                    ]}
+                  >
                     {key}
                   </button>
                 </form>
@@ -2199,12 +2857,21 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
             <p class="text-xs text-gray-400 mb-3">Target energy level for this crate:</p>
             <form phx-change="set_profile_field">
               <input type="hidden" name="field" value="energy_level" />
-              <input type="range" name="value" min="0" max="100" value={@profile_wizard_draft["energy_level"] || 70}
-                class="w-full accent-purple-500" phx-debounce="100" />
+              <input
+                type="range"
+                name="value"
+                min="0"
+                max="100"
+                value={@profile_wizard_draft["energy_level"] || 70}
+                class="w-full accent-purple-500"
+                phx-debounce="100"
+              />
             </form>
             <div class="flex justify-between text-[9px] text-gray-600 mt-1">
               <span>Mellow</span>
-              <span class="text-purple-400 font-mono">{@profile_wizard_draft["energy_level"] || 70}%</span>
+              <span class="text-purple-400 font-mono">
+                {@profile_wizard_draft["energy_level"] || 70}%
+              </span>
               <span>Peak</span>
             </div>
           </div>
@@ -2213,36 +2880,52 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
             <p class="text-xs text-gray-400 mb-3">Add mood/genre tags (comma separated):</p>
             <form phx-change="set_profile_field">
               <input type="hidden" name="field" value="mood_tags" />
-              <input type="text" name="value"
+              <input
+                type="text"
+                name="value"
                 value={@profile_wizard_draft["mood_tags"] |> List.wrap() |> Enum.join(", ")}
                 placeholder="deep house, hypnotic, driving, 4am..."
                 class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500"
-                phx-debounce="300" />
+                phx-debounce="300"
+              />
             </form>
             <div class="flex flex-wrap gap-1 mt-2">
               <%= for tag <- (@profile_wizard_draft["mood_tags"] || []) do %>
-                <span class="px-2 py-0.5 rounded-full bg-purple-900/50 text-purple-300 text-[9px]">{tag}</span>
+                <span class="px-2 py-0.5 rounded-full bg-purple-900/50 text-purple-300 text-[9px]">
+                  {tag}
+                </span>
               <% end %>
             </div>
           </div>
         </div>
         <div class="flex justify-between px-5 py-3 border-t border-gray-800">
-          <button :if={@profile_wizard_step > 1} phx-click="prev_wizard_step"
-            class="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition-colors">
+          <button
+            :if={@profile_wizard_step > 1}
+            phx-click="prev_wizard_step"
+            class="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition-colors"
+          >
             Back
           </button>
           <div :if={@profile_wizard_step == 1} />
           <div class="flex gap-2">
-            <button phx-click="close_profile_wizard"
-              class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors">
+            <button
+              phx-click="close_profile_wizard"
+              class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            >
               Cancel
             </button>
-            <button :if={@profile_wizard_step < 4} phx-click="next_wizard_step"
-              class="px-4 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 rounded text-white font-medium transition-colors">
+            <button
+              :if={@profile_wizard_step < 4}
+              phx-click="next_wizard_step"
+              class="px-4 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 rounded text-white font-medium transition-colors"
+            >
               Next
             </button>
-            <button :if={@profile_wizard_step == 4} phx-click="save_profile"
-              class="px-4 py-1.5 text-xs bg-green-600 hover:bg-green-500 rounded text-white font-medium transition-colors">
+            <button
+              :if={@profile_wizard_step == 4}
+              phx-click="save_profile"
+              class="px-4 py-1.5 text-xs bg-green-600 hover:bg-green-500 rounded text-white font-medium transition-colors"
+            >
               Save Profile
             </button>
           </div>
@@ -2251,12 +2934,25 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
     </div>
 
     <%!-- v2: Playlist Browser Modal --%>
-    <div :if={@playlist_browser_open} class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div class="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col" style="max-height: 70vh;">
+    <div
+      :if={@playlist_browser_open}
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    >
+      <div
+        class="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col"
+        style="max-height: 70vh;"
+      >
         <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-800 shrink-0">
           <h3 class="text-sm font-semibold text-gray-200">Browse Your Spotify Library</h3>
           <button phx-click="close_playlist_browser" class="text-gray-500 hover:text-white">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
           </button>
         </div>
         <div class="flex-1 overflow-y-auto">
@@ -2264,17 +2960,25 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
             <span class="text-gray-500 text-xs animate-pulse">Loading your playlists...</span>
           </div>
           <div :if={!@playlist_browser_loading && @user_playlists == []} class="px-5 py-8 text-center">
-            <p class="text-gray-500 text-xs">No Spotify playlists found. Connect your Spotify account to browse.</p>
+            <p class="text-gray-500 text-xs">
+              No Spotify playlists found. Connect your Spotify account to browse.
+            </p>
           </div>
           <%= for playlist <- @user_playlists do %>
             <div class="flex items-center gap-3 px-4 py-2.5 border-b border-gray-800/50 hover:bg-gray-800/30">
-              <input type="checkbox"
+              <input
+                type="checkbox"
                 checked={MapSet.member?(@selected_playlist_urls, playlist["url"])}
                 phx-click="toggle_playlist_selection"
                 phx-value-url={playlist["url"]}
-                class="accent-purple-500" />
+                class="accent-purple-500"
+              />
               <div class="w-8 h-8 rounded bg-gray-800 shrink-0 overflow-hidden">
-                <img :if={playlist["image_url"]} src={playlist["image_url"]} class="w-full h-full object-cover" />
+                <img
+                  :if={playlist["image_url"]}
+                  src={playlist["image_url"]}
+                  class="w-full h-full object-cover"
+                />
               </div>
               <div class="min-w-0">
                 <p class="text-xs text-gray-200 truncate">{playlist["name"]}</p>
@@ -2286,15 +2990,22 @@ defmodule SoundForgeWeb.Live.CrateDiggerLive do
         <div class="px-5 py-3 border-t border-gray-800 shrink-0">
           <div class="flex items-center gap-3">
             <form phx-change="set_mega_crate_name" class="flex-1">
-              <input type="text" name="name" value={@mega_crate_name}
+              <input
+                type="text"
+                name="name"
+                value={@mega_crate_name}
                 placeholder="Name your mega-crate..."
-                class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500" />
+                class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500"
+              />
             </form>
-            <span class="text-[10px] text-gray-500">{MapSet.size(@selected_playlist_urls)} selected</span>
+            <span class="text-[10px] text-gray-500">
+              {MapSet.size(@selected_playlist_urls)} selected
+            </span>
             <button
               phx-click="import_selected_playlists"
               disabled={MapSet.size(@selected_playlist_urls) == 0 or @mega_crate_name == ""}
-              class="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed rounded text-white font-medium transition-colors shrink-0">
+              class="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed rounded text-white font-medium transition-colors shrink-0"
+            >
               Import Selected
             </button>
           </div>

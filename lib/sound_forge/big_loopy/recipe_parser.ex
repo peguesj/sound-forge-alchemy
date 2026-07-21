@@ -53,7 +53,9 @@ defmodule SoundForge.BigLoopy.RecipeParser do
       temperature: 0.2
     }
 
-    Logger.debug("[RecipeParser] Parsing recipe for user #{user_id}: #{String.slice(recipe_text, 0, 80)}...")
+    Logger.debug(
+      "[RecipeParser] Parsing recipe for user #{user_id}: #{String.slice(recipe_text, 0, 80)}..."
+    )
 
     case SoundForge.LLM.Router.route(user_id, messages, task_spec) do
       {:ok, response} ->

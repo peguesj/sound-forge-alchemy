@@ -25,7 +25,10 @@ defmodule SoundForge.Jobs.BigLoopyOrchestratorWorker do
 
     case BigLoopy.get_alchemy_set(alchemy_set_id) do
       nil ->
-        Logger.warning("[BigLoopyOrchestratorWorker] AlchemySet #{alchemy_set_id} not found — skipping")
+        Logger.warning(
+          "[BigLoopyOrchestratorWorker] AlchemySet #{alchemy_set_id} not found — skipping"
+        )
+
         :ok
 
       alchemy_set ->
@@ -35,7 +38,10 @@ defmodule SoundForge.Jobs.BigLoopyOrchestratorWorker do
         track_ids = alchemy_set.source_track_ids || []
 
         if track_ids == [] do
-          Logger.warning("[BigLoopyOrchestratorWorker] No source tracks in AlchemySet #{alchemy_set_id}")
+          Logger.warning(
+            "[BigLoopyOrchestratorWorker] No source tracks in AlchemySet #{alchemy_set_id}"
+          )
+
           BigLoopy.update_status(alchemy_set, "error")
           {:error, :no_source_tracks}
         else
@@ -51,7 +57,10 @@ defmodule SoundForge.Jobs.BigLoopyOrchestratorWorker do
               )
           end)
 
-          Logger.info("[BigLoopyOrchestratorWorker] Spawned #{length(track_ids)} track workers for #{alchemy_set_id}")
+          Logger.info(
+            "[BigLoopyOrchestratorWorker] Spawned #{length(track_ids)} track workers for #{alchemy_set_id}"
+          )
+
           :ok
         end
     end

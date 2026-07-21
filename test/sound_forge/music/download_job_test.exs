@@ -40,10 +40,13 @@ defmodule SoundForge.Music.DownloadJobTest do
 
     test "accepts optional output_path and file_size" do
       changeset =
-        DownloadJob.changeset(%DownloadJob{}, Map.merge(@valid_attrs, %{
-          output_path: "priv/uploads/downloads/song.mp3",
-          file_size: 5_242_880
-        }))
+        DownloadJob.changeset(
+          %DownloadJob{},
+          Map.merge(@valid_attrs, %{
+            output_path: "priv/uploads/downloads/song.mp3",
+            file_size: 5_242_880
+          })
+        )
 
       assert changeset.valid?
     end

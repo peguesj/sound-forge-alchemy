@@ -28,6 +28,7 @@ defmodule SoundForgeWeb.AdminLiveTest do
         from(u in SoundForge.Accounts.User, where: u.id == ^admin.id),
         set: [role: :admin]
       )
+
       admin = SoundForge.Accounts.get_user!(admin.id)
       conn = build_conn() |> log_in_user(admin)
 

@@ -90,7 +90,10 @@ defmodule SoundForge.MIDI.Profiles.MPCTest do
 
     test "transport mappings include play, stop, bpm_tap" do
       mappings = MPC.default_mappings(:mpc_one, 1)
-      transport_actions = mappings |> Enum.map(& &1.action) |> Enum.filter(&(&1 in [:play, :stop, :bpm_tap]))
+
+      transport_actions =
+        mappings |> Enum.map(& &1.action) |> Enum.filter(&(&1 in [:play, :stop, :bpm_tap]))
+
       assert length(transport_actions) == 3
     end
 

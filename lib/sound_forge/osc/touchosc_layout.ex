@@ -2,7 +2,16 @@ defmodule SoundForge.OSC.TouchOSCLayout do
   @moduledoc "Generates TouchOSC layout XML for the SFA stem mixer."
 
   @stem_count 8
-  @stem_colors ["#3B82F6", "#EF4444", "#22C55E", "#A855F7", "#F59E0B", "#06B6D4", "#EC4899", "#6366F1"]
+  @stem_colors [
+    "#3B82F6",
+    "#EF4444",
+    "#22C55E",
+    "#A855F7",
+    "#F59E0B",
+    "#06B6D4",
+    "#EC4899",
+    "#6366F1"
+  ]
 
   @doc "Generate the complete TouchOSC layout XML."
   @spec generate_xml() :: binary()

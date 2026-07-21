@@ -298,7 +298,9 @@ defmodule SoundForge.MIDI.Mappings do
 
       mapping ->
         mapping
-        |> Mapping.changeset(Map.take(attrs, [:action, :params, :bank_id, :parameter_index, :source]))
+        |> Mapping.changeset(
+          Map.take(attrs, [:action, :params, :bank_id, :parameter_index, :source])
+        )
         |> Repo.update()
     end
   end

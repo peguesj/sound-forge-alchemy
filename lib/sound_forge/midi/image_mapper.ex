@@ -76,7 +76,8 @@ defmodule SoundForge.MIDI.ImageMapper do
           },
           %{
             "type" => "text",
-            "text" => "Identify all MIDI controls in this controller image and return the JSON array as instructed."
+            "text" =>
+              "Identify all MIDI controls in this controller image and return the JSON array as instructed."
           }
         ]
       }

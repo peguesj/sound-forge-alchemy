@@ -11,19 +11,26 @@ defmodule SoundForge.Jobs.ProcessingWorkerLocalTest do
     test "returns error when audio file does not exist" do
       user = user_fixture()
       track = track_fixture(%{user_id: user.id, title: "Demucs Track"})
-      download_job_fixture(%{track_id: track.id, status: :completed, output_path: "nonexistent_audio_#{System.unique_integer()}.mp3"})
 
-      pj = processing_job_fixture(%{
+      download_job_fixture(%{
         track_id: track.id,
-        model: "htdemucs",
-        status: :queued
+        status: :completed,
+        output_path: "nonexistent_audio_#{System.unique_integer()}.mp3"
       })
+
+      pj =
+        processing_job_fixture(%{
+          track_id: track.id,
+          model: "htdemucs",
+          status: :queued
+        })
 
       oban_job = %Oban.Job{
         args: %{
           "track_id" => track.id,
           "job_id" => pj.id,
-          "file_path" => "priv/uploads/downloads/nonexistent_audio_#{System.unique_integer()}.mp3",
+          "file_path" =>
+            "priv/uploads/downloads/nonexistent_audio_#{System.unique_integer()}.mp3",
           "model" => "htdemucs",
           "user_id" => user.id
         },

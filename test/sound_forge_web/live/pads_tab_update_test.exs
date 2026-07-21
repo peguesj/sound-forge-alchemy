@@ -11,12 +11,13 @@ defmodule SoundForgeWeb.PadsTabUpdateTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Pads Update Track",
-      artist: "Pads Artist",
-      duration: 200
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Pads Update Track",
+        artist: "Pads Artist",
+        duration: 200
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -25,8 +26,22 @@ defmodule SoundForgeWeb.PadsTabUpdateTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :drums, file_path: "stems/drums.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :drums,
+      file_path: "stems/drums.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -40,11 +55,13 @@ defmodule SoundForgeWeb.PadsTabUpdateTest do
   describe "broadcast events forwarded to pads tab" do
     test "auto_cues_complete forwarded to pads", %{conn: conn, track: track} do
       view = setup_pads_with_track(conn, track)
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "track:#{track.id}",
         event: "auto_cues_complete",
         payload: %{track_id: track.id, cue_count: 4}
       })
+
       html = render(view)
       assert is_binary(html)
     end

@@ -51,6 +51,7 @@ defmodule SoundForge.LLM.ModelRegistryTest do
     test "filters to models supporting :vision" do
       vision_models = ModelRegistry.models_for_task([:chat, :vision])
       assert length(vision_models) > 0
+
       Enum.each(vision_models, fn m ->
         assert :vision in m.features
       end)

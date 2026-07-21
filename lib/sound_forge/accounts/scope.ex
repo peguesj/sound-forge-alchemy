@@ -40,6 +40,7 @@ defmodule SoundForge.Accounts.Scope do
 
   @doc "Returns the numeric level for a role (higher = more privileged)."
   def role_level(:platform_admin), do: 3
+
   def role_level(role) when role in @role_hierarchy do
     Enum.find_index(@role_hierarchy, &(&1 == role))
   end

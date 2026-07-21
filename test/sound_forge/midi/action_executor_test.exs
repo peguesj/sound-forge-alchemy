@@ -104,7 +104,12 @@ defmodule SoundForge.MIDI.ActionExecutorTest do
     end
 
     test "handles midi_message from unknown device", %{pid: pid} do
-      send(pid, {:midi_message, "unknown_port", %{type: :cc, channel: 0, data: %{controller: 1, value: 64}}})
+      send(
+        pid,
+        {:midi_message, "unknown_port",
+         %{type: :cc, channel: 0, data: %{controller: 1, value: 64}}}
+      )
+
       assert Process.alive?(pid)
     end
 

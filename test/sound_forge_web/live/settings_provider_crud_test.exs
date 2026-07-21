@@ -28,15 +28,17 @@ defmodule SoundForgeWeb.SettingsProviderCrudTest do
   end
 
   defp create_test_provider(user) do
-    {:ok, provider} = SoundForge.LLM.Providers.create_provider(user.id, %{
-      "name" => "Test Provider",
-      "provider_type" => "openai",
-      "api_key" => "sk-test-key-123",
-      "base_url" => "https://api.test.com/v1",
-      "model_name" => "gpt-4",
-      "priority" => 1,
-      "enabled" => true
-    })
+    {:ok, provider} =
+      SoundForge.LLM.Providers.create_provider(user.id, %{
+        "name" => "Test Provider",
+        "provider_type" => "openai",
+        "api_key" => "sk-test-key-123",
+        "base_url" => "https://api.test.com/v1",
+        "model_name" => "gpt-4",
+        "priority" => 1,
+        "enabled" => true
+      })
+
     provider
   end
 
@@ -60,14 +62,19 @@ defmodule SoundForgeWeb.SettingsProviderCrudTest do
       {:ok, view, _html} = live(conn, "/settings")
       render_click(view, "switch_section", %{"section" => "ai_providers"})
       render_click(view, "show_add_provider", %{})
-      html = render_click(view, "save_provider", %{"provider" => %{
-        "name" => "Test Provider",
-        "provider_type" => "openai",
-        "api_key" => "sk-test-key",
-        "base_url" => "https://api.test.com/v1",
-        "model_name" => "gpt-4",
-        "priority" => "1"
-      }})
+
+      html =
+        render_click(view, "save_provider", %{
+          "provider" => %{
+            "name" => "Test Provider",
+            "provider_type" => "openai",
+            "api_key" => "sk-test-key",
+            "base_url" => "https://api.test.com/v1",
+            "model_name" => "gpt-4",
+            "priority" => "1"
+          }
+        })
+
       assert is_binary(html)
     end
 
@@ -107,10 +114,15 @@ defmodule SoundForgeWeb.SettingsProviderCrudTest do
       {:ok, view, _html} = live(conn, "/settings")
       render_click(view, "switch_section", %{"section" => "ai_providers"})
       render_click(view, "show_add_provider", %{})
-      html = render_click(view, "validate_provider", %{"provider" => %{
-        "name" => "Test",
-        "provider_type" => "openai"
-      }})
+
+      html =
+        render_click(view, "validate_provider", %{
+          "provider" => %{
+            "name" => "Test",
+            "provider_type" => "openai"
+          }
+        })
+
       assert is_binary(html)
     end
   end
@@ -126,26 +138,41 @@ defmodule SoundForgeWeb.SettingsProviderCrudTest do
   describe "save settings" do
     test "save with user_settings params", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/settings")
-      html = render_click(view, "save", %{"user_settings" => %{
-        "download_quality" => "256k",
-        "demucs_model" => "htdemucs"
-      }})
+
+      html =
+        render_click(view, "save", %{
+          "user_settings" => %{
+            "download_quality" => "256k",
+            "demucs_model" => "htdemucs"
+          }
+        })
+
       assert is_binary(html)
     end
 
     test "validate with user_settings params", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/settings")
-      html = render_click(view, "validate", %{"user_settings" => %{
-        "download_quality" => "128k"
-      }})
+
+      html =
+        render_click(view, "validate", %{
+          "user_settings" => %{
+            "download_quality" => "128k"
+          }
+        })
+
       assert is_binary(html)
     end
 
     test "validate with provider params", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/settings")
-      html = render_click(view, "validate", %{"provider" => %{
-        "name" => "Provider"
-      }})
+
+      html =
+        render_click(view, "validate", %{
+          "provider" => %{
+            "name" => "Provider"
+          }
+        })
+
       assert is_binary(html)
     end
 

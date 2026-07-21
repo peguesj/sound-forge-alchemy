@@ -91,8 +91,8 @@ defmodule SoundForgeWeb.API.AnalysisControllerTest do
   end
 
   describe "GET /api/analysis/job/:id" do
-    test "returns job status for valid job ID", %{conn: conn} do
-      {:ok, track} = Music.create_track(%{title: "Test Track"})
+    test "returns job status for valid job ID", %{conn: conn, user: user} do
+      {:ok, track} = Music.create_track(%{title: "Test Track", user_id: user.id})
 
       {:ok, job} =
         Music.create_analysis_job(%{

@@ -91,9 +91,10 @@ defmodule SoundForge.Agents.SonicAnalyst do
             "Analyse the audio properties of this track."
           end
 
-      messages = format_messages(nil, [
-        %{"role" => "user", "content" => "#{instruction}\n\n#{track_summary}"}
-      ])
+      messages =
+        format_messages(nil, [
+          %{"role" => "user", "content" => "#{instruction}\n\n#{track_summary}"}
+        ])
 
       case call_llm(user_id, messages, Keyword.merge([max_tokens: 512], opts)) do
         {:ok, %SoundForge.LLM.Response{} = response} ->
@@ -115,7 +116,10 @@ defmodule SoundForge.Agents.SonicAnalyst do
 
   defp load_track_with_analysis(track_id) do
     track = Repo.get(Track, track_id)
-    analysis = track && Repo.one(from a in AnalysisResult, where: a.track_id == ^track_id, limit: 1)
+
+    analysis =
+      track && Repo.one(from a in AnalysisResult, where: a.track_id == ^track_id, limit: 1)
+
     track && %{track: track, analysis: analysis}
   end
 
@@ -128,9 +132,9 @@ defmodule SoundForge.Agents.SonicAnalyst do
       energy = analysis && analysis.energy
 
       "Track #{i}: \"#{track.title}\" by #{track.artist || "Unknown"}" <>
-        (if bpm, do: " | BPM: #{bpm}", else: "") <>
-        (if key, do: " | Key: #{key}", else: "") <>
-        (if energy, do: " | Energy: #{Float.round(energy * 1.0, 2)}", else: "")
+        if(bpm, do: " | BPM: #{bpm}", else: "") <>
+        if(key, do: " | Key: #{key}", else: "") <>
+        if energy, do: " | Energy: #{Float.round(energy * 1.0, 2)}", else: ""
     end)
   end
 

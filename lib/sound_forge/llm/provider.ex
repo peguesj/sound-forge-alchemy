@@ -93,7 +93,9 @@ defmodule SoundForge.LLM.Provider do
         validate_required(changeset, [:api_key], message: "is required for cloud providers")
 
       provider_type when provider_type in @local_providers ->
-        validate_required(changeset, [:base_url], message: "is required for local/proxy providers")
+        validate_required(changeset, [:base_url],
+          message: "is required for local/proxy providers"
+        )
 
       _ ->
         changeset

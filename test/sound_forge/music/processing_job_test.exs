@@ -66,7 +66,10 @@ defmodule SoundForge.Music.ProcessingJobTest do
 
     test "accepts engine and preview fields" do
       changeset =
-        ProcessingJob.changeset(%ProcessingJob{}, Map.merge(@valid_attrs, %{engine: "lalalai", preview: true}))
+        ProcessingJob.changeset(
+          %ProcessingJob{},
+          Map.merge(@valid_attrs, %{engine: "lalalai", preview: true})
+        )
 
       assert changeset.valid?
     end

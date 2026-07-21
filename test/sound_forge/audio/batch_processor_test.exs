@@ -115,7 +115,8 @@ defmodule SoundForge.Audio.BatchProcessorTest do
       assert updated.status == :pending
 
       # Should have received a broadcast
-      assert_received {:batch_progress, %{batch_job_id: _, status: _, completed_count: _, total_count: _}}
+      assert_received {:batch_progress,
+                       %{batch_job_id: _, status: _, completed_count: _, total_count: _}}
     end
   end
 

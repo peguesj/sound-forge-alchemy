@@ -53,8 +53,14 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
          true <- String.match?(track_id, uuid_format),
          {:ok, kind, project} <- DAW.get_or_create_project_with_track(user_id, track_id) do
       projects = DAW.list_projects(user_id)
-      msg = if kind == :added, do: "Track added to \"#{project.title}\"", else: "Track already in project"
-      {:noreply, socket |> assign(active_project: project, projects: projects) |> put_flash(:info, msg)}
+
+      msg =
+        if kind == :added,
+          do: "Track added to \"#{project.title}\"",
+          else: "Track already in project"
+
+      {:noreply,
+       socket |> assign(active_project: project, projects: projects) |> put_flash(:info, msg)}
     else
       false -> {:noreply, put_flash(socket, :error, "Invalid track ID")}
       {:error, _} -> {:noreply, put_flash(socket, :error, "Could not load track in DAW")}
@@ -437,6 +443,7 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
       id: "global-midi-bar",
       midi_event: {port_id, msg}
     )
+
     {:noreply, socket}
   end
 
@@ -470,8 +477,8 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
         midi_monitor_open={@midi_monitor_open}
         midi_learn_active={@midi_learn_active}
       />
-
-      <!-- Project sidebar (left, w-64) -->
+      
+    <!-- Project sidebar (left, w-64) -->
       <aside class="w-64 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
         <div class="p-4 border-b border-gray-800">
           <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Projects</h2>
@@ -494,15 +501,15 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
                   "bg-gray-800 border-l-2 border-primary"
               ]}
             >
-              <span class="text-sm text-gray-200 truncate flex-1 mr-2"><%= project.title %></span>
+              <span class="text-sm text-gray-200 truncate flex-1 mr-2">{project.title}</span>
               <span class="badge badge-sm badge-ghost text-gray-500">
-                <%= length(project.project_tracks) %>
+                {length(project.project_tracks)}
               </span>
             </button>
           <% end %>
         </nav>
-
-        <!-- Active project metadata controls -->
+        
+    <!-- Active project metadata controls -->
         <%= if @active_project do %>
           <div class="p-4 border-t border-gray-800 space-y-3">
             <div>
@@ -536,7 +543,7 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
                     class="select select-xs select-bordered bg-gray-800 border-gray-700 text-gray-100 w-full"
                   >
                     <%= for sig <- ["4/4", "3/4", "6/8", "5/4"] do %>
-                      <option value={sig} selected={@active_project.time_sig == sig}><%= sig %></option>
+                      <option value={sig} selected={@active_project.time_sig == sig}>{sig}</option>
                     <% end %>
                   </select>
                 </form>
@@ -553,7 +560,7 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
                     — None —
                   </option>
                   <%= for key <- ~w[C C# Db D D# Eb E F F# Gb G G# Ab A A# Bb B] do %>
-                    <option value={key} selected={@active_project.key == key}><%= key %></option>
+                    <option value={key} selected={@active_project.key == key}>{key}</option>
                   <% end %>
                 </select>
               </form>
@@ -561,8 +568,8 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
           </div>
         <% end %>
       </aside>
-
-      <!-- Main content area -->
+      
+    <!-- Main content area -->
       <main class="flex-1 flex flex-col overflow-hidden">
         <%= if @active_project do %>
           <!-- Track panel header -->
@@ -570,7 +577,7 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
             <h1 class="text-lg font-semibold text-gray-100">
               Tracks
               <span class="text-sm font-normal text-gray-500 ml-2">
-                <%= length(@active_project.project_tracks) %> track(s)
+                {length(@active_project.project_tracks)} track(s)
               </span>
             </h1>
             <div class="flex items-center gap-2">
@@ -594,8 +601,8 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
               </button>
             </div>
           </header>
-
-          <!-- Multi-track timeline editor -->
+          
+    <!-- Multi-track timeline editor -->
           <div
             id="daw-project-editor"
             phx-hook="DawProjectEditor"
@@ -606,8 +613,8 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
           >
             <p class="text-gray-500 p-4 text-sm">Timeline editor</p>
           </div>
-
-          <!-- Track list -->
+          
+    <!-- Track list -->
           <div class="flex-1 overflow-y-auto">
             <%= if Enum.empty?(@active_project.project_tracks) do %>
               <div class="flex flex-col items-center justify-center h-full text-center py-24">
@@ -636,17 +643,17 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
                   <%= for track <- Enum.sort_by(@active_project.project_tracks, & &1.position) do %>
                     <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors group">
                       <td class="px-4 py-3 text-gray-600 tabular-nums">
-                        <%= track.position + 1 %>
+                        {track.position + 1}
                       </td>
                       <td class="px-4 py-3">
                         <span class="text-gray-200 font-medium">
-                          <%= track.title ||
+                          {track.title ||
                             (track.audio_file && track.audio_file.title) ||
-                            "Untitled" %>
+                            "Untitled"}
                         </span>
                         <%= if track.audio_file && track.audio_file.artist do %>
                           <span class="text-gray-500 text-xs ml-2">
-                            <%= track.audio_file.artist %>
+                            {track.audio_file.artist}
                           </span>
                         <% end %>
                       </td>
@@ -709,19 +716,19 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
                                 />
                               </svg>
                             <% end %>
-                            <%= badge_label(track.track_type) %>
+                            {badge_label(track.track_type)}
                             <%= if conf = get_in(track.metadata, ["confidence"]) do %>
-                              <span class="opacity-70 text-xs"><%= round(conf * 100) %>%</span>
+                              <span class="opacity-70 text-xs">{round(conf * 100)}%</span>
                             <% end %>
                           </button>
                         <% end %>
                       </td>
                       <td class="px-4 py-3 text-gray-400 tabular-nums">
-                        <%= format_duration(track.audio_file && track.audio_file.duration) %>
+                        {format_duration(track.audio_file && track.audio_file.duration)}
                       </td>
                       <td class="px-4 py-3 text-gray-400 tabular-nums">
                         <%= if track.audio_file && track.audio_file.bpm do %>
-                          <%= :erlang.float_to_binary(track.audio_file.bpm, decimals: 0) %>
+                          {:erlang.float_to_binary(track.audio_file.bpm, decimals: 0)}
                         <% else %>
                           —
                         <% end %>
@@ -753,8 +760,8 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
           </div>
         <% end %>
       </main>
-
-      <!-- Import Tracks slide-over panel (right side) -->
+      
+    <!-- Import Tracks slide-over panel (right side) -->
       <div class={[
         "fixed inset-y-0 right-0 w-[480px] bg-gray-900 border-l border-gray-800 z-40",
         "flex flex-col shadow-2xl transform transition-transform duration-300 ease-in-out",
@@ -819,20 +826,26 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
 
         <%!-- Crate breadcrumb (when browsing a crate's tracks) --%>
         <%= if @import_source == :crate && @selected_crate_id do %>
-          <% active_crate = Enum.find(@user_crates, & &1.id == @selected_crate_id) %>
+          <% active_crate = Enum.find(@user_crates, &(&1.id == @selected_crate_id)) %>
           <div class="px-5 py-2 border-b border-gray-800 flex items-center gap-2 flex-shrink-0 text-sm">
             <button
               phx-click="back_to_crate_list"
               class="text-gray-400 hover:text-gray-200 flex items-center gap-1"
             >
-              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg
+                class="w-3 h-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
               Crates
             </button>
             <span class="text-gray-600">/</span>
             <span class="text-gray-300 truncate">
-              <%= (active_crate && (active_crate.name || active_crate.spotify_playlist_id)) || "Crate" %>
+              {(active_crate && (active_crate.name || active_crate.spotify_playlist_id)) || "Crate"}
             </span>
           </div>
         <% end %>
@@ -844,9 +857,9 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
             <%= if Enum.empty?(@library_tracks) do %>
               <div class="flex items-center justify-center h-32">
                 <p class="text-gray-500 text-sm">
-                  <%= if @library_search == "",
+                  {if @library_search == "",
                     do: "No tracks in library",
-                    else: "No results for \"#{@library_search}\"" %>
+                    else: "No results for \"#{@library_search}\""}
                 </p>
               </div>
             <% else %>
@@ -872,19 +885,19 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
                   />
                   <div class="flex-1 min-w-0">
                     <p class="text-sm text-gray-200 font-medium truncate">
-                      <%= lib_track.title || "Untitled" %>
+                      {lib_track.title || "Untitled"}
                     </p>
                     <%= if lib_track.artist do %>
-                      <p class="text-xs text-gray-500 truncate"><%= lib_track.artist %></p>
+                      <p class="text-xs text-gray-500 truncate">{lib_track.artist}</p>
                     <% end %>
                   </div>
                   <div class="flex-shrink-0 text-right">
                     <p class="text-xs text-gray-500 tabular-nums">
-                      <%= format_duration(lib_track.duration) %>
+                      {format_duration(lib_track.duration)}
                     </p>
                     <%= if lib_track.bpm do %>
                       <p class="text-xs text-gray-600 tabular-nums">
-                        <%= :erlang.float_to_binary(lib_track.bpm, decimals: 0) %> BPM
+                        {:erlang.float_to_binary(lib_track.bpm, decimals: 0)} BPM
                       </p>
                     <% end %>
                   </div>
@@ -909,10 +922,10 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
                 >
                   <div class="min-w-0">
                     <p class="text-sm text-gray-200 font-medium truncate">
-                      <%= crate.name || crate.spotify_playlist_id || "Untitled Crate" %>
+                      {crate.name || crate.spotify_playlist_id || "Untitled Crate"}
                     </p>
                     <p class="text-xs text-gray-500">
-                      <%= length(crate.track_configs) %> track(s) in crate
+                      {length(crate.track_configs)} track(s) in crate
                     </p>
                   </div>
                   <svg
@@ -959,19 +972,19 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
                   />
                   <div class="flex-1 min-w-0">
                     <p class="text-sm text-gray-200 font-medium truncate">
-                      <%= crate_track.title || "Untitled" %>
+                      {crate_track.title || "Untitled"}
                     </p>
                     <%= if crate_track.artist do %>
-                      <p class="text-xs text-gray-500 truncate"><%= crate_track.artist %></p>
+                      <p class="text-xs text-gray-500 truncate">{crate_track.artist}</p>
                     <% end %>
                   </div>
                   <div class="flex-shrink-0 text-right">
                     <p class="text-xs text-gray-500 tabular-nums">
-                      <%= format_duration(crate_track.duration) %>
+                      {format_duration(crate_track.duration)}
                     </p>
                     <%= if crate_track.bpm do %>
                       <p class="text-xs text-gray-600 tabular-nums">
-                        <%= :erlang.float_to_binary(crate_track.bpm, decimals: 0) %> BPM
+                        {:erlang.float_to_binary(crate_track.bpm, decimals: 0)} BPM
                       </p>
                     <% end %>
                   </div>
@@ -987,7 +1000,7 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
           <div class="px-5 py-3 border-t border-gray-800 flex-shrink-0 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 text-sm">
               <span class="text-gray-400">
-                <%= if selected_count == 0, do: "None selected", else: "#{selected_count} selected" %>
+                {if selected_count == 0, do: "None selected", else: "#{selected_count} selected"}
               </span>
               <button
                 phx-click="select_all_tracks"
@@ -1013,9 +1026,12 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
               ]}
             >
               <%= cond do %>
-                <% selected_count == 0 -> %>Add Tracks
-                <% selected_count == 1 -> %>Add 1 Track
-                <% true -> %>Add <%= selected_count %> Tracks
+                <% selected_count == 0 -> %>
+                  Add Tracks
+                <% selected_count == 1 -> %>
+                  Add 1 Track
+                <% true -> %>
+                  Add {selected_count} Tracks
               <% end %>
             </button>
           </div>
@@ -1029,7 +1045,6 @@ defmodule SoundForgeWeb.Live.DawProjectLive do
           phx-click="close_add_track"
         />
       <% end %>
-
     </div>
     """
   end

@@ -7,7 +7,12 @@ defmodule SoundForge.LLM.Adapters.CustomOpenAI do
   @impl true
   def chat(provider, messages, opts \\ []) do
     base = String.trim_trailing(provider.base_url || "", "/")
-    url = if String.ends_with?(base, "/chat/completions"), do: base, else: "#{base}/v1/chat/completions"
+
+    url =
+      if String.ends_with?(base, "/chat/completions"),
+        do: base,
+        else: "#{base}/v1/chat/completions"
+
     model = Keyword.get(opts, :model) || provider.default_model || "default"
 
     headers =

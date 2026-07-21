@@ -118,7 +118,7 @@ defmodule SoundForge.Agents.CrateAnalyst do
     |> Enum.with_index(1)
     |> Enum.map_join("\n", fn {t, i} ->
       "#{i}. \"#{t["title"] || "Unknown"}\" by #{t["artist"] || "Unknown"}" <>
-        (if t["release_date"], do: " (#{String.slice(t["release_date"], 0, 4)})", else: "")
+        if t["release_date"], do: " (#{String.slice(t["release_date"], 0, 4)})", else: ""
     end)
   end
 

@@ -69,7 +69,8 @@ defmodule SoundForge.Jobs.AutoCueWorker do
     end
   end
 
-  @spec ensure_analysis_exists(String.t(), String.t()) :: :ok | {:snooze, pos_integer()} | {:error, term()}
+  @spec ensure_analysis_exists(String.t(), String.t()) ::
+          :ok | {:snooze, pos_integer()} | {:error, term()}
   defp ensure_analysis_exists(track_id, file_path) do
     case Music.get_analysis_result_for_track(track_id) do
       %{} ->
@@ -82,7 +83,8 @@ defmodule SoundForge.Jobs.AutoCueWorker do
     end
   end
 
-  @spec chain_analysis_worker(String.t(), String.t()) :: {:snooze, pos_integer()} | {:error, term()}
+  @spec chain_analysis_worker(String.t(), String.t()) ::
+          {:snooze, pos_integer()} | {:error, term()}
   defp chain_analysis_worker(track_id, file_path) do
     case Music.create_analysis_job(%{track_id: track_id, status: :queued}) do
       {:ok, analysis_job} ->
@@ -118,7 +120,10 @@ defmodule SoundForge.Jobs.AutoCueWorker do
     result =
       try do
         {:ok, port_pid} = SoundForge.Audio.PortSupervisor.start_analyzer()
-        AnalyzerPort.analyze(file_path, ["auto_cues", "transients", "drum_events"], server: port_pid)
+
+        AnalyzerPort.analyze(file_path, ["auto_cues", "transients", "drum_events"],
+          server: port_pid
+        )
       catch
         :exit, reason ->
           {:error, "Port process crashed: #{inspect(reason)}"}
@@ -128,7 +133,11 @@ defmodule SoundForge.Jobs.AutoCueWorker do
       {:ok, %{"auto_cues" => cues} = results} when is_list(cues) ->
         drum_events = Map.get(results, "drum_events", [])
         boosted = boost_cues_with_drum_context(cues, drum_events)
-        Logger.info("Extracted #{length(boosted)} auto cue candidates (#{length(drum_events)} drum events as context)")
+
+        Logger.info(
+          "Extracted #{length(boosted)} auto cue candidates (#{length(drum_events)} drum events as context)"
+        )
+
         {:ok, boosted}
 
       {:ok, _results} ->
@@ -148,7 +157,7 @@ defmodule SoundForge.Jobs.AutoCueWorker do
     downbeats =
       drum_events
       |> Enum.filter(fn e -> e["category"] in ["kick", "snare"] end)
-      |> Enum.sort_by(& -(&1["confidence"] || 0))
+      |> Enum.sort_by(&(-(&1["confidence"] || 0)))
       |> Enum.take(16)
       |> Enum.map(& &1["time_s"])
 
@@ -208,7 +217,10 @@ defmodule SoundForge.Jobs.AutoCueWorker do
 
     {count, _} =
       DJ.CuePoint
-      |> where([cp], cp.track_id == ^track_id and cp.user_id == ^user_id and cp.auto_generated == true)
+      |> where(
+        [cp],
+        cp.track_id == ^track_id and cp.user_id == ^user_id and cp.auto_generated == true
+      )
       |> Repo.delete_all()
 
     if count > 0 do

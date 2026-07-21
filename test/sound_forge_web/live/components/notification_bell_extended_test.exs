@@ -8,22 +8,24 @@ defmodule SoundForgeWeb.Live.Components.NotificationBellExtendedTest do
 
   describe "render with notifications" do
     test "renders bell with unread notifications" do
-      html = render_component(NotificationBell, %{
-        id: "bell-unread",
-        user_id: nil,
-        active_pipelines: [],
-        refresh: false
-      })
+      html =
+        render_component(NotificationBell, %{
+          id: "bell-unread",
+          user_id: nil,
+          active_pipelines: [],
+          refresh: false
+        })
 
       assert is_binary(html)
     end
 
     test "renders bell with empty state" do
-      html = render_component(NotificationBell, %{
-        id: "bell-empty",
-        user_id: nil,
-        active_pipelines: []
-      })
+      html =
+        render_component(NotificationBell, %{
+          id: "bell-empty",
+          user_id: nil,
+          active_pipelines: []
+        })
 
       assert is_binary(html)
     end
@@ -33,11 +35,12 @@ defmodule SoundForgeWeb.Live.Components.NotificationBellExtendedTest do
         %{track_id: "t1", stage: :download, status: :downloading, progress: 50}
       ]
 
-      html = render_component(NotificationBell, %{
-        id: "bell-pipelines",
-        user_id: nil,
-        active_pipelines: pipelines
-      })
+      html =
+        render_component(NotificationBell, %{
+          id: "bell-pipelines",
+          user_id: nil,
+          active_pipelines: pipelines
+        })
 
       assert is_binary(html)
     end

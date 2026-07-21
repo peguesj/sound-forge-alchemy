@@ -8,7 +8,8 @@ defmodule SoundForge.Agents.StemIntelligenceAgent do
 
   @impl true
   def description,
-    do: "Assesses stem separation quality, identifies artifacts, recommends separation models, and advises on loop and sample extraction."
+    do:
+      "Assesses stem separation quality, identifies artifacts, recommends separation models, and advises on loop and sample extraction."
 
   @impl true
   def capabilities,

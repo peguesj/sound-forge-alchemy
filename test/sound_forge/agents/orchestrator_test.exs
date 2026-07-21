@@ -11,36 +11,42 @@ defmodule SoundForge.Agents.OrchestratorTest do
   describe "select_agent/2 — task hint dispatch" do
     test "routes :track_analysis to TrackAnalysisAgent" do
       ctx = Context.new("analyse")
+
       assert Orchestrator.select_agent(ctx, task: :track_analysis) ==
                SoundForge.Agents.TrackAnalysisAgent
     end
 
     test "routes :mix_planning to MixPlanningAgent" do
       ctx = Context.new("mix")
+
       assert Orchestrator.select_agent(ctx, task: :mix_planning) ==
                SoundForge.Agents.MixPlanningAgent
     end
 
     test "routes :stem_analysis to StemIntelligenceAgent" do
       ctx = Context.new("stems")
+
       assert Orchestrator.select_agent(ctx, task: :stem_analysis) ==
                SoundForge.Agents.StemIntelligenceAgent
     end
 
     test "routes :mastering_advice to MasteringAgent" do
       ctx = Context.new("master")
+
       assert Orchestrator.select_agent(ctx, task: :mastering_advice) ==
                SoundForge.Agents.MasteringAgent
     end
 
     test "routes :library_search to LibraryAgent" do
       ctx = Context.new("find")
+
       assert Orchestrator.select_agent(ctx, task: :library_search) ==
                SoundForge.Agents.LibraryAgent
     end
 
     test "falls back to default for unknown task" do
       ctx = Context.new("unknown")
+
       assert Orchestrator.select_agent(ctx, task: :nonexistent_task) ==
                SoundForge.Agents.TrackAnalysisAgent
     end
@@ -50,6 +56,7 @@ defmodule SoundForge.Agents.OrchestratorTest do
     test "routes key/BPM questions to TrackAnalysisAgent" do
       for word <- ["key", "bpm", "tempo", "chord", "harmonic"] do
         ctx = Context.new("What is the #{word} of this track?")
+
         assert Orchestrator.select_agent(ctx, []) == SoundForge.Agents.TrackAnalysisAgent,
                "expected TrackAnalysisAgent for word: #{word}"
       end
@@ -58,6 +65,7 @@ defmodule SoundForge.Agents.OrchestratorTest do
     test "routes mix/playlist instructions to MixPlanningAgent" do
       for word <- ["mix", "playlist", "sequence", "transition"] do
         ctx = Context.new("#{word} these tracks together")
+
         assert Orchestrator.select_agent(ctx, []) == SoundForge.Agents.MixPlanningAgent,
                "expected MixPlanningAgent for word: #{word}"
       end
@@ -66,6 +74,7 @@ defmodule SoundForge.Agents.OrchestratorTest do
     test "routes stem/vocal instructions to StemIntelligenceAgent" do
       for word <- ["stem", "vocal", "drum", "bass"] do
         ctx = Context.new("isolate the #{word}")
+
         assert Orchestrator.select_agent(ctx, []) == SoundForge.Agents.StemIntelligenceAgent,
                "expected StemIntelligenceAgent for word: #{word}"
       end
@@ -74,6 +83,7 @@ defmodule SoundForge.Agents.OrchestratorTest do
     test "routes mastering/loudness to MasteringAgent" do
       for word <- ["master", "loud", "lufs", "dynamic"] do
         ctx = Context.new("check #{word} levels")
+
         assert Orchestrator.select_agent(ctx, []) == SoundForge.Agents.MasteringAgent,
                "expected MasteringAgent for word: #{word}"
       end
@@ -90,6 +100,7 @@ defmodule SoundForge.Agents.OrchestratorTest do
       map = Orchestrator.capability_map()
       assert is_list(map)
       assert length(map) > 0
+
       Enum.each(map, fn {cap, mod} ->
         assert is_atom(cap)
         assert is_atom(mod)

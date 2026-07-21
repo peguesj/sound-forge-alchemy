@@ -38,7 +38,14 @@ defmodule SoundForge.LLM.Adapters.Ollama do
         eval -> %{output_tokens: eval, input_tokens: Map.get(body, "prompt_eval_count", 0)}
       end
 
-    {:ok, %Response{content: content, model: model, usage: usage, finish_reason: "stop", raw_response: body}}
+    {:ok,
+     %Response{
+       content: content,
+       model: model,
+       usage: usage,
+       finish_reason: "stop",
+       raw_response: body
+     }}
   end
 
   defp parse_response(body), do: {:error, {:unexpected_response, body}}

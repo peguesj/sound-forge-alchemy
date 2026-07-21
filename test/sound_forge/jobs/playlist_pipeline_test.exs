@@ -16,14 +16,17 @@ defmodule SoundForge.Jobs.PlaylistPipelineTest do
 
   setup do
     user = user_fixture()
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Pipeline Test Track",
-      artist: "Test Artist",
-      spotify_id: "sp_test_#{System.unique_integer([:positive])}",
-      spotify_url: "https://open.spotify.com/track/test_#{System.unique_integer([:positive])}",
-      duration: 200
-    })
+
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Pipeline Test Track",
+        artist: "Test Artist",
+        spotify_id: "sp_test_#{System.unique_integer([:positive])}",
+        spotify_url: "https://open.spotify.com/track/test_#{System.unique_integer([:positive])}",
+        duration: 200
+      })
+
     %{user: user, track: track}
   end
 
@@ -132,7 +135,12 @@ defmodule SoundForge.Jobs.PlaylistPipelineTest do
   describe "PipelineBroadcaster.broadcast_playlist_track_update/3" do
     test "no-op when playlist_id is nil", %{track: track} do
       # Should not raise and returns :ok
-      assert :ok == PipelineBroadcaster.broadcast_playlist_track_update(nil, track.id, %{stage: :download, status: :completed, progress: 100})
+      assert :ok ==
+               PipelineBroadcaster.broadcast_playlist_track_update(nil, track.id, %{
+                 stage: :download,
+                 status: :completed,
+                 progress: 100
+               })
     end
 
     test "broadcasts to playlist_pipeline topic", %{track: track} do

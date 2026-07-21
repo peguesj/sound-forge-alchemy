@@ -42,6 +42,7 @@ defmodule SoundForge.Agents.AgentsCoverageTest do
       test "#{mod_name}.preferred_traits/0 returns a keyword list" do
         traits = unquote(agent).preferred_traits()
         assert is_list(traits)
+
         Enum.each(traits, fn {k, v} ->
           assert is_atom(k)
           assert is_atom(v)

@@ -556,7 +556,10 @@ defmodule SoundForgeWeb.MidiLive do
          |> assign(:learned_type, midi_type)
          |> assign(:learned_channel, channel)
          |> assign(:learned_number, number)
-         |> assign(:mapping_flash, "Captured: #{format_midi_type(midi_type)} CH#{channel} ##{number} — click Save to confirm.")}
+         |> assign(
+           :mapping_flash,
+           "Captured: #{format_midi_type(midi_type)} CH#{channel} ##{number} — click Save to confirm."
+         )}
       else
         {:noreply, socket}
       end
@@ -584,6 +587,7 @@ defmodule SoundForgeWeb.MidiLive do
       id: "global-midi-bar",
       midi_event: {port_id, msg}
     )
+
     {:noreply, socket}
   end
 
@@ -609,12 +613,16 @@ defmodule SoundForgeWeb.MidiLive do
   def render(assigns) do
     # Pre-compute controller-specific data for this render
     assigns =
-      assign(assigns, :selected_controller,
+      assign(
+        assigns,
+        :selected_controller,
         Enum.find(assigns.devices, &(&1.port_id == assigns.selected_controller_port_id))
       )
 
     assigns =
-      assign(assigns, :controller_mappings,
+      assign(
+        assigns,
+        :controller_mappings,
         if assigns.selected_controller do
           Enum.filter(assigns.mappings, &(&1.device_name == assigns.selected_controller.name))
         else
@@ -623,7 +631,9 @@ defmodule SoundForgeWeb.MidiLive do
       )
 
     assigns =
-      assign(assigns, :registry_entry,
+      assign(
+        assigns,
+        :registry_entry,
         if assigns.selected_controller do
           ControllerRegistry.detect(assigns.selected_controller.name)
         else
@@ -658,17 +668,31 @@ defmodule SoundForgeWeb.MidiLive do
         <%!-- ============================================================ --%>
         <%!-- Column 1: Controllers --%>
         <%!-- ============================================================ --%>
-        <div class="w-64 flex-shrink-0 border-r border-gray-800 bg-gray-950 flex flex-col overflow-y-auto">
+        <div
+          id="midi-controllers-column"
+          class="w-64 flex-shrink-0 border-r border-gray-800 bg-gray-950 flex flex-col overflow-y-auto"
+        >
           <div class="px-3 pt-4 pb-2 flex items-center justify-between">
-            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Controllers</span>
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Controllers
+            </span>
             <button
               phx-click="refresh_devices"
               class="text-gray-600 hover:text-gray-300 transition-colors"
               title="Refresh"
             >
-              <svg class={["w-3.5 h-3.5", @refreshing_midi && "animate-spin"]} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <svg
+                class={["w-3.5 h-3.5", @refreshing_midi && "animate-spin"]}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
             </button>
           </div>
@@ -706,7 +730,10 @@ defmodule SoundForgeWeb.MidiLive do
               </div>
               <div class="ml-4 mt-0.5 flex items-center gap-2">
                 <span class="text-[10px] text-gray-500">{type_label(device.type)}</span>
-                <span class={["text-[10px] font-medium", if(device.status == :connected, do: "text-green-500", else: "text-red-400")]}>
+                <span class={[
+                  "text-[10px] font-medium",
+                  if(device.status == :connected, do: "text-green-500", else: "text-red-400")
+                ]}>
                   {status_label(device.status)}
                 </span>
               </div>
@@ -720,7 +747,9 @@ defmodule SoundForgeWeb.MidiLive do
 
           <%!-- Network MIDI --%>
           <div :if={@network_devices != []} class="px-3 pt-3 pb-1">
-            <span class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Network</span>
+            <span class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+              Network
+            </span>
           </div>
           <div class="px-2 space-y-0.5 pb-2">
             <div
@@ -737,12 +766,25 @@ defmodule SoundForgeWeb.MidiLive do
               </div>
             </div>
             <button
-              class={["w-full mt-1 px-2 py-1.5 text-xs text-gray-500 hover:text-gray-300 rounded transition-colors flex items-center gap-1.5", @scanning && "opacity-50"]}
+              class={[
+                "w-full mt-1 px-2 py-1.5 text-xs text-gray-500 hover:text-gray-300 rounded transition-colors flex items-center gap-1.5",
+                @scanning && "opacity-50"
+              ]}
               phx-click="scan_network"
               disabled={@scanning}
             >
-              <svg class={["w-3 h-3", @scanning && "animate-spin"]} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <svg
+                class={["w-3 h-3", @scanning && "animate-spin"]}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
               {if @scanning, do: "Scanning...", else: "Scan Network"}
             </button>
@@ -755,7 +797,9 @@ defmodule SoundForgeWeb.MidiLive do
               <span class="text-xs font-medium text-gray-300">OSC Server</span>
               <span class="ml-auto text-[10px] text-cyan-400 font-mono">UDP :8000</span>
             </div>
-            <p class="text-[10px] text-gray-600 mb-2">Open Sound Control — receive from any OSC app</p>
+            <p class="text-[10px] text-gray-600 mb-2">
+              Open Sound Control — receive from any OSC app
+            </p>
             <a
               href={~p"/export/osc-layout"}
               class="block text-center px-2 py-1 text-[10px] rounded border border-gray-700 text-gray-400 hover:border-cyan-700 hover:text-cyan-400 transition-colors"
@@ -769,17 +813,21 @@ defmodule SoundForgeWeb.MidiLive do
         <%!-- ============================================================ --%>
         <%!-- Column 2: Modules (Actions) --%>
         <%!-- ============================================================ --%>
-        <div class="flex-1 overflow-y-auto bg-gray-950">
+        <div id="midi-modules-column" class="flex-1 overflow-y-auto bg-gray-950">
           <div class="px-4 pt-4 pb-2 flex items-center justify-between border-b border-gray-800/60 sticky top-0 bg-gray-950 z-10">
             <div class="flex items-center gap-3">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Modules</span>
+              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Modules
+              </span>
               <div :if={@selected_device} class="text-xs text-gray-600">
                 → <span class="text-gray-400">{@selected_device}</span>
               </div>
             </div>
             <div class="flex items-center gap-2">
               <%!-- Flash message --%>
-              <div :if={@mapping_flash} class="text-xs text-purple-400 animate-pulse">{@mapping_flash}</div>
+              <div :if={@mapping_flash} class="text-xs text-purple-400 animate-pulse">
+                {@mapping_flash}
+              </div>
               <%!-- Save captured mapping --%>
               <button
                 :if={@learned_type && @selected_action && @selected_device}
@@ -805,12 +853,20 @@ defmodule SoundForgeWeb.MidiLive do
           </div>
 
           <%!-- Device selector for learn --%>
-          <div :if={@devices != []} class="px-4 py-2 border-b border-gray-800/40 flex items-center gap-3">
+          <div
+            :if={@devices != []}
+            class="px-4 py-2 border-b border-gray-800/40 flex items-center gap-3"
+          >
             <span class="text-xs text-gray-500 flex-shrink-0">Learn device:</span>
             <form phx-change="select_device" class="flex-1">
-              <select class="w-full bg-gray-900 border border-gray-700 rounded text-sm text-white px-2 py-1 focus:border-purple-600 focus:outline-none" name="device">
+              <select
+                class="w-full bg-gray-900 border border-gray-700 rounded text-sm text-white px-2 py-1 focus:border-purple-600 focus:outline-none"
+                name="device"
+              >
                 <option value="">Select device...</option>
-                <option :for={d <- @devices} value={d.name} selected={@selected_device == d.name}>{d.name}</option>
+                <option :for={d <- @devices} value={d.name} selected={@selected_device == d.name}>
+                  {d.name}
+                </option>
               </select>
             </form>
             <div :if={@learn_mode} class="flex items-center gap-1.5 text-xs text-yellow-400">
@@ -843,12 +899,16 @@ defmodule SoundForgeWeb.MidiLive do
                       @learn_mode && @selected_action == action && "bg-yellow-900/20"
                     ]}>
                       <%!-- Action name --%>
-                      <span class="w-32 flex-shrink-0 text-sm text-white">{format_action(action)}</span>
+                      <span class="w-32 flex-shrink-0 text-sm text-white">
+                        {format_action(action)}
+                      </span>
 
                       <%!-- Current mapping --%>
                       <div class="flex-1 flex items-center gap-2 min-w-0">
                         <div :if={mapping} class="flex items-center gap-1.5 text-xs">
-                          <span class="text-gray-400 truncate max-w-[110px]">{shorten_device_name(mapping.device_name)}</span>
+                          <span class="text-gray-400 truncate max-w-[110px]">
+                            {shorten_device_name(mapping.device_name)}
+                          </span>
                           <span class="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300 font-mono flex-shrink-0">
                             {format_midi_type(mapping.midi_type)} {mapping.number}
                           </span>
@@ -864,15 +924,19 @@ defmodule SoundForgeWeb.MidiLive do
                             cond do
                               @learn_mode && @selected_action == action ->
                                 "bg-yellow-600 text-white animate-pulse"
+
                               @selected_device ->
                                 "bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white"
+
                               true ->
                                 "bg-gray-900 text-gray-600 cursor-not-allowed"
                             end
                           ]}
                           phx-click="start_learn_action"
                           phx-value-action={action}
-                          disabled={is_nil(@selected_device) || (@learn_mode && @selected_action != action)}
+                          disabled={
+                            is_nil(@selected_device) || (@learn_mode && @selected_action != action)
+                          }
                         >
                           {cond do
                             @learn_mode && @selected_action == action -> "Listening..."
@@ -899,8 +963,12 @@ defmodule SoundForgeWeb.MidiLive do
           <%!-- OSC Addresses reference --%>
           <div class="px-4 pt-4 pb-6 border-t border-gray-800/40 mt-2">
             <div class="flex items-center gap-2 mb-3">
-              <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">OSC Addresses</span>
-              <span class="text-[10px] text-gray-700">udp/8000 — use with TouchOSC, GrandMA, etc.</span>
+              <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                OSC Addresses
+              </span>
+              <span class="text-[10px] text-gray-700">
+                udp/8000 — use with TouchOSC, GrandMA, etc.
+              </span>
             </div>
             <div class="grid grid-cols-2 gap-x-4 gap-y-1">
               <%= for {addr, desc} <- osc_addresses() do %>
@@ -916,9 +984,14 @@ defmodule SoundForgeWeb.MidiLive do
         <%!-- ============================================================ --%>
         <%!-- Column 3: Visual Mapper --%>
         <%!-- ============================================================ --%>
-        <div class="w-72 flex-shrink-0 border-l border-gray-800 bg-gray-950 flex flex-col overflow-y-auto">
+        <div
+          id="midi-visual-mapper-column"
+          class="w-72 flex-shrink-0 border-l border-gray-800 bg-gray-950 flex flex-col overflow-y-auto"
+        >
           <div class="px-3 pt-4 pb-2 border-b border-gray-800/60">
-            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Visual Mapper</span>
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Visual Mapper
+            </span>
           </div>
 
           <%!-- No controller selected --%>
@@ -941,8 +1014,12 @@ defmodule SoundForgeWeb.MidiLive do
                 <span class="text-sm font-medium text-white">{@selected_controller.name}</span>
               </div>
               <div class="flex items-center gap-2 mt-0.5">
-                <span class={type_badge_class(@selected_controller.type)}>{type_label(@selected_controller.type)}</span>
-                <span class={direction_badge_class(@selected_controller.direction)}>{direction_label(@selected_controller.direction)}</span>
+                <span class={type_badge_class(@selected_controller.type)}>
+                  {type_label(@selected_controller.type)}
+                </span>
+                <span class={direction_badge_class(@selected_controller.direction)}>
+                  {direction_label(@selected_controller.direction)}
+                </span>
               </div>
             </div>
 
@@ -971,15 +1048,20 @@ defmodule SoundForgeWeb.MidiLive do
                         class={[
                           "aspect-square rounded text-[9px] font-mono transition-all",
                           cond do
-                            @selected_element && @selected_element.kind == :pad && @selected_element.index == i ->
+                            @selected_element && @selected_element.kind == :pad &&
+                                @selected_element.index == i ->
                               "bg-yellow-500 text-black"
+
                             mapped ->
                               "bg-purple-700 text-white"
+
                             true ->
                               "bg-gray-800 text-gray-600 hover:bg-gray-700"
                           end
                         ]}
-                      >{i + 1}</button>
+                      >
+                        {i + 1}
+                      </button>
                     <% end %>
                   </div>
                 </div>
@@ -1009,11 +1091,18 @@ defmodule SoundForgeWeb.MidiLive do
               </div>
               <p class="text-xs text-gray-500 mb-1.5">Map to:</p>
               <form phx-change="select_action" class="mb-2">
-                <select class="w-full bg-gray-800 border border-gray-700 rounded text-xs text-white px-2 py-1" name="action">
+                <select
+                  class="w-full bg-gray-800 border border-gray-700 rounded text-xs text-white px-2 py-1"
+                  name="action"
+                >
                   <option value="">Choose action...</option>
                   <%= for {_cat, cat_label, cat_actions} <- actions_by_category() do %>
                     <optgroup label={cat_label}>
-                      <option :for={action <- cat_actions} value={action} selected={@selected_action == action}>
+                      <option
+                        :for={action <- cat_actions}
+                        value={action}
+                        selected={@selected_action == action}
+                      >
                         {format_action(action)}
                       </option>
                     </optgroup>
@@ -1078,15 +1167,23 @@ defmodule SoundForgeWeb.MidiLive do
             </div>
 
             <%!-- Device Research Info --%>
-            <% research = Map.get(@device_research, @selected_controller && @selected_controller.port_id) %>
-            <div :if={research && research.source == :researched} class="mx-3 mb-2 px-3 py-2 bg-blue-950/40 border border-blue-800/30 rounded-lg">
-              <p class="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-1">Device Info</p>
+            <% research =
+              Map.get(@device_research, @selected_controller && @selected_controller.port_id) %>
+            <div
+              :if={research && research.source == :researched}
+              class="mx-3 mb-2 px-3 py-2 bg-blue-950/40 border border-blue-800/30 rounded-lg"
+            >
+              <p class="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-1">
+                Device Info
+              </p>
               <div class="space-y-0.5">
                 <div :if={research.manufacturer} class="text-[10px] text-gray-400">
                   <span class="text-gray-600">Manufacturer:</span> {research.manufacturer}
                 </div>
                 <div :if={research.vendor_id} class="text-[10px] text-gray-400 font-mono">
-                  <span class="text-gray-600">USB ID:</span> {research.vendor_id}{if research.product_id, do: ":#{research.product_id}", else: ""}
+                  <span class="text-gray-600">USB ID:</span> {research.vendor_id}{if research.product_id,
+                    do: ":#{research.product_id}",
+                    else: ""}
                 </div>
               </div>
             </div>
@@ -1096,15 +1193,27 @@ defmodule SoundForgeWeb.MidiLive do
               <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Map from Image</p>
 
               <%!-- Upload form --%>
-              <form :if={is_nil(@image_mapping_controls)} phx-change="validate" phx-submit="analyze_controller_image">
-                <.live_file_input upload={@uploads.controller_image} class="hidden" id="image-upload-input" />
+              <form
+                :if={is_nil(@image_mapping_controls)}
+                phx-change="validate"
+                phx-submit="analyze_controller_image"
+              >
+                <.live_file_input
+                  upload={@uploads.controller_image}
+                  class="hidden"
+                  id="image-upload-input"
+                />
                 <label
                   for="image-upload-input"
                   class="flex flex-col items-center justify-center gap-1 w-full py-4 rounded-lg border border-dashed border-gray-700 text-gray-600 hover:border-purple-600 hover:text-purple-400 cursor-pointer transition-colors text-center"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
                   </svg>
                   <span class="text-[10px]">Upload controller photo</span>
                 </label>
@@ -1112,9 +1221,19 @@ defmodule SoundForgeWeb.MidiLive do
                 <%= for entry <- @uploads.controller_image.entries do %>
                   <div class="mt-2 flex items-center gap-2 text-xs text-gray-400">
                     <span class="truncate flex-1">{entry.client_name}</span>
-                    <button type="button" phx-click="cancel_upload" phx-value-ref={entry.ref} class="text-gray-600 hover:text-red-400">
+                    <button
+                      type="button"
+                      phx-click="cancel_upload"
+                      phx-value-ref={entry.ref}
+                      class="text-gray-600 hover:text-red-400"
+                    >
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -1134,29 +1253,55 @@ defmodule SoundForgeWeb.MidiLive do
               </form>
 
               <%!-- Analyzing indicator --%>
-              <div :if={@image_mapping_analyzing && is_nil(@image_mapping_controls)} class="flex items-center gap-2 text-xs text-purple-400 mt-2">
+              <div
+                :if={@image_mapping_analyzing && is_nil(@image_mapping_controls)}
+                class="flex items-center gap-2 text-xs text-purple-400 mt-2"
+              >
                 <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  />
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
                 </svg>
                 <span>Identifying controls...</span>
               </div>
 
               <%!-- Error --%>
-              <div :if={@image_mapping_error} class="mt-2 text-[10px] text-red-400">{@image_mapping_error}</div>
+              <div :if={@image_mapping_error} class="mt-2 text-[10px] text-red-400">
+                {@image_mapping_error}
+              </div>
 
               <%!-- Results --%>
               <div :if={@image_mapping_controls} class="mt-2">
                 <div class="flex items-center justify-between mb-2">
-                  <span class="text-[10px] text-gray-400">{length(@image_mapping_controls)} controls detected</span>
-                  <button phx-click="clear_image_mapping" class="text-[10px] text-gray-600 hover:text-red-400">Clear</button>
+                  <span class="text-[10px] text-gray-400">
+                    {length(@image_mapping_controls)} controls detected
+                  </span>
+                  <button
+                    phx-click="clear_image_mapping"
+                    class="text-[10px] text-gray-600 hover:text-red-400"
+                  >
+                    Clear
+                  </button>
                 </div>
 
                 <div class="space-y-1 max-h-48 overflow-y-auto">
                   <%= for {control, idx} <- Enum.with_index(@image_mapping_controls) do %>
                     <div class={[
                       "flex items-center gap-2 px-2 py-1.5 rounded text-[10px]",
-                      if(control.confirmed, do: "bg-green-900/30 border border-green-700/30", else: "bg-gray-900 border border-gray-800")
+                      if(control.confirmed,
+                        do: "bg-green-900/30 border border-green-700/30",
+                        else: "bg-gray-900 border border-gray-800"
+                      )
                     ]}>
                       <span class={[
                         "px-1 rounded font-mono",
@@ -1167,9 +1312,15 @@ defmodule SoundForgeWeb.MidiLive do
                           :button -> "bg-gray-700 text-gray-300"
                           _ -> "bg-gray-800 text-gray-400"
                         end
-                      ]}>{control.type}</span>
+                      ]}>
+                        {control.type}
+                      </span>
                       <span class="flex-1 text-gray-400 truncate">{control.label || "—"}</span>
-                      <form phx-change="confirm_image_control" phx-value-index={idx} class="flex items-center gap-1">
+                      <form
+                        phx-change="confirm_image_control"
+                        phx-value-index={idx}
+                        class="flex items-center gap-1"
+                      >
                         <input type="hidden" name="index" value={idx} />
                         <input
                           type="number"
@@ -1209,7 +1360,9 @@ defmodule SoundForgeWeb.MidiLive do
                 <%= for mapping <- @controller_mappings do %>
                   <div class="flex items-center gap-2 py-1 group">
                     <span class={category_dot_class(action_category(mapping.action))} />
-                    <span class="flex-1 text-xs text-gray-300 truncate">{format_action(mapping.action)}</span>
+                    <span class="flex-1 text-xs text-gray-300 truncate">
+                      {format_action(mapping.action)}
+                    </span>
                     <span class="text-[10px] font-mono text-gray-600">
                       {format_midi_type(mapping.midi_type)}{mapping.number}
                     </span>
@@ -1231,34 +1384,77 @@ defmodule SoundForgeWeb.MidiLive do
       <%!-- ============================================================ --%>
       <%!-- MIDI Monitor strip (collapsible) --%>
       <%!-- ============================================================ --%>
-      <div class="border-t border-gray-800 bg-gray-950 flex-shrink-0">
-        <div class="flex items-center gap-3 px-4 py-2 cursor-pointer select-none" phx-click="toggle_monitor">
-          <div class={["w-2 h-2 rounded-full", if(@monitor_listening, do: "bg-green-400 animate-pulse", else: "bg-gray-700")]} />
+      <div id="midi-monitor-strip" class="border-t border-gray-800 bg-gray-950 flex-shrink-0">
+        <div
+          class="flex items-center gap-3 px-4 py-2 cursor-pointer select-none"
+          phx-click="toggle_monitor"
+        >
+          <div class={[
+            "w-2 h-2 rounded-full",
+            if(@monitor_listening, do: "bg-green-400 animate-pulse", else: "bg-gray-700")
+          ]} />
           <span class="text-xs font-medium text-gray-400">MIDI Monitor</span>
-          <span :if={@midi_monitor != []} class="text-[10px] text-gray-600">({length(@midi_monitor)} events)</span>
+          <span :if={@midi_monitor != []} class="text-[10px] text-gray-600">
+            ({length(@midi_monitor)} events)
+          </span>
           <div class="flex-1" />
           <div class="flex items-center gap-2">
             <button
-              class={["text-xs px-2 py-0.5 rounded transition-colors", if(@monitor_listening, do: "bg-red-900/50 text-red-400 hover:bg-red-900", else: "bg-gray-800 text-gray-400 hover:bg-gray-700")]}
-              phx-click={if(@monitor_listening, do: "toggle_monitor_listen", else: "toggle_monitor_listen")}
+              class={[
+                "text-xs px-2 py-0.5 rounded transition-colors",
+                if(@monitor_listening,
+                  do: "bg-red-900/50 text-red-400 hover:bg-red-900",
+                  else: "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                )
+              ]}
+              phx-click={
+                if(@monitor_listening, do: "toggle_monitor_listen", else: "toggle_monitor_listen")
+              }
             >
               {if @monitor_listening, do: "Stop", else: "Start"}
             </button>
-            <button :if={@midi_monitor != []} class="text-xs text-gray-600 hover:text-gray-400 transition-colors" phx-click="clear_monitor">
+            <button
+              :if={@midi_monitor != []}
+              class="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+              phx-click="clear_monitor"
+            >
               Clear
             </button>
-            <svg class={["w-3 h-3 text-gray-600 transition-transform", if(@monitor_expanded, do: "rotate-180", else: "")]} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            <svg
+              class={[
+                "w-3 h-3 text-gray-600 transition-transform",
+                if(@monitor_expanded, do: "rotate-180", else: "")
+              ]}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </div>
         </div>
 
-        <div :if={@monitor_expanded} class="border-t border-gray-800/50 overflow-y-auto" style="max-height: 180px;">
-          <div :if={@midi_monitor == [] && @monitor_listening} class="px-4 py-3 text-xs text-green-400 flex items-center gap-2">
+        <div
+          :if={@monitor_expanded}
+          class="border-t border-gray-800/50 overflow-y-auto"
+          style="max-height: 180px;"
+        >
+          <div
+            :if={@midi_monitor == [] && @monitor_listening}
+            class="px-4 py-3 text-xs text-green-400 flex items-center gap-2"
+          >
             <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
             Listening for MIDI input...
           </div>
-          <div :if={@midi_monitor == [] && !@monitor_listening} class="px-4 py-3 text-xs text-gray-600 italic">
+          <div
+            :if={@midi_monitor == [] && !@monitor_listening}
+            class="px-4 py-3 text-xs text-gray-600 italic"
+          >
             Click Start to begin capturing MIDI events.
           </div>
           <div class="divide-y divide-gray-800/30">
@@ -1266,14 +1462,20 @@ defmodule SoundForgeWeb.MidiLive do
               :for={entry <- Enum.take(@midi_monitor, 50)}
               class="flex items-center gap-3 px-4 py-1 font-mono text-[10px] hover:bg-gray-900/40"
             >
-              <span class={["px-1.5 py-0.5 rounded text-[9px] uppercase font-bold flex-shrink-0", monitor_type_class(entry.type)]}>
+              <span class={[
+                "px-1.5 py-0.5 rounded text-[9px] uppercase font-bold flex-shrink-0",
+                monitor_type_class(entry.type)
+              ]}>
                 {format_midi_type(entry.type)}
               </span>
               <span class="text-gray-500 w-6 text-right flex-shrink-0">{entry.channel}</span>
               <span class="text-gray-400 w-8 text-right flex-shrink-0">#{entry.number}</span>
               <div class="flex-1 flex items-center gap-2 min-w-0">
                 <div class="flex-1 bg-gray-800 rounded-full h-1 overflow-hidden">
-                  <div class="h-full bg-cyan-500/60 rounded-full" style={"width: #{round((entry.value || 0) / 127 * 100)}%"} />
+                  <div
+                    class="h-full bg-cyan-500/60 rounded-full"
+                    style={"width: #{round((entry.value || 0) / 127 * 100)}%"}
+                  />
                 </div>
                 <span class="text-gray-600 w-7 text-right flex-shrink-0">{entry.value || 0}</span>
               </div>
@@ -1296,23 +1498,65 @@ defmodule SoundForgeWeb.MidiLive do
       <svg viewBox="0 0 360 230" xmlns="http://www.w3.org/2000/svg" class="w-full">
         <%!-- Body --%>
         <rect width="360" height="230" rx="10" fill="#1a1a2e" />
-        <rect x="2" y="2" width="356" height="226" rx="9" fill="none" stroke="#374151" stroke-width="1" />
+        <rect
+          x="2"
+          y="2"
+          width="356"
+          height="226"
+          rx="9"
+          fill="none"
+          stroke="#374151"
+          stroke-width="1"
+        />
 
         <%!-- Screen --%>
-        <rect x="8" y="8" width="228" height="84" rx="4" fill="#0d1117" stroke="#374151" stroke-width="1" />
-        <text x="122" y="52" text-anchor="middle" fill="#374151" font-size="11" font-family="monospace">MPC Live II</text>
-        <text x="122" y="66" text-anchor="middle" fill="#1e3a5f" font-size="8" font-family="monospace">AKAI Professional</text>
+        <rect
+          x="8"
+          y="8"
+          width="228"
+          height="84"
+          rx="4"
+          fill="#0d1117"
+          stroke="#374151"
+          stroke-width="1"
+        />
+        <text
+          x="122"
+          y="52"
+          text-anchor="middle"
+          fill="#374151"
+          font-size="11"
+          font-family="monospace"
+        >
+          MPC Live II
+        </text>
+        <text x="122" y="66" text-anchor="middle" fill="#1e3a5f" font-size="8" font-family="monospace">
+          AKAI Professional
+        </text>
 
         <%!-- Transport buttons (top right) --%>
         <%= for {btn, i} <- Enum.with_index(@registry.buttons) do %>
           <% bx = 245 + rem(i, 2) * 54 %>
           <% by = 14 + div(i, 2) * 22 %>
           <% mapped = Enum.any?(@mappings, &(&1.midi_type == :cc && &1.number == btn.cc)) %>
-          <rect x={bx} y={by} width="46" height="16" rx="3"
+          <rect
+            x={bx}
+            y={by}
+            width="46"
+            height="16"
+            rx="3"
             fill={if mapped, do: "#4c1d95", else: "#1f2937"}
             stroke={if mapped, do: "#7c3aed", else: "#374151"}
-            stroke-width="1" />
-          <text x={bx + 23} y={by + 11} text-anchor="middle" fill={if mapped, do: "#c4b5fd", else: "#6b7280"} font-size="7" font-family="sans-serif">
+            stroke-width="1"
+          />
+          <text
+            x={bx + 23}
+            y={by + 11}
+            text-anchor="middle"
+            fill={if mapped, do: "#c4b5fd", else: "#6b7280"}
+            font-size="7"
+            font-family="sans-serif"
+          >
             {btn.label}
           </text>
         <% end %>
@@ -1323,33 +1567,52 @@ defmodule SoundForgeWeb.MidiLive do
           <%!-- MPC pads: row 0 = top of grid, row 3 = bottom (displayed) --%>
           <% py = 100 + (3 - div(pad.index, 4)) * 32 %>
           <% mapped = pad_mapped?(@mappings, pad.index) %>
-          <% selected = @selected_element && @selected_element.kind == :pad && @selected_element.index == pad.index %>
+          <% selected =
+            @selected_element && @selected_element.kind == :pad &&
+              @selected_element.index == pad.index %>
           <rect
-            x={px} y={py} width="36" height="28" rx="3"
-            fill={cond do
-              selected -> "#ca8a04"
-              mapped -> "#581c87"
-              true -> "#111827"
-            end}
-            stroke={cond do
-              selected -> "#fbbf24"
-              mapped -> "#7c3aed"
-              true -> "#374151"
-            end}
+            x={px}
+            y={py}
+            width="36"
+            height="28"
+            rx="3"
+            fill={
+              cond do
+                selected -> "#ca8a04"
+                mapped -> "#581c87"
+                true -> "#111827"
+              end
+            }
+            stroke={
+              cond do
+                selected -> "#fbbf24"
+                mapped -> "#7c3aed"
+                true -> "#374151"
+              end
+            }
             stroke-width={if selected || mapped, do: "1.5", else: "0.5"}
             class="cursor-pointer hover:brightness-125 transition-all"
             phx-click="select_element"
             phx-value-kind="pad"
             phx-value-index={pad.index}
           />
-          <text x={px + 18} y={py + 17} text-anchor="middle"
-            fill={cond do
-              selected -> "#fef08a"
-              mapped -> "#c4b5fd"
-              true -> "#374151"
-            end}
-            font-size="7" font-family="monospace" class="pointer-events-none"
-          >{pad.index + 1}</text>
+          <text
+            x={px + 18}
+            y={py + 17}
+            text-anchor="middle"
+            fill={
+              cond do
+                selected -> "#fef08a"
+                mapped -> "#c4b5fd"
+                true -> "#374151"
+              end
+            }
+            font-size="7"
+            font-family="monospace"
+            class="pointer-events-none"
+          >
+            {pad.index + 1}
+          </text>
         <% end %>
 
         <%!-- Q-Link knobs (right of pads) --%>
@@ -1357,32 +1620,56 @@ defmodule SoundForgeWeb.MidiLive do
           <% kx = 174 + rem(i, 3) * 30 %>
           <% ky = 118 + div(i, 3) * 34 %>
           <% mapped = knob_mapped?(@mappings, knob.cc) %>
-          <% selected = @selected_element && @selected_element.kind == :knob && @selected_element.index == i %>
-          <circle cx={kx} cy={ky} r="11"
-            fill={cond do
-              selected -> "#ca8a04"
-              mapped -> "#1e3a5f"
-              true -> "#111827"
-            end}
-            stroke={cond do
-              selected -> "#fbbf24"
-              mapped -> "#3b82f6"
-              true -> "#374151"
-            end}
+          <% selected =
+            @selected_element && @selected_element.kind == :knob && @selected_element.index == i %>
+          <circle
+            cx={kx}
+            cy={ky}
+            r="11"
+            fill={
+              cond do
+                selected -> "#ca8a04"
+                mapped -> "#1e3a5f"
+                true -> "#111827"
+              end
+            }
+            stroke={
+              cond do
+                selected -> "#fbbf24"
+                mapped -> "#3b82f6"
+                true -> "#374151"
+              end
+            }
             stroke-width={if selected || mapped, do: "1.5", else: "0.75"}
             class="cursor-pointer hover:brightness-125 transition-all"
             phx-click="select_element"
             phx-value-kind="knob"
             phx-value-index={i}
           />
-          <text x={kx} y={ky + 4} text-anchor="middle"
+          <text
+            x={kx}
+            y={ky + 4}
+            text-anchor="middle"
             fill={if mapped || selected, do: "#93c5fd", else: "#374151"}
-            font-size="6" font-family="monospace" class="pointer-events-none"
-          >{knob.label}</text>
+            font-size="6"
+            font-family="monospace"
+            class="pointer-events-none"
+          >
+            {knob.label}
+          </text>
         <% end %>
 
         <%!-- Bottom label --%>
-        <text x="180" y="224" text-anchor="middle" fill="#1f2937" font-size="8" font-family="sans-serif">Click pads or knobs to assign MIDI</text>
+        <text
+          x="180"
+          y="224"
+          text-anchor="middle"
+          fill="#1f2937"
+          font-size="8"
+          font-family="sans-serif"
+        >
+          Click pads or knobs to assign MIDI
+        </text>
       </svg>
     </div>
     """
@@ -1394,39 +1681,90 @@ defmodule SoundForgeWeb.MidiLive do
       <svg viewBox="0 0 300 210" xmlns="http://www.w3.org/2000/svg" class="w-full">
         <%!-- Body --%>
         <rect width="300" height="210" rx="8" fill="#0d1117" />
-        <rect x="2" y="2" width="296" height="206" rx="7" fill="none" stroke="#374151" stroke-width="1" />
+        <rect
+          x="2"
+          y="2"
+          width="296"
+          height="206"
+          rx="7"
+          fill="none"
+          stroke="#374151"
+          stroke-width="1"
+        />
 
         <%!-- Device label --%>
-        <text x="150" y="14" text-anchor="middle" fill="#374151" font-size="9" font-family="sans-serif">M-VAVE</text>
+        <text
+          x="150"
+          y="14"
+          text-anchor="middle"
+          fill="#374151"
+          font-size="9"
+          font-family="sans-serif"
+        >
+          M-VAVE
+        </text>
 
         <%!-- Knobs row 1 (Rate/Tempo/Swing/Latch) --%>
         <text x="8" y="34" fill="#374151" font-size="7" font-family="sans-serif">ROW 1</text>
         <%= for knob <- Enum.filter(@registry.knobs, &(&1.row == 0)) do %>
           <% kx = 30 + knob.index * 62 %>
           <% mapped = knob_mapped?(@mappings, knob.cc) %>
-          <% selected = @selected_element && @selected_element.kind == :knob && @selected_element.index == knob.index %>
-          <circle cx={kx} cy="52" r="18"
-            fill={cond do
-              selected -> "#ca8a04"
-              mapped -> "#1e3a5f"
-              true -> "#111827"
-            end}
-            stroke={cond do
-              selected -> "#fbbf24"
-              mapped -> "#3b82f6"
-              true -> "#374151"
-            end}
+          <% selected =
+            @selected_element && @selected_element.kind == :knob &&
+              @selected_element.index == knob.index %>
+          <circle
+            cx={kx}
+            cy="52"
+            r="18"
+            fill={
+              cond do
+                selected -> "#ca8a04"
+                mapped -> "#1e3a5f"
+                true -> "#111827"
+              end
+            }
+            stroke={
+              cond do
+                selected -> "#fbbf24"
+                mapped -> "#3b82f6"
+                true -> "#374151"
+              end
+            }
             stroke-width={if selected || mapped, do: "2", else: "1"}
             class="cursor-pointer hover:brightness-125 transition-all"
             phx-click="select_element"
             phx-value-kind="knob"
             phx-value-index={knob.index}
           />
-          <circle cx={kx} cy="36" r="2" fill={if mapped || selected, do: "#93c5fd", else: "#374151"} class="pointer-events-none" />
-          <text x={kx} y="56" text-anchor="middle" fill={if mapped || selected, do: "#93c5fd", else: "#4b5563"} font-size="6.5" font-family="sans-serif" class="pointer-events-none">
+          <circle
+            cx={kx}
+            cy="36"
+            r="2"
+            fill={if mapped || selected, do: "#93c5fd", else: "#374151"}
+            class="pointer-events-none"
+          />
+          <text
+            x={kx}
+            y="56"
+            text-anchor="middle"
+            fill={if mapped || selected, do: "#93c5fd", else: "#4b5563"}
+            font-size="6.5"
+            font-family="sans-serif"
+            class="pointer-events-none"
+          >
             {knob.label}
           </text>
-          <text x={kx} y="65" text-anchor="middle" fill="#1f2937" font-size="5.5" font-family="monospace" class="pointer-events-none">CC{knob.cc}</text>
+          <text
+            x={kx}
+            y="65"
+            text-anchor="middle"
+            fill="#1f2937"
+            font-size="5.5"
+            font-family="monospace"
+            class="pointer-events-none"
+          >
+            CC{knob.cc}
+          </text>
         <% end %>
 
         <%!-- Knobs row 2 --%>
@@ -1434,26 +1772,49 @@ defmodule SoundForgeWeb.MidiLive do
         <%= for knob <- Enum.filter(@registry.knobs, &(&1.row == 1)) do %>
           <% kx = 30 + (knob.index - 4) * 62 %>
           <% mapped = knob_mapped?(@mappings, knob.cc) %>
-          <% selected = @selected_element && @selected_element.kind == :knob && @selected_element.index == knob.index %>
-          <circle cx={kx} cy="108" r="18"
-            fill={cond do
-              selected -> "#ca8a04"
-              mapped -> "#1e3a5f"
-              true -> "#111827"
-            end}
-            stroke={cond do
-              selected -> "#fbbf24"
-              mapped -> "#3b82f6"
-              true -> "#374151"
-            end}
+          <% selected =
+            @selected_element && @selected_element.kind == :knob &&
+              @selected_element.index == knob.index %>
+          <circle
+            cx={kx}
+            cy="108"
+            r="18"
+            fill={
+              cond do
+                selected -> "#ca8a04"
+                mapped -> "#1e3a5f"
+                true -> "#111827"
+              end
+            }
+            stroke={
+              cond do
+                selected -> "#fbbf24"
+                mapped -> "#3b82f6"
+                true -> "#374151"
+              end
+            }
             stroke-width={if selected || mapped, do: "2", else: "1"}
             class="cursor-pointer hover:brightness-125 transition-all"
             phx-click="select_element"
             phx-value-kind="knob"
             phx-value-index={knob.index}
           />
-          <circle cx={kx} cy="92" r="2" fill={if mapped || selected, do: "#93c5fd", else: "#374151"} class="pointer-events-none" />
-          <text x={kx} y="112" text-anchor="middle" fill={if mapped || selected, do: "#93c5fd", else: "#4b5563"} font-size="6.5" font-family="sans-serif" class="pointer-events-none">
+          <circle
+            cx={kx}
+            cy="92"
+            r="2"
+            fill={if mapped || selected, do: "#93c5fd", else: "#374151"}
+            class="pointer-events-none"
+          />
+          <text
+            x={kx}
+            y="112"
+            text-anchor="middle"
+            fill={if mapped || selected, do: "#93c5fd", else: "#4b5563"}
+            font-size="6.5"
+            font-family="sans-serif"
+            class="pointer-events-none"
+          >
             {knob.label}
           </text>
         <% end %>
@@ -1463,45 +1824,84 @@ defmodule SoundForgeWeb.MidiLive do
           <% px = 8 + pad.col * 37 %>
           <% py = 132 + (3 - div(pad.index, 4)) * 18 %>
           <% mapped = pad_mapped?(@mappings, pad.index) %>
-          <% selected = @selected_element && @selected_element.kind == :pad && @selected_element.index == pad.index %>
+          <% selected =
+            @selected_element && @selected_element.kind == :pad &&
+              @selected_element.index == pad.index %>
           <rect
-            x={px} y={py} width="33" height="14" rx="2"
-            fill={cond do
-              selected -> "#ca8a04"
-              mapped -> "#581c87"
-              true -> "#111827"
-            end}
-            stroke={cond do
-              selected -> "#fbbf24"
-              mapped -> "#7c3aed"
-              true -> "#374151"
-            end}
+            x={px}
+            y={py}
+            width="33"
+            height="14"
+            rx="2"
+            fill={
+              cond do
+                selected -> "#ca8a04"
+                mapped -> "#581c87"
+                true -> "#111827"
+              end
+            }
+            stroke={
+              cond do
+                selected -> "#fbbf24"
+                mapped -> "#7c3aed"
+                true -> "#374151"
+              end
+            }
             stroke-width={if selected || mapped, do: "1.5", else: "0.5"}
             class="cursor-pointer hover:brightness-125 transition-all"
             phx-click="select_element"
             phx-value-kind="pad"
             phx-value-index={pad.index}
           />
-          <text x={px + 16} y={py + 10} text-anchor="middle"
+          <text
+            x={px + 16}
+            y={py + 10}
+            text-anchor="middle"
             fill={if mapped || selected, do: "#c4b5fd", else: "#374151"}
-            font-size="5.5" font-family="monospace" class="pointer-events-none"
-          >{pad.index + 1}</text>
+            font-size="5.5"
+            font-family="monospace"
+            class="pointer-events-none"
+          >
+            {pad.index + 1}
+          </text>
         <% end %>
 
         <%!-- Transport buttons (bottom row) --%>
         <%= for {btn, i} <- Enum.with_index(@registry.buttons) do %>
           <% bx = 155 + i * 36 %>
           <% mapped = Enum.any?(@mappings, &(&1.midi_type == :cc && &1.number == btn.cc)) %>
-          <rect x={bx} y="194" width="30" height="12" rx="2"
+          <rect
+            x={bx}
+            y="194"
+            width="30"
+            height="12"
+            rx="2"
             fill={if mapped, do: "#1c1917", else: "#111827"}
             stroke={if mapped, do: "#57534e", else: "#374151"}
-            stroke-width="0.75" />
-          <text x={bx + 15} y="203" text-anchor="middle" fill={if mapped, do: "#a8a29e", else: "#374151"} font-size="6" font-family="sans-serif">
+            stroke-width="0.75"
+          />
+          <text
+            x={bx + 15}
+            y="203"
+            text-anchor="middle"
+            fill={if mapped, do: "#a8a29e", else: "#374151"}
+            font-size="6"
+            font-family="sans-serif"
+          >
             {btn.label}
           </text>
         <% end %>
 
-        <text x="150" y="208" text-anchor="middle" fill="#1f2937" font-size="6" font-family="sans-serif">Click to assign MIDI</text>
+        <text
+          x="150"
+          y="208"
+          text-anchor="middle"
+          fill="#1f2937"
+          font-size="6"
+          font-family="sans-serif"
+        >
+          Click to assign MIDI
+        </text>
       </svg>
     </div>
     """
@@ -1515,7 +1915,8 @@ defmodule SoundForgeWeb.MidiLive do
       <div class="grid grid-cols-4 gap-1">
         <%= for i <- 0..15 do %>
           <% mapped = pad_mapped?(@mappings, i) %>
-          <% selected = @selected_element && @selected_element.kind == :pad && @selected_element.index == i %>
+          <% selected =
+            @selected_element && @selected_element.kind == :pad && @selected_element.index == i %>
           <button
             phx-click="select_element"
             phx-value-kind="pad"
@@ -1528,7 +1929,9 @@ defmodule SoundForgeWeb.MidiLive do
                 true -> "bg-gray-800 text-gray-600 hover:bg-gray-700"
               end
             ]}
-          >{i + 1}</button>
+          >
+            {i + 1}
+          </button>
         <% end %>
       </div>
     </div>
@@ -1630,7 +2033,14 @@ defmodule SoundForgeWeb.MidiLive do
        do: :transport
 
   defp action_category(action)
-       when action in [:dj_play, :dj_cue, :dj_crossfader, :dj_loop_toggle, :dj_loop_size, :dj_pitch],
+       when action in [
+              :dj_play,
+              :dj_cue,
+              :dj_crossfader,
+              :dj_loop_toggle,
+              :dj_loop_size,
+              :dj_pitch
+            ],
        do: :dj
 
   defp action_category(action)
@@ -1695,11 +2105,21 @@ defmodule SoundForgeWeb.MidiLive do
     _ -> :play
   end
 
-  defp category_pill_class(:transport), do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-900/60 text-blue-300"
-  defp category_pill_class(:dj), do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-900/60 text-cyan-300"
-  defp category_pill_class(:pads), do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-900/60 text-purple-300"
-  defp category_pill_class(:stems), do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-900/60 text-green-300"
-  defp category_pill_class(_), do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-800 text-gray-400"
+  defp category_pill_class(:transport),
+    do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-900/60 text-blue-300"
+
+  defp category_pill_class(:dj),
+    do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-900/60 text-cyan-300"
+
+  defp category_pill_class(:pads),
+    do:
+      "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-900/60 text-purple-300"
+
+  defp category_pill_class(:stems),
+    do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-900/60 text-green-300"
+
+  defp category_pill_class(_),
+    do: "inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-800 text-gray-400"
 
   defp category_dot_class(:transport), do: "w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"
   defp category_dot_class(:dj), do: "w-1.5 h-1.5 rounded-full bg-cyan-500 flex-shrink-0"
@@ -1712,19 +2132,34 @@ defmodule SoundForgeWeb.MidiLive do
   defp type_label(:virtual), do: "Virtual"
   defp type_label(_), do: "MIDI"
 
-  defp type_badge_class(:usb), do: "inline-flex text-[9px] px-1 py-0 rounded bg-amber-900/50 text-amber-400 border border-amber-800/50"
-  defp type_badge_class(:network), do: "inline-flex text-[9px] px-1 py-0 rounded bg-blue-900/50 text-blue-400 border border-blue-800/50"
-  defp type_badge_class(_), do: "inline-flex text-[9px] px-1 py-0 rounded bg-gray-800 text-gray-500 border border-gray-700"
+  defp type_badge_class(:usb),
+    do:
+      "inline-flex text-[9px] px-1 py-0 rounded bg-amber-900/50 text-amber-400 border border-amber-800/50"
+
+  defp type_badge_class(:network),
+    do:
+      "inline-flex text-[9px] px-1 py-0 rounded bg-blue-900/50 text-blue-400 border border-blue-800/50"
+
+  defp type_badge_class(_),
+    do:
+      "inline-flex text-[9px] px-1 py-0 rounded bg-gray-800 text-gray-500 border border-gray-700"
 
   defp direction_label(:input), do: "In"
   defp direction_label(:output), do: "Out"
   defp direction_label(:duplex), do: "I/O"
   defp direction_label(_), do: "?"
 
-  defp direction_badge_class(:input), do: "inline-flex text-[9px] px-1 py-0 rounded bg-green-900/40 text-green-400"
-  defp direction_badge_class(:output), do: "inline-flex text-[9px] px-1 py-0 rounded bg-gray-800 text-gray-500"
-  defp direction_badge_class(:duplex), do: "inline-flex text-[9px] px-1 py-0 rounded bg-emerald-900/50 text-emerald-400"
-  defp direction_badge_class(_), do: "inline-flex text-[9px] px-1 py-0 rounded bg-gray-800 text-gray-600"
+  defp direction_badge_class(:input),
+    do: "inline-flex text-[9px] px-1 py-0 rounded bg-green-900/40 text-green-400"
+
+  defp direction_badge_class(:output),
+    do: "inline-flex text-[9px] px-1 py-0 rounded bg-gray-800 text-gray-500"
+
+  defp direction_badge_class(:duplex),
+    do: "inline-flex text-[9px] px-1 py-0 rounded bg-emerald-900/50 text-emerald-400"
+
+  defp direction_badge_class(_),
+    do: "inline-flex text-[9px] px-1 py-0 rounded bg-gray-800 text-gray-600"
 
   defp status_label(:connected), do: "connected"
   defp status_label(:available), do: "available"

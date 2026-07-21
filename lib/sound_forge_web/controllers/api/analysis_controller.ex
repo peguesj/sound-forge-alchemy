@@ -60,8 +60,24 @@ defmodule SoundForgeWeb.API.AnalysisController do
 
   defp create_analysis(conn, file_path, analysis_type, track_id) do
     features = type_to_features(analysis_type)
-    track_id = track_id || create_placeholder_track(file_path)
 
+    case resolve_track_id(conn, track_id, file_path) do
+      {:ok, track_id} ->
+        enqueue_analysis(conn, file_path, analysis_type, features, track_id)
+
+      {:error, :forbidden} ->
+        conn
+        |> put_status(:forbidden)
+        |> json(%{error: "Access denied"})
+
+      {:error, :invalid_track} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "Invalid or missing track"})
+    end
+  end
+
+  defp enqueue_analysis(conn, file_path, analysis_type, features, track_id) do
     case Music.create_analysis_job(%{
            track_id: track_id,
            status: :queued,
@@ -94,7 +110,18 @@ defmodule SoundForgeWeb.API.AnalysisController do
   end
 
   defp type_to_features("full"),
-    do: ["tempo", "key", "energy", "spectral", "mfcc", "chroma", "structure", "loop_points", "arrangement", "energy_curve"]
+    do: [
+      "tempo",
+      "key",
+      "energy",
+      "spectral",
+      "mfcc",
+      "chroma",
+      "structure",
+      "loop_points",
+      "arrangement",
+      "energy_curve"
+    ]
 
   defp type_to_features("tempo"), do: ["tempo"]
   defp type_to_features("key"), do: ["key"]
@@ -104,12 +131,28 @@ defmodule SoundForgeWeb.API.AnalysisController do
   defp type_to_features("arrangement"), do: ["tempo", "energy", "chroma", "arrangement"]
   defp type_to_features(type), do: [type]
 
-  defp create_placeholder_track(file_path) do
-    title = file_path |> Path.basename() |> Path.rootname()
+  defp resolve_track_id(conn, nil, file_path), do: create_placeholder_track(conn, file_path)
 
-    case Music.create_track(%{title: title}) do
-      {:ok, track} -> track.id
-      _ -> nil
+  defp resolve_track_id(conn, track_id, _file_path) when is_binary(track_id) do
+    with {:ok, _} <- Ecto.UUID.cast(track_id),
+         {:ok, track} when not is_nil(track) <- Music.get_track(track_id),
+         :ok <- authorize_track(conn, track) do
+      {:ok, track.id}
+    else
+      {:error, :forbidden} -> {:error, :forbidden}
+      _ -> {:error, :invalid_track}
+    end
+  end
+
+  defp resolve_track_id(_conn, _track_id, _file_path), do: {:error, :invalid_track}
+
+  defp create_placeholder_track(conn, file_path) do
+    title = file_path |> Path.basename() |> Path.rootname()
+    user_id = get_user_id(conn)
+
+    case Music.create_track(%{title: title, user_id: user_id, source: "import"}) do
+      {:ok, track} -> {:ok, track.id}
+      _ -> {:error, :invalid_track}
     end
   end
 
@@ -121,10 +164,15 @@ defmodule SoundForgeWeb.API.AnalysisController do
   end
 
   defp authorize_job(conn, job) do
-    user_id = get_user_id(conn)
     track = job.track
 
-    if is_nil(track) or is_nil(track.user_id) or track.user_id == user_id do
+    authorize_track(conn, track)
+  end
+
+  defp authorize_track(conn, track) do
+    user_id = get_user_id(conn)
+
+    if not is_nil(track) and not is_nil(user_id) and track.user_id == user_id do
       :ok
     else
       {:error, :forbidden}

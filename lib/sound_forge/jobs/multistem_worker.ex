@@ -49,12 +49,13 @@ defmodule SoundForge.Jobs.MultiStemWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{
-        args: %{
-          "track_id" => track_id,
-          "job_id" => job_id,
-          "file_path" => file_path,
-          "stem_list" => stem_list
-        } = args
+        args:
+          %{
+            "track_id" => track_id,
+            "job_id" => job_id,
+            "file_path" => file_path,
+            "stem_list" => stem_list
+          } = args
       }) do
     Logger.metadata(track_id: track_id, job_id: job_id, worker: "MultiStemWorker")
 
@@ -87,10 +88,13 @@ defmodule SoundForge.Jobs.MultiStemWorker do
          _ <- Logger.info("lalal.ai upload complete, source_id=#{source_id}"),
          _ <- broadcast_progress(job_id, :processing, 10),
          _ <-
-           (fresh_upload_job = Music.get_processing_job!(job_id);
-            Music.update_processing_job(fresh_upload_job, %{
-              options: Map.put(fresh_upload_job.options || %{}, "lalalai_source_id", source_id)
-            })),
+           (
+             fresh_upload_job = Music.get_processing_job!(job_id)
+
+             Music.update_processing_job(fresh_upload_job, %{
+               options: Map.put(fresh_upload_job.options || %{}, "lalalai_source_id", source_id)
+             })
+           ),
          # Step 2: Initiate multistem split
          {:ok, split_result} <-
            LalalAI.split_multistem(source_id, stem_list,
@@ -102,10 +106,13 @@ defmodule SoundForge.Jobs.MultiStemWorker do
          {:ok, task_id} <- extract_task_id(split_result),
          _ <- Logger.info("lalal.ai multistem task_id=#{task_id}"),
          _ <-
-           (fresh_split_job = Music.get_processing_job!(job_id);
-            Music.update_processing_job(fresh_split_job, %{
-              options: Map.put(fresh_split_job.options || %{}, "lalalai_task_id", task_id)
-            })),
+           (
+             fresh_split_job = Music.get_processing_job!(job_id)
+
+             Music.update_processing_job(fresh_split_job, %{
+               options: Map.put(fresh_split_job.options || %{}, "lalalai_task_id", task_id)
+             })
+           ),
          # Step 3: Poll until complete
          {:ok, stem_results} <- poll_until_complete(task_id, job_id, track_id) do
       # Step 4: Process all completed stems
@@ -407,9 +414,7 @@ defmodule SoundForge.Jobs.MultiStemWorker do
         [stem]
 
       {:error, reason} ->
-        Logger.warning(
-          "Failed to create stem record for #{stem_type_atom}: #{inspect(reason)}"
-        )
+        Logger.warning("Failed to create stem record for #{stem_type_atom}: #{inspect(reason)}")
 
         []
     end

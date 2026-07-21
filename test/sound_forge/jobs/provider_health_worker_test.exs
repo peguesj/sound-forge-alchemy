@@ -67,11 +67,12 @@ defmodule SoundForge.Jobs.ProviderHealthWorkerTest do
     end
 
     test "sets :unreachable for provider at invalid URL", %{user: user} do
-      provider = provider_fixture(user.id, %{
-        name: "Unreachable",
-        provider_type: :ollama,
-        base_url: "http://127.0.0.1:1"
-      })
+      provider =
+        provider_fixture(user.id, %{
+          name: "Unreachable",
+          provider_type: :ollama,
+          base_url: "http://127.0.0.1:1"
+        })
 
       job = %Oban.Job{args: %{"provider_id" => provider.id}}
       :ok = ProviderHealthWorker.perform(job)

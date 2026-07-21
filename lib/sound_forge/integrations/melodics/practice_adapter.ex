@@ -40,7 +40,9 @@ defmodule SoundForge.Integrations.Melodics.PracticeAdapter do
       category = map_instrument_to_category(instrument)
       avg_accuracy = average_accuracy(instrument_sessions)
       difficulty = difficulty_from_accuracy(avg_accuracy)
-      {category, difficulty, %{avg_accuracy: avg_accuracy, session_count: length(instrument_sessions)}}
+
+      {category, difficulty,
+       %{avg_accuracy: avg_accuracy, session_count: length(instrument_sessions)}}
     end)
     |> Enum.sort_by(fn {_cat, _diff, meta} -> -meta.session_count end)
   end
@@ -48,6 +50,7 @@ defmodule SoundForge.Integrations.Melodics.PracticeAdapter do
   @doc "Map a Melodics instrument type to an SFA stem category."
   @spec map_instrument_to_category(String.t() | nil) :: stem_category()
   def map_instrument_to_category(nil), do: :other
+
   def map_instrument_to_category(instrument) do
     key = instrument |> String.downcase() |> String.trim()
     Map.get(@instrument_map, key, :other)

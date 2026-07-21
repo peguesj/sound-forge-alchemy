@@ -127,8 +127,17 @@ defmodule SoundForge.Agents.AgentRunner do
         user_id: payload[:user_id] || payload["user_id"],
         track_id: payload[:track_id] || payload["track_id"],
         track_ids: payload[:track_ids] || payload["track_ids"],
-        data: Map.drop(payload, [:instruction, :user_id, :track_id, :track_ids,
-                                  "instruction", "user_id", "track_id", "track_ids"])
+        data:
+          Map.drop(payload, [
+            :instruction,
+            :user_id,
+            :track_id,
+            :track_ids,
+            "instruction",
+            "user_id",
+            "track_id",
+            "track_ids"
+          ])
       }
 
       result =

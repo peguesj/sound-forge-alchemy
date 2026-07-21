@@ -30,6 +30,7 @@ defmodule SoundForgeWeb.Live.BigLoopyLive do
       else
         []
       end
+
     alchemy_sets = if user_id, do: BigLoopy.list_alchemy_sets(user_id), else: []
 
     socket =
@@ -106,7 +107,8 @@ defmodule SoundForgeWeb.Live.BigLoopyLive do
            |> assign(:error, nil)}
 
         {:error, changeset} ->
-          {:noreply, assign(socket, :error, "Failed to create alchemy set: #{inspect(changeset.errors)}")}
+          {:noreply,
+           assign(socket, :error, "Failed to create alchemy set: #{inspect(changeset.errors)}")}
       end
     end
   end
@@ -132,7 +134,12 @@ defmodule SoundForgeWeb.Live.BigLoopyLive do
   end
 
   def handle_info({:bigloopy, :track_complete, _id, result}, socket) do
-    updated = Map.put(socket.assigns.pipeline_progress, result.track_id, %{status: "complete", loop_paths: result.loop_paths})
+    updated =
+      Map.put(socket.assigns.pipeline_progress, result.track_id, %{
+        status: "complete",
+        loop_paths: result.loop_paths
+      })
+
     {:noreply, assign(socket, :pipeline_progress, updated)}
   end
 
@@ -142,7 +149,10 @@ defmodule SoundForgeWeb.Live.BigLoopyLive do
     socket =
       socket
       |> assign(:active_set, set)
-      |> assign(:pipeline_progress, Map.put(socket.assigns.pipeline_progress, :status, "complete"))
+      |> assign(
+        :pipeline_progress,
+        Map.put(socket.assigns.pipeline_progress, :status, "complete")
+      )
       |> assign(:zip_path, zip_path)
 
     {:noreply, socket}
@@ -183,137 +193,147 @@ defmodule SoundForgeWeb.Live.BigLoopyLive do
         refreshing_midi={@refreshing_midi}
       />
       <div class="flex-1 overflow-y-auto">
-      <div class="max-w-5xl mx-auto px-4 py-8 space-y-8">
-
-      <%!-- Error --%>
-      <div :if={@error} class="alert alert-error">
-        <span><%= @error %></span>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <%!-- Left: Track selector --%>
-        <div class="lg:col-span-1 card bg-base-200 shadow">
-          <div class="card-body">
-            <h2 class="card-title text-base">Source Tracks</h2>
-            <p class="text-xs text-base-content/60 mb-2">Select tracks to include in the alchemy pipeline.</p>
-            <ul class="space-y-1 max-h-64 overflow-y-auto">
-              <%= for track <- @tracks do %>
-                <li>
-                  <label class="flex items-center gap-2 cursor-pointer hover:bg-base-300 rounded px-2 py-1">
-                    <input
-                      type="checkbox"
-                      class="checkbox checkbox-sm"
-                      phx-click="toggle_track"
-                      phx-value-id={track.id}
-                      checked={track.id in @selected_track_ids}
-                    />
-                    <span class="text-sm truncate flex-1"><%= track.title || track.artist %></span>
-                  </label>
-                </li>
-              <% end %>
-            </ul>
-            <p class="text-xs text-base-content/40 mt-2"><%= length(@selected_track_ids) %> selected</p>
+        <div class="max-w-5xl mx-auto px-4 py-8 space-y-8">
+          <%!-- Error --%>
+          <div :if={@error} class="alert alert-error">
+            <span>{@error}</span>
           </div>
-        </div>
 
-        <%!-- Center: Recipe + controls --%>
-        <div class="lg:col-span-2 space-y-4">
-          <div class="card bg-base-200 shadow">
-            <div class="card-body">
-              <h2 class="card-title text-base">Recipe</h2>
-              <p class="text-xs text-base-content/60 mb-2">
-                Describe the loop set you want. E.g. "4 bar drum loop at 120 BPM, bass groove, no vocals."
-              </p>
-              <form phx-change="update_recipe">
-                <textarea
-                  name="recipe"
-                  rows="4"
-                  class="textarea textarea-bordered w-full text-sm"
-                  placeholder="Describe your alchemy recipe..."
-                  value={@recipe_text}
-                ><%= @recipe_text %></textarea>
-              </form>
-              <div class="card-actions justify-end mt-2">
-                <button
-                  class="btn btn-primary btn-sm"
-                  phx-click="start_alchemy"
-                  disabled={length(@selected_track_ids) == 0}
-                >
-                  Start Alchemy
-                </button>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <%!-- Left: Track selector --%>
+            <div class="lg:col-span-1 card bg-base-200 shadow">
+              <div class="card-body">
+                <h2 class="card-title text-base">Source Tracks</h2>
+                <p class="text-xs text-base-content/60 mb-2">
+                  Select tracks to include in the alchemy pipeline.
+                </p>
+                <ul class="space-y-1 max-h-64 overflow-y-auto">
+                  <%= for track <- @tracks do %>
+                    <li>
+                      <label class="flex items-center gap-2 cursor-pointer hover:bg-base-300 rounded px-2 py-1">
+                        <input
+                          type="checkbox"
+                          class="checkbox checkbox-sm"
+                          phx-click="toggle_track"
+                          phx-value-id={track.id}
+                          checked={track.id in @selected_track_ids}
+                        />
+                        <span class="text-sm truncate flex-1">{track.title || track.artist}</span>
+                      </label>
+                    </li>
+                  <% end %>
+                </ul>
+                <p class="text-xs text-base-content/40 mt-2">
+                  {length(@selected_track_ids)} selected
+                </p>
               </div>
+            </div>
+
+            <%!-- Center: Recipe + controls --%>
+            <div class="lg:col-span-2 space-y-4">
+              <div class="card bg-base-200 shadow">
+                <div class="card-body">
+                  <h2 class="card-title text-base">Recipe</h2>
+                  <p class="text-xs text-base-content/60 mb-2">
+                    Describe the loop set you want. E.g. "4 bar drum loop at 120 BPM, bass groove, no vocals."
+                  </p>
+                  <form phx-change="update_recipe">
+                    <textarea
+                      name="recipe"
+                      rows="4"
+                      class="textarea textarea-bordered w-full text-sm"
+                      placeholder="Describe your alchemy recipe..."
+                      value={@recipe_text}
+                    ><%= @recipe_text %></textarea>
+                  </form>
+                  <div class="card-actions justify-end mt-2">
+                    <button
+                      class="btn btn-primary btn-sm"
+                      phx-click="start_alchemy"
+                      disabled={length(@selected_track_ids) == 0}
+                    >
+                      Start Alchemy
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Progress --%>
+              <.live_component
+                :if={@active_set}
+                module={SoundForgeWeb.Live.Components.BigLoopyProgressComponent}
+                id="bigloopy-progress"
+                alchemy_set={@active_set}
+                progress={@pipeline_progress}
+              />
+
+              <%!-- Performance set view --%>
+              <.live_component
+                :if={@active_set && @active_set.status == "complete"}
+                module={SoundForgeWeb.Live.Components.PerformanceSetViewComponent}
+                id="performance-set-view"
+                alchemy_set={@active_set}
+              />
             </div>
           </div>
 
-          <%!-- Progress --%>
-          <.live_component
-            :if={@active_set}
-            module={SoundForgeWeb.Live.Components.BigLoopyProgressComponent}
-            id="bigloopy-progress"
-            alchemy_set={@active_set}
-            progress={@pipeline_progress}
-          />
-
-          <%!-- Performance set view --%>
-          <.live_component
-            :if={@active_set && @active_set.status == "complete"}
-            module={SoundForgeWeb.Live.Components.PerformanceSetViewComponent}
-            id="performance-set-view"
-            alchemy_set={@active_set}
-          />
-        </div>
-      </div>
-
-      <%!-- Previous sets --%>
-      <div :if={length(@alchemy_sets) > 0} class="card bg-base-200 shadow">
-        <div class="card-body">
-          <h2 class="card-title text-base">Previous Alchemy Sets</h2>
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Tracks</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <%= for set <- @alchemy_sets do %>
-                  <tr>
-                    <td><%= set.name %></td>
-                    <td class="text-xs"><%= set.type %></td>
-                    <td class="text-xs"><%= length(set.source_track_ids) %></td>
-                    <td>
-                      <span class={[
-                        "badge badge-sm",
-                        set.status == "complete" && "badge-success",
-                        set.status == "processing" && "badge-info",
-                        set.status == "error" && "badge-error",
-                        set.status == "pending" && "badge-ghost"
-                      ]}>
-                        <%= set.status %>
-                      </span>
-                    </td>
-                    <td>
-                      <button class="btn btn-xs btn-ghost" phx-click="load_set" phx-value-id={set.id}>
-                        Load
-                      </button>
-                      <%= if set.zip_path do %>
-                        <.link href={~p"/alchemy/#{set.id}/download"} class="btn btn-xs btn-outline">
-                          Download
-                        </.link>
-                      <% end %>
-                    </td>
-                  </tr>
-                <% end %>
-              </tbody>
-            </table>
+          <%!-- Previous sets --%>
+          <div :if={length(@alchemy_sets) > 0} class="card bg-base-200 shadow">
+            <div class="card-body">
+              <h2 class="card-title text-base">Previous Alchemy Sets</h2>
+              <div class="overflow-x-auto">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Type</th>
+                      <th>Tracks</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for set <- @alchemy_sets do %>
+                      <tr>
+                        <td>{set.name}</td>
+                        <td class="text-xs">{set.type}</td>
+                        <td class="text-xs">{length(set.source_track_ids)}</td>
+                        <td>
+                          <span class={[
+                            "badge badge-sm",
+                            set.status == "complete" && "badge-success",
+                            set.status == "processing" && "badge-info",
+                            set.status == "error" && "badge-error",
+                            set.status == "pending" && "badge-ghost"
+                          ]}>
+                            {set.status}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            class="btn btn-xs btn-ghost"
+                            phx-click="load_set"
+                            phx-value-id={set.id}
+                          >
+                            Load
+                          </button>
+                          <%= if set.zip_path do %>
+                            <.link
+                              href={~p"/alchemy/#{set.id}/download"}
+                              class="btn btn-xs btn-outline"
+                            >
+                              Download
+                            </.link>
+                          <% end %>
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
       </div>
       <.live_component
         module={SoundForgeWeb.Live.Components.TransportBarComponent}

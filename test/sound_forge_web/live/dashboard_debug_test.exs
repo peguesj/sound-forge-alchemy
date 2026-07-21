@@ -11,12 +11,13 @@ defmodule SoundForgeWeb.DashboardDebugTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Debug Track",
-      artist: "Debug Artist",
-      duration: 200
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Debug Track",
+        artist: "Debug Artist",
+        duration: 200
+      })
 
     download_job_fixture(%{
       track_id: track.id,

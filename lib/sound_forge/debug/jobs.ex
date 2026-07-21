@@ -14,10 +14,18 @@ defmodule SoundForge.Debug.Jobs do
     from(j in "oban_jobs",
       where: j.state in ^@active_states,
       select: %{
-        id: j.id, worker: j.worker, queue: j.queue, state: j.state,
-        attempt: j.attempt, max_attempts: j.max_attempts, args: j.args,
-        errors: j.errors, inserted_at: j.inserted_at, attempted_at: j.attempted_at,
-        completed_at: j.completed_at, scheduled_at: j.scheduled_at
+        id: j.id,
+        worker: j.worker,
+        queue: j.queue,
+        state: j.state,
+        attempt: j.attempt,
+        max_attempts: j.max_attempts,
+        args: j.args,
+        errors: j.errors,
+        inserted_at: j.inserted_at,
+        attempted_at: j.attempted_at,
+        completed_at: j.completed_at,
+        scheduled_at: j.scheduled_at
       },
       order_by: [desc: j.id]
     )
@@ -34,10 +42,18 @@ defmodule SoundForge.Debug.Jobs do
       from(j in "oban_jobs",
         where: j.state in ^@history_states and j.inserted_at >= ^twenty_four_hours_ago,
         select: %{
-          id: j.id, worker: j.worker, queue: j.queue, state: j.state,
-          attempt: j.attempt, max_attempts: j.max_attempts, args: j.args,
-          errors: j.errors, inserted_at: j.inserted_at, attempted_at: j.attempted_at,
-          completed_at: j.completed_at, scheduled_at: j.scheduled_at
+          id: j.id,
+          worker: j.worker,
+          queue: j.queue,
+          state: j.state,
+          attempt: j.attempt,
+          max_attempts: j.max_attempts,
+          args: j.args,
+          errors: j.errors,
+          inserted_at: j.inserted_at,
+          attempted_at: j.attempted_at,
+          completed_at: j.completed_at,
+          scheduled_at: j.scheduled_at
         },
         order_by: [desc: j.id],
         limit: ^(limit + 1)

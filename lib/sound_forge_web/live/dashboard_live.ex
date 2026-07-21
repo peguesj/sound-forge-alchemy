@@ -49,7 +49,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:selected_ids, MapSet.new())
       |> assign(:select_all, false)
       |> assign(:select_all_pages, false)
-     |> assign(:select_all_pages, false)
+      |> assign(:select_all_pages, false)
       |> assign(:select_all_pages, false)
       |> assign(:batch_mode, false)
       |> assign(:batch_processing, false)
@@ -148,7 +148,12 @@ defmodule SoundForgeWeb.DashboardLive do
         socket =
           if Settings.get(current_user_id, :debug_mode) do
             Phoenix.PubSub.subscribe(SoundForge.PubSub, SoundForge.Debug.LogBroadcaster.topic())
-            Phoenix.PubSub.subscribe(SoundForge.PubSub, SoundForge.Telemetry.ObanHandler.worker_status_topic())
+
+            Phoenix.PubSub.subscribe(
+              SoundForge.PubSub,
+              SoundForge.Telemetry.ObanHandler.worker_status_topic()
+            )
+
             socket
             |> assign(:worker_stats, SoundForge.Debug.Jobs.worker_stats())
             |> assign(:queue_active_jobs, SoundForge.Debug.Jobs.active_jobs())
@@ -201,7 +206,10 @@ defmodule SoundForgeWeb.DashboardLive do
        |> assign(:analysis, analysis)
        |> assign(:midi_result, Music.get_midi_result_for_track(id))
        |> assign(:chord_result, Music.get_chord_result_for_track(id))
-       |> assign(:user_notes, serialize_user_notes(NoteEdits.list_note_edits(id, socket.assigns.current_user_id)))}
+       |> assign(
+         :user_notes,
+         serialize_user_notes(NoteEdits.list_note_edits(id, socket.assigns.current_user_id))
+       )}
     else
       {:noreply,
        socket
@@ -493,7 +501,6 @@ defmodule SoundForgeWeb.DashboardLive do
      |> put_flash(:info, "Deleted #{count} tracks")}
   end
 
-
   # -- Batch Mode (BatchProcessor integration) --
 
   @impl true
@@ -506,7 +513,7 @@ defmodule SoundForgeWeb.DashboardLive do
       |> assign(:selected_ids, MapSet.new())
       |> assign(:select_all, false)
       |> assign(:select_all_pages, false)
-     |> assign(:select_all_pages, false)
+      |> assign(:select_all_pages, false)
 
     {:noreply, socket}
   end
@@ -536,7 +543,11 @@ defmodule SoundForgeWeb.DashboardLive do
   end
 
   @impl true
-  def handle_event("confirm_batch_process", %{"engine" => engine, "stem_filter" => stem_filter}, socket) do
+  def handle_event(
+        "confirm_batch_process",
+        %{"engine" => engine, "stem_filter" => stem_filter},
+        socket
+      ) do
     user_id = socket.assigns[:current_user_id]
     track_ids = MapSet.to_list(socket.assigns.selected_ids)
 
@@ -556,8 +567,8 @@ defmodule SoundForgeWeb.DashboardLive do
          |> assign(:show_batch_modal, false)
          |> assign(:selected_ids, MapSet.new())
          |> assign(:select_all, false)
-      |> assign(:select_all_pages, false)
-     |> assign(:select_all_pages, false)
+         |> assign(:select_all_pages, false)
+         |> assign(:select_all_pages, false)
          |> put_flash(:info, "Batch processing started for \#{length(track_ids)} tracks")}
 
       {:error, :empty_batch} ->
@@ -674,6 +685,7 @@ defmodule SoundForgeWeb.DashboardLive do
                 uri = "spotify:track:#{track.spotify_id}"
                 handle_event("play_spotify", %{"uri" => uri}, socket)
               end
+
             _ ->
               # No download path, try stems or Spotify
               if Music.count_stems(track.id) > 0 do
@@ -1160,8 +1172,8 @@ defmodule SoundForgeWeb.DashboardLive do
          |> assign(:track_count, 0)
          |> assign(:selected_ids, MapSet.new())
          |> assign(:select_all, false)
-      |> assign(:select_all_pages, false)
-     |> assign(:select_all_pages, false)
+         |> assign(:select_all_pages, false)
+         |> assign(:select_all_pages, false)
          |> stream(:tracks, [], reset: true)}
 
       {:error, _} ->
@@ -1207,36 +1219,6 @@ defmodule SoundForgeWeb.DashboardLive do
       end)
 
       {:noreply, assign(socket, :fetching_spotify, true)}
-    end
-  end
-
-  # Piano Roll note editing (Story 2.4)
-  @impl true
-  def handle_event("add_user_note", %{"note" => note, "onset_sec" => onset_sec, "duration_sec" => duration_sec, "velocity" => velocity}, socket) do
-    track = socket.assigns.track
-    user_id = socket.assigns.current_user_id
-
-    if track && user_id do
-      case NoteEdits.create_note_edit(%{
-        note: note,
-        onset_sec: onset_sec,
-        duration_sec: duration_sec,
-        velocity: velocity,
-        track_id: track.id,
-        user_id: user_id
-      }) do
-        {:ok, _edit} ->
-          user_notes = serialize_user_notes(NoteEdits.list_note_edits(track.id, user_id))
-          {:noreply,
-           socket
-           |> assign(:user_notes, user_notes)
-           |> push_event("set_user_notes", %{notes: user_notes})}
-
-        {:error, _changeset} ->
-          {:noreply, socket}
-      end
-    else
-      {:noreply, socket}
     end
   end
 
@@ -1317,79 +1299,6 @@ defmodule SoundForgeWeb.DashboardLive do
      |> push_notification(:error, "Import Failed", "Spotify import failed: #{reason}")
      |> assign(:fetching_spotify, false)
      |> put_flash(:error, "Failed: #{reason}")}
-  end
-
-  # Handle lalal.ai modal key test result
-  @impl true
-  # Handle lalal.ai connection test result (system/resolved key)
-  # Handle Task.Supervisor task failures (e.g., if spotdl process crashes)
-  # Track-level pipeline progress (from workers)
-  def handle_info({:pipeline_progress, %{track_id: track_id, stage: stage} = payload}, socket) do
-    pipelines = socket.assigns.pipelines
-    pipeline = Map.get(pipelines, track_id, %{})
-
-    # Preserve job_id and engine from existing stage data (set when job was enqueued)
-    # so the cancel button remains functional during live progress updates.
-    existing_stage = Map.get(pipeline, stage, %{})
-
-    stage_data =
-      %{status: payload.status, progress: payload.progress}
-      |> maybe_put(:job_id, Map.get(existing_stage, :job_id))
-      |> maybe_put(:engine, Map.get(existing_stage, :engine))
-
-    updated_pipeline = Map.put(pipeline, stage, stage_data)
-
-    pipelines = Map.put(pipelines, track_id, updated_pipeline)
-
-    socket =
-      if payload.status == :failed do
-        stage_name = stage |> to_string() |> String.capitalize()
-
-        socket
-        |> push_notification(:error, "#{stage_name} Failed", "#{stage_name} failed for track. Check server logs.", %{track_id: track_id})
-        |> put_flash(:error, "#{stage_name} failed. Check server logs for details.")
-      else
-        socket
-      end
-
-    # When download or processing completes, update the track entry in the library stream
-    socket =
-      if payload.status == :completed && stage in [:download, :processing] do
-        case Music.get_track(track_id) do
-          {:ok, track} when not is_nil(track) -> stream_insert(socket, :tracks, track)
-          _ -> socket
-        end
-      else
-        socket
-      end
-
-    # When a stage completes and we're viewing this track, reload its detail data
-    socket =
-      if payload.status == :completed &&
-           socket.assigns.live_action == :show &&
-           socket.assigns.track && socket.assigns.track.id == track_id do
-        track = Music.get_track_with_details!(track_id)
-
-        socket
-        |> assign(:track, track)
-        |> assign(:stems, track.stems)
-        |> assign(:analysis, List.first(track.analysis_results))
-        |> assign(:midi_result, Music.get_midi_result_for_track(track_id))
-        |> assign(:chord_result, Music.get_chord_result_for_track(track_id))
-      else
-        socket
-      end
-
-    {:noreply, assign(socket, :pipelines, pipelines)}
-  end
-
-  # Playlist-level pipeline update (from playlist_pipeline:{playlist_id} topic)
-  @impl true
-  def handle_info({:playlist_track_update, %{track_id: track_id, stage: stage, status: status, progress: progress}}, socket) do
-    pipelines = socket.assigns.pipelines
-    pipeline = Map.get(pipelines, track_id, %{})
-    updated_pipeline = Map.put(pipeline, stage, %{status: status, progress: progress})
-    {:noreply, assign(socket, :pipelines, Map.put(pipelines, track_id, updated_pipeline))}
   end
 
   @impl true
@@ -1543,42 +1452,10 @@ defmodule SoundForgeWeb.DashboardLive do
   # Global MIDI bar control messages
   # GlobalBroadcaster events (on pages other than dashboard)
 
-  @impl true
-  def handle_info({:batch_progress, %{batch_job_id: _id, status: status, completed_count: completed, total_count: total}}, socket) do
-    batch_status = socket.assigns.batch_status
-
-    updated_status =
-      if batch_status do
-        %{batch_status | status: status, completed_count: completed, total_count: total}
-      else
-        batch_status
-      end
-
-    {:noreply, assign(socket, :batch_status, updated_status)}
-  end
-
-  @impl true
-  def handle_info({:batch_complete, %{batch_job_id: _id, completed_count: completed, failed_count: failed, total_count: total}}, socket) do
-    msg =
-      if failed > 0 do
-        "Batch complete: #{completed}/#{total} succeeded, #{failed} failed"
-      else
-        "Batch complete: #{completed} tracks processed successfully"
-      end
-
-    {:noreply,
-     socket
-     |> assign(:batch_processing, false)
-     |> assign(:batch_mode, false)
-     |> put_flash(:info, msg)}
-  end
-
   # UAT scenario step execution via handle_info
   # Each step runs a check and advances to the next step or marks pass/fail
 
   # -- Template helpers --
-
-
 
   def radar_features(analysis, chord_result \\ nil) do
     features = analysis.features || %{}
@@ -1865,12 +1742,9 @@ defmodule SoundForgeWeb.DashboardLive do
 
   # Builds a raw MIDI event map for the floating monitor panel
 
-
   # -- DevTools helpers --
 
   # -- UAT helpers --
-
-
 
   # Step executors return {status, detail_string}
   # Catch-all for undefined steps

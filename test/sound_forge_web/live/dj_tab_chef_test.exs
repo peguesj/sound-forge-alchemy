@@ -10,12 +10,13 @@ defmodule SoundForgeWeb.DjTabChefTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Chef Test Track",
-      artist: "Chef Artist",
-      duration: 240
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Chef Test Track",
+        artist: "Chef Artist",
+        duration: 240
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -24,10 +25,38 @@ defmodule SoundForgeWeb.DjTabChefTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :drums, file_path: "stems/drums.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :bass, file_path: "stems/bass.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :other, file_path: "stems/other.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :drums,
+      file_path: "stems/drums.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :bass,
+      file_path: "stems/bass.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :other,
+      file_path: "stems/other.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -96,13 +125,19 @@ defmodule SoundForgeWeb.DjTabChefTest do
 
     test "set_filter with lowpass mode", %{conn: conn, track: track} do
       view = load_dj_with_track(conn, track)
-      html = render_click(view, "set_filter", %{"deck" => "1", "mode" => "lowpass", "cutoff" => "0.5"})
+
+      html =
+        render_click(view, "set_filter", %{"deck" => "1", "mode" => "lowpass", "cutoff" => "0.5"})
+
       assert is_binary(html)
     end
 
     test "set_filter with highpass mode", %{conn: conn, track: track} do
       view = load_dj_with_track(conn, track)
-      html = render_click(view, "set_filter", %{"deck" => "1", "mode" => "highpass", "cutoff" => "0.3"})
+
+      html =
+        render_click(view, "set_filter", %{"deck" => "1", "mode" => "highpass", "cutoff" => "0.3"})
+
       assert is_binary(html)
     end
   end

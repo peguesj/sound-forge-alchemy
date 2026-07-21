@@ -8,7 +8,8 @@ defmodule SoundForge.Agents.TrackAnalysisAgent do
 
   @impl true
   def description,
-    do: "Analyses harmonic and rhythmic content of tracks, detecting key, BPM, energy, chord progressions, and genre."
+    do:
+      "Analyses harmonic and rhythmic content of tracks, detecting key, BPM, energy, chord progressions, and genre."
 
   @impl true
   def capabilities,

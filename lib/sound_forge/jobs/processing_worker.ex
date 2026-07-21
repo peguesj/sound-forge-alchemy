@@ -20,9 +20,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"engine" => "lalalai", "mode" => "voice_clean"} = args}) do
-    Logger.info(
-      "ProcessingWorker delegating to VoiceCleanWorker for track #{args["track_id"]}"
-    )
+    Logger.info("ProcessingWorker delegating to VoiceCleanWorker for track #{args["track_id"]}")
 
     args
     |> SoundForge.Jobs.VoiceCleanWorker.new()
@@ -32,9 +30,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
   end
 
   def perform(%Oban.Job{args: %{"engine" => "lalalai", "mode" => "demuser"} = args}) do
-    Logger.info(
-      "ProcessingWorker delegating to DemuserWorker for track #{args["track_id"]}"
-    )
+    Logger.info("ProcessingWorker delegating to DemuserWorker for track #{args["track_id"]}")
 
     args
     |> SoundForge.Jobs.DemuserWorker.new()
@@ -44,9 +40,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
   end
 
   def perform(%Oban.Job{args: %{"engine" => "lalalai", "mode" => "multistem"} = args}) do
-    Logger.info(
-      "ProcessingWorker delegating to MultiStemWorker for track #{args["track_id"]}"
-    )
+    Logger.info("ProcessingWorker delegating to MultiStemWorker for track #{args["track_id"]}")
 
     args
     |> SoundForge.Jobs.MultiStemWorker.new()
@@ -56,9 +50,7 @@ defmodule SoundForge.Jobs.ProcessingWorker do
   end
 
   def perform(%Oban.Job{args: %{"engine" => "lalalai", "mode" => "voice_change"} = args}) do
-    Logger.info(
-      "ProcessingWorker delegating to VoiceChangeWorker for track #{args["track_id"]}"
-    )
+    Logger.info("ProcessingWorker delegating to VoiceChangeWorker for track #{args["track_id"]}")
 
     args
     |> SoundForge.Jobs.VoiceChangeWorker.new()
@@ -78,12 +70,13 @@ defmodule SoundForge.Jobs.ProcessingWorker do
   end
 
   def perform(%Oban.Job{
-        args: %{
-          "track_id" => track_id,
-          "job_id" => job_id,
-          "file_path" => file_path,
-          "model" => model
-        } = args
+        args:
+          %{
+            "track_id" => track_id,
+            "job_id" => job_id,
+            "file_path" => file_path,
+            "model" => model
+          } = args
       }) do
     playlist_id = Map.get(args, "playlist_id")
 
@@ -93,7 +86,13 @@ defmodule SoundForge.Jobs.ProcessingWorker do
     job = Music.get_processing_job!(job_id)
     Music.update_processing_job(job, %{status: :processing, progress: 0})
     PipelineBroadcaster.broadcast_stage_started(track_id, job_id, :processing)
-    PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :processing, status: :processing, progress: 0})
+
+    PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{
+      stage: :processing,
+      status: :processing,
+      progress: 0
+    })
+
     broadcast_progress(job_id, :processing, 0)
     broadcast_track_progress(track_id, :processing, :processing, 0)
 
@@ -129,59 +128,69 @@ defmodule SoundForge.Jobs.ProcessingWorker do
             # Validate stem count (htdemucs produces 4, htdemucs_6s produces 6)
             expected = expected_stem_count(model)
 
-        if map_size(stems) < expected do
-          Logger.warning(
-            "Expected #{expected} stems from #{model}, got #{map_size(stems)} for track #{track_id}"
-          )
-        end
+            if map_size(stems) < expected do
+              Logger.warning(
+                "Expected #{expected} stems from #{model}, got #{map_size(stems)} for track #{track_id}"
+              )
+            end
 
-        # Remove existing stems to prevent duplicates on re-processing
-        Music.delete_stems_for_track(track_id)
+            # Remove existing stems to prevent duplicates on re-processing
+            Music.delete_stems_for_track(track_id)
 
-        # Create Stem records for each separated stem
-        # The Python script returns absolute paths in stems map, so use them directly.
-        # If a path is relative, resolve it against output_dir.
-        stem_records =
-          Enum.flat_map(stems, fn {stem_type, stem_path} ->
-            resolved =
-              if String.starts_with?(stem_path, "/"),
-                do: stem_path,
-                else: Path.join(output_dir, stem_path)
+            # Create Stem records for each separated stem
+            # The Python script returns absolute paths in stems map, so use them directly.
+            # If a path is relative, resolve it against output_dir.
+            stem_records =
+              Enum.flat_map(stems, fn {stem_type, stem_path} ->
+                resolved =
+                  if String.starts_with?(stem_path, "/"),
+                    do: stem_path,
+                    else: Path.join(output_dir, stem_path)
 
-            create_stem_record(track_id, job_id, stem_type, resolved)
-          end)
+                create_stem_record(track_id, job_id, stem_type, resolved)
+              end)
 
-        # Reload to avoid stale struct
-        fresh_job = Music.get_processing_job!(job_id)
+            # Reload to avoid stale struct
+            fresh_job = Music.get_processing_job!(job_id)
 
-        Music.update_processing_job(fresh_job, %{
-          status: :completed,
-          progress: 100,
-          output_path: output_dir
-        })
+            Music.update_processing_job(fresh_job, %{
+              status: :completed,
+              progress: 100,
+              output_path: output_dir
+            })
 
-        Logger.info("Stem separation complete, stems=#{length(stem_records)}")
-        PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :processing)
-        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :processing, status: :completed, progress: 100})
+            Logger.info("Stem separation complete, stems=#{length(stem_records)}")
+            PipelineBroadcaster.broadcast_stage_complete(track_id, job_id, :processing)
 
-        # Chain: enqueue analysis job
-        enqueue_analysis(track_id, file_path, playlist_id)
+            PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{
+              stage: :processing,
+              status: :completed,
+              progress: 100
+            })
 
-        {:ok, %{stems: length(stem_records)}}
+            # Chain: enqueue analysis job
+            enqueue_analysis(track_id, file_path, playlist_id)
 
-      {:error, reason} ->
-        error_msg = inspect(reason)
-        Logger.error("Stem separation failed: #{error_msg}")
-        # Reload to avoid stale struct
-        fresh_job = Music.get_processing_job!(job_id)
-        Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
-        PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
-        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :processing, status: :failed, progress: 0})
+            {:ok, %{stems: length(stem_records)}}
 
-        # Clean up any partial output files
-        cleanup_output(fresh_job)
+          {:error, reason} ->
+            error_msg = inspect(reason)
+            Logger.error("Stem separation failed: #{error_msg}")
+            # Reload to avoid stale struct
+            fresh_job = Music.get_processing_job!(job_id)
+            Music.update_processing_job(fresh_job, %{status: :failed, error: error_msg})
+            PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
 
-        {:error, error_msg}
+            PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{
+              stage: :processing,
+              status: :failed,
+              progress: 0
+            })
+
+            # Clean up any partial output files
+            cleanup_output(fresh_job)
+
+            {:error, error_msg}
         end
 
       {:error, validation_error} ->
@@ -189,7 +198,13 @@ defmodule SoundForge.Jobs.ProcessingWorker do
         Logger.error(error_msg)
         Music.update_processing_job(job, %{status: :failed, error: error_msg})
         PipelineBroadcaster.broadcast_stage_failed(track_id, job_id, :processing)
-        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{stage: :processing, status: :failed, progress: 0})
+
+        PipelineBroadcaster.broadcast_playlist_track_update(playlist_id, track_id, %{
+          stage: :processing,
+          status: :failed,
+          progress: 0
+        })
+
         {:error, validation_error}
     end
   end

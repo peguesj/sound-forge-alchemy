@@ -39,7 +39,16 @@ defmodule SoundForge.Music.Playlist do
   @doc false
   def changeset(playlist, attrs) do
     playlist
-    |> cast(attrs, [:name, :description, :spotify_id, :spotify_url, :cover_art_url, :source, :playlist_type, :user_id])
+    |> cast(attrs, [
+      :name,
+      :description,
+      :spotify_id,
+      :spotify_url,
+      :cover_art_url,
+      :source,
+      :playlist_type,
+      :user_id
+    ])
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 500)
     |> validate_inclusion(:source, ~w(spotify splice manual import))

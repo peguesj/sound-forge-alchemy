@@ -44,7 +44,9 @@ defmodule SoundForge.Music.BatchJobTest do
     end
 
     test "accepts optional options map" do
-      changeset = BatchJob.changeset(%BatchJob{}, Map.put(@valid_attrs, :options, %{"model" => "htdemucs"}))
+      changeset =
+        BatchJob.changeset(%BatchJob{}, Map.put(@valid_attrs, :options, %{"model" => "htdemucs"}))
+
       assert changeset.valid?
     end
 

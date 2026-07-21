@@ -102,7 +102,8 @@ defmodule SoundForge.MIDI.Profiles.MVAVE do
   def layout(:mvave_standard) do
     %{
       device_name: "M-VAVE",
-      pads: Enum.map(0..15, fn i -> %{index: i, note: 36 + i, row: div(i, 4), col: rem(i, 4)} end),
+      pads:
+        Enum.map(0..15, fn i -> %{index: i, note: 36 + i, row: div(i, 4), col: rem(i, 4)} end),
       knobs: [
         %{index: 0, cc: 1, label: "Rate", row: 0},
         %{index: 1, cc: 2, label: "Tempo", row: 0},

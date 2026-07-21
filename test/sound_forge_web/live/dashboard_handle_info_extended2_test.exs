@@ -8,12 +8,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtended2Test do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Info Extra Track",
-      artist: "Info Artist",
-      duration: 200
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Info Extra Track",
+        artist: "Info Artist",
+        duration: 200
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -22,7 +23,14 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtended2Test do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/v.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/v.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -30,11 +38,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtended2Test do
   describe "PubSub broadcast messages" do
     test "auto_cues_complete broadcast on library tab", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "pipeline:updates",
         event: "auto_cues_complete",
         payload: %{track_id: Ecto.UUID.generate(), cue_count: 4}
       })
+
       html = render(view)
       assert is_binary(html)
     end
@@ -42,11 +52,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtended2Test do
     test "auto_cues_complete broadcast on dj tab", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
       render_click(view, "switch_tab", %{"tab" => "dj"})
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "pipeline:updates",
         event: "auto_cues_complete",
         payload: %{track_id: Ecto.UUID.generate(), cue_count: 4}
       })
+
       html = render(view)
       assert is_binary(html)
     end
@@ -54,11 +66,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtended2Test do
     test "chef_progress broadcast on dj tab", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
       render_click(view, "switch_tab", %{"tab" => "dj"})
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "chef:updates",
         event: "chef_progress",
         payload: %{progress: 50, recipe_name: "test"}
       })
+
       html = render(view)
       assert is_binary(html)
     end
@@ -66,11 +80,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtended2Test do
     test "chef_complete broadcast on dj tab", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
       render_click(view, "switch_tab", %{"tab" => "dj"})
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "chef:updates",
         event: "chef_complete",
         payload: %{track_count: 3}
       })
+
       html = render(view)
       assert is_binary(html)
     end
@@ -78,22 +94,26 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtended2Test do
     test "chef_failed broadcast on dj tab", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
       render_click(view, "switch_tab", %{"tab" => "dj"})
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "chef:updates",
         event: "chef_failed",
         payload: %{reason: "timeout"}
       })
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "chef_progress on library tab (no forward)", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "chef:updates",
         event: "chef_progress",
         payload: %{progress: 50}
       })
+
       html = render(view)
       assert is_binary(html)
     end
@@ -120,14 +140,36 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtended2Test do
   describe "batch_complete message" do
     test "batch_complete with all success", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:batch_complete, %{batch_job_id: Ecto.UUID.generate(), completed_count: 5, failed_count: 0, total_count: 5}})
+
+      send(
+        view.pid,
+        {:batch_complete,
+         %{
+           batch_job_id: Ecto.UUID.generate(),
+           completed_count: 5,
+           failed_count: 0,
+           total_count: 5
+         }}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "batch_complete with failures", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:batch_complete, %{batch_job_id: Ecto.UUID.generate(), completed_count: 3, failed_count: 2, total_count: 5}})
+
+      send(
+        view.pid,
+        {:batch_complete,
+         %{
+           batch_job_id: Ecto.UUID.generate(),
+           completed_count: 3,
+           failed_count: 2,
+           total_count: 5
+         }}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
@@ -179,7 +221,12 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtended2Test do
   describe "worker_status_change message" do
     test "worker active status", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:worker_status_change, %{worker: "AnalysisWorker", status: :active, queue_size: 3}})
+
+      send(
+        view.pid,
+        {:worker_status_change, %{worker: "AnalysisWorker", status: :active, queue_size: 3}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end

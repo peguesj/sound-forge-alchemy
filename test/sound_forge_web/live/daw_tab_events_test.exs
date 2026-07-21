@@ -19,6 +19,7 @@ defmodule SoundForgeWeb.DawTabEventsTest do
     test "pick_track loads track in DAW", %{conn: conn, user: user} do
       track = track_fixture(%{user_id: user.id, title: "DAW Track"})
       pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
+
       for type <- [:vocals, :drums, :bass, :other] do
         stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: type})
       end
@@ -49,7 +50,15 @@ defmodule SoundForgeWeb.DawTabEventsTest do
       {:ok, view, _html} = live(conn, "/?tab=daw")
       render_click(view, "pick_track", %{"track-id" => track.id})
 
-      for type <- ["trim", "fade_in", "fade_out", "reverse", "normalize", "pitch_shift", "time_stretch"] do
+      for type <- [
+            "trim",
+            "fade_in",
+            "fade_out",
+            "reverse",
+            "normalize",
+            "pitch_shift",
+            "time_stretch"
+          ] do
         html = render_click(view, "select_operation", %{"type" => type})
         assert is_binary(html)
       end
@@ -119,12 +128,15 @@ defmodule SoundForgeWeb.DawTabEventsTest do
 
       {:ok, view, _html} = live(conn, "/?tab=daw")
       render_click(view, "pick_track", %{"track-id" => track.id})
-      html = render_click(view, "region_created", %{
-        "stem_id" => stem.id,
-        "start_ms" => "1000",
-        "end_ms" => "5000",
-        "operation_type" => "trim"
-      })
+
+      html =
+        render_click(view, "region_created", %{
+          "stem_id" => stem.id,
+          "start_ms" => "1000",
+          "end_ms" => "5000",
+          "operation_type" => "trim"
+        })
+
       assert is_binary(html)
     end
   end
@@ -148,7 +160,13 @@ defmodule SoundForgeWeb.DawTabEventsTest do
 
       {:ok, view, _html} = live(conn, "/?tab=daw")
       render_click(view, "pick_track", %{"track-id" => track.id})
-      html = render_click(view, "export_progress", %{"status" => "complete", "path" => "/tmp/export.wav"})
+
+      html =
+        render_click(view, "export_progress", %{
+          "status" => "complete",
+          "path" => "/tmp/export.wav"
+        })
+
       assert is_binary(html)
     end
   end

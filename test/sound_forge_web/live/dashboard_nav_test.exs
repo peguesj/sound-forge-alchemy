@@ -11,13 +11,14 @@ defmodule SoundForgeWeb.DashboardNavTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Nav Track",
-      artist: "Nav Artist",
-      duration: 200,
-      album: "Nav Album"
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Nav Track",
+        artist: "Nav Artist",
+        duration: 200,
+        album: "Nav Album"
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -26,7 +27,14 @@ defmodule SoundForgeWeb.DashboardNavTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
 
     %{track: track}
   end
@@ -257,13 +265,19 @@ defmodule SoundForgeWeb.DashboardNavTest do
 
     test "spotify_playback_state", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "spotify_playback_state", %{"is_playing" => true, "position" => 0})
+
+      html =
+        render_click(view, "spotify_playback_state", %{"is_playing" => true, "position" => 0})
+
       assert is_binary(html)
     end
 
     test "spotify_error account type", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "spotify_error", %{"type" => "account", "message" => "No premium"})
+
+      html =
+        render_click(view, "spotify_error", %{"type" => "account", "message" => "No premium"})
+
       assert is_binary(html)
     end
 

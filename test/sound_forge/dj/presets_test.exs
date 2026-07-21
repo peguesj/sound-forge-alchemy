@@ -365,7 +365,9 @@ defmodule SoundForge.DJ.PresetsTest do
     end
 
     test "returns error for invalid XML in zip" do
-      {:ok, {_, zip_data}} = :zip.create("test.touchosc", [{~c"index.xml", "not valid xml <<<"}], [:memory])
+      {:ok, {_, zip_data}} =
+        :zip.create("test.touchosc", [{~c"index.xml", "not valid xml <<<"}], [:memory])
+
       assert {:error, _} = Presets.parse_touchosc(zip_data, Ecto.UUID.generate())
     end
   end

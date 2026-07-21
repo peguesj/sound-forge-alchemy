@@ -8,10 +8,11 @@ defmodule SoundForgeWeb.PipelineTrackerRenderingTest do
 
   describe "render with empty pipelines" do
     test "renders empty tracker" do
-      html = render_component(PipelineTracker, %{
-        id: "pt-empty",
-        pipelines: %{}
-      })
+      html =
+        render_component(PipelineTracker, %{
+          id: "pt-empty",
+          pipelines: %{}
+        })
 
       assert is_binary(html)
     end
@@ -31,10 +32,11 @@ defmodule SoundForgeWeb.PipelineTrackerRenderingTest do
         }
       }
 
-      html = render_component(PipelineTracker, %{
-        id: "pt-downloading",
-        pipelines: pipelines
-      })
+      html =
+        render_component(PipelineTracker, %{
+          id: "pt-downloading",
+          pipelines: pipelines
+        })
 
       assert is_binary(html)
     end
@@ -52,10 +54,11 @@ defmodule SoundForgeWeb.PipelineTrackerRenderingTest do
         }
       }
 
-      html = render_component(PipelineTracker, %{
-        id: "pt-processing",
-        pipelines: pipelines
-      })
+      html =
+        render_component(PipelineTracker, %{
+          id: "pt-processing",
+          pipelines: pipelines
+        })
 
       assert is_binary(html)
     end
@@ -73,10 +76,11 @@ defmodule SoundForgeWeb.PipelineTrackerRenderingTest do
         }
       }
 
-      html = render_component(PipelineTracker, %{
-        id: "pt-complete",
-        pipelines: pipelines
-      })
+      html =
+        render_component(PipelineTracker, %{
+          id: "pt-complete",
+          pipelines: pipelines
+        })
 
       assert is_binary(html)
     end
@@ -94,10 +98,11 @@ defmodule SoundForgeWeb.PipelineTrackerRenderingTest do
         }
       }
 
-      html = render_component(PipelineTracker, %{
-        id: "pt-failed",
-        pipelines: pipelines
-      })
+      html =
+        render_component(PipelineTracker, %{
+          id: "pt-failed",
+          pipelines: pipelines
+        })
 
       assert is_binary(html)
     end
@@ -113,15 +118,19 @@ defmodule SoundForgeWeb.PipelineTrackerRenderingTest do
         },
         "t2" => %{
           track_id: "t2",
-          stages: %{download: %{status: :completed, progress: 100}, processing: %{status: :processing, progress: 60}},
+          stages: %{
+            download: %{status: :completed, progress: 100},
+            processing: %{status: :processing, progress: 60}
+          },
           triggered_stages: [:download, :processing]
         }
       }
 
-      html = render_component(PipelineTracker, %{
-        id: "pt-multi",
-        pipelines: pipelines
-      })
+      html =
+        render_component(PipelineTracker, %{
+          id: "pt-multi",
+          pipelines: pipelines
+        })
 
       assert is_binary(html)
     end
@@ -129,11 +138,12 @@ defmodule SoundForgeWeb.PipelineTrackerRenderingTest do
 
   describe "render with open state" do
     test "renders tracker in open state" do
-      html = render_component(PipelineTracker, %{
-        id: "pt-open",
-        pipelines: %{},
-        open: true
-      })
+      html =
+        render_component(PipelineTracker, %{
+          id: "pt-open",
+          pipelines: %{},
+          open: true
+        })
 
       assert is_binary(html)
     end
@@ -149,10 +159,11 @@ defmodule SoundForgeWeb.PipelineTrackerRenderingTest do
         }
       }
 
-      html = render_component(PipelineTracker, %{
-        id: "pt-dl-only",
-        pipelines: pipelines
-      })
+      html =
+        render_component(PipelineTracker, %{
+          id: "pt-dl-only",
+          pipelines: pipelines
+        })
 
       assert is_binary(html)
     end

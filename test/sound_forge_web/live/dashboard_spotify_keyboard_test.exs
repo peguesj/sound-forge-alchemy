@@ -14,12 +14,13 @@ defmodule SoundForgeWeb.DashboardSpotifyKeyboardTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Spotify KB Test",
-      artist: "KB Artist",
-      spotify_url: "https://open.spotify.com/track/abc123"
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Spotify KB Test",
+        artist: "KB Artist",
+        spotify_url: "https://open.spotify.com/track/abc123"
+      })
 
     %{track: track}
   end
@@ -35,14 +36,17 @@ defmodule SoundForgeWeb.DashboardSpotifyKeyboardTest do
   describe "spotify_playback_state" do
     test "updates playback assigns", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "spotify_playback_state", %{
-        "playing" => true,
-        "track_name" => "Song",
-        "artist_name" => "Artist",
-        "album_art_url" => "http://example.com/art.jpg",
-        "position_ms" => 5000,
-        "duration_ms" => 180000
-      })
+
+      html =
+        render_click(view, "spotify_playback_state", %{
+          "playing" => true,
+          "track_name" => "Song",
+          "artist_name" => "Artist",
+          "album_art_url" => "http://example.com/art.jpg",
+          "position_ms" => 5000,
+          "duration_ms" => 180_000
+        })
+
       assert is_binary(html)
     end
 
@@ -62,13 +66,25 @@ defmodule SoundForgeWeb.DashboardSpotifyKeyboardTest do
 
     test "initialization error with type and message", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "spotify_error", %{"type" => "initialization", "message" => "SDK failed"})
+
+      html =
+        render_click(view, "spotify_error", %{
+          "type" => "initialization",
+          "message" => "SDK failed"
+        })
+
       assert is_binary(html)
     end
 
     test "connection error with type and message", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      html = render_click(view, "spotify_error", %{"type" => "connection", "message" => "Network error"})
+
+      html =
+        render_click(view, "spotify_error", %{
+          "type" => "connection",
+          "message" => "Network error"
+        })
+
       assert is_binary(html)
     end
 

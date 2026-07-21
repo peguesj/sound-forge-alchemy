@@ -144,12 +144,15 @@ defmodule SoundForge.MIDI.ControllerFingerprints do
             Enum.each(controllers, &index_controller/1)
 
           {:error, reason} ->
-            Logger.error("MIDI.ControllerFingerprints: failed to parse seed JSON: #{inspect(reason)}")
+            Logger.error(
+              "MIDI.ControllerFingerprints: failed to parse seed JSON: #{inspect(reason)}"
+            )
         end
 
       {:error, _} ->
         # Fall back to relative path when not running as a release
-        relative_path = Path.join(:code.priv_dir(:sound_forge) |> to_string(), "midi/controller_registry.json")
+        relative_path =
+          Path.join(:code.priv_dir(:sound_forge) |> to_string(), "midi/controller_registry.json")
 
         case File.read(relative_path) do
           {:ok, raw_json} ->

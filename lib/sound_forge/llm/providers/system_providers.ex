@@ -28,18 +28,13 @@ defmodule SoundForge.LLM.Providers.SystemProviders do
   # Each entry: {provider_type, display_name, env_var_mappings}
   # The order here determines the default priority.
   @provider_defs [
-    {:anthropic, "Anthropic (System)",
-     [api_key: "ANTHROPIC_API_KEY"]},
-    {:openai, "OpenAI (System)",
-     [api_key: "OPENAI_API_KEY", base_url: "OPENAI_BASE_URL"]},
+    {:anthropic, "Anthropic (System)", [api_key: "ANTHROPIC_API_KEY"]},
+    {:openai, "OpenAI (System)", [api_key: "OPENAI_API_KEY", base_url: "OPENAI_BASE_URL"]},
     {:azure_openai, "Azure OpenAI (System)",
      [api_key: "AZURE_OPENAI_API_KEY", base_url: "AZURE_OPENAI_ENDPOINT"]},
-    {:google_gemini, "Google AI (System)",
-     [api_key: "GOOGLE_AI_API_KEY"]},
-    {:ollama, "Ollama (System)",
-     [base_url: {"OLLAMA_BASE_URL", "http://localhost:11434"}]},
-    {:litellm, "LiteLLM (System)",
-     [base_url: "LITELLM_BASE_URL", api_key: "LITELLM_API_KEY"]}
+    {:google_gemini, "Google AI (System)", [api_key: "GOOGLE_AI_API_KEY"]},
+    {:ollama, "Ollama (System)", [base_url: {"OLLAMA_BASE_URL", "http://localhost:11434"}]},
+    {:litellm, "LiteLLM (System)", [base_url: "LITELLM_BASE_URL", api_key: "LITELLM_API_KEY"]}
   ]
 
   @doc """

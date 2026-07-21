@@ -50,19 +50,32 @@ defmodule SoundForge.LLM.Adapters.GoogleGemini do
           %{}
       end
 
-    {:ok, %Response{content: text, model: model, usage: usage, finish_reason: finish_reason, raw_response: body}}
+    {:ok,
+     %Response{
+       content: text,
+       model: model,
+       usage: usage,
+       finish_reason: finish_reason,
+       raw_response: body
+     }}
   end
 
   defp parse_response(body, _model), do: {:error, {:unexpected_response, body}}
 
   defp normalize_messages(messages) do
     Enum.map(messages, fn
-      %{role: "system", content: _} -> nil
-      %{"role" => "system", "content" => _} -> nil
+      %{role: "system", content: _} ->
+        nil
+
+      %{"role" => "system", "content" => _} ->
+        nil
+
       %{role: role, content: content} ->
         %{"role" => gemini_role(to_string(role)), "parts" => [%{"text" => content}]}
+
       %{"role" => role, "content" => content} ->
         %{"role" => gemini_role(role), "parts" => [%{"text" => content}]}
+
       other ->
         %{"role" => "user", "parts" => [%{"text" => to_string(other)}]}
     end)

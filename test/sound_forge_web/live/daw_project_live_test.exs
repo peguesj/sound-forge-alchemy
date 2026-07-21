@@ -81,7 +81,10 @@ defmodule SoundForgeWeb.DawProjectLiveTest do
       assert html =~ "Spotify"
     end
 
-    test "shows Downloaded badge when track has a completed download job", %{conn: conn, user: user} do
+    test "shows Downloaded badge when track has a completed download job", %{
+      conn: conn,
+      user: user
+    } do
       track = track_with_completed_download(user.id)
       {:ok, _view, html} = live(conn, "/?tab=daw&track_id=#{track.id}")
 
@@ -95,7 +98,10 @@ defmodule SoundForgeWeb.DawProjectLiveTest do
       assert html =~ "Processed"
     end
 
-    test "does not show Downloaded badge for track with no completed download", %{conn: conn, user: user} do
+    test "does not show Downloaded badge for track with no completed download", %{
+      conn: conn,
+      user: user
+    } do
       track = track_spotify_only(user.id)
       {:ok, _view, html} = live(conn, "/?tab=daw&track_id=#{track.id}")
 

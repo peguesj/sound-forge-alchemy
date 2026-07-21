@@ -8,11 +8,18 @@ defmodule SoundForge.Agents.MasteringAgent do
 
   @impl true
   def description,
-    do: "Provides mastering advice, loudness analysis, dynamic range guidance, EQ recommendations, and compression advice."
+    do:
+      "Provides mastering advice, loudness analysis, dynamic range guidance, EQ recommendations, and compression advice."
 
   @impl true
   def capabilities,
-    do: [:mastering_advice, :loudness_analysis, :dynamic_range_advice, :eq_recommendations, :compression_advice]
+    do: [
+      :mastering_advice,
+      :loudness_analysis,
+      :dynamic_range_advice,
+      :eq_recommendations,
+      :compression_advice
+    ]
 
   @impl true
   def preferred_traits, do: [task: :analysis, speed: :balanced]

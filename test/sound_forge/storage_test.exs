@@ -1,23 +1,26 @@
 defmodule SoundForge.StorageTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias SoundForge.Storage
 
-  # Use unique temp dir per test to avoid conflicts with async tests
-  @tmp_dir System.tmp_dir!() |> Path.join("sound_forge_storage_test_#{System.unique_integer()}")
+  setup %{test: test_name} do
+    tmp_dir =
+      Path.join(
+        System.tmp_dir!(),
+        "sound_forge_storage_test_#{:erlang.phash2(test_name)}_#{System.unique_integer([:positive])}"
+      )
 
-  setup do
-    File.rm_rf!(@tmp_dir)
-    File.mkdir_p!(@tmp_dir)
+    File.rm_rf!(tmp_dir)
+    File.mkdir_p!(tmp_dir)
 
-    Application.put_env(:sound_forge, :storage_path, @tmp_dir)
+    Application.put_env(:sound_forge, :storage_path, tmp_dir)
 
     on_exit(fn ->
-      File.rm_rf!(@tmp_dir)
+      File.rm_rf!(tmp_dir)
       Application.delete_env(:sound_forge, :storage_path)
     end)
 
-    :ok
+    {:ok, tmp_dir: tmp_dir}
   end
 
   describe "ensure_directories!/0" do
@@ -30,8 +33,8 @@ defmodule SoundForge.StorageTest do
   end
 
   describe "store_file/3" do
-    test "copies file to storage" do
-      source = Path.join(@tmp_dir, "source.txt")
+    test "copies file to storage", %{tmp_dir: tmp_dir} do
+      source = Path.join(tmp_dir, "source.txt")
       File.write!(source, "test content")
 
       assert {:ok, dest_path} = Storage.store_file(source, "test", "stored.txt")
@@ -41,8 +44,8 @@ defmodule SoundForge.StorageTest do
   end
 
   describe "file_exists?/2" do
-    test "returns true for existing files" do
-      dir = Path.join(@tmp_dir, "check")
+    test "returns true for existing files", %{tmp_dir: tmp_dir} do
+      dir = Path.join(tmp_dir, "check")
       File.mkdir_p!(dir)
       File.write!(Path.join(dir, "exists.txt"), "content")
 
@@ -55,8 +58,8 @@ defmodule SoundForge.StorageTest do
   end
 
   describe "delete_file/2" do
-    test "removes existing file" do
-      dir = Path.join(@tmp_dir, "delete")
+    test "removes existing file", %{tmp_dir: tmp_dir} do
+      dir = Path.join(tmp_dir, "delete")
       File.mkdir_p!(dir)
       File.write!(Path.join(dir, "doomed.txt"), "bye")
 
@@ -70,9 +73,9 @@ defmodule SoundForge.StorageTest do
   end
 
   describe "stats/0" do
-    test "returns storage statistics" do
-      File.mkdir_p!(Path.join(@tmp_dir, "stats"))
-      File.write!(Path.join(@tmp_dir, "stats/file1.txt"), "hello")
+    test "returns storage statistics", %{tmp_dir: tmp_dir} do
+      File.mkdir_p!(Path.join(tmp_dir, "stats"))
+      File.write!(Path.join(tmp_dir, "stats/file1.txt"), "hello")
 
       stats = Storage.stats()
       assert stats.file_count >= 1
@@ -86,8 +89,8 @@ defmodule SoundForge.StorageTest do
   end
 
   describe "validate_audio_file/1" do
-    test "returns :ok for valid MP3 file" do
-      audio_dir = Path.join(@tmp_dir, "audio")
+    test "returns :ok for valid MP3 file", %{tmp_dir: tmp_dir} do
+      audio_dir = Path.join(tmp_dir, "audio")
       File.mkdir_p!(audio_dir)
       valid_mp3 = Path.join(audio_dir, "sample.mp3")
       File.write!(valid_mp3, <<0xFF, 0xFB>> <> String.duplicate("x", 2048))
@@ -100,8 +103,8 @@ defmodule SoundForge.StorageTest do
       assert msg =~ "does not exist"
     end
 
-    test "returns error for file that's too small" do
-      audio_dir = Path.join(@tmp_dir, "audio")
+    test "returns error for file that's too small", %{tmp_dir: tmp_dir} do
+      audio_dir = Path.join(tmp_dir, "audio")
       File.mkdir_p!(audio_dir)
       tiny_file = Path.join(audio_dir, "tiny.mp3")
       File.write!(tiny_file, "x")
@@ -110,8 +113,8 @@ defmodule SoundForge.StorageTest do
       assert msg =~ "too small"
     end
 
-    test "returns error for file with invalid audio header" do
-      audio_dir = Path.join(@tmp_dir, "audio")
+    test "returns error for file with invalid audio header", %{tmp_dir: tmp_dir} do
+      audio_dir = Path.join(tmp_dir, "audio")
       File.mkdir_p!(audio_dir)
       invalid_file = Path.join(audio_dir, "invalid.mp3")
       File.write!(invalid_file, String.duplicate("x", 2048))
@@ -120,8 +123,8 @@ defmodule SoundForge.StorageTest do
       assert msg =~ "does not appear to be a valid audio file"
     end
 
-    test "validates FLAC header" do
-      audio_dir = Path.join(@tmp_dir, "audio")
+    test "validates FLAC header", %{tmp_dir: tmp_dir} do
+      audio_dir = Path.join(tmp_dir, "audio")
       File.mkdir_p!(audio_dir)
       flac_file = Path.join(audio_dir, "sample.flac")
       File.write!(flac_file, "fLaC" <> String.duplicate("x", 2048))
@@ -129,8 +132,8 @@ defmodule SoundForge.StorageTest do
       assert :ok = Storage.validate_audio_file(flac_file)
     end
 
-    test "validates OggS header" do
-      audio_dir = Path.join(@tmp_dir, "audio")
+    test "validates OggS header", %{tmp_dir: tmp_dir} do
+      audio_dir = Path.join(tmp_dir, "audio")
       File.mkdir_p!(audio_dir)
       ogg_file = Path.join(audio_dir, "sample.ogg")
       File.write!(ogg_file, "OggS" <> String.duplicate("x", 2048))
@@ -138,8 +141,8 @@ defmodule SoundForge.StorageTest do
       assert :ok = Storage.validate_audio_file(ogg_file)
     end
 
-    test "validates ID3 (MP3) header" do
-      audio_dir = Path.join(@tmp_dir, "audio")
+    test "validates ID3 (MP3) header", %{tmp_dir: tmp_dir} do
+      audio_dir = Path.join(tmp_dir, "audio")
       File.mkdir_p!(audio_dir)
       mp3_file = Path.join(audio_dir, "id3.mp3")
       File.write!(mp3_file, "ID3" <> String.duplicate("x", 2048))
@@ -149,8 +152,8 @@ defmodule SoundForge.StorageTest do
   end
 
   describe "validate_download_path/1" do
-    test "returns {:ok, path} for valid file" do
-      audio_dir = Path.join(@tmp_dir, "audio")
+    test "returns {:ok, path} for valid file", %{tmp_dir: tmp_dir} do
+      audio_dir = Path.join(tmp_dir, "audio")
       File.mkdir_p!(audio_dir)
       valid_mp3 = Path.join(audio_dir, "sample.mp3")
       File.write!(valid_mp3, <<0xFF, 0xFB>> <> String.duplicate("x", 2048))
@@ -163,8 +166,8 @@ defmodule SoundForge.StorageTest do
       assert {:error, _} = Storage.validate_download_path("/nonexistent.mp3")
     end
 
-    test "returns error for file with bad audio header" do
-      audio_dir = Path.join(@tmp_dir, "audio")
+    test "returns error for file with bad audio header", %{tmp_dir: tmp_dir} do
+      audio_dir = Path.join(tmp_dir, "audio")
       File.mkdir_p!(audio_dir)
       bad_file = Path.join(audio_dir, "bad.mp3")
       File.write!(bad_file, String.duplicate("x", 2048))

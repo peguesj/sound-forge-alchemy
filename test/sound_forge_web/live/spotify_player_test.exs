@@ -12,7 +12,9 @@ defmodule SoundForgeWeb.SpotifyPlayerTest do
     end
 
     test "exports handle_event/3" do
-      assert {:handle_event, 3} in SoundForgeWeb.Live.Components.SpotifyPlayer.__info__(:functions)
+      assert {:handle_event, 3} in SoundForgeWeb.Live.Components.SpotifyPlayer.__info__(
+               :functions
+             )
     end
 
     test "exports update/2" do

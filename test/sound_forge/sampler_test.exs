@@ -15,7 +15,9 @@ defmodule SoundForge.SamplerTest do
 
   describe "create_bank/1" do
     test "creates a bank with 16 pads", %{user: user} do
-      assert {:ok, bank} = Sampler.create_bank(%{name: "Test Bank", user_id: user.id, position: 0})
+      assert {:ok, bank} =
+               Sampler.create_bank(%{name: "Test Bank", user_id: user.id, position: 0})
+
       assert bank.name == "Test Bank"
       assert length(bank.pads) == 16
     end

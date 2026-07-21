@@ -55,6 +55,7 @@ defmodule SoundForge.Accounts.ScopeFullTest do
 
     test "super_admin meets all" do
       s = scope(:super_admin)
+
       for role <- [:user, :pro, :enterprise, :admin, :platform_admin, :super_admin] do
         assert Scope.has_role?(s, role), "super_admin should meet #{role}"
       end

@@ -37,7 +37,10 @@ defmodule SoundForge.Music.AnalysisJobTest do
 
     test "accepts results map" do
       changeset =
-        AnalysisJob.changeset(%AnalysisJob{}, Map.put(@valid_attrs, :results, %{"tempo" => 128.0}))
+        AnalysisJob.changeset(
+          %AnalysisJob{},
+          Map.put(@valid_attrs, :results, %{"tempo" => 128.0})
+        )
 
       assert changeset.valid?
     end

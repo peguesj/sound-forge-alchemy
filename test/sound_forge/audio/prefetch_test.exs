@@ -85,7 +85,13 @@ defmodule SoundForge.Audio.PrefetchTest do
     test "put_cached and get_cached round-trip", %{prefetch_running: running} do
       if running do
         track_id = Ecto.UUID.generate()
-        data = %{mode: :dj, tempo: 128.0, key: "Am", cached_at: System.monotonic_time(:millisecond)}
+
+        data = %{
+          mode: :dj,
+          tempo: 128.0,
+          key: "Am",
+          cached_at: System.monotonic_time(:millisecond)
+        }
 
         assert :ok = Prefetch.put_cached(track_id, data)
         cached = Prefetch.get_cached(track_id)

@@ -60,6 +60,7 @@ defmodule SoundForge.Spotify do
         case Req.get(url, opts) do
           {:ok, %Req.Response{status: 200, body: body}} ->
             items = body["items"] || []
+
             playlists =
               Enum.map(items, fn p ->
                 %{
@@ -134,7 +135,8 @@ defmodule SoundForge.Spotify do
   """
   @spec get_playlist_tracks(String.t(), String.t()) ::
           {:ok, [map()]} | {:error, term()}
-  def get_playlist_tracks(playlist_id, access_token) when is_binary(playlist_id) and is_binary(access_token) do
+  def get_playlist_tracks(playlist_id, access_token)
+      when is_binary(playlist_id) and is_binary(access_token) do
     url = "https://api.spotify.com/v1/playlists/#{playlist_id}/tracks?limit=100"
     fetch_playlist_tracks_page(url, access_token, [])
   end
@@ -153,10 +155,11 @@ defmodule SoundForge.Spotify do
           |> Enum.reject(fn item -> is_nil(item["track"]) end)
           |> Enum.map(fn item ->
             t = item["track"]
+
             %{
               "spotify_id" => t["id"],
               "name" => t["name"],
-              "artist" => (get_in(t, ["artists", Access.at(0), "name"]) || ""),
+              "artist" => get_in(t, ["artists", Access.at(0), "name"]) || "",
               "album" => get_in(t, ["album", "name"]) || "",
               "duration_ms" => t["duration_ms"],
               "preview_url" => t["preview_url"]

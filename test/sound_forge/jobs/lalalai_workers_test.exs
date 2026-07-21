@@ -9,7 +9,13 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
   import SoundForge.AccountsFixtures
   import SoundForge.MusicFixtures
 
-  alias SoundForge.Jobs.{LalalAIWorker, VoiceCleanWorker, DemuserWorker, VoiceChangeWorker, MultiStemWorker}
+  alias SoundForge.Jobs.{
+    LalalAIWorker,
+    VoiceCleanWorker,
+    DemuserWorker,
+    VoiceChangeWorker,
+    MultiStemWorker
+  }
 
   setup do
     user = user_fixture()
@@ -28,6 +34,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
 
     test "perform raises when file not found", %{track: track} do
       pj = processing_job_fixture(%{track_id: track.id, model: "lalalai", status: :queued})
+
       oban_job = %Oban.Job{
         args: %{
           "track_id" => track.id,
@@ -36,6 +43,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
         },
         attempt: 1
       }
+
       assert_raise RuntimeError, ~r/Audio file not found/, fn ->
         LalalAIWorker.perform(oban_job)
       end
@@ -43,6 +51,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
 
     test "perform with stem_filter option raises on missing file", %{track: track} do
       pj = processing_job_fixture(%{track_id: track.id, model: "lalalai", status: :queued})
+
       oban_job = %Oban.Job{
         args: %{
           "track_id" => track.id,
@@ -52,6 +61,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
         },
         attempt: 1
       }
+
       assert_raise RuntimeError, ~r/Audio file not found/, fn ->
         LalalAIWorker.perform(oban_job)
       end
@@ -59,6 +69,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
 
     test "perform with preview mode raises on missing file", %{track: track} do
       pj = processing_job_fixture(%{track_id: track.id, model: "lalalai", status: :queued})
+
       oban_job = %Oban.Job{
         args: %{
           "track_id" => track.id,
@@ -68,6 +79,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
         },
         attempt: 1
       }
+
       assert_raise RuntimeError, ~r/Audio file not found/, fn ->
         LalalAIWorker.perform(oban_job)
       end
@@ -82,6 +94,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
         },
         attempt: 1
       }
+
       # LalalAIWorker has a nil check for deleted processing jobs
       assert :ok = LalalAIWorker.perform(oban_job)
     end
@@ -94,6 +107,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
 
     test "perform raises when file not found", %{track: track} do
       pj = processing_job_fixture(%{track_id: track.id, model: "lalalai", status: :queued})
+
       oban_job = %Oban.Job{
         args: %{
           "track_id" => track.id,
@@ -102,6 +116,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
         },
         attempt: 1
       }
+
       assert_raise RuntimeError, ~r/Audio file not found/, fn ->
         VoiceCleanWorker.perform(oban_job)
       end
@@ -109,6 +124,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
 
     test "perform with noise cancelling raises on missing file", %{track: track} do
       pj = processing_job_fixture(%{track_id: track.id, model: "lalalai", status: :queued})
+
       oban_job = %Oban.Job{
         args: %{
           "track_id" => track.id,
@@ -118,6 +134,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
         },
         attempt: 1
       }
+
       assert_raise RuntimeError, ~r/Audio file not found/, fn ->
         VoiceCleanWorker.perform(oban_job)
       end
@@ -131,6 +148,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
 
     test "perform raises when file not found", %{track: track} do
       pj = processing_job_fixture(%{track_id: track.id, model: "lalalai", status: :queued})
+
       oban_job = %Oban.Job{
         args: %{
           "track_id" => track.id,
@@ -139,6 +157,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
         },
         attempt: 1
       }
+
       assert_raise RuntimeError, ~r/Audio file not found/, fn ->
         DemuserWorker.perform(oban_job)
       end
@@ -152,6 +171,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
 
     test "perform raises when file not found", %{track: track} do
       pj = processing_job_fixture(%{track_id: track.id, model: "lalalai", status: :queued})
+
       oban_job = %Oban.Job{
         args: %{
           "track_id" => track.id,
@@ -161,6 +181,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
         },
         attempt: 1
       }
+
       assert_raise RuntimeError, ~r/Audio file not found/, fn ->
         VoiceChangeWorker.perform(oban_job)
       end
@@ -174,6 +195,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
 
     test "perform raises when file not found", %{track: track} do
       pj = processing_job_fixture(%{track_id: track.id, model: "lalalai", status: :queued})
+
       oban_job = %Oban.Job{
         args: %{
           "track_id" => track.id,
@@ -183,6 +205,7 @@ defmodule SoundForge.Jobs.LalalAIWorkersTest do
         },
         attempt: 1
       }
+
       assert_raise RuntimeError, ~r/Audio file not found/, fn ->
         MultiStemWorker.perform(oban_job)
       end

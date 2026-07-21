@@ -33,13 +33,19 @@ defmodule SoundForge.BigLoopy.LoopExtractor do
 
     args = [
       script_path,
-      "--input", input_path,
-      "--start", to_string(start_seconds),
-      "--end", to_string(end_seconds),
-      "--output", output_abs
+      "--input",
+      input_path,
+      "--start",
+      to_string(start_seconds),
+      "--end",
+      to_string(end_seconds),
+      "--output",
+      output_abs
     ]
 
-    Logger.debug("[LoopExtractor] Extracting loop #{start_seconds}s-#{end_seconds}s from #{Path.basename(input_path)}")
+    Logger.debug(
+      "[LoopExtractor] Extracting loop #{start_seconds}s-#{end_seconds}s from #{Path.basename(input_path)}"
+    )
 
     case System.cmd("python3", args, stderr_to_stdout: true) do
       {output, 0} ->

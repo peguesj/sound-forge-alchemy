@@ -139,13 +139,17 @@ defmodule SoundForgeWeb.Live.Components.AgentChatComponent do
         title="AI Assistant"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.346.346a3.99 3.99 0 01-1.122.83l-.026.013A4.003 4.003 0 0112 18a4 4 0 01-1.953-.514l-.026-.013a4.003 4.003 0 01-1.122-.83l-.347-.347z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.346.346a3.99 3.99 0 01-1.122.83l-.026.013A4.003 4.003 0 0112 18a4 4 0 01-1.953-.514l-.026-.013a4.003 4.003 0 01-1.122-.83l-.347-.347z"
+          />
         </svg>
         {if @open, do: "Close AI", else: "AI Assistant"}
       </button>
-
-      <!-- Chat panel -->
+      
+    <!-- Chat panel -->
       <div
         :if={@open}
         class="w-80 sm:w-96 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
@@ -166,23 +170,31 @@ defmodule SoundForgeWeb.Live.Components.AgentChatComponent do
             Clear
           </button>
         </div>
-
-        <!-- Messages -->
+        
+    <!-- Messages -->
         <div
           id={"#{@id}-messages"}
           class="flex-1 overflow-y-auto p-3 space-y-3 min-h-0"
           phx-hook="ScrollToBottom"
         >
           <!-- Empty state -->
-          <div :if={@messages == []} class="flex flex-col items-center justify-center h-32 text-center">
-            <p class="text-xs text-gray-500">Ask me anything about your tracks,<br/>mixing, stems, or mastering.</p>
+          <div
+            :if={@messages == []}
+            class="flex flex-col items-center justify-center h-32 text-center"
+          >
+            <p class="text-xs text-gray-500">
+              Ask me anything about your tracks,<br />mixing, stems, or mastering.
+            </p>
           </div>
-
-          <!-- Message list -->
-          <div :for={msg <- @messages} class={[
-            "flex",
-            if(msg.role == :user, do: "justify-end", else: "justify-start")
-          ]}>
+          
+    <!-- Message list -->
+          <div
+            :for={msg <- @messages}
+            class={[
+              "flex",
+              if(msg.role == :user, do: "justify-end", else: "justify-start")
+            ]}
+          >
             <div class={[
               "max-w-xs rounded-xl px-3 py-2 text-sm",
               case msg.role do
@@ -197,20 +209,32 @@ defmodule SoundForgeWeb.Live.Components.AgentChatComponent do
               <p class="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
             </div>
           </div>
-
-          <!-- Typing indicator -->
+          
+    <!-- Typing indicator -->
           <div :if={@loading} class="flex justify-start">
             <div class="bg-gray-800 border border-gray-700 rounded-xl rounded-bl-sm px-3 py-2">
               <div class="flex gap-1 items-center h-4">
-                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
-                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
-                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                <div
+                  class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                  style="animation-delay: 0ms"
+                >
+                </div>
+                <div
+                  class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                  style="animation-delay: 150ms"
+                >
+                </div>
+                <div
+                  class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                  style="animation-delay: 300ms"
+                >
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- Input -->
+        
+    <!-- Input -->
         <div class="border-t border-gray-700 p-3">
           <form
             phx-submit="send_message"
@@ -234,7 +258,12 @@ defmodule SoundForgeWeb.Live.Components.AgentChatComponent do
               class="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M14 5l7 7m0 0l-7 7m7-7H3"
+                />
               </svg>
             </button>
           </form>
@@ -253,6 +282,7 @@ defmodule SoundForgeWeb.Live.Components.AgentChatComponent do
   end
 
   defp agent_label(nil), do: "Assistant"
+
   defp agent_label(module) when is_atom(module) do
     module
     |> Module.split()

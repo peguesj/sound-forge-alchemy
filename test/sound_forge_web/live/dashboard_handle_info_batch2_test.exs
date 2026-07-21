@@ -13,12 +13,16 @@ defmodule SoundForgeWeb.DashboardHandleInfoBatch2Test do
       dj = download_job_fixture(%{track_id: track.id, status: :downloading})
       {:ok, view, _html} = live(conn, ~p"/")
 
-      send(view.pid, {:job_progress, %{
-        job_id: dj.id,
-        status: :downloading,
-        progress: 50,
-        message: "Downloading..."
-      }})
+      send(
+        view.pid,
+        {:job_progress,
+         %{
+           job_id: dj.id,
+           status: :downloading,
+           progress: 50,
+           message: "Downloading..."
+         }}
+      )
 
       html = render(view)
       assert is_binary(html)
@@ -29,11 +33,15 @@ defmodule SoundForgeWeb.DashboardHandleInfoBatch2Test do
       dj = download_job_fixture(%{track_id: track.id, status: :downloading})
       {:ok, view, _html} = live(conn, ~p"/")
 
-      send(view.pid, {:job_progress, %{
-        job_id: dj.id,
-        status: :completed,
-        progress: 100
-      }})
+      send(
+        view.pid,
+        {:job_progress,
+         %{
+           job_id: dj.id,
+           status: :completed,
+           progress: 100
+         }}
+      )
 
       html = render(view)
       assert is_binary(html)
@@ -45,13 +53,17 @@ defmodule SoundForgeWeb.DashboardHandleInfoBatch2Test do
       track = track_fixture(%{user_id: user.id, title: "Processing Track"})
       {:ok, view, _html} = live(conn, ~p"/")
 
-      send(view.pid, {:pipeline_progress, %{
-        track_id: track.id,
-        stage: :processing,
-        status: :processing,
-        progress: 25,
-        message: "Separating stems..."
-      }})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{
+           track_id: track.id,
+           stage: :processing,
+           status: :processing,
+           progress: 25,
+           message: "Separating stems..."
+         }}
+      )
 
       html = render(view)
       assert is_binary(html)
@@ -61,12 +73,16 @@ defmodule SoundForgeWeb.DashboardHandleInfoBatch2Test do
       track = track_fixture(%{user_id: user.id, title: "Analyzing Track"})
       {:ok, view, _html} = live(conn, ~p"/")
 
-      send(view.pid, {:pipeline_progress, %{
-        track_id: track.id,
-        stage: :analysis,
-        status: :analyzing,
-        progress: 75
-      }})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{
+           track_id: track.id,
+           stage: :analysis,
+           status: :analyzing,
+           progress: 75
+         }}
+      )
 
       html = render(view)
       assert is_binary(html)
@@ -95,21 +111,46 @@ defmodule SoundForgeWeb.DashboardHandleInfoBatch2Test do
       {:ok, view, _html} = live(conn, ~p"/")
 
       # Download phase
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :download, status: :downloading, progress: 50}})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :download, status: :downloading, progress: 50}}
+      )
+
       render(view)
 
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :download, status: :completed, progress: 100}})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :download, status: :completed, progress: 100}}
+      )
+
       render(view)
 
       # Processing phase
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :processing, status: :processing, progress: 25}})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :processing, status: :processing, progress: 25}}
+      )
+
       render(view)
 
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :processing, status: :completed, progress: 100}})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :processing, status: :completed, progress: 100}}
+      )
+
       render(view)
 
       # Analysis phase
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :analysis, status: :analyzing, progress: 50}})
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :analysis, status: :analyzing, progress: 50}}
+      )
+
       render(view)
 
       # Complete

@@ -120,7 +120,9 @@ defmodule SoundForgeWeb.ExportController do
         conn |> put_status(:not_found) |> json(%{error: "Track not found"})
 
       {:error, :no_midi} ->
-        conn |> put_status(:not_found) |> json(%{error: "No MIDI data. Run audio-to-MIDI conversion first."})
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "No MIDI data. Run audio-to-MIDI conversion first."})
 
       {:error, :forbidden} ->
         conn |> put_status(:forbidden) |> json(%{error: "Access denied"})

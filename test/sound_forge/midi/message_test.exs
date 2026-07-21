@@ -11,7 +11,13 @@ defmodule SoundForge.MIDI.MessageTest do
     end
 
     test "creates with all fields" do
-      msg = %Message{type: :note_on, channel: 0, data: %{note: 60, velocity: 100}, timestamp: 12345}
+      msg = %Message{
+        type: :note_on,
+        channel: 0,
+        data: %{note: 60, velocity: 100},
+        timestamp: 12345
+      }
+
       assert msg.type == :note_on
       assert msg.channel == 0
       assert msg.data == %{note: 60, velocity: 100}

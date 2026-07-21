@@ -349,8 +349,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
 
   @impl true
   def handle_event("select_region", %{"start_ms" => start_ms, "end_ms" => end_ms}, socket) do
-    {:noreply,
-     push_event(socket, "set_selection", %{start_ms: start_ms, end_ms: end_ms})}
+    {:noreply, push_event(socket, "set_selection", %{start_ms: start_ms, end_ms: end_ms})}
   end
 
   @impl true
@@ -545,7 +544,10 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
           stem_id = params["stem_id"]
 
           if stem_id do
-            track = Music.get_track!(socket.assigns.track.id) |> SoundForge.Repo.preload([:stems, :analysis_results])
+            track =
+              Music.get_track!(socket.assigns.track.id)
+              |> SoundForge.Repo.preload([:stems, :analysis_results])
+
             assign(socket, :track, track) |> assign(:stems, track.stems)
           else
             socket
@@ -564,7 +566,11 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   # Stem Arranger (Story 3.2)
 
   @impl true
-  def handle_event("toggle_arrangement_block", %{"stem_type" => stem_type, "start_sec" => start_sec, "end_sec" => end_sec}, socket) do
+  def handle_event(
+        "toggle_arrangement_block",
+        %{"stem_type" => stem_type, "start_sec" => start_sec, "end_sec" => end_sec},
+        socket
+      ) do
     track = socket.assigns.track
     if is_nil(track), do: {:noreply, socket}
 
@@ -611,6 +617,7 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
       |> maybe_put(:pan, params["pan"] && String.to_float(params["pan"]))
 
     new_mixer = Map.put(mixer, stem_id, updated)
+
     {:noreply,
      socket
      |> assign(:stem_mixer, new_mixer)
@@ -627,7 +634,11 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
     ~H"""
     <div id="daw-tab" phx-target={@myself} class="flex-1 min-w-0 overflow-hidden">
       <%= if @track do %>
-        <div id="daw-preview-container" phx-hook="DawPreview" class="text-white flex-1 min-w-0 overflow-hidden">
+        <div
+          id="daw-preview-container"
+          phx-hook="DawPreview"
+          class="text-white flex-1 min-w-0 overflow-hidden"
+        >
           <%!-- Header --%>
           <div class="bg-gray-800 border-b border-gray-700 px-6 py-4">
             <div class="flex items-center gap-4">
@@ -637,7 +648,13 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 class="text-gray-400 hover:text-white transition-colors"
                 aria-label="Back to track picker"
               >
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg
+                  class="w-6 h-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
                   <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
@@ -649,10 +666,20 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                   if(@previewing, do: "bg-red-600 hover:bg-red-500", else: "bg-green-600 hover:bg-green-500")}
                 aria-label={if @previewing, do: "Stop preview", else: "Play preview"}
               >
-                <svg :if={!@previewing} class="w-5 h-5 ml-0.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <svg
+                  :if={!@previewing}
+                  class="w-5 h-5 ml-0.5 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path d="M8 5v14l11-7z" />
                 </svg>
-                <svg :if={@previewing} class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <svg
+                  :if={@previewing}
+                  class="w-4 h-4 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <rect x="6" y="4" width="4" height="16" />
                   <rect x="14" y="4" width="4" height="16" />
                 </svg>
@@ -666,11 +693,37 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 </p>
                 <%!-- Pipeline status badges --%>
                 <div class="flex flex-wrap gap-1.5 mt-1.5">
-                  <span :if={@pipeline_status.on_spotify} class="badge badge-sm bg-purple-600 text-white border-0">Spotify</span>
-                  <span :if={@pipeline_status.downloaded and @pipeline_status.file_ok} class="badge badge-sm bg-blue-600 text-white border-0">Downloaded</span>
-                  <span :if={@pipeline_status.downloaded and not @pipeline_status.file_ok} class="badge badge-sm bg-amber-600 text-white border-0" title="Audio file missing from disk">File Missing</span>
-                  <span :if={@pipeline_status.analyzed and @pipeline_status.file_ok} class="badge badge-sm bg-teal-600 text-white border-0">Analyzed</span>
-                  <span :if={@pipeline_status.processed} class="badge badge-sm bg-green-600 text-white border-0">Processed</span>
+                  <span
+                    :if={@pipeline_status.on_spotify}
+                    class="badge badge-sm bg-purple-600 text-white border-0"
+                  >
+                    Spotify
+                  </span>
+                  <span
+                    :if={@pipeline_status.downloaded and @pipeline_status.file_ok}
+                    class="badge badge-sm bg-blue-600 text-white border-0"
+                  >
+                    Downloaded
+                  </span>
+                  <span
+                    :if={@pipeline_status.downloaded and not @pipeline_status.file_ok}
+                    class="badge badge-sm bg-amber-600 text-white border-0"
+                    title="Audio file missing from disk"
+                  >
+                    File Missing
+                  </span>
+                  <span
+                    :if={@pipeline_status.analyzed and @pipeline_status.file_ok}
+                    class="badge badge-sm bg-teal-600 text-white border-0"
+                  >
+                    Analyzed
+                  </span>
+                  <span
+                    :if={@pipeline_status.processed}
+                    class="badge badge-sm bg-green-600 text-white border-0"
+                  >
+                    Processed
+                  </span>
                 </div>
               </div>
 
@@ -691,20 +744,38 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                   title="Import stem from library"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M8 6H21M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M8 6H21M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"
+                    />
                   </svg>
                   Library
                 </button>
                 <div class="w-px h-5 bg-gray-700"></div>
-                <button phx-click="toggle_snap" phx-target={@myself}
-                        class={"px-2 py-1 text-xs rounded " <> if(@snap_to_bar, do: "bg-purple-600 text-white", else: "bg-gray-700 text-gray-400")}>
+                <button
+                  phx-click="toggle_snap"
+                  phx-target={@myself}
+                  class={"px-2 py-1 text-xs rounded " <> if(@snap_to_bar, do: "bg-purple-600 text-white", else: "bg-gray-700 text-gray-400")}
+                >
                   Snap to Bar
                 </button>
                 <div class="w-px h-5 bg-gray-700 mx-1"></div>
                 <span class="text-xs text-gray-500 mr-2">Tool:</span>
                 <button
-                  :for={op <- [:crop, :trim, :fade_in, :fade_out, :split, :gain, :pitch_shift, :time_stretch]}
+                  :for={
+                    op <- [
+                      :crop,
+                      :trim,
+                      :fade_in,
+                      :fade_out,
+                      :split,
+                      :gain,
+                      :pitch_shift,
+                      :time_stretch
+                    ]
+                  }
                   phx-click="select_operation"
                   phx-target={@myself}
                   phx-value-type={op}
@@ -748,7 +819,8 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 class="absolute top-0 bottom-0 w-0.5 bg-green-500 z-10 transition-all pointer-events-none"
                 style="left: 0%;"
               >
-                <div class="w-2 h-2 bg-green-500 rounded-full -translate-x-[3px] -translate-y-0.5"></div>
+                <div class="w-2 h-2 bg-green-500 rounded-full -translate-x-[3px] -translate-y-0.5">
+                </div>
               </div>
             </div>
           </div>
@@ -758,7 +830,9 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
             <%!-- Contextual pipeline action panel (shown only when no stems) --%>
             <div :if={@stems == []} class="text-center py-20 text-gray-500">
               <p class="text-lg font-medium text-gray-400">No stems available for this track.</p>
-              <p class="text-sm mt-2 mb-6">Complete the pipeline steps below to prepare this track for editing.</p>
+              <p class="text-sm mt-2 mb-6">
+                Complete the pipeline steps below to prepare this track for editing.
+              </p>
 
               <%!-- File missing warning --%>
               <div
@@ -766,19 +840,26 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 class="mx-auto mb-5 max-w-sm bg-amber-950/60 border border-amber-500/40 rounded-lg px-4 py-3 text-amber-300 text-sm text-left"
               >
                 <p class="font-medium mb-0.5">Audio file not found on disk</p>
-                <p class="text-xs text-amber-400/80">The download record exists but the file could not be located. Re-download to restore it.</p>
+                <p class="text-xs text-amber-400/80">
+                  The download record exists but the file could not be located. Re-download to restore it.
+                </p>
               </div>
 
               <div class="flex flex-col items-center gap-3 mt-4">
                 <%!-- Step 1: Download / Re-download --%>
-                <div :if={not @pipeline_status.downloaded or not @pipeline_status.file_ok} class="w-full max-w-sm">
+                <div
+                  :if={not @pipeline_status.downloaded or not @pipeline_status.file_ok}
+                  class="w-full max-w-sm"
+                >
                   <button
                     phx-click="daw_download_track"
                     phx-target={@myself}
                     phx-value-track-id={@track.id}
                     class="btn btn-sm btn-primary w-full"
                   >
-                    <%= if @pipeline_status.downloaded and not @pipeline_status.file_ok, do: "Re-download Track", else: "Download Track" %>
+                    {if @pipeline_status.downloaded and not @pipeline_status.file_ok,
+                      do: "Re-download Track",
+                      else: "Download Track"}
                   </button>
                   <p class="text-xs text-gray-600 mt-1">
                     <%= if @pipeline_status.downloaded and not @pipeline_status.file_ok do %>
@@ -790,7 +871,13 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 </div>
 
                 <%!-- Step 2: Analyze (only shown if file is present and not yet analyzed) --%>
-                <div :if={@pipeline_status.downloaded and @pipeline_status.file_ok and not @pipeline_status.analyzed} class="w-full max-w-sm">
+                <div
+                  :if={
+                    @pipeline_status.downloaded and @pipeline_status.file_ok and
+                      not @pipeline_status.analyzed
+                  }
+                  class="w-full max-w-sm"
+                >
                   <button
                     phx-click="daw_analyze_track"
                     phx-target={@myself}
@@ -803,7 +890,13 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 </div>
 
                 <%!-- Step 3: Separate stems (only shown if file is present and not yet processed) --%>
-                <div :if={@pipeline_status.downloaded and @pipeline_status.file_ok and not @pipeline_status.processed} class="w-full max-w-sm">
+                <div
+                  :if={
+                    @pipeline_status.downloaded and @pipeline_status.file_ok and
+                      not @pipeline_status.processed
+                  }
+                  class="w-full max-w-sm"
+                >
                   <button
                     phx-click="daw_separate_stems"
                     phx-target={@myself}
@@ -840,37 +933,52 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                       phx-click="update_stem_mix"
                       phx-target={@myself}
                       phx-value-stem_id={stem.id}
-                      phx-value-muted={to_string(!(Map.get(@stem_mixer, stem.id, %{muted: false}).muted))}
+                      phx-value-muted={
+                        to_string(!Map.get(@stem_mixer, stem.id, %{muted: false}).muted)
+                      }
                       title="Mute"
                       class={[
                         "text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors",
                         if(Map.get(@stem_mixer, stem.id, %{muted: false}).muted,
                           do: "bg-yellow-500 text-gray-900",
-                          else: "bg-gray-700 text-gray-400 hover:bg-gray-600")
+                          else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                        )
                       ]}
-                    >M</button>
+                    >
+                      M
+                    </button>
                     <%!-- Solo --%>
                     <button
                       phx-click="update_stem_mix"
                       phx-target={@myself}
                       phx-value-stem_id={stem.id}
-                      phx-value-solo={to_string(!(Map.get(@stem_mixer, stem.id, %{solo: false}).solo))}
+                      phx-value-solo={to_string(!Map.get(@stem_mixer, stem.id, %{solo: false}).solo)}
                       title="Solo"
                       class={[
                         "text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors",
                         if(Map.get(@stem_mixer, stem.id, %{solo: false}).solo,
                           do: "bg-green-500 text-gray-900",
-                          else: "bg-gray-700 text-gray-400 hover:bg-gray-600")
+                          else: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                        )
                       ]}
-                    >S</button>
+                    >
+                      S
+                    </button>
                     <%!-- Volume --%>
                     <div class="flex items-center gap-1">
                       <span class="text-[9px] text-gray-500 shrink-0">VOL</span>
-                      <form phx-change="update_stem_mix" phx-target={@myself} class="flex items-center">
+                      <form
+                        phx-change="update_stem_mix"
+                        phx-target={@myself}
+                        class="flex items-center"
+                      >
                         <input type="hidden" name="stem_id" value={stem.id} />
                         <input
-                          type="range" name="volume"
-                          min="0" max="1" step="0.01"
+                          type="range"
+                          name="volume"
+                          min="0"
+                          max="1"
+                          step="0.01"
                           value={Map.get(@stem_mixer, stem.id, %{volume: 1.0}).volume}
                           class="w-20 h-1 accent-purple-500 cursor-pointer"
                           title={"Volume: #{round(Map.get(@stem_mixer, stem.id, %{volume: 1.0}).volume * 100)}%"}
@@ -880,11 +988,18 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                     <%!-- Pan/Balance --%>
                     <div class="flex items-center gap-1">
                       <span class="text-[9px] text-gray-500 shrink-0">PAN</span>
-                      <form phx-change="update_stem_mix" phx-target={@myself} class="flex items-center">
+                      <form
+                        phx-change="update_stem_mix"
+                        phx-target={@myself}
+                        class="flex items-center"
+                      >
                         <input type="hidden" name="stem_id" value={stem.id} />
                         <input
-                          type="range" name="pan"
-                          min="-1" max="1" step="0.01"
+                          type="range"
+                          name="pan"
+                          min="-1"
+                          max="1"
+                          step="0.01"
                           value={Map.get(@stem_mixer, stem.id, %{pan: 0.0}).pan}
                           class="w-16 h-1 accent-indigo-400 cursor-pointer"
                           title={"Pan: #{Map.get(@stem_mixer, stem.id, %{pan: 0.0}).pan}"}
@@ -898,7 +1013,18 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 </div>
                 <div class="flex items-center gap-1 justify-end">
                   <button
-                    :for={op <- [:crop, :trim, :fade_in, :fade_out, :split, :gain, :pitch_shift, :time_stretch]}
+                    :for={
+                      op <- [
+                        :crop,
+                        :trim,
+                        :fade_in,
+                        :fade_out,
+                        :split,
+                        :gain,
+                        :pitch_shift,
+                        :time_stretch
+                      ]
+                    }
                     phx-click="apply_operation"
                     phx-target={@myself}
                     phx-value-stem_id={stem.id}
@@ -932,7 +1058,9 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
                 data-stem-type={stem.stem_type}
                 data-track-id={@track && @track.id}
                 data-stem-url={stem_audio_url(stem)}
-                data-operations={Jason.encode!(encode_operations(Map.get(@stem_operations, stem.id, [])))}
+                data-operations={
+                  Jason.encode!(encode_operations(Map.get(@stem_operations, stem.id, [])))
+                }
                 data-operation-colors={Jason.encode!(@operation_colors)}
                 data-structure={Jason.encode!(@structure_segments || [])}
                 data-bar-times={Jason.encode!(@bar_times || [])}
@@ -956,10 +1084,18 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
             id={"arrangement-grid-#{@track && @track.id}"}
             phx-hook="ArrangementGrid"
             phx-target={@myself}
-            data-stems={Jason.encode!(Enum.map(@stems, fn s ->
-              %{id: s.id, stem_type: s.stem_type, label: String.capitalize(to_string(s.stem_type)),
-                color: stem_hex_color(s.stem_type)}
-            end))}
+            data-stems={
+              Jason.encode!(
+                Enum.map(@stems, fn s ->
+                  %{
+                    id: s.id,
+                    stem_type: s.stem_type,
+                    label: String.capitalize(to_string(s.stem_type)),
+                    color: stem_hex_color(s.stem_type)
+                  }
+                end)
+              )
+            }
             data-arrangement={Jason.encode!((@track && @track.stem_arrangement) || %{})}
             data-duration-sec={(@track && @track.duration) || 120}
             data-bpm={(@track && @track.bpm) || 120}
@@ -975,14 +1111,29 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
             <p class="text-sm text-gray-400">Select a track below to start editing stems</p>
           </div>
 
-          <div :if={@picker_tracks == []} class="flex flex-col items-center justify-center py-32 text-center">
+          <div
+            :if={@picker_tracks == []}
+            class="flex flex-col items-center justify-center py-32 text-center"
+          >
             <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4">
-              <svg class="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+              <svg
+                class="w-8 h-8 text-gray-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z"
+                />
               </svg>
             </div>
             <h3 class="text-lg font-semibold text-gray-200 mb-2">No tracks in your library</h3>
-            <p class="text-sm text-gray-500 mb-6 max-w-xs">Add tracks from Spotify or upload audio files, then come back here to edit stems.</p>
+            <p class="text-sm text-gray-500 mb-6 max-w-xs">
+              Add tracks from Spotify or upload audio files, then come back here to edit stems.
+            </p>
             <button
               phx-click="toggle_daw_library"
               class="btn btn-sm btn-outline border-violet-600 text-violet-400 hover:bg-violet-600 hover:text-white"
@@ -1001,8 +1152,18 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
             >
               <div class="aspect-square bg-gray-900 rounded-md overflow-hidden mb-2 relative">
                 <div class="w-full h-full flex items-center justify-center text-gray-600 absolute inset-0">
-                  <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  <svg
+                    class="w-10 h-10"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                    />
                   </svg>
                 </div>
                 <img
@@ -1141,22 +1302,22 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
              preview: false
            }),
          {:ok, _oban_job} <-
-           (%{
-              "track_id" => track_id,
-              "job_id" => job.id,
-              "file_path" => file_path,
-              "model" => model,
-              "engine" => "demucs",
-              "preview" => false,
-              "lalalai_mode" => "stem_separator",
-              "multistem_stems" => [],
-              "noise_level" => 0,
-              "voice_pack_id" => nil,
-              "accent" => 0.5,
-              "dereverb" => false
-            }
-            |> SoundForge.Jobs.ProcessingWorker.new()
-            |> Oban.insert()) do
+           %{
+             "track_id" => track_id,
+             "job_id" => job.id,
+             "file_path" => file_path,
+             "model" => model,
+             "engine" => "demucs",
+             "preview" => false,
+             "lalalai_mode" => "stem_separator",
+             "multistem_stems" => [],
+             "noise_level" => 0,
+             "voice_pack_id" => nil,
+             "accent" => 0.5,
+             "dereverb" => false
+           }
+           |> SoundForge.Jobs.ProcessingWorker.new()
+           |> Oban.insert() do
       {:ok, job}
     end
   end
@@ -1403,5 +1564,4 @@ defmodule SoundForgeWeb.Live.Components.DawTabComponent do
   end
 
   defp time_grid_markers(_), do: []
-
 end

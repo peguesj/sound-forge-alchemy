@@ -8,7 +8,8 @@ defmodule SoundForge.Agents.MixPlanningAgent do
 
   @impl true
   def description,
-    do: "Plans DJ set sequences and mix transitions using Camelot key compatibility, energy flow, and BPM alignment."
+    do:
+      "Plans DJ set sequences and mix transitions using Camelot key compatibility, energy flow, and BPM alignment."
 
   @impl true
   def capabilities,

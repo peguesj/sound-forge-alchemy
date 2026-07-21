@@ -54,8 +54,8 @@ defmodule SoundForge.DJ.Layouts.Rekordbox do
         playlists = extract_playlists(xml_doc)
         {:ok, %{tracks: tracks, playlists: playlists}}
 
-      {:error, reason} ->
-        {:error, {:xml_parse_error, reason}}
+      other ->
+        {:error, {:xml_parse_error, other}}
     end
   rescue
     e -> {:error, {:parse_exception, Exception.message(e)}}

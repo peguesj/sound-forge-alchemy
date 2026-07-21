@@ -57,7 +57,10 @@ defmodule SoundForgeWeb.PrototypeLive do
       {:error, :unauthorized} ->
         {:ok,
          socket
-         |> put_flash(:error, "Prototype sandbox is only accessible in the dev environment to admin users.")
+         |> put_flash(
+           :error,
+           "Prototype sandbox is only accessible in the dev environment to admin users."
+         )
          |> redirect(to: "/")}
     end
   end
@@ -117,10 +120,11 @@ defmodule SoundForgeWeb.PrototypeLive do
         e -> {:error, Exception.message(e)}
       end
 
-    msg = case result do
-      {:ok, m} -> m
-      {:error, m} -> "Error: #{m}"
-    end
+    msg =
+      case result do
+        {:ok, m} -> m
+        {:error, m} -> "Error: #{m}"
+      end
 
     {:noreply, put_flash(socket, :info, msg)}
   end
@@ -182,10 +186,18 @@ defmodule SoundForgeWeb.PrototypeLive do
     msg =
       case result do
         {:ok, r} ->
-          %{role: :agent, content: r.content || "(no response)", id: System.unique_integer([:positive])}
+          %{
+            role: :agent,
+            content: r.content || "(no response)",
+            id: System.unique_integer([:positive])
+          }
 
         {:error, reason} ->
-          %{role: :error, content: "Error: #{inspect(reason)}", id: System.unique_integer([:positive])}
+          %{
+            role: :error,
+            content: "Error: #{inspect(reason)}",
+            id: System.unique_integer([:positive])
+          }
       end
 
     messages = socket.assigns.llm_messages ++ [msg]
@@ -324,7 +336,7 @@ defmodule SoundForgeWeb.PrototypeLive do
               <div class="card-actions justify-end mt-3">
                 <form
                   :if={user.id != @current_scope.user.id}
-                  action={~p"/dev/impersonate/#{user.id}"}
+                  action={"/dev/impersonate/#{user.id}"}
                   method="post"
                 >
                   <input type="hidden" name="_csrf_token" value={Phoenix.Controller.get_csrf_token()} />
@@ -356,10 +368,16 @@ defmodule SoundForgeWeb.PrototypeLive do
                 </tr>
               </thead>
               <tbody>
-                <tr :for={feature <- ~w(stem_separation lalalai_cloud midi_control full_analysis admin_dashboard platform_library)a}>
+                <tr :for={
+                  feature <-
+                    ~w(stem_separation lalalai_cloud midi_control full_analysis admin_dashboard platform_library)a
+                }>
                   <td class="font-mono text-xs">{feature}</td>
                   <td :for={role <- ~w(user pro enterprise admin platform_admin super_admin)a}>
-                    {if SoundForge.Accounts.Scope.can_use_feature?(%SoundForge.Accounts.Scope{role: role}, feature), do: "Y", else: "-"}
+                    {if SoundForge.Accounts.Scope.can_use_feature?(
+                          %SoundForge.Accounts.Scope{role: role},
+                          feature
+                        ), do: "Y", else: "-"}
                   </td>
                 </tr>
               </tbody>
@@ -384,7 +402,10 @@ defmodule SoundForgeWeb.PrototypeLive do
                 Send a message to the Orchestrator
               </div>
 
-              <div :for={msg <- @llm_messages} class={"flex #{if msg.role == :user, do: "justify-end", else: "justify-start"}"}>
+              <div
+                :for={msg <- @llm_messages}
+                class={"flex #{if msg.role == :user, do: "justify-end", else: "justify-start"}"}
+              >
                 <div class={"max-w-md rounded-xl px-3 py-2 text-sm #{msg_class(msg.role)}"}>
                   <p class="whitespace-pre-wrap">{msg.content}</p>
                 </div>

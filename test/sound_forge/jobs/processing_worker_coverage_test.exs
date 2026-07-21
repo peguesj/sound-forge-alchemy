@@ -38,7 +38,13 @@ defmodule SoundForge.Jobs.ProcessingWorkerCoverageTest do
 
   describe "new/1" do
     test "creates a valid changeset" do
-      args = %{"track_id" => "abc", "job_id" => "xyz", "file_path" => "/tmp/test.mp3", "model" => "htdemucs"}
+      args = %{
+        "track_id" => "abc",
+        "job_id" => "xyz",
+        "file_path" => "/tmp/test.mp3",
+        "model" => "htdemucs"
+      }
+
       changeset = ProcessingWorker.new(args)
       assert changeset.valid?
     end

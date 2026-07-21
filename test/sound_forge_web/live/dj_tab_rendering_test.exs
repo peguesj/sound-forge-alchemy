@@ -12,13 +12,14 @@ defmodule SoundForgeWeb.DjTabRenderingTest do
 
   setup %{user: user} do
     # Create track with full pipeline data for maximum template coverage
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "DJ Render Track",
-      artist: "DJ Artist",
-      duration: 240,
-      album: "DJ Album"
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "DJ Render Track",
+        artist: "DJ Artist",
+        duration: 240,
+        album: "DJ Album"
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -27,17 +28,46 @@ defmodule SoundForgeWeb.DjTabRenderingTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :drums, file_path: "stems/drums.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :bass, file_path: "stems/bass.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :other, file_path: "stems/other.wav", file_size: 1024})
 
-    track2 = track_fixture(%{
-      user_id: user.id,
-      title: "DJ Render Track 2",
-      artist: "DJ Artist 2",
-      duration: 180
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
     })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :drums,
+      file_path: "stems/drums.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :bass,
+      file_path: "stems/bass.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :other,
+      file_path: "stems/other.wav",
+      file_size: 1024
+    })
+
+    track2 =
+      track_fixture(%{
+        user_id: user.id,
+        title: "DJ Render Track 2",
+        artist: "DJ Artist 2",
+        duration: 180
+      })
 
     download_job_fixture(%{
       track_id: track2.id,
@@ -46,10 +76,38 @@ defmodule SoundForgeWeb.DjTabRenderingTest do
     })
 
     pj2 = processing_job_fixture(%{track_id: track2.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track2.id, processing_job_id: pj2.id, stem_type: :vocals, file_path: "stems/vocals2.wav", file_size: 1024})
-    stem_fixture(%{track_id: track2.id, processing_job_id: pj2.id, stem_type: :drums, file_path: "stems/drums2.wav", file_size: 1024})
-    stem_fixture(%{track_id: track2.id, processing_job_id: pj2.id, stem_type: :bass, file_path: "stems/bass2.wav", file_size: 1024})
-    stem_fixture(%{track_id: track2.id, processing_job_id: pj2.id, stem_type: :other, file_path: "stems/other2.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track2.id,
+      processing_job_id: pj2.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals2.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track2.id,
+      processing_job_id: pj2.id,
+      stem_type: :drums,
+      file_path: "stems/drums2.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track2.id,
+      processing_job_id: pj2.id,
+      stem_type: :bass,
+      file_path: "stems/bass2.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track2.id,
+      processing_job_id: pj2.id,
+      stem_type: :other,
+      file_path: "stems/other2.wav",
+      file_size: 1024
+    })
 
     %{track: track, track2: track2}
   end
@@ -96,7 +154,14 @@ defmodule SoundForgeWeb.DjTabRenderingTest do
     test "set hot cue on loaded track", %{conn: conn, track: track} do
       view = load_dj_tab(conn)
       render_click(view, "load_track", %{"track-id" => track.id, "deck" => "1"})
-      render_click(view, "set_hot_cue", %{"deck" => "1", "index" => "0", "time" => "15.0", "label" => "Drop"})
+
+      render_click(view, "set_hot_cue", %{
+        "deck" => "1",
+        "index" => "0",
+        "time" => "15.0",
+        "label" => "Drop"
+      })
+
       html = render(view)
       assert is_binary(html)
     end

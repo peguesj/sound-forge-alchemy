@@ -13,7 +13,13 @@ defmodule SoundForgeWeb.DjComprehensiveStateTest do
 
   defp create_analyzed_track(user, title, opts \\ %{}) do
     track = track_fixture(Map.merge(%{user_id: user.id, title: title, duration: 200}, opts))
-    download_job_fixture(%{track_id: track.id, status: :completed, output_path: "/tmp/#{title}.mp3"})
+
+    download_job_fixture(%{
+      track_id: track.id,
+      status: :completed,
+      output_path: "/tmp/#{title}.mp3"
+    })
+
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
 
     for type <- [:vocals, :drums, :bass, :other] do
@@ -21,13 +27,20 @@ defmodule SoundForgeWeb.DjComprehensiveStateTest do
     end
 
     aj = analysis_job_fixture(%{track_id: track.id, status: :completed})
-    analysis_result_fixture(Map.merge(%{
-      track_id: track.id,
-      analysis_job_id: aj.id,
-      tempo: 128.0,
-      key: "A minor",
-      energy: 0.85
-    }, opts))
+
+    analysis_result_fixture(
+      Map.merge(
+        %{
+          track_id: track.id,
+          analysis_job_id: aj.id,
+          tempo: 128.0,
+          key: "A minor",
+          energy: 0.85
+        },
+        opts
+      )
+    )
+
     track
   end
 
@@ -58,7 +71,10 @@ defmodule SoundForgeWeb.DjComprehensiveStateTest do
 
       # Filter
       render_click(view, "set_filter", %{"deck" => "1", "mode" => "lowpass", "cutoff" => "0.3"})
-      html = render_click(view, "set_filter", %{"deck" => "1", "mode" => "highpass", "cutoff" => "0.7"})
+
+      html =
+        render_click(view, "set_filter", %{"deck" => "1", "mode" => "highpass", "cutoff" => "0.7"})
+
       assert html =~ "dj-tab"
     end
 
@@ -164,7 +180,9 @@ defmodule SoundForgeWeb.DjComprehensiveStateTest do
       render_click(view, "load_track", %{"track_id" => track.id, "deck" => "1"})
 
       for stem <- ["vocals", "drums", "bass", "other"] do
-        html = render_click(view, "stem_volume", %{"deck" => "1", "stem" => stem, "value" => "50"})
+        html =
+          render_click(view, "stem_volume", %{"deck" => "1", "stem" => stem, "value" => "50"})
+
         assert html =~ "dj-tab"
       end
     end
@@ -177,7 +195,9 @@ defmodule SoundForgeWeb.DjComprehensiveStateTest do
       render_click(view, "load_track", %{"track_id" => track.id, "deck" => "1"})
       render_click(view, "toggle_play", %{"deck" => "1"})
 
-      html = render_click(view, "time_update", %{"deck" => "1", "time" => "45.5", "duration" => "200"})
+      html =
+        render_click(view, "time_update", %{"deck" => "1", "time" => "45.5", "duration" => "200"})
+
       assert html =~ "dj-tab"
     end
 

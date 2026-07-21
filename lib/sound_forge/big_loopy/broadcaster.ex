@@ -39,7 +39,10 @@ defmodule SoundForge.BigLoopy.Broadcaster do
   @doc "Broadcasts a pipeline completion event with the ZIP path."
   @spec broadcast_complete(binary(), String.t()) :: :ok | {:error, term()}
   def broadcast_complete(alchemy_set_id, zip_path) do
-    broadcast(alchemy_set_id, {:bigloopy, :pipeline_complete, alchemy_set_id, %{zip_path: zip_path}})
+    broadcast(
+      alchemy_set_id,
+      {:bigloopy, :pipeline_complete, alchemy_set_id, %{zip_path: zip_path}}
+    )
   end
 
   @doc "Broadcasts a pipeline error event."

@@ -51,7 +51,9 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
               class={tab_class(@nav_tab == :library)}
             >
               <span class="hero-musical-note w-5 h-5 shrink-0"></span>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">Library</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">
+                Library
+              </span>
             </button>
             <button
               phx-click="nav_tab"
@@ -59,7 +61,9 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
               class={tab_class(@nav_tab == :browse)}
             >
               <span class="hero-magnifying-glass w-5 h-5 shrink-0"></span>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">Browse</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">
+                Browse
+              </span>
             </button>
             <!-- Studio separator -->
             <span class="w-px h-4 bg-gray-700 mx-1"></span>
@@ -69,62 +73,142 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
               phx-value-tab="daw"
               class={tab_class(@nav_tab == :daw)}
             >
-              <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10" />
+              <svg
+                class="w-5 h-5 shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M3 7h18M3 12h18M3 17h18M6 7v10M10 7v10M14 7v10M18 7v10"
+                />
               </svg>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">DAW</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">
+                DAW
+              </span>
             </button>
             <button
               phx-click="nav_tab"
               phx-value-tab="dj"
               class={tab_class(@nav_tab == :dj)}
             >
-              <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+              <svg
+                class="w-5 h-5 shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                />
               </svg>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">DJ</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">
+                DJ
+              </span>
             </button>
             <button
               phx-click="nav_tab"
               phx-value-tab="pads"
               class={tab_class(@nav_tab == :pads)}
             >
-              <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+              <svg
+                class="w-5 h-5 shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
+                />
               </svg>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">Pads</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">
+                Pads
+              </span>
             </button>
             <!-- Tools separator -->
             <span class="w-px h-4 bg-gray-700 mx-1"></span>
             <!-- Standalone modules -->
             <.link navigate="/alchemy" class={tab_class(@nav_tab == :alchemy)}>
-              <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              <svg
+                class="w-5 h-5 shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                />
               </svg>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">Alchemy</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">
+                Alchemy
+              </span>
             </.link>
             <.link navigate="/crate" class={tab_class(@nav_tab == :crate)}>
               <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
               </svg>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">Crate</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">
+                Crate
+              </span>
             </.link>
             <.link navigate="/samples" class={tab_class(@nav_tab == :samples)}>
-              <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" />
+              <svg
+                class="w-5 h-5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776"
+                />
               </svg>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">Samples</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">
+                Samples
+              </span>
             </.link>
             <.link navigate="/midi" class={tab_class(@nav_tab == :midi)}>
-              <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+              <svg
+                class="w-5 h-5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z"
+                />
               </svg>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">MIDI</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">
+                MIDI
+              </span>
             </.link>
             <.link navigate="/practice" class={tab_class(@nav_tab == :practice)}>
               <span class="hero-academic-cap w-5 h-5 shrink-0"></span>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">Practice</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100 [.is-active_&]:max-w-[5rem] [.is-active_&]:opacity-100">
+                Practice
+              </span>
             </.link>
             <a
               :if={@current_scope && @current_scope.admin?}
@@ -135,7 +219,9 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
               ]}
             >
               <span class="hero-shield-check w-5 h-5 shrink-0"></span>
-              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100">Admin</span>
+              <span class="overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-[max-width,opacity] duration-150 group-hover:max-w-[5rem] group-hover:opacity-100">
+                Admin
+              </span>
             </a>
           </nav>
         </div>
@@ -149,17 +235,32 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                 class={[
                   "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors",
                   if(length(@midi_devices) > 0,
-                    do: "bg-green-900/40 text-green-400 border border-green-800/50 hover:bg-green-900/60",
-                    else: "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-gray-800/80 hover:text-gray-400"
+                    do:
+                      "bg-green-900/40 text-green-400 border border-green-800/50 hover:bg-green-900/60",
+                    else:
+                      "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-gray-800/80 hover:text-gray-400"
                   )
                 ]}
                 title={midi_tooltip_text(@midi_devices)}
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z"
+                  />
                 </svg>
                 <span>MIDI</span>
-                <span :if={length(@midi_devices) > 0} class="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-green-500 text-black rounded-full">
+                <span
+                  :if={length(@midi_devices) > 0}
+                  class="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-green-500 text-black rounded-full"
+                >
                   {length(@midi_devices)}
                 </span>
               </label>
@@ -200,11 +301,17 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                         <div class={[
                           "w-2 h-2 rounded-full shrink-0",
                           if(device.status == :connected, do: "bg-green-500", else: "bg-red-500")
-                        ]}></div>
+                        ]}>
+                        </div>
                         <div class="min-w-0 flex-1">
                           <p class="text-xs text-gray-300 truncate">{device.name}</p>
                           <p class="text-[10px] text-gray-600">
-                            {device.direction}<%= if Map.get(device, :port_count, 1) > 1 do %> · {device.port_count} ports<% else %> / {device.type}<% end %>
+                            {device.direction}
+                            <%= if Map.get(device, :port_count, 1) > 1 do %>
+                              · {device.port_count} ports
+                            <% else %>
+                              / {device.type}
+                            <% end %>
                           </p>
                         </div>
                       </div>
@@ -216,13 +323,20 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                   <div class="flex items-center gap-1.5">
                     <div class={[
                       "w-2 h-2 rounded-full",
-                      if(@midi_transport == :playing, do: "bg-green-500 animate-pulse", else: "bg-gray-600")
-                    ]}></div>
+                      if(@midi_transport == :playing,
+                        do: "bg-green-500 animate-pulse",
+                        else: "bg-gray-600"
+                      )
+                    ]}>
+                    </div>
                     <span class="text-[11px] text-gray-400">
                       {if @midi_transport == :playing, do: "Playing", else: "Stopped"}
                     </span>
                   </div>
-                  <span class={["text-[11px] font-mono text-purple-300", if(!@midi_bpm, do: "hidden", else: "")]}>
+                  <span class={[
+                    "text-[11px] font-mono text-purple-300",
+                    if(!@midi_bpm, do: "hidden", else: "")
+                  ]}>
                     {if @midi_bpm, do: Float.round(@midi_bpm * 1.0, 1), else: ""} BPM
                   </span>
                 </div>
@@ -242,14 +356,27 @@ defmodule SoundForgeWeb.Live.Components.AppHeader do
                       if(Map.get(assigns, :refreshing_midi, false), do: "animate-spin", else: "")
                     ]}
                   >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
                     </svg>
                   </button>
                 </div>
               </div>
             </div>
-            <span class={["px-2 py-1 rounded-md text-xs font-mono bg-purple-900/40 text-purple-300 border border-purple-800/50", if(!@midi_bpm, do: "hidden", else: "")]}>
+            <span class={[
+              "px-2 py-1 rounded-md text-xs font-mono bg-purple-900/40 text-purple-300 border border-purple-800/50",
+              if(!@midi_bpm, do: "hidden", else: "")
+            ]}>
               {if @midi_bpm, do: Float.round(@midi_bpm * 1.0, 1), else: ""} BPM
             </span>
           </div>

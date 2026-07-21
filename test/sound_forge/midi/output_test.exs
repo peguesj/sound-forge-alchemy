@@ -53,33 +53,60 @@ defmodule SoundForge.MIDI.OutputTest do
     end
 
     test "rejects unsupported message type", %{pid: pid} do
-      result = GenServer.call(pid, {:send, "port:0", %{type: :unknown_type, channel: 0, data: []}})
+      result =
+        GenServer.call(pid, {:send, "port:0", %{type: :unknown_type, channel: 0, data: []}})
+
       assert {:error, {:unsupported_message_type, :unknown_type}} = result
     end
 
     test "accepts valid note_on message (fails at connection)", %{pid: pid} do
-      result = GenServer.call(pid, {:send, "port:0", %{type: :note_on, channel: 0, data: %{note: 60, velocity: 100}}})
+      result =
+        GenServer.call(
+          pid,
+          {:send, "port:0", %{type: :note_on, channel: 0, data: %{note: 60, velocity: 100}}}
+        )
+
       # Will fail to connect to port but that exercises the send path
       assert result in [:ok, {:error, :connection_failed}]
     end
 
     test "accepts valid cc message (fails at connection)", %{pid: pid} do
-      result = GenServer.call(pid, {:send, "port:0", %{type: :cc, channel: 0, data: %{controller: 1, value: 64}}})
+      result =
+        GenServer.call(
+          pid,
+          {:send, "port:0", %{type: :cc, channel: 0, data: %{controller: 1, value: 64}}}
+        )
+
       assert result in [:ok, {:error, :connection_failed}]
     end
 
     test "accepts valid sysex message (fails at connection)", %{pid: pid} do
-      result = GenServer.call(pid, {:send, "port:0", %{type: :sysex, channel: 0, data: [0xF0, 0x7E, 0xF7]}})
+      result =
+        GenServer.call(
+          pid,
+          {:send, "port:0", %{type: :sysex, channel: 0, data: [0xF0, 0x7E, 0xF7]}}
+        )
+
       assert result in [:ok, {:error, :connection_failed}]
     end
 
     test "accepts valid program_change message", %{pid: pid} do
-      result = GenServer.call(pid, {:send, "port:0", %{type: :program_change, channel: 0, data: %{program: 5}}})
+      result =
+        GenServer.call(
+          pid,
+          {:send, "port:0", %{type: :program_change, channel: 0, data: %{program: 5}}}
+        )
+
       assert result in [:ok, {:error, :connection_failed}]
     end
 
     test "accepts valid note_off message", %{pid: pid} do
-      result = GenServer.call(pid, {:send, "port:0", %{type: :note_off, channel: 0, data: %{note: 60, velocity: 0}}})
+      result =
+        GenServer.call(
+          pid,
+          {:send, "port:0", %{type: :note_off, channel: 0, data: %{note: 60, velocity: 0}}}
+        )
+
       assert result in [:ok, {:error, :connection_failed}]
     end
   end

@@ -39,7 +39,17 @@ defmodule SoundForge.BigLoopy.AlchemySet do
   @spec changeset(%__MODULE__{}, map()) :: Ecto.Changeset.t()
   def changeset(alchemy_set, attrs) do
     alchemy_set
-    |> cast(attrs, [:name, :type, :source_track_ids, :recipe, :output_format, :status, :zip_path, :performance_set, :user_id])
+    |> cast(attrs, [
+      :name,
+      :type,
+      :source_track_ids,
+      :recipe,
+      :output_format,
+      :status,
+      :zip_path,
+      :performance_set,
+      :user_id
+    ])
     |> validate_required([:name, :user_id])
     |> validate_inclusion(:type, @valid_types)
     |> validate_inclusion(:status, @valid_statuses)

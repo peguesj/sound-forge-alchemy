@@ -14,10 +14,24 @@ defmodule SoundForge.DJ.ChefCoverageTest do
   describe "cook/2" do
     test "returns recipe for simple prompt", %{user: user} do
       # Create a track so the chef has something to work with
-      track = track_fixture(%{user_id: user.id, title: "Chef Track", artist: "DJ Test", duration: 300})
-      download_job_fixture(%{track_id: track.id, status: :completed, output_path: "priv/uploads/downloads/chef.mp3"})
+      track =
+        track_fixture(%{user_id: user.id, title: "Chef Track", artist: "DJ Test", duration: 300})
+
+      download_job_fixture(%{
+        track_id: track.id,
+        status: :completed,
+        output_path: "priv/uploads/downloads/chef.mp3"
+      })
+
       pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/v.wav", file_size: 1024})
+
+      stem_fixture(%{
+        track_id: track.id,
+        processing_job_id: pj.id,
+        stem_type: :vocals,
+        file_path: "stems/v.wav",
+        file_size: 1024
+      })
 
       result = Chef.cook("play something energetic", user.id)
       assert match?({:ok, _}, result) or match?({:error, _}, result)

@@ -73,7 +73,9 @@ defmodule SoundForgeWeb.Live.Components.MidiLearnOverlayComponent do
           {:error, _} ->
             # Try upsert (update existing binding for this control)
             case Mappings.get_mapping_for_control(user_id, device_name, Map.get(msg, :data1, 0)) do
-              nil -> %{control: target, device: device_name, action: action, success: false}
+              nil ->
+                %{control: target, device: device_name, action: action, success: false}
+
               existing ->
                 Mappings.update_mapping(existing, %{action: action})
                 %{control: target, device: device_name, action: action, success: true}
@@ -108,6 +110,7 @@ defmodule SoundForgeWeb.Live.Components.MidiLearnOverlayComponent do
   def handle_event("select_control", %{"id" => control_id, "label" => label}, socket) do
     if socket.assigns.active do
       target = %{"id" => control_id, "label" => label}
+
       {:noreply,
        socket
        |> assign(:target_control, target)
@@ -129,13 +132,18 @@ defmodule SoundForgeWeb.Live.Components.MidiLearnOverlayComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id={"midi-learn-overlay-#{@module_name}"} phx-hook="MidiLearnOverlay" data-active={to_string(@active)}>
+    <div
+      id={"midi-learn-overlay-#{@module_name}"}
+      phx-hook="MidiLearnOverlay"
+      data-active={to_string(@active)}
+    >
       <%!-- Dim overlay when active --%>
       <div
         :if={@active}
         class="fixed inset-0 bg-black/30 z-30 pointer-events-none"
         style="backdrop-filter: blur(1px);"
-      ></div>
+      >
+      </div>
 
       <%!-- Learn mode banner --%>
       <div
@@ -144,7 +152,7 @@ defmodule SoundForgeWeb.Live.Components.MidiLearnOverlayComponent do
       >
         <div class="w-2 h-2 rounded-full bg-black animate-pulse"></div>
         <%= if @waiting_for_midi and @target_control do %>
-          Press a button on your MIDI controller to assign "<%= @target_control["label"] %>"
+          Press a button on your MIDI controller to assign "{@target_control["label"]}"
           <button
             phx-click="cancel_learn"
             phx-target={@myself}

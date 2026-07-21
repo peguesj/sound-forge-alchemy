@@ -225,6 +225,9 @@ defmodule SoundForge.MIDI.Parser do
   # -- SysEx helpers --
 
   defp parse_sysex(<<@sysex_end, rest::binary>>, payload), do: {:ok, payload, rest}
-  defp parse_sysex(<<byte, rest::binary>>, payload), do: parse_sysex(rest, <<payload::binary, byte>>)
+
+  defp parse_sysex(<<byte, rest::binary>>, payload),
+    do: parse_sysex(rest, <<payload::binary, byte>>)
+
   defp parse_sysex(<<>>, _payload), do: :incomplete
 end

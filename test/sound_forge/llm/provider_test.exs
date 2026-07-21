@@ -85,7 +85,9 @@ defmodule SoundForge.LLM.ProviderTest do
 
   describe "changeset/2 - general validation" do
     test "requires user_id" do
-      changeset = Provider.changeset(%Provider{}, %{provider_type: :anthropic, name: "Test", api_key: "k"})
+      changeset =
+        Provider.changeset(%Provider{}, %{provider_type: :anthropic, name: "Test", api_key: "k"})
+
       refute changeset.valid?
     end
 
@@ -95,7 +97,9 @@ defmodule SoundForge.LLM.ProviderTest do
     end
 
     test "requires name" do
-      changeset = Provider.changeset(%Provider{}, %{user_id: 1, provider_type: :anthropic, api_key: "k"})
+      changeset =
+        Provider.changeset(%Provider{}, %{user_id: 1, provider_type: :anthropic, api_key: "k"})
+
       refute changeset.valid?
     end
 

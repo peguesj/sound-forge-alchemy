@@ -103,7 +103,8 @@ defmodule SoundForge.Sampler do
   @doc """
   Assigns a stem to a pad by stem_id. Pass `nil` to clear the assignment.
   """
-  @spec assign_stem_to_pad(Pad.t(), binary() | nil) :: {:ok, Pad.t()} | {:error, Ecto.Changeset.t()}
+  @spec assign_stem_to_pad(Pad.t(), binary() | nil) ::
+          {:ok, Pad.t()} | {:error, Ecto.Changeset.t()}
   def assign_stem_to_pad(%Pad{} = pad, stem_id) do
     pad
     |> Pad.changeset(%{stem_id: stem_id})

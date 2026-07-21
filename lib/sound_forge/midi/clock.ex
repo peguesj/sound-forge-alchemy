@@ -99,7 +99,10 @@ defmodule SoundForge.MIDI.Clock do
       subscribed_ports: subscribed_ports
     }
 
-    Logger.info("MIDI Clock started, subscribed to #{MapSet.size(subscribed_ports)} input port(s)")
+    Logger.info(
+      "MIDI Clock started, subscribed to #{MapSet.size(subscribed_ports)} input port(s)"
+    )
+
     {:ok, state}
   end
 

@@ -71,7 +71,10 @@ defmodule SoundForgeWeb.AdminActionsTest do
       other_user = user_fixture()
       {:ok, view, _html} = live(conn, "/admin")
       render_click(view, "switch_tab", %{"tab" => "users"})
-      html = render_click(view, "change_role", %{"id" => to_string(other_user.id), "role" => "pro"})
+
+      html =
+        render_click(view, "change_role", %{"id" => to_string(other_user.id), "role" => "pro"})
+
       assert is_binary(html)
     end
 

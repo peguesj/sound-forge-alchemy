@@ -65,7 +65,9 @@ defmodule SoundForge.Audio.AudioWarpPort do
       {:ok, python} ->
         case find_script() do
           {:ok, script} ->
-            port = open_port(python, script, input_path, output_path, tempo_factor, pitch_semitones)
+            port =
+              open_port(python, script, input_path, output_path, tempo_factor, pitch_semitones)
+
             {:noreply, %{state | port: port, caller: from, buffer: ""}}
 
           {:error, reason} ->

@@ -216,7 +216,14 @@ defmodule SoundForge.AgentsTest do
   describe "Tool struct" do
     test "creates tool with required fields" do
       handler = fn _params -> {:ok, nil} end
-      tool = %Tool{name: "search", description: "search tool", params_schema: %{}, handler: handler}
+
+      tool = %Tool{
+        name: "search",
+        description: "search tool",
+        params_schema: %{},
+        handler: handler
+      }
+
       assert tool.name == "search"
       assert tool.description == "search tool"
     end

@@ -71,12 +71,13 @@ defmodule SoundForge.Jobs.AudioWarpWorker do
         Phoenix.PubSub.broadcast(
           SoundForge.PubSub,
           "tracks:#{track_id}",
-          {:warp_complete, track_id, %{
-            file_path: relative_path,
-            tempo_factor: tempo_factor,
-            pitch_semitones: pitch_semitones,
-            duration: duration
-          }}
+          {:warp_complete, track_id,
+           %{
+             file_path: relative_path,
+             tempo_factor: tempo_factor,
+             pitch_semitones: pitch_semitones,
+             duration: duration
+           }}
         )
 
         PipelineBroadcaster.broadcast_pipeline_complete(track_id)

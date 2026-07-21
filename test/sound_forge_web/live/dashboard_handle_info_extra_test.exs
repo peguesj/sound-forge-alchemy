@@ -11,12 +11,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtraTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "Info Extra Track",
-      artist: "Test Artist",
-      duration: 200
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Info Extra Track",
+        artist: "Test Artist",
+        duration: 200
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -30,21 +31,45 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtraTest do
   describe "pipeline_progress" do
     test "handles pipeline_progress download stage", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :download, status: :running, progress: 50}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :download, status: :running, progress: 50}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles pipeline_progress processing stage", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :processing, status: :running, progress: 75}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{track_id: track.id, stage: :processing, status: :running, progress: 75}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
 
     test "handles pipeline_progress failed stage", %{conn: conn, track: track} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:pipeline_progress, %{track_id: track.id, stage: :analysis, status: :failed, progress: 0, error: "Analysis failed"}})
+
+      send(
+        view.pid,
+        {:pipeline_progress,
+         %{
+           track_id: track.id,
+           stage: :analysis,
+           status: :failed,
+           progress: 0,
+           error: "Analysis failed"
+         }}
+      )
+
       html = render(view)
       assert is_binary(html)
     end
@@ -53,7 +78,13 @@ defmodule SoundForgeWeb.DashboardHandleInfoExtraTest do
   describe "job_progress" do
     test "handles job_progress", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
-      send(view.pid, {:job_progress, %{job_id: "fake-job-id", worker: "DownloadWorker", progress: 30, message: "Downloading"}})
+
+      send(
+        view.pid,
+        {:job_progress,
+         %{job_id: "fake-job-id", worker: "DownloadWorker", progress: 30, message: "Downloading"}}
+      )
+
       html = render(view)
       assert is_binary(html)
     end

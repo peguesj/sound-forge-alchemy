@@ -66,7 +66,8 @@ defmodule SoundForge.Audio.PlaybackBus do
   end
 
   @doc "Mark a track as playing."
-  def play(track_id, source \\ nil), do: update(%{playing: true, track_id: track_id, source: source})
+  def play(track_id, source \\ nil),
+    do: update(%{playing: true, track_id: track_id, source: source})
 
   @doc "Pause without clearing the track."
   def pause, do: update(%{playing: false})

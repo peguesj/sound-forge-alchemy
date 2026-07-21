@@ -11,12 +11,13 @@ defmodule SoundForgeWeb.DjAdvancedEventsTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{
-      user_id: user.id,
-      title: "DJ Advanced Track",
-      artist: "DJ Artist",
-      duration: 240
-    })
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "DJ Advanced Track",
+        artist: "DJ Artist",
+        duration: 240
+      })
 
     download_job_fixture(%{
       track_id: track.id,
@@ -25,10 +26,25 @@ defmodule SoundForgeWeb.DjAdvancedEventsTest do
     })
 
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :vocals, file_path: "stems/vocals.wav", file_size: 1024})
-    stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :drums, file_path: "stems/drums.wav", file_size: 1024})
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :vocals,
+      file_path: "stems/vocals.wav",
+      file_size: 1024
+    })
+
+    stem_fixture(%{
+      track_id: track.id,
+      processing_job_id: pj.id,
+      stem_type: :drums,
+      file_path: "stems/drums.wav",
+      file_size: 1024
+    })
 
     aj = analysis_job_fixture(%{track_id: track.id, status: :completed})
+
     analysis_result_fixture(%{
       track_id: track.id,
       analysis_job_id: aj.id,
@@ -42,7 +58,10 @@ defmodule SoundForgeWeb.DjAdvancedEventsTest do
 
   defp load_deck(view, track) do
     view |> element("#dj-tab [phx-click='toggle_browser']") |> render_click()
-    view |> element("#dj-tab [phx-click='load_track'][phx-value-track-id='#{track.id}']") |> render_click()
+
+    view
+    |> element("#dj-tab [phx-click='load_track'][phx-value-track-id='#{track.id}']")
+    |> render_click()
   end
 
   defp try_click(view, selector) do

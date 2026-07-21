@@ -26,7 +26,10 @@ defmodule SoundForgeWeb.AudioPlayerLive do
     # Priority: stems (if available) > downloaded file (if exists)
     audio_data = build_audio_data(stems, track)
     require Logger
-    Logger.debug("AudioPlayerLive: stems=#{length(stems)}, audio_data=#{length(audio_data)}, urls=#{inspect(Enum.map(audio_data, & &1.url))}")
+
+    Logger.debug(
+      "AudioPlayerLive: stems=#{length(stems)}, audio_data=#{length(audio_data)}, urls=#{inspect(Enum.map(audio_data, & &1.url))}"
+    )
 
     # Initialize per-stem volumes if not already set
     stem_volumes =
@@ -60,7 +63,10 @@ defmodule SoundForgeWeb.AudioPlayerLive do
       <!-- Waveform -->
       <div class="relative">
         <div id={"waveform-#{@id}"} class="h-20 mb-4 rounded bg-gray-900"></div>
-        <div id={"waveform-loading-#{@id}"} class="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">
+        <div
+          id={"waveform-loading-#{@id}"}
+          class="absolute inset-0 flex items-center justify-center text-gray-500 text-sm"
+        >
           <span :if={@audio_data != []}>Loading waveform...</span>
           <span :if={@audio_data == []}>No audio sources available</span>
         </div>
@@ -182,6 +188,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
   @impl true
   def handle_event("toggle_play", _params, socket) do
     new_state = !socket.assigns.playing
+
     {:noreply,
      socket
      |> assign(:playing, new_state)
@@ -191,6 +198,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
   @impl true
   def handle_event("master_volume", %{"level" => level}, socket) do
     level_int = String.to_integer(level)
+
     {:noreply,
      socket
      |> assign(:master_volume, level_int)
@@ -201,6 +209,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
   def handle_event("stem_volume", %{"level" => level, "stem" => stem}, socket) do
     level_int = String.to_integer(level)
     volumes = Map.put(socket.assigns.stem_volumes, stem, level_int)
+
     {:noreply,
      socket
      |> assign(:stem_volumes, volumes)
@@ -269,7 +278,10 @@ defmodule SoundForgeWeb.AudioPlayerLive do
   defp make_relative_path(path) do
     base = SoundForge.Storage.base_path() |> Path.expand()
     cwd_base = Path.join(File.cwd!(), SoundForge.Storage.base_path()) |> Path.expand()
-    demucs_base = Application.get_env(:sound_forge, :demucs_output_dir, "/tmp/demucs") |> Path.expand()
+
+    demucs_base =
+      Application.get_env(:sound_forge, :demucs_output_dir, "/tmp/demucs") |> Path.expand()
+
     expanded = Path.expand(path)
 
     cond do
@@ -327,6 +339,7 @@ defmodule SoundForgeWeb.AudioPlayerLive do
       {:ok, path} when not is_nil(path) ->
         # Build a single "full_track" audio source
         relative = make_relative_path(path)
+
         [
           %{
             type: "full_track",

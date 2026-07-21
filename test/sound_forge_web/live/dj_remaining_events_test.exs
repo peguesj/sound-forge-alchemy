@@ -8,18 +8,43 @@ defmodule SoundForgeWeb.DjRemainingEventsTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track1 = track_fixture(%{user_id: user.id, title: "DJ Remain A", artist: "Art A", duration: 240})
-    track2 = track_fixture(%{user_id: user.id, title: "DJ Remain B", artist: "Art B", duration: 180})
+    track1 =
+      track_fixture(%{user_id: user.id, title: "DJ Remain A", artist: "Art A", duration: 240})
 
-    download_job_fixture(%{track_id: track1.id, status: :completed, output_path: "priv/uploads/downloads/remain_a.mp3"})
-    download_job_fixture(%{track_id: track2.id, status: :completed, output_path: "priv/uploads/downloads/remain_b.mp3"})
+    track2 =
+      track_fixture(%{user_id: user.id, title: "DJ Remain B", artist: "Art B", duration: 180})
+
+    download_job_fixture(%{
+      track_id: track1.id,
+      status: :completed,
+      output_path: "priv/uploads/downloads/remain_a.mp3"
+    })
+
+    download_job_fixture(%{
+      track_id: track2.id,
+      status: :completed,
+      output_path: "priv/uploads/downloads/remain_b.mp3"
+    })
 
     pj1 = processing_job_fixture(%{track_id: track1.id, model: "htdemucs", status: :completed})
     pj2 = processing_job_fixture(%{track_id: track2.id, model: "htdemucs", status: :completed})
 
     for st <- [:vocals, :drums, :bass, :other] do
-      stem_fixture(%{track_id: track1.id, processing_job_id: pj1.id, stem_type: st, file_path: "stems/#{st}_ra.wav", file_size: 1024})
-      stem_fixture(%{track_id: track2.id, processing_job_id: pj2.id, stem_type: st, file_path: "stems/#{st}_rb.wav", file_size: 1024})
+      stem_fixture(%{
+        track_id: track1.id,
+        processing_job_id: pj1.id,
+        stem_type: st,
+        file_path: "stems/#{st}_ra.wav",
+        file_size: 1024
+      })
+
+      stem_fixture(%{
+        track_id: track2.id,
+        processing_job_id: pj2.id,
+        stem_type: st,
+        file_path: "stems/#{st}_rb.wav",
+        file_size: 1024
+      })
     end
 
     %{track1: track1, track2: track2}

@@ -65,8 +65,21 @@ defmodule SoundForge.DJExtendedTest do
       pj = processing_job_fixture(%{track_id: track.id, user_id: user.id})
       stem = stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: :drums})
 
-      DJ.create_stem_loop(%{stem_id: stem.id, track_id: track.id, user_id: user.id, start_ms: 5000, end_ms: 8000})
-      DJ.create_stem_loop(%{stem_id: stem.id, track_id: track.id, user_id: user.id, start_ms: 1000, end_ms: 3000})
+      DJ.create_stem_loop(%{
+        stem_id: stem.id,
+        track_id: track.id,
+        user_id: user.id,
+        start_ms: 5000,
+        end_ms: 8000
+      })
+
+      DJ.create_stem_loop(%{
+        stem_id: stem.id,
+        track_id: track.id,
+        user_id: user.id,
+        start_ms: 1000,
+        end_ms: 3000
+      })
 
       loops = DJ.list_stem_loops(track.id, user.id)
       starts = Enum.map(loops, & &1.start_ms)
@@ -107,7 +120,13 @@ defmodule SoundForge.DJExtendedTest do
       user = user_fixture()
       track = track_fixture(%{user_id: user.id})
       DJ.load_track_to_deck(user.id, 1, track.id)
-      DJ.create_cue_point(%{track_id: track.id, user_id: user.id, position_ms: 5000, cue_type: :hot})
+
+      DJ.create_cue_point(%{
+        track_id: track.id,
+        user_id: user.id,
+        position_ms: 5000,
+        cue_type: :hot
+      })
 
       state = DJ.get_deck_state(user.id, 1)
       assert state.session.track_id == track.id

@@ -44,11 +44,22 @@ defmodule SoundForge.DJ.CuePoint do
   @doc false
   def changeset(cue_point, attrs) do
     cue_point
-    |> cast(attrs, [:track_id, :user_id, :position_ms, :label, :color, :cue_type, :auto_generated, :confidence])
+    |> cast(attrs, [
+      :track_id,
+      :user_id,
+      :position_ms,
+      :label,
+      :color,
+      :cue_type,
+      :auto_generated,
+      :confidence
+    ])
     |> validate_required([:track_id, :user_id, :position_ms, :cue_type])
     |> validate_number(:position_ms, greater_than_or_equal_to: 0)
     |> validate_inclusion(:cue_type, @cue_types)
-    |> validate_format(:color, ~r/^#[0-9a-fA-F]{6}$/, message: "must be a hex color (e.g. #FF0000)")
+    |> validate_format(:color, ~r/^#[0-9a-fA-F]{6}$/,
+      message: "must be a hex color (e.g. #FF0000)"
+    )
     |> validate_length(:label, max: 100)
     |> validate_number(:confidence, greater_than_or_equal_to: 0.0, less_than_or_equal_to: 1.0)
     |> foreign_key_constraint(:track_id)

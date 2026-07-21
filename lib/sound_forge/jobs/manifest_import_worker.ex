@@ -21,7 +21,10 @@ defmodule SoundForge.Jobs.ManifestImportWorker do
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"pack_id" => pack_id, "manifest_path" => manifest_path}}) do
     Logger.metadata(worker: "ManifestImportWorker", pack_id: pack_id)
-    Logger.info("[ManifestImportWorker] Starting import for pack #{pack_id} from #{manifest_path}")
+
+    Logger.info(
+      "[ManifestImportWorker] Starting import for pack #{pack_id} from #{manifest_path}"
+    )
 
     case SampleLibrary.get_pack(pack_id) do
       nil ->

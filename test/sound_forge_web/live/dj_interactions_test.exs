@@ -65,7 +65,10 @@ defmodule SoundForgeWeb.DjInteractionsTest do
 
     test "stem volume change", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/?tab=dj")
-      html = render_click(view, "stem_volume", %{"deck" => "1", "stem" => "bass", "value" => "60"})
+
+      html =
+        render_click(view, "stem_volume", %{"deck" => "1", "stem" => "bass", "value" => "60"})
+
       assert html =~ "dj-tab"
     end
   end

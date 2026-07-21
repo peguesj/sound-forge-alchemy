@@ -83,8 +83,8 @@ defmodule SoundForgeWeb.Live.Components.PipelineTracker do
           {badge_text(@active_count)}
         </span>
       </button>
-
-      <!-- Dropdown Panel -->
+      
+    <!-- Dropdown Panel -->
       <div
         :if={@open}
         id={"#{@id}-dropdown"}
@@ -106,8 +106,8 @@ defmodule SoundForgeWeb.Live.Components.PipelineTracker do
             </span>
           </div>
         </div>
-
-        <!-- Pipeline List -->
+        
+    <!-- Pipeline List -->
         <div class="max-h-96 overflow-y-auto">
           <!-- Empty State -->
           <div
@@ -116,8 +116,8 @@ defmodule SoundForgeWeb.Live.Components.PipelineTracker do
           >
             No active pipelines
           </div>
-
-          <!-- Active Pipelines -->
+          
+    <!-- Active Pipelines -->
           <div :if={@active_count > 0} class="border-b border-gray-700/50">
             <div class="px-4 py-2 bg-gray-800/50">
               <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
@@ -137,17 +137,28 @@ defmodule SoundForgeWeb.Live.Components.PipelineTracker do
                 </span>
               </div>
               <div class="space-y-1.5">
-                <div :for={stage <- @stages} :if={Map.has_key?(pipeline, stage)} class="flex items-center gap-2">
-                  <div class={["w-1.5 h-1.5 rounded-full shrink-0", stage_dot_class(pipeline, stage)]}></div>
+                <div
+                  :for={stage <- @stages}
+                  :if={Map.has_key?(pipeline, stage)}
+                  class="flex items-center gap-2"
+                >
+                  <div class={["w-1.5 h-1.5 rounded-full shrink-0", stage_dot_class(pipeline, stage)]}>
+                  </div>
                   <span class="text-[10px] text-gray-500 w-14 shrink-0">{stage_label(stage)}</span>
                   <div class="flex-1 bg-gray-700 rounded-full h-1">
                     <div
-                      class={["h-1 rounded-full transition-all duration-500", stage_bar_class(pipeline, stage)]}
+                      class={[
+                        "h-1 rounded-full transition-all duration-500",
+                        stage_bar_class(pipeline, stage)
+                      ]}
                       style={"width: #{stage_progress(pipeline, stage)}%"}
                     >
                     </div>
                   </div>
-                  <span :if={!stage_failed?(pipeline, stage)} class="text-[10px] text-gray-500 w-7 text-right">
+                  <span
+                    :if={!stage_failed?(pipeline, stage)}
+                    class="text-[10px] text-gray-500 w-7 text-right"
+                  >
                     {stage_progress(pipeline, stage)}%
                   </span>
                   <button
@@ -183,8 +194,8 @@ defmodule SoundForgeWeb.Live.Components.PipelineTracker do
               </div>
             </div>
           </div>
-
-          <!-- Completed Pipelines -->
+          
+    <!-- Completed Pipelines -->
           <div :if={length(@completed_pipelines) > 0}>
             <div class="px-4 py-2 bg-gray-800/50">
               <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
@@ -197,7 +208,11 @@ defmodule SoundForgeWeb.Live.Components.PipelineTracker do
             >
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2 min-w-0">
-                  <svg class="w-3.5 h-3.5 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg
+                    class="w-3.5 h-3.5 text-green-400 shrink-0"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path
                       fill-rule="evenodd"
                       d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -220,8 +235,8 @@ defmodule SoundForgeWeb.Live.Components.PipelineTracker do
             </div>
           </div>
         </div>
-
-        <!-- Footer: Clear Completed -->
+        
+    <!-- Footer: Clear Completed -->
         <div :if={length(@completed_pipelines) > 0} class="border-t border-gray-700 px-4 py-2.5">
           <button
             type="button"
@@ -313,13 +328,20 @@ defmodule SoundForgeWeb.Live.Components.PipelineTracker do
     statuses = Enum.map(triggered, &Map.get(pipeline, &1))
 
     cond do
-      Enum.any?(statuses, &match?(%{status: :failed}, &1)) -> "Failed"
-      triggered != [] and Enum.all?(statuses, &match?(%{status: :completed}, &1)) -> "Complete"
+      Enum.any?(statuses, &match?(%{status: :failed}, &1)) ->
+        "Failed"
+
+      triggered != [] and Enum.all?(statuses, &match?(%{status: :completed}, &1)) ->
+        "Complete"
+
       Enum.any?(statuses, fn
         %{status: s} when s in [:downloading, :processing] -> true
         _ -> false
-      end) -> "Processing"
-      true -> "Queued"
+      end) ->
+        "Processing"
+
+      true ->
+        "Queued"
     end
   end
 
@@ -328,9 +350,14 @@ defmodule SoundForgeWeb.Live.Components.PipelineTracker do
     statuses = Enum.map(triggered, &Map.get(pipeline, &1))
 
     cond do
-      Enum.any?(statuses, &match?(%{status: :failed}, &1)) -> "bg-red-900 text-red-300"
-      triggered != [] and Enum.all?(statuses, &match?(%{status: :completed}, &1)) -> "bg-green-900 text-green-300"
-      true -> "bg-purple-900 text-purple-300"
+      Enum.any?(statuses, &match?(%{status: :failed}, &1)) ->
+        "bg-red-900 text-red-300"
+
+      triggered != [] and Enum.all?(statuses, &match?(%{status: :completed}, &1)) ->
+        "bg-green-900 text-green-300"
+
+      true ->
+        "bg-purple-900 text-purple-300"
     end
   end
 

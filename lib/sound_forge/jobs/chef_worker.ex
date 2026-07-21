@@ -87,17 +87,20 @@ defmodule SoundForge.Jobs.ChefWorker do
       # Persist as a PerformanceSet (fire-and-forget — broadcast even if persistence fails)
       performance_set_id =
         case PerformanceSets.from_chef_recipe(finalized_recipe, user_id) do
-          {:ok, set} -> set.id
+          {:ok, set} ->
+            set.id
+
           {:error, reason} ->
             Logger.warning("ChefWorker: failed to persist PerformanceSet — #{inspect(reason)}")
             nil
         end
 
-      broadcast_complete(user_id, Map.put(finalized_recipe, :performance_set_id, performance_set_id))
-
-      Logger.info(
-        "Chef recipe complete: #{length(finalized_tracks)} tracks finalized"
+      broadcast_complete(
+        user_id,
+        Map.put(finalized_recipe, :performance_set_id, performance_set_id)
       )
+
+      Logger.info("Chef recipe complete: #{length(finalized_tracks)} tracks finalized")
 
       :ok
     end
@@ -120,9 +123,7 @@ defmodule SoundForge.Jobs.ChefWorker do
         {[track_data | acc], substitutes}
 
       {:error, reason} ->
-        Logger.warning(
-          "Track #{track_id} failed (#{inspect(reason)}), attempting substitution"
-        )
+        Logger.warning("Track #{track_id} failed (#{inspect(reason)}), attempting substitution")
 
         attempt_substitution(substitutes, user_id, stem_types, acc, track_id)
     end

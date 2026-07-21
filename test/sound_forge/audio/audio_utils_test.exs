@@ -8,7 +8,10 @@ defmodule SoundForge.Audio.AudioUtilsTest do
       # We test path construction by checking that ffmpeg receives the right args.
       # Since ffmpeg may or may not be installed, we only verify behavior
       # when ffmpeg IS available; otherwise the rescue returns an error tuple.
-      result = AudioUtils.truncate_to_preview("/tmp/nonexistent_file_#{System.unique_integer([:positive])}.mp3")
+      result =
+        AudioUtils.truncate_to_preview(
+          "/tmp/nonexistent_file_#{System.unique_integer([:positive])}.mp3"
+        )
 
       # Should return either {:ok, path} or {:error, reason}
       assert match?({:ok, _}, result) or match?({:error, _}, result)
@@ -24,7 +27,8 @@ defmodule SoundForge.Audio.AudioUtilsTest do
     end
 
     test "preserves file extension in preview path" do
-      result = AudioUtils.truncate_to_preview("/tmp/test_#{System.unique_integer([:positive])}.wav")
+      result =
+        AudioUtils.truncate_to_preview("/tmp/test_#{System.unique_integer([:positive])}.wav")
 
       case result do
         {:ok, path} ->
@@ -37,10 +41,11 @@ defmodule SoundForge.Audio.AudioUtilsTest do
     end
 
     test "respects custom duration option" do
-      result = AudioUtils.truncate_to_preview(
-        "/tmp/test_#{System.unique_integer([:positive])}.mp3",
-        duration: 30
-      )
+      result =
+        AudioUtils.truncate_to_preview(
+          "/tmp/test_#{System.unique_integer([:positive])}.mp3",
+          duration: 30
+        )
 
       # We can't inspect ffmpeg args directly, but the function should still
       # return a result tuple (success if ffmpeg runs, error if file missing or ffmpeg absent)
@@ -48,7 +53,10 @@ defmodule SoundForge.Audio.AudioUtilsTest do
     end
 
     test "handles paths with underscores correctly" do
-      result = AudioUtils.truncate_to_preview("/tmp/my_cool_track_#{System.unique_integer([:positive])}.flac")
+      result =
+        AudioUtils.truncate_to_preview(
+          "/tmp/my_cool_track_#{System.unique_integer([:positive])}.flac"
+        )
 
       case result do
         {:ok, path} ->
@@ -60,7 +68,8 @@ defmodule SoundForge.Audio.AudioUtilsTest do
     end
 
     test "handles paths with no extension" do
-      result = AudioUtils.truncate_to_preview("/tmp/noextfile_#{System.unique_integer([:positive])}")
+      result =
+        AudioUtils.truncate_to_preview("/tmp/noextfile_#{System.unique_integer([:positive])}")
 
       case result do
         {:ok, path} ->

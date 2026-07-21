@@ -18,7 +18,12 @@ defmodule SoundForgeWeb.Live.Components.StemMixerTest do
         %{name: "bass", id: "s3"}
       ]
 
-      html = render_component(&StemMixer.stem_mixer/1, stems: stems, volumes: %{1 => 0.5, 2 => 0.8, 3 => 1.0})
+      html =
+        render_component(&StemMixer.stem_mixer/1,
+          stems: stems,
+          volumes: %{1 => 0.5, 2 => 0.8, 3 => 1.0}
+        )
+
       assert html =~ "stem-mixer"
       assert html =~ "stem_mute"
       assert html =~ "stem_solo"
@@ -38,7 +43,9 @@ defmodule SoundForgeWeb.Live.Components.StemMixerTest do
         %{type: :melody, id: "s4"}
       ]
 
-      html = render_component(&StemMixer.stem_mixer/1, stems: stems, volumes: %{1 => 0.5, 2 => 0.8})
+      html =
+        render_component(&StemMixer.stem_mixer/1, stems: stems, volumes: %{1 => 0.5, 2 => 0.8})
+
       assert html =~ "stem-mixer"
       assert html =~ "Vocals"
       assert html =~ "Drums"

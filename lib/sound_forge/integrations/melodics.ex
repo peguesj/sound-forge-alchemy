@@ -85,11 +85,16 @@ defmodule SoundForge.Integrations.Melodics do
         case Jason.decode(content) do
           {:ok, data} when is_list(data) ->
             Enum.map(data, &normalize_session/1)
+
           {:ok, data} when is_map(data) ->
             [normalize_session(data)]
-          _ -> []
+
+          _ ->
+            []
         end
-      _ -> []
+
+      _ ->
+        []
     end
   end
 
@@ -102,6 +107,7 @@ defmodule SoundForge.Integrations.Melodics do
       practiced_at: parse_datetime(data["practiced_at"] || data["timestamp"] || data["date"])
     }
   end
+
   defp normalize_session(_), do: nil
 
   defp insert_sessions(user_id, sessions) do
@@ -119,6 +125,7 @@ defmodule SoundForge.Integrations.Melodics do
   end
 
   defp avg_field([], _field), do: nil
+
   defp avg_field(sessions, field) do
     values = sessions |> Enum.map(&Map.get(&1, field)) |> Enum.reject(&is_nil/1)
     if values == [], do: nil, else: Enum.sum(values) / length(values)
@@ -126,6 +133,7 @@ defmodule SoundForge.Integrations.Melodics do
 
   defp count_this_week(sessions) do
     week_ago = DateTime.utc_now() |> DateTime.add(-7, :day)
+
     Enum.count(sessions, fn s ->
       s.practiced_at && DateTime.compare(s.practiced_at, week_ago) == :gt
     end)
@@ -142,32 +150,38 @@ defmodule SoundForge.Integrations.Melodics do
   defp parse_float(nil), do: nil
   defp parse_float(v) when is_float(v), do: v
   defp parse_float(v) when is_integer(v), do: v / 1.0
+
   defp parse_float(v) when is_binary(v) do
     case Float.parse(v) do
       {f, _} -> f
       :error -> nil
     end
   end
+
   defp parse_float(_), do: nil
 
   defp parse_int(nil), do: nil
   defp parse_int(v) when is_integer(v), do: v
   defp parse_int(v) when is_float(v), do: round(v)
+
   defp parse_int(v) when is_binary(v) do
     case Integer.parse(v) do
       {i, _} -> i
       :error -> nil
     end
   end
+
   defp parse_int(_), do: nil
 
   defp parse_datetime(nil), do: nil
   defp parse_datetime(%DateTime{} = dt), do: DateTime.truncate(dt, :second)
+
   defp parse_datetime(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> DateTime.truncate(dt, :second)
       _ -> nil
     end
   end
+
   defp parse_datetime(_), do: nil
 end

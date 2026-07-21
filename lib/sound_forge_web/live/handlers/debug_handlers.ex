@@ -58,6 +58,7 @@ defmodule SoundForgeWeb.Live.Handlers.DebugHandlers do
 
             if job do
               track_id = job.args["track_id"]
+
               pipeline_jobs =
                 if track_id,
                   do: SoundForge.Debug.Jobs.jobs_for_track(track_id),
@@ -249,7 +250,13 @@ defmodule SoundForgeWeb.Live.Handlers.DebugHandlers do
 
           updated_scenarios =
             Map.update!(scenarios, scenario_atom, fn s ->
-              %{s | status: :running, current_step: 0, started_at: DateTime.utc_now(), results: []}
+              %{
+                s
+                | status: :running,
+                  current_step: 0,
+                  started_at: DateTime.utc_now(),
+                  results: []
+              }
             end)
 
           socket =
@@ -743,8 +750,7 @@ defmodule SoundForgeWeb.Live.Handlers.DebugHandlers do
             from(dj in SoundForge.Music.DownloadJob,
               join: t in SoundForge.Music.Track,
               on: t.id == dj.track_id,
-              where:
-                dj.status == :completed and t.user_id == ^socket.assigns[:current_user_id],
+              where: dj.status == :completed and t.user_id == ^socket.assigns[:current_user_id],
               limit: 1,
               select: dj
             )
@@ -783,8 +789,7 @@ defmodule SoundForgeWeb.Live.Handlers.DebugHandlers do
             from(t in SoundForge.Music.Track,
               join: dj in SoundForge.Music.DownloadJob,
               on: dj.track_id == t.id,
-              where:
-                dj.status == :completed and t.user_id == ^socket.assigns[:current_user_id]
+              where: dj.status == :completed and t.user_id == ^socket.assigns[:current_user_id]
             ),
             :count
           )

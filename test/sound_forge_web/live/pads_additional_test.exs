@@ -10,13 +10,32 @@ defmodule SoundForgeWeb.PadsAdditionalTest do
   setup :register_and_log_in_user
 
   setup %{user: user} do
-    track = track_fixture(%{user_id: user.id, title: "Pads Track", artist: "Pads Artist", duration: 200})
-    download_job_fixture(%{track_id: track.id, status: :completed, output_path: "priv/uploads/downloads/pads.mp3"})
+    track =
+      track_fixture(%{
+        user_id: user.id,
+        title: "Pads Track",
+        artist: "Pads Artist",
+        duration: 200
+      })
+
+    download_job_fixture(%{
+      track_id: track.id,
+      status: :completed,
+      output_path: "priv/uploads/downloads/pads.mp3"
+    })
+
     pj = processing_job_fixture(%{track_id: track.id, model: "htdemucs", status: :completed})
 
-    stems = for st <- [:vocals, :drums, :bass, :other] do
-      stem_fixture(%{track_id: track.id, processing_job_id: pj.id, stem_type: st, file_path: "stems/#{st}.wav", file_size: 1024})
-    end
+    stems =
+      for st <- [:vocals, :drums, :bass, :other] do
+        stem_fixture(%{
+          track_id: track.id,
+          processing_job_id: pj.id,
+          stem_type: st,
+          file_path: "stems/#{st}.wav",
+          file_size: 1024
+        })
+      end
 
     %{track: track, stems: stems}
   end
@@ -97,7 +116,10 @@ defmodule SoundForgeWeb.PadsAdditionalTest do
 
     test "midi_status event", %{conn: conn, track: track} do
       view = setup_pads(conn, track)
-      html = render_click(view, "midi_status", %{"available" => true, "devices" => ["Test Device"]})
+
+      html =
+        render_click(view, "midi_status", %{"available" => true, "devices" => ["Test Device"]})
+
       assert is_binary(html)
     end
 
