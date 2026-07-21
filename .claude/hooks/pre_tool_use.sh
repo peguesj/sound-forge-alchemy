@@ -1,31 +1,18 @@
-#!/bin/bash
-# CCEM APM Pre-Tool-Use Hook — SFA v4.7.0
-# Reports tool invocation to APM heartbeat.
-# For Write/Edit/MultiEdit: additionally tracks skill invocation via /api/skills/track.
+#!/usr/bin/env bash
+# pre_tool_use.sh — APM pre-tool telemetry
+set -uo pipefail
 
-APM_URL="http://localhost:3032"
-AGENT_ID="${CLAUDE_AGENT_ID:-session-unknown}"
-TOOL_NAME="${CLAUDE_TOOL_NAME:-unknown}"
-FILE_PATH="${CLAUDE_TOOL_FILE_PATH:-}"
+APM="http://localhost:3032"
+SESSION_ID="${CLAUDE_SESSION_ID:-$(hostname)-$$}"
+TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Always: heartbeat
-curl -s -X POST "$APM_URL/api/heartbeat" \
+INPUT=$(cat 2>/dev/null || echo "{}")
+TOOL=$(echo "$INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_name','unknown'))" 2>/dev/null || echo "unknown")
+
+curl -s -X POST "$APM/api/telemetry/pre-tool" \
   -H "Content-Type: application/json" \
-  -d "{
-    \"agent_id\": \"$AGENT_ID\",
-    \"status\": \"working\",
-    \"message\": \"Tool: $TOOL_NAME\"
-  }" >/dev/null 2>&1 &
+  -H "X-Hook-Version: v9" \
+  -d "{\"session_id\":\"$SESSION_ID\",\"tool\":\"$TOOL\",\"timestamp\":\"$TS\"}" \
+  >/dev/null 2>&1 &
 
-# Write/Edit/MultiEdit: track as skill invocation
-if [[ "$TOOL_NAME" == "Write" || "$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "MultiEdit" ]]; then
-  curl -s -X POST "$APM_URL/api/skills/track" \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"skill\": \"file-write\",
-      \"tool\": \"$TOOL_NAME\",
-      \"agent_id\": \"$AGENT_ID\",
-      \"file_path\": \"$FILE_PATH\",
-      \"project\": \"sfa\"
-    }" >/dev/null 2>&1 &
-fi
+exit 0

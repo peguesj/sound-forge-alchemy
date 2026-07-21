@@ -1267,3 +1267,21 @@ Formation: fmt-sfa-full-stack-001 | Squadron Alpha (SwiftUI) + Bravo (DAW/Web) +
 - [ ] **CP-192**: Load Crate track to DJ deck with stem S/M and cue points (US-003)
 - [ ] **CP-196**: UAT Playwright E2E suite for DJ, Crate, and hot cue flows (US-007)
 - After Squadron Bravo: Full DJ→Crate→StemLab pipeline verified, E2E tests passing
+
+### Feature: Oban Logging + Debug Inspector Panel (ralph/debug-panel-and-oban-logging)
+
+#### Wave 1 — Oban Logging Foundation (3 concurrent stories)
+- [x] **CP-198**: Add Telemetry event handlers for Oban job lifecycle (US-001)
+- [x] **CP-199**: Create structured logging formatter for job output with JSON envelopes (US-002)
+- [x] **CP-200**: Add LogStore context module with job log retrieval and filtering (US-003)
+- After Wave 1: `mix compile --warnings-as-errors` PASS, Oban events captured and persisted
+
+#### Wave 2 — Debug Inspector UI (7 concurrent stories)
+- [x] **CP-201**: Create DebugInspectorLive LiveComponent with tabbed interface (US-004)
+- [x] **CP-202**: Add Jobs inspector tab with queue status, job list, and filtering (US-005)
+- [x] **CP-203**: Add Logs inspector tab with structured log viewer and search (US-006)
+- [x] **CP-204**: Add Metrics inspector tab with queue depth, throughput, latency (US-007)
+- [x] **CP-205**: Add Events inspector tab with Telemetry event history (US-008)
+- [x] **CP-206**: Toggle debug inspector via Settings "Debug Mode" checkbox (US-009)
+- [x] **CP-207**: Wire DebugInspectorLive into DashboardLive floating panel (US-010)
+- After Wave 2: `mix compile --warnings-as-errors` PASS, all 10 stories complete, inspector functional in browser
