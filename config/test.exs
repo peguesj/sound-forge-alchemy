@@ -62,3 +62,8 @@ config :sound_forge,
 
 # Configure Oban for testing
 config :sound_forge, Oban, testing: :manual
+
+# Keep test boot independent of local runtime upload symlinks or mounted drives.
+config :sound_forge,
+  storage_path: Path.join(System.tmp_dir!(), "sound_forge_test_uploads"),
+  downloads_dir: Path.join(System.tmp_dir!(), "sound_forge_test_uploads/downloads")
