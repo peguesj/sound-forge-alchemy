@@ -21,12 +21,14 @@ erl_crash.dump
 
 # Temporary files, for example, from tests.
 /tmp/
+.DS_Store
 
 # Ignore package tarball (built via "mix hex.build").
 sound_forge-*.tar
 
 # Ignore assets that are produced by build tools.
 /priv/static/assets/
+/sfa-macos/build/
 
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json
@@ -61,4 +63,3 @@ package-lock.json
 /test-results/
 /tests/e2e/downloads/
 /tests/e2e/screenshots/
-
