@@ -4,15 +4,10 @@
 // Wire this file to the "Release" build configuration in Xcode:
 //   Project > Info > Configurations > Release > SoundForgeAlchemy: xcconfig/Release
 //
-// The SFA_SERVER_URL can be overridden at build time:
-//   xcodebuild ... SFA_SERVER_URL=https://custom.host.com
-// or via CI environment variable injection (see GitHub Actions workflow).
-
 #include "Base.xcconfig"
 
-// Production Phoenix server.
-// Override with env var SFA_SERVER_URL in CI or Fastlane xcargs.
-SFA_SERVER_URL = https://app.soundforgealchemy.com
+// Single-bundle runtime. Release builds should not depend on a server URL.
+SFA_RUNTIME_MODE = bundled
 
 // Optimisation
 GCC_OPTIMIZATION_LEVEL = s

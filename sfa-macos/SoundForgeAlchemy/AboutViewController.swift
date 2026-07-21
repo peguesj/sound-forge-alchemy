@@ -10,7 +10,7 @@ final class AboutViewController {
             .applicationVersion: version,
             .version: "Build \(buildNumber())",
             .credits: NSAttributedString(
-                string: "Professional audio pipeline: stem separation, analysis,\nDJ deck, DAW tools, and Crate Digger.\n\nBuilt with Elixir, Phoenix LiveView, and SwiftUI.",
+                string: "Professional audio workstation: local library, stem planning,\nanalysis, DJ decks, DAW tools, MIDI/OSC, and Crate Digger.\n\nSingle-bundle macOS app built with SwiftUI, AppKit, Core Audio, and local Swift stores.",
                 attributes: [
                     .font: NSFont.systemFont(ofSize: 11),
                     .foregroundColor: NSColor.secondaryLabelColor,

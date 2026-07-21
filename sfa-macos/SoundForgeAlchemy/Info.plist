@@ -2,10 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Phoenix server URL — injected from xcconfig at build time -->
-	<key>SFA_SERVER_URL</key>
-	<string>$(SFA_SERVER_URL)</string>
-
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>
@@ -47,7 +43,7 @@
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>Sound Forge Alchemy saves downloaded tracks to your Downloads folder.</string>
 
-	<!-- Allow loading from localhost during development -->
+	<!-- Allow the local development showcase during preview builds -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

@@ -3,9 +3,9 @@ import AVFoundation
 import AppKit
 
 // MARK: - Audio Unit v3 wrapper (US-A06)
-// Proxies SFA's Demucs/analysis backend processing as an Audio Unit component.
-// Full AU instantiation happens when the macOS app is running; this shell
-// registers the component so DAW hosts can discover it.
+// Exposes the bundled SFA processing chain as an Audio Unit component.
+// Full DSP wiring is implemented behind native processing contracts; this
+// registration shell lets DAW hosts discover the component.
 
 final class SFAAudioUnit: AUAudioUnit {
 
@@ -44,9 +44,9 @@ final class SFAAudioUnit: AUAudioUnit {
         super.deallocateRenderResources()
     }
 
-    // Pass-through render block — actual DSP proxied to SFA backend via WebSocket
+    // Pass-through render block while the native DSP graph is being ported.
     override var internalRenderBlock: AUInternalRenderBlock {
-        return { [weak self] actionFlags, timestamp, frameCount, outputBusNumber, outputData, realtimeEventListHead, pullInputBlock in
+        return { actionFlags, timestamp, frameCount, outputBusNumber, outputData, realtimeEventListHead, pullInputBlock in
             guard let pullInputBlock else { return kAudioUnitErr_NoConnection }
             return pullInputBlock(actionFlags, timestamp, frameCount, 0, outputData)
         }
@@ -76,16 +76,12 @@ final class AudioUnitManager: NSObject {
         SFAAudioUnit.register()
     }
 
-    /// Notify Phoenix backend that an AU session has started
+    /// Notify the native runtime that an AU session has started.
     func notifyAUSessionStarted(sampleRate: Double, channels: Int) {
-        let js = """
-        window.dispatchEvent(new CustomEvent('sfa:au-session-started', {
-            detail: { sampleRate: \(sampleRate), channels: \(channels) },
-            bubbles: true
-        }));
-        """
         DispatchQueue.main.async {
-            WebViewStore.shared.evaluate(js)
+            NativeCommandCenter.shared.runPipeline(
+                "au-session-started sampleRate=\(sampleRate) channels=\(channels)"
+            )
         }
     }
 }

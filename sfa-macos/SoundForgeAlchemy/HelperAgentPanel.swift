@@ -1,136 +1,151 @@
 import AppKit
 import SwiftUI
-import WebKit
-
-// MARK: - Helper Agent floating panel (Cmd+Shift+H)
 
 final class HelperAgentPanel: NSObject {
     static let shared = HelperAgentPanel()
 
     private var panel: NSPanel?
-    private var webView: WKWebView?
-    private let helperURL = URL(string: "http://127.0.0.1:4000/agent-chat")!
 
     private override init() {
         super.init()
     }
 
-    // MARK: - Toggle
-
     func toggle() {
-        if let panel, panel.isVisible {
+        if panel?.isVisible == true {
             close()
         } else {
             open()
         }
     }
 
-    // MARK: - Open panel
+    func close() {
+        panel?.orderOut(nil)
+    }
 
     private func open() {
         if panel == nil {
             buildPanel()
         }
-        guard let panel else { return }
 
-        // Position at right edge of screen
+        guard let panel else { return }
         if let screen = NSScreen.main {
-            let sw = screen.visibleFrame.width
-            let sh = screen.visibleFrame.height
-            let w: CGFloat = 360
-            let h: CGFloat = 540
-            let x = screen.visibleFrame.minX + sw - w - 16
-            let y = screen.visibleFrame.minY + (sh - h) / 2
-            panel.setFrame(NSRect(x: x, y: y, width: w, height: h), display: true)
+            let width: CGFloat = 380
+            let height: CGFloat = 360
+            let x = screen.visibleFrame.maxX - width - 18
+            let y = screen.visibleFrame.midY - height / 2
+            panel.setFrame(NSRect(x: x, y: y, width: width, height: height), display: true)
         }
 
         panel.makeKeyAndOrderFront(nil)
-        webView?.load(URLRequest(url: helperURL))
     }
-
-    // MARK: - Close panel
-
-    func close() {
-        panel?.orderOut(nil)
-    }
-
-    // MARK: - Build panel
 
     private func buildPanel() {
-        let config = WKWebViewConfiguration()
-        let prefs = WKWebpagePreferences()
-        prefs.allowsContentJavaScript = true
-        config.defaultWebpagePreferences = prefs
-        config.websiteDataStore = WKWebsiteDataStore.default()
+        let hostingView = NSHostingView(rootView: HelperAgentNativeView {
+            HelperAgentPanel.shared.close()
+        })
 
-        let wv = WKWebView(frame: .zero, configuration: config)
-        wv.layer?.cornerRadius = 12
-        wv.layer?.masksToBounds = true
-        self.webView = wv
-
-        let hostView = NSHostingView(rootView:
-            HelperAgentPanelChrome(webView: wv) {
-                HelperAgentPanel.shared.close()
-            }
-        )
-
-        let p = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 540),
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 360),
             styleMask: [.nonactivatingPanel, .titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        p.titlebarAppearsTransparent = true
-        p.titleVisibility = .hidden
-        p.isFloatingPanel = true
-        p.level = .floating
-        p.hidesOnDeactivate = false
-        p.backgroundColor = NSColor(red: 0.05, green: 0.05, blue: 0.09, alpha: 0.96)
-        p.appearance = NSAppearance(named: .darkAqua)
-        p.contentView = hostView
-        p.isMovableByWindowBackground = true
-        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        self.panel = p
+        panel.titlebarAppearsTransparent = true
+        panel.titleVisibility = .hidden
+        panel.isFloatingPanel = true
+        panel.level = .floating
+        panel.hidesOnDeactivate = false
+        panel.backgroundColor = NSColor.windowBackgroundColor
+        panel.contentView = hostingView
+        panel.isMovableByWindowBackground = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        self.panel = panel
     }
 }
 
-// MARK: - SwiftUI chrome for the panel
-
-struct HelperAgentPanelChrome: NSViewRepresentable {
-    let webView: WKWebView
+struct HelperAgentNativeView: View {
     let onClose: () -> Void
 
-    func makeNSView(context: Context) -> NSView {
-        let container = NSView()
-        container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor(red: 0.05, green: 0.05, blue: 0.09, alpha: 1).cgColor
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Label("IPC Chat Agent", systemImage: "sparkles")
+                    .font(.system(size: 16, weight: .semibold))
+                Spacer()
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                }
+                .buttonStyle(.plain)
+                .help("Close")
+            }
 
-        // Drag handle bar
-        let handle = NSView()
-        handle.translatesAutoresizingMaskIntoConstraints = false
-        handle.wantsLayer = true
-        handle.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        handle.layer?.cornerRadius = 2
-        container.addSubview(handle)
+            Text("The helper now routes into the native Showcase workspace, where UPM progress, SSE events, and the file-bridged chat agent are visible together.")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-        // WKWebView
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(webView)
+            VStack(alignment: .leading, spacing: 10) {
+                HelperActionButton(
+                    title: "Open Native Showcase",
+                    subtitle: "Focus the in-app UPM and IPC chat surface.",
+                    systemImage: "chart.xyaxis.line"
+                ) {
+                    NativeCommandCenter.shared.select(.showcase)
+                    onClose()
+                }
 
-        NSLayoutConstraint.activate([
-            handle.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            handle.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
-            handle.widthAnchor.constraint(equalToConstant: 36),
-            handle.heightAnchor.constraint(equalToConstant: 4),
+                HelperActionButton(
+                    title: "Open Standalone Board",
+                    subtitle: "Open the local SSE/AG-UI board on port 4511.",
+                    systemImage: "safari"
+                ) {
+                    NSWorkspace.shared.open(URL(string: "http://127.0.0.1:4511")!)
+                }
 
-            webView.topAnchor.constraint(equalTo: container.topAnchor, constant: 24),
-            webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
+                HelperActionButton(
+                    title: "Focus Chat",
+                    subtitle: "Jump to the native chat composer.",
+                    systemImage: "text.bubble"
+                ) {
+                    NativeCommandCenter.shared.select(.showcase)
+                    NativeCommandCenter.shared.focusChat()
+                    onClose()
+                }
+            }
 
-        return container
+            Spacer()
+        }
+        .padding(18)
+        .frame(minWidth: 360, minHeight: 320)
+        .background(.regularMaterial)
     }
+}
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+struct HelperActionButton: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(WorkbenchTheme.accent)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.08)))
+        }
+        .buttonStyle(.plain)
+    }
 }

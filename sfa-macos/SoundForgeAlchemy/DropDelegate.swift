@@ -70,20 +70,10 @@ struct AudioDropDelegate: SwiftUI.DropDelegate {
         return true
     }
 
-    // MARK: - Send paths to Phoenix via WKWebView
+    // MARK: - Send paths to the native command bus
 
     private func injectDroppedFiles(paths: [String]) {
-        guard let json = try? JSONSerialization.data(withJSONObject: paths, options: []),
-              let jsonString = String(data: json, encoding: .utf8) else { return }
-
-        let js = """
-        window.dispatchEvent(new CustomEvent('sfa:files-dropped', {
-            detail: { paths: \(jsonString) },
-            bubbles: true,
-            cancelable: false
-        }));
-        """
-        WebViewStore.shared.evaluate(js)
+        NativeCommandCenter.shared.importAudioFiles(paths: paths)
     }
 }
 

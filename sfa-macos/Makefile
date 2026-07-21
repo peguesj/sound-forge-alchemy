@@ -1,6 +1,6 @@
 # Sound Forge Alchemy — macOS Native App Build System
 # Requires: Xcode 15+, macOS 14 SDK
-# Usage: make [build|release|archive|clean|open]
+# Usage: make [build|release|package-local|archive|export|verify-package|clean|open]
 
 SCHEME        := SoundForgeAlchemy
 PROJECT       := SoundForgeAlchemy.xcodeproj
@@ -8,15 +8,22 @@ WORKSPACE_DIR := $(shell pwd)
 BUILD_DIR     := $(WORKSPACE_DIR)/build
 ARCHIVE_PATH  := $(BUILD_DIR)/SoundForgeAlchemy.xcarchive
 EXPORT_PATH   := $(BUILD_DIR)/export
+LOCAL_PACKAGE_DIR := $(BUILD_DIR)/LocalPackage
+LOCAL_APP     := $(LOCAL_PACKAGE_DIR)/Sound Forge Alchemy.app
+EXPORT_OPTIONS := ExportOptions.plist
 
 # SDK and deployment target
 SDK           := macosx
 DEPLOYMENT    := 14.0
+LOCAL_ARCH    := arm64
+SIGN_IDENTITY ?= -
+DESTINATION   := platform=macOS,arch=$(LOCAL_ARCH)
+ARCHIVE_DESTINATION := generic/platform=macOS
 
 # Derived data goes into build/ to keep repo clean
 DERIVED_DATA  := $(BUILD_DIR)/DerivedData
 
-.PHONY: all build release archive export clean open help
+.PHONY: all build release package-local archive export verify-package clean open help
 
 all: build
 
@@ -29,6 +36,8 @@ build:
 		-scheme "$(SCHEME)" \
 		-configuration Debug \
 		-sdk $(SDK) \
+		-destination "$(DESTINATION)" \
+		-destination-timeout 5 \
 		MACOSX_DEPLOYMENT_TARGET=$(DEPLOYMENT) \
 		-derivedDataPath "$(DERIVED_DATA)" \
 		SYMROOT="$(BUILD_DIR)/Debug" \
@@ -38,6 +47,8 @@ build:
 			-scheme "$(SCHEME)" \
 			-configuration Debug \
 			-sdk $(SDK) \
+			-destination "$(DESTINATION)" \
+			-destination-timeout 5 \
 			MACOSX_DEPLOYMENT_TARGET=$(DEPLOYMENT) \
 			-derivedDataPath "$(DERIVED_DATA)" \
 			SYMROOT="$(BUILD_DIR)/Debug" \
@@ -53,6 +64,8 @@ release:
 		-scheme "$(SCHEME)" \
 		-configuration Release \
 		-sdk $(SDK) \
+		-destination "$(DESTINATION)" \
+		-destination-timeout 5 \
 		MACOSX_DEPLOYMENT_TARGET=$(DEPLOYMENT) \
 		-derivedDataPath "$(DERIVED_DATA)" \
 		SYMROOT="$(BUILD_DIR)/Release" \
@@ -62,11 +75,19 @@ release:
 			-scheme "$(SCHEME)" \
 			-configuration Release \
 			-sdk $(SDK) \
+			-destination "$(DESTINATION)" \
+			-destination-timeout 5 \
 			MACOSX_DEPLOYMENT_TARGET=$(DEPLOYMENT) \
 			-derivedDataPath "$(DERIVED_DATA)" \
 			SYMROOT="$(BUILD_DIR)/Release" \
 			build
 	@echo "==> Release build complete: $(BUILD_DIR)/Release/"
+
+## package-local — Build a local signed .app and verify its code signature
+package-local: verify-package
+	@BUILD_DIR="$(LOCAL_PACKAGE_DIR)" LOCAL_ARCH="$(LOCAL_ARCH)" DEPLOYMENT_TARGET="$(DEPLOYMENT)" SIGN_IDENTITY="$(SIGN_IDENTITY)" ci/package_local_app.sh
+	codesign --verify --deep --strict --verbose=2 "$(LOCAL_APP)"
+	@echo "==> Local signed package verified: $(LOCAL_APP)"
 
 ## archive — Create .xcarchive for distribution / notarisation
 archive:
@@ -77,6 +98,7 @@ archive:
 		-scheme "$(SCHEME)" \
 		-configuration Release \
 		-sdk $(SDK) \
+		-destination "$(ARCHIVE_DESTINATION)" \
 		MACOSX_DEPLOYMENT_TARGET=$(DEPLOYMENT) \
 		-archivePath "$(ARCHIVE_PATH)" \
 		-derivedDataPath "$(DERIVED_DATA)" \
@@ -87,20 +109,16 @@ archive:
 export: archive
 	@echo "==> Exporting .app from archive…"
 	@mkdir -p "$(EXPORT_PATH)"
-	@if [ ! -f ExportOptions.plist ]; then \
-		echo "Creating default ExportOptions.plist for direct distribution…"; \
-		/usr/libexec/PlistBuddy -c "Add :method string developer-id" \
-			-c "Add :teamID string ''" \
-			-c "Add :signingStyle string automatic" \
-			-c "Add :stripSwiftSymbols bool true" \
-			ExportOptions.plist; \
-	fi
 	xcodebuild \
 		-exportArchive \
 		-archivePath "$(ARCHIVE_PATH)" \
 		-exportPath "$(EXPORT_PATH)" \
-		-exportOptionsPlist ExportOptions.plist
+		-exportOptionsPlist "$(EXPORT_OPTIONS)"
 	@echo "==> Export complete: $(EXPORT_PATH)/Sound Forge Alchemy.app"
+
+## verify-package — Validate packaging/signing/notarization readiness inputs
+verify-package:
+	@ci/verify_package_readiness.sh
 
 ## clean — Remove build artefacts
 clean:
@@ -124,4 +142,7 @@ help:
 	@echo "  SCHEME         Xcode scheme to build (default: $(SCHEME))"
 	@echo "  BUILD_DIR      Output directory    (default: ./build)"
 	@echo "  DEPLOYMENT     Min macOS version   (default: $(DEPLOYMENT))"
+	@echo "  LOCAL_ARCH     Local build arch    (default: $(LOCAL_ARCH))"
+	@echo "  SIGN_IDENTITY  Local signing ID    (default: ad-hoc '-')"
+	@echo "  DESTINATION    Build destination   (default: $(DESTINATION))"
 	@echo ""

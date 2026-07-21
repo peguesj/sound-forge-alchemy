@@ -16,75 +16,47 @@ struct AppMenuCommands: Commands {
         // View menu
         CommandMenu("View") {
             Button("Library") {
-                WebViewStore.shared.evaluate(
-                    "document.querySelector('[data-tab=\"library\"]')?.click()"
-                )
+                NativeCommandCenter.shared.select(.library)
             }
             .keyboardShortcut("l", modifiers: .command)
 
             Button("DJ Tab") {
-                WebViewStore.shared.evaluate(
-                    "document.querySelector('[data-tab=\"dj\"]')?.click()"
-                )
+                NativeCommandCenter.shared.select(.dj)
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
 
             Button("DAW Tab") {
-                WebViewStore.shared.evaluate(
-                    "document.querySelector('[data-tab=\"daw\"]')?.click()"
-                )
+                NativeCommandCenter.shared.select(.daw)
             }
             .keyboardShortcut("w", modifiers: [.command, .shift])
 
             Button("Analysis") {
-                WebViewStore.shared.evaluate(
-                    "document.querySelector('[data-tab=\"analysis\"]')?.click()"
-                )
+                NativeCommandCenter.shared.select(.pipeline)
             }
             .keyboardShortcut("a", modifiers: [.command, .shift])
+
+            Button("Showcase") {
+                NativeCommandCenter.shared.select(.showcase)
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
         }
 
         // Playback menu
         CommandMenu("Playback") {
             Button("Play / Pause") {
-                WebViewStore.shared.evaluate(
-                    """
-                    (function() {
-                        var btn = document.querySelector('[data-action=\"play-pause\"], .play-pause-btn, #play-pause');
-                        if (btn) { btn.click(); return; }
-                        // Fallback: dispatch custom event for LiveView hook
-                        window.dispatchEvent(new CustomEvent('sfa:play-pause'));
-                    })();
-                    """
-                )
+                NativeCommandCenter.shared.sendPlayback(.playPause)
             }
             .keyboardShortcut("p", modifiers: .command)
 
             Divider()
 
             Button("Previous Track") {
-                WebViewStore.shared.evaluate(
-                    """
-                    (function() {
-                        var btn = document.querySelector('[data-action=\"prev-track\"], .prev-btn, #prev-track');
-                        if (btn) { btn.click(); return; }
-                        window.dispatchEvent(new CustomEvent('sfa:prev-track'));
-                    })();
-                    """
-                )
+                NativeCommandCenter.shared.sendPlayback(.previous)
             }
             .keyboardShortcut(.leftArrow, modifiers: .command)
 
             Button("Next Track") {
-                WebViewStore.shared.evaluate(
-                    """
-                    (function() {
-                        var btn = document.querySelector('[data-action=\"next-track\"], .next-btn, #next-track');
-                        if (btn) { btn.click(); return; }
-                        window.dispatchEvent(new CustomEvent('sfa:next-track'));
-                    })();
-                    """
-                )
+                NativeCommandCenter.shared.sendPlayback(.next)
             }
             .keyboardShortcut(.rightArrow, modifiers: .command)
         }
@@ -92,23 +64,24 @@ struct AppMenuCommands: Commands {
         // Tools menu
         CommandMenu("Tools") {
             Button("Stem Separation") {
-                WebViewStore.shared.evaluate(
-                    "window.dispatchEvent(new CustomEvent('sfa:open-stem-separation'))"
-                )
+                NativeCommandCenter.shared.select(.pipeline)
+                NativeCommandCenter.shared.runPipeline("stem-separation")
             }
 
             Button("Analyze Track") {
-                WebViewStore.shared.evaluate(
-                    "window.dispatchEvent(new CustomEvent('sfa:analyze-track'))"
-                )
+                NativeCommandCenter.shared.select(.pipeline)
+                NativeCommandCenter.shared.runPipeline("analyze-track")
+            }
+
+            Button("Run Ready Local Jobs") {
+                NativeCommandCenter.shared.select(.pipeline)
+                NativeCommandCenter.shared.runPipeline("run-ready")
             }
 
             Divider()
 
             Button("Focus Library Search") {
-                WebViewStore.shared.evaluate(
-                    "document.querySelector('[data-search], #library-search, input[placeholder*=\"search\"]')?.focus()"
-                )
+                NativeCommandCenter.shared.select(.library)
             }
             .keyboardShortcut("f", modifiers: .command)
 

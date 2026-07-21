@@ -30,30 +30,13 @@ enum SFATab: String, CaseIterable {
         }
     }
 
-    // URL hash / path for Phoenix LiveView routing
-    var urlTarget: String {
+    var nativeSection: NativeSection {
         switch self {
-        case .library:  return "#library"
-        case .dj:       return "#dj"
-        case .daw:      return "#daw"
-        case .analysis: return "#analysis"
-        case .settings: return "/settings"
-        }
-    }
-
-    // JS to navigate Phoenix LiveView to this tab
-    var navigationJS: String {
-        switch self {
-        case .settings:
-            return "window.location.href = 'http://127.0.0.1:4000/settings';"
-        default:
-            return """
-            (function() {
-                var tab = document.querySelector('[data-tab=\"\(rawValue)\"]');
-                if (tab) { tab.click(); return; }
-                window.location.hash = '\(urlTarget)';
-            })();
-            """
+        case .library:  return .library
+        case .dj:       return .dj
+        case .daw:      return .daw
+        case .analysis: return .pipeline
+        case .settings: return .settings
         }
     }
 }

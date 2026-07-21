@@ -70,7 +70,7 @@ final class StatusBarController: NSObject {
         popover?.performClose(nil)
     }
 
-    // MARK: - Update track info from Phoenix (via WKWebView message handler)
+    // MARK: - Update track info from native runtime events
 
     func updateTrackInfo(_ body: [String: Any]) {
         DispatchQueue.main.async { [weak self] in
@@ -91,22 +91,16 @@ final class StatusBarController: NSObject {
     // MARK: - Playback controls
 
     func playPause() {
-        WebViewStore.shared.evaluate(
-            "window.dispatchEvent(new CustomEvent('sfa:play-pause'))"
-        )
+        NativeCommandCenter.shared.sendPlayback(.playPause)
         trackInfo.isPlaying.toggle()
     }
 
     func previousTrack() {
-        WebViewStore.shared.evaluate(
-            "window.dispatchEvent(new CustomEvent('sfa:prev-track'))"
-        )
+        NativeCommandCenter.shared.sendPlayback(.previous)
     }
 
     func nextTrack() {
-        WebViewStore.shared.evaluate(
-            "window.dispatchEvent(new CustomEvent('sfa:next-track'))"
-        )
+        NativeCommandCenter.shared.sendPlayback(.next)
     }
 
     // MARK: - Accessors for SwiftUI view

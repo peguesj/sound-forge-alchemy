@@ -1,41 +1,25 @@
-# xcconfig — Environment Injection Guide
+# xcconfig — Single-Bundle Runtime
 
-## How SFA_SERVER_URL reaches Swift code
+The macOS target now builds as a self-contained Swift app. Debug and Release
+configs set `SFA_RUNTIME_MODE = bundled` for build diagnostics, but the app no
+longer injects a Phoenix or HTTP server URL through `Info.plist`.
 
-1. `Debug.xcconfig` sets `SFA_SERVER_URL = http://localhost:4000`
-2. `Release.xcconfig` sets `SFA_SERVER_URL = https://app.soundforgealchemy.com`
-3. `Info.plist` reads it via build setting substitution:
-   ```xml
-   <key>SFA_SERVER_URL</key>
-   <string>$(SFA_SERVER_URL)</string>
-   ```
-4. Swift reads it at runtime:
-   ```swift
-   guard let urlString = Bundle.main.infoDictionary?["SFA_SERVER_URL"] as? String,
-         let url = URL(string: urlString) else {
-       fatalError("SFA_SERVER_URL not set in Info.plist")
-   }
-   ```
+Runtime state is local:
 
-## Wiring xcconfig files in Xcode
+- app storage: `~/Library/Application Support/Sound Forge Alchemy`
+- imported media: user-selected file URLs
+- development showcase: optional local preview board on `127.0.0.1:4511`
 
-1. Select the project (not a target) in the Project Navigator.
-2. Open the **Info** tab.
-3. Under **Configurations**, expand **Debug** and **Release**.
-4. For the `SoundForgeAlchemy` target row, select `xcconfig/Debug` (Debug) and `xcconfig/Release` (Release) from the dropdown.
+The showcase is a development cockpit for PM progress, IPC, and live testing.
+It is not a product runtime dependency and is started explicitly from the
+Showcase tab.
 
-## CI Override
+Packaging checks:
 
-In GitHub Actions or any CI, pass the server URL as an xcodebuild argument:
-
-```yaml
-- name: Build
-  run: bundle exec fastlane build
-  env:
-    SFA_SERVER_URL: https://staging.soundforgealchemy.com
-```
-
-Fastlane passes it through via `xcargs`:
-```ruby
-build_mac_app(xcargs: "SFA_SERVER_URL='#{ENV["SFA_SERVER_URL"] || "https://app.soundforgealchemy.com"}'")
-```
+- `make verify-package` validates Info.plist, entitlements, release signing
+  settings, Developer ID export options, and absence of Phoenix launch hooks.
+- `make package-local` produces a Release `.app` with an ad-hoc local code
+  signature by default. Pass `SIGN_IDENTITY="Apple Development: ..."` or a
+  Developer ID identity when local certificate-backed signing is available.
+- `make archive` and `make export` use Developer ID release settings and
+  `ExportOptions.plist`; notarization still requires Apple credentials.

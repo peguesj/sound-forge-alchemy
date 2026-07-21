@@ -46,7 +46,7 @@ final class NotificationManager: NSObject {
         }
     }
 
-    // MARK: - Handle web notifications from Phoenix (via WKWebView message handler)
+    // MARK: - Handle native runtime notifications
 
     func handleWebNotification(_ body: [String: Any]) {
         guard
@@ -54,7 +54,7 @@ final class NotificationManager: NSObject {
             let message = body["body"] as? String
         else { return }
 
-        // Map Phoenix event types to notification categories
+        // Map native event types to notification categories
         let type = body["type"] as? String ?? "info"
         let formattedTitle: String
         switch type {

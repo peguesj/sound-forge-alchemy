@@ -6,7 +6,7 @@
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
 
-	<!-- Network access for localhost Phoenix server -->
+	<!-- Network access for the local development showcase and user-enabled providers -->
 	<key>com.apple.security.network.client</key>
 	<true/>
 	<key>com.apple.security.network.server</key>
@@ -22,7 +22,7 @@
 	<key>com.apple.security.files.downloads.read-write</key>
 	<true/>
 
-	<!-- Allow spawning child processes (mix phx.server) -->
+	<!-- Preserve process inheritance defaults for local audio tooling -->
 	<key>com.apple.security.inherit</key>
 	<false/>
 

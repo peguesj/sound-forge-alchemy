@@ -1,0 +1,54 @@
+{
+  "project": "SoundForgeAlchemy Single-Bundle Swift Port",
+  "description": "Port the Phoenix/Phoenix LiveView application into a self-contained native macOS bundle: local Swift stores, native audio/job engines, DJ/DAW/MIDI/sampler workflows, agent routing, and development showcase telemetry without a server runtime dependency.",
+  "user_stories": [
+    {
+      "id": "SWIFTPORT-001",
+      "title": "Single-bundle runtime and native shell",
+      "description": "Remove server status/dependency from the product shell and run against local Swift runtime state.",
+      "wave": 1,
+      "checkpointId": "CP-SWIFT-001",
+      "passes": true
+    },
+    {
+      "id": "SWIFTPORT-002",
+      "title": "Port Ecto schemas into Codable local stores",
+      "description": "Translate tracks, playlists, stems, jobs, settings, cue points, DAW projects, sampler banks, crates, and provider configuration into local Swift persistence models.",
+      "wave": 1,
+      "checkpointId": "CP-SWIFT-002",
+      "passes": true
+    },
+    {
+      "id": "SWIFTPORT-003",
+      "title": "Port audio jobs into local Swift processing queue",
+      "description": "Replace Oban workers and port modules with a native queue for import, download, analysis, stem planning, audio-to-MIDI, chord detection, warp, cleanup, and export.",
+      "wave": 2,
+      "checkpointId": "CP-SWIFT-003",
+      "passes": true
+    },
+    {
+      "id": "SWIFTPORT-004",
+      "title": "Port DJ, DAW, MIDI, sampler, and crate workflows",
+      "description": "Move decks, cue grids, arrangements, edit history, controller profiles, mappings, sample packs, pad actions, crate digging, and Big Loopy sets into native Swift modules.",
+      "wave": 3,
+      "checkpointId": "CP-SWIFT-004",
+      "passes": true
+    },
+    {
+      "id": "SWIFTPORT-005",
+      "title": "Port agents and provider routing without server dependency",
+      "description": "Translate music agents, LLM provider routing, tool contracts, and prompt state into local user-controlled Swift services.",
+      "wave": 4,
+      "checkpointId": "CP-SWIFT-005",
+      "passes": true
+    },
+    {
+      "id": "SWIFTPORT-006",
+      "title": "Ship as a self-contained signed macOS bundle",
+      "description": "Package the ported app with local runtime storage, import/export permissions, signing, notarization readiness, and no Phoenix launch requirement.",
+      "wave": 5,
+      "checkpointId": "CP-SWIFT-006",
+      "passes": true
+    }
+  ]
+}

@@ -6,8 +6,8 @@
 
 #include "Base.xcconfig"
 
-// Local Phoenix server (default port)
-SFA_SERVER_URL = http://localhost:4000
+// Single-bundle runtime. The app no longer injects a server URL.
+SFA_RUNTIME_MODE = bundled
 
 // Optimisation and debug info
 GCC_OPTIMIZATION_LEVEL = 0

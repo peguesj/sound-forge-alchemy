@@ -21,7 +21,7 @@ struct SoundForgeAlchemyApp: App {
 
             // Helper Agent panel toggle (Cmd+Shift+H)
             CommandMenu("Agent") {
-                Button("Toggle Helper Agent") {
+                Button("Toggle IPC Chat Panel") {
                     HelperAgentPanel.shared.toggle()
                 }
                 .keyboardShortcut("h", modifiers: [.command, .shift])
